@@ -1,0 +1,42 @@
+[package]
+name = "nexus3d"
+authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+description = "Cross-platform 3D rigid-body physics."
+homepage = "https://wgmath.rs"
+repository = "https://github.com/dimforge/wgmath"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "nexus3d"
+path = "../../src/lib.rs"
+required-features = ["dim3"]
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2"))',
+] }
+
+[features]
+default = ["dim3"]
+dim3 = []
+
+[dependencies]
+nalgebra = { workspace = true }
+wgpu = { workspace = true }
+encase = { workspace = true }
+bytemuck = { workspace = true }
+slang-hal = { workspace = true }
+gla = { workspace = true }
+rapier3d = "0.28"# TODO: should be behind a feature?
+num-traits = "0.2"
+
+[dev-dependencies]
+nalgebra = { version = "0.34", features = ["rand"] }
+futures-test = "0.3"
+serial_test = "3"
+approx = "0.5"
+async-std = { version = "1", features = ["attributes"] }
+bevy = { version = "0.16", features = ["shader_format_glsl", "shader_format_spirv"] }
+bevy_panorbit_camera = "0.26.0"

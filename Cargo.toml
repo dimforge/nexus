@@ -1,0 +1,40 @@
+[workspace]
+members = [
+    "crates/nexus2d",
+    "crates/nexus3d"
+]
+resolver = "2"
+
+[workspace.dependencies]
+nalgebra = { version = "0.34", features = ["convert-bytemuck"] }
+bytemuck = { version = "1", features = ["derive", "extern_crate_std"] }
+anyhow = "1"
+async-channel = "2"
+thiserror = "2"
+futures = "0.3"
+
+shader-slang = "0.1"
+shader-slang-sys = "0.1"
+gla = "0.1"
+slang-hal = "0.1"
+
+# TODO: make the wgpu dependency optional too (all backends should be optional but with
+#       wgpu enabled by default).
+wgpu = { version = "26", features = ["naga-ir"] }
+encase = { version = "0.11", features = [ "nalgebra" ] }
+
+[workspace.lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2", "dim3"))'
+] }
+
+[profile.release]
+opt-level = 'z'
+
+[patch.crates-io]
+gla = { path = "../gla" }
+encase = { path = "../encase" }
+shader-slang = { path = "../slang-rs" }
+minislang = { path = "../slmath/crates/minislang" }
+slang-hal-derive = { path = "../slmath/crates/slang-hal-derive" }
+slang-hal = { path = "../slmath/crates/slang-hal" }
