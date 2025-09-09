@@ -69,7 +69,7 @@ public struct Capsule {
 
 }
 
-// TODO: upstream too gla
+// TODO: upstream too stensor
 public func orthonormal_basis3(v: float3) -> Array<float3, 2> {
     // NOTE: not using `sign` because we don’t want the 0.0 case to return 0.0.
     let sign = select(v.z >= 0.0, 1.0, -1.0);
@@ -86,7 +86,7 @@ public func orthonormal_basis3(v: float3) -> Array<float3, 2> {
     };
 }
 
-// TODO: upstream to gla
+// TODO: upstream to stensor
 public func any_orthogonal_vector(v: Vect) -> Vect {
 #if DIM == 2
     return float2(v.y, -v.x);

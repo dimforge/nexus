@@ -1,8 +1,8 @@
 module body;
 
 // NOTE: operator overloading on rotations doesn’t compile unless we import the modules explicitly.
-import gla.geometry.quat;
-import gla.geometry.rot2;
+import stensor.geometry.quat;
+import stensor.geometry.rot2;
 import nexus.aliases;
 
 

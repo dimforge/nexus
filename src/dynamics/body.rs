@@ -11,7 +11,7 @@ use rapier::{
     geometry::ColliderSet,
 };
 use slang_hal::backend::Backend;
-use gla::tensor::GpuTensor;
+use stensor::tensor::GpuTensor;
 use wgpu::BufferUsages;
 
 #[derive(Copy, Clone, PartialEq, encase::ShaderType)]

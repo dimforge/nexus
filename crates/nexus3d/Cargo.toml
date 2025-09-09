@@ -28,7 +28,7 @@ wgpu = { workspace = true }
 encase = { workspace = true }
 bytemuck = { workspace = true }
 slang-hal = { workspace = true }
-gla = { workspace = true }
+stensor = { workspace = true }
 rapier3d = "0.28"# TODO: should be behind a feature?
 num-traits = "0.2"
 

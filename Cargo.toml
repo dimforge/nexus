@@ -15,7 +15,7 @@ futures = "0.3"
 
 shader-slang = "0.1"
 shader-slang-sys = "0.1"
-gla = "0.1"
+stensor = "0.1"
 slang-hal = "0.1"
 
 # TODO: make the wgpu dependency optional too (all backends should be optional but with
@@ -32,7 +32,7 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 opt-level = 'z'
 
 [patch.crates-io]
-gla = { path = "../gla" }
+stensor = { path = "../stensor" }
 encase = { path = "../encase" }
 shader-slang = { path = "../slang-rs" }
 minislang = { path = "../slmath/crates/minislang" }

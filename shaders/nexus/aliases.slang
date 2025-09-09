@@ -1,13 +1,13 @@
 #if DIM == 2
-import gla.geometry.sim2;
-import gla.geometry.rot2;
+import stensor.geometry.sim2;
+import stensor.geometry.rot2;
 
 typealias Pose = Sim2;
 typealias AngVect = float;
 typealias Rot = Rot2;
 #else
-import gla.geometry.sim3;
-import gla.geometry.quat;
+import stensor.geometry.sim3;
+import stensor.geometry.quat;
 
 typealias Pose = Sim3;
 typealias AngVect = float3;

@@ -17,9 +17,9 @@ pub mod math {
     pub use rapier::math::*;
 
     #[cfg(feature = "dim2")]
-    pub type GpuSim = gla::geometry::GpuSim2;
+    pub type GpuSim = stensor::geometry::GpuSim2;
     #[cfg(feature = "dim3")]
-    pub type GpuSim = gla::geometry::GpuSim3;
+    pub type GpuSim = stensor::geometry::GpuSim3;
 
     #[cfg(feature = "dim2")]
     pub type AngularInertia<N> = N;
@@ -30,6 +30,6 @@ pub mod math {
 pub const SLANG_SRC_DIR: include_dir::Dir<'_> =
     include_dir::include_dir!("$CARGO_MANIFEST_DIR/../../shaders");
 pub fn register_shaders(compiler: &mut SlangCompiler) {
-    gla::register_shaders(compiler);
+    stensor::register_shaders(compiler);
     compiler.add_dir(SLANG_SRC_DIR.clone());
 }
