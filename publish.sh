@@ -4,25 +4,36 @@ tmp=`mktemp -d`
 
 echo $tmp
 
-cp -r src $tmp/.
-cp -r LICENSE README.md $tmp/.
+cp -r crates $tmp/.
+cp Cargo.toml $tmp/.
 
-### Publish the 2D version.
-sed 's#\.\./\.\./src#src#g' crates/nexus2d/Cargo.toml > $tmp/Cargo.toml
-rm -rf $tmp/examples
-cp -r crates/nexus2d/examples $tmp/examples
-currdir=`pwd`
-cd $tmp && cargo publish
-cd $currdir
+cp -r src $tmp/crates/nexus2d/.
+cp -r LICENSE $tmp/crates/nexus2d/.
+cp -r README.md $tmp/crates/nexus2d/.
+cp -r shaders $tmp/crates/nexus2d/.
 
+cp -r src $tmp/crates/nexus3d/.
+cp -r LICENSE $tmp/crates/nexus3d/.
+cp -r README.md $tmp/crates/nexus3d/.
+cp -r shaders $tmp/crates/nexus3d/.
 
-### Publish the 3D version.
-sed 's#\.\./\.\./src#src#g' crates/nexus3d/Cargo.toml > $tmp/Cargo.toml
-rm -rf $tmp/examples
-cp -r crates/nexus3d/examples $tmp/examples
-cp -r LICENSE README.md $tmp/.
-cd $tmp && cargo publish
-cd $currdir
+# Publish nexus2d
+cd $tmp/crates/nexus2d
+ls
+sed 's#\.\./\.\./src#src#g' ./Cargo.toml > ./Cargo.toml.new
+mv Cargo.toml.new Cargo.toml
+sed 's#\.\./shaders#shaders#g' ./src/lib.rs > ./src/lib.rs.new
+mv src/lib.rs.new src/lib.rs
+cargo publish
 
+# Publish nexus3d
+cd ../nexus3d
+sed 's#\.\./\.\./src#src#g' ./Cargo.toml > ./Cargo.toml.new
+mv Cargo.toml.new Cargo.toml
+sed 's#\.\./shaders#shaders#g' ./src/lib.rs > ./src/lib.rs.new
+mv src/lib.rs.new src/lib.rs
+cargo publish
+
+# Cleanup
 rm -rf $tmp
 
