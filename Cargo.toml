@@ -6,22 +6,17 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-nalgebra = { version = "0.34", features = ["convert-bytemuck"] }
+nalgebra = { version = "0.34.1", features = ["convert-bytemuck", "encase"] }
 bytemuck = { version = "1", features = ["derive", "extern_crate_std"] }
-anyhow = "1"
-async-channel = "2"
-thiserror = "2"
 futures = "0.3"
 
-shader-slang = "0.1"
-shader-slang-sys = "0.1"
 stensor = "0.1"
 slang-hal = "0.1"
 
 # TODO: make the wgpu dependency optional too (all backends should be optional but with
 #       wgpu enabled by default).
 wgpu = { version = "26", features = ["naga-ir"] }
-encase = { version = "0.11", features = [ "nalgebra" ] }
+encase = "0.12"
 
 [workspace.lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
@@ -32,9 +27,9 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 opt-level = 'z'
 
 [patch.crates-io]
-stensor = { path = "../stensor" }
-encase = { path = "../encase" }
-shader-slang = { path = "../slang-rs" }
-minislang = { path = "../slmath/crates/minislang" }
-slang-hal-derive = { path = "../slmath/crates/slang-hal-derive" }
-slang-hal = { path = "../slmath/crates/slang-hal" }
+#stensor = { path = "../stensor" }
+#encase = { path = "../encase" }
+#shader-slang = { path = "../slang-rs" }
+#minislang = { path = "../slmath/crates/minislang" }
+#slang-hal-derive = { path = "../slmath/crates/slang-hal-derive" }
+#slang-hal = { path = "../slmath/crates/slang-hal" }
