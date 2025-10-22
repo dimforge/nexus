@@ -50,7 +50,7 @@ impl From<MassProperties> for GpuMassProperties {
     fn from(props: MassProperties) -> Self {
         GpuMassProperties {
             #[cfg(feature = "dim2")]
-            inv_inertia: props.inv_principal_inertia_sqrt * props.inv_principal_inertia_sqrt,
+            inv_inertia: props.inv_principal_inertia,
             #[cfg(feature = "dim3")]
             inv_inertia: props.reconstruct_inverse_inertia_matrix(),
             inv_mass: Vector::repeat(props.inv_mass),

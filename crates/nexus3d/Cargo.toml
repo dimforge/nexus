@@ -29,7 +29,7 @@ encase = { workspace = true }
 bytemuck = { workspace = true }
 slang-hal = { workspace = true }
 stensor = { workspace = true }
-rapier3d = "0.28"# TODO: should be behind a feature?
+rapier3d = "0.30"# TODO: should be behind a feature?
 num-traits = "0.2"
 
 [dev-dependencies]
