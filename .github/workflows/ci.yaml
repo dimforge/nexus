@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: --deny warnings
+  RUSTDOCFLAGS: --deny warnings
+  SLANG_TAG: 2025.18.2
+
+jobs:
+  # Check formatting.
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+  setup-slang:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    outputs:
+      slang-dir: ${{ steps.setup.outputs.slang-dir }} # Pass SLANG_DIR to dependent jobs
+      slang-cache-key: ${{ steps.setup.outputs.slang-cache-key }} # Pass SLANG_DIR to dependent jobs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache Slang
+        id: cache-slang
+        uses: actions/cache/restore@v4 # Restore first
+        with:
+          path: |
+            ~/.cache/slang  # Matches script's default OUTPUT_DIR
+          key: slang-v$SLANG_TAG-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Setup Slang
+        id: setup
+        run: |
+          echo "version=$SLANG_TAG" >> $GITHUB_OUTPUT  # Output for cache key
+          SLANG_DIR=$(./.github/workflows/download_slang.sh --version $SLANG_TAG | grep '^SLANG_DIR=' | cut -d'=' -f2-)
+          echo "slang-dir=$SLANG_DIR" >> $GITHUB_OUTPUT  # Output for dependents
+          echo "slang-cache-key=slang-v$SLANG_TAG-${{ runner.os }}-${{ runner.arch }}" >> $GITHUB_OUTPUT
+          echo "SLANG_DIR=$SLANG_DIR" >> $GITHUB_ENV  # For this job if needed
+
+      - name: Save Slang Cache
+        if: steps.cache-slang.outputs.cache-hit != 'true' # Only save on miss
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/slang
+          key: ${{ steps.setup.outputs.slang-cache-key }}
+  # Run clippy lints.
+  clippy:
+    needs: setup-slang # Depends on setup-slang
+    name: Clippy
+    runs-on: ubuntu-latest
+    env:
+      SLANG_DIR: ${{ needs.setup-slang.outputs.slang-dir }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install dependencies
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends build-essential curl wget file libssl-dev
+
+      - name: Retrieve Cache for Slang
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/slang
+          key: ${{ needs.setup-slang.outputs.slang-cache-key }}
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Run clippy lints
+        run: SLANG_DIR=$SLANG_DIR cargo clippy --locked --workspace --all-targets -- --deny warnings
+
+  # Check documentation.
+  doc:
+    needs: setup-slang # Depends on setup-slang
+    name: Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SLANG_DIR: ${{ needs.setup-slang.outputs.slang-dir }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends build-essential curl wget file libssl-dev
+
+      - name: Retrieve Cache for Slang
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/slang
+          key: ${{ needs.setup-slang.outputs.slang-cache-key }}
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Check documentation
+        run: SLANG_DIR=$SLANG_DIR cargo doc --locked --workspace --document-private-items --no-deps
+    # Testing.
+  test:
+    needs: setup-slang # Depends on setup-slang
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SLANG_DIR: ${{ needs.setup-slang.outputs.slang-dir }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential curl wget file libssl-dev \
+            libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+
+      - name: Retrieve Cache for Slang
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/slang
+          key: ${{ needs.setup-slang.outputs.slang-cache-key }}
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+      - name: Run Cargo Tests
+        run: |
+          SLANG_DIR=$SLANG_DIR LIBGL_ALWAYS_SOFTWARE=1 cargo test --verbose
