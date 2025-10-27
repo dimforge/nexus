@@ -119,17 +119,35 @@ impl Default for BodyDesc {
     }
 }
 
+/// Coupling mode between GPU and CPU physics simulations.
+///
+/// Determines how rigid body state is synchronized between GPU and CPU representations.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum BodyCoupling {
+    /// One-way coupling: CPU -> GPU only.
+    ///
+    /// The GPU reads body state from CPU but doesn't write back. The body is treated
+    /// as kinematic from the GPU's perspective (zero mass).
     OneWay,
+    /// Two-way coupling: CPU <-> GPU.
+    ///
+    /// The GPU both reads from and writes to the body state. The body is fully dynamic
+    /// with its mass properties applied on the GPU.
     #[default]
     TwoWays,
 }
 
+/// Associates a Rapier rigid body with a collider for GPU simulation.
+///
+/// Defines which Rapier rigid body and collider pair should be included in the
+/// GPU simulation and how they should be coupled.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BodyCouplingEntry {
+    /// Handle to the Rapier rigid body
     pub body: RigidBodyHandle,
+    /// Handle to the Rapier collider attached to this body
     pub collider: ColliderHandle,
+    /// Coupling mode (one-way or two-way synchronization)
     pub mode: BodyCoupling,
 }
 
@@ -144,6 +162,26 @@ impl<B: Backend> GpuBodySet<B> {
         self.len
     }
 
+    /// Create a GPU body set from Rapier bodies and colliders.
+    ///
+    /// Converts Rapier rigid bodies and their associated colliders into GPU-compatible
+    /// representations. The coupling entries determine which body-collider pairs are
+    /// included and how they synchronize with the CPU simulation.
+    ///
+    /// # Arguments
+    /// * `backend` - The GPU backend to allocate buffers on
+    /// * `bodies` - The Rapier rigid body set
+    /// * `colliders` - The Rapier collider set
+    /// * `coupling` - List of body-collider pairs to include with their coupling modes
+    ///
+    /// # Returns
+    /// A new `GpuBodySet` containing GPU representations of the specified bodies
+    ///
+    /// # Errors
+    /// Returns an error if GPU buffer allocation fails
+    ///
+    /// # Panics
+    /// Panics if a collider has an unsupported shape type
     pub fn from_rapier(
         backend: &B,
         bodies: &RigidBodySet,
@@ -276,18 +314,34 @@ impl<B: Backend> GpuBodySet<B> {
         &self.shapes
     }
 
+    /// GPU storage buffer containing world-space vertices for complex shapes.
+    ///
+    /// Contains vertices for polylines and trimeshes in world-space coordinates.
+    /// Updated when body poses change.
     pub fn shapes_vertex_buffers(&self) -> &GpuTensor<Point<f32>, B> {
         &self.shapes_vertex_buffers
     }
 
+    /// GPU storage buffer containing local-space vertices for complex shapes.
+    ///
+    /// Contains vertices for polylines and trimeshes in body-local coordinates.
+    /// These are the original untransformed vertices.
     pub fn shapes_local_vertex_buffers(&self) -> &GpuTensor<Point<f32>, B> {
         &self.shapes_local_vertex_buffers
     }
 
+    /// GPU storage buffer mapping each vertex to its collider ID.
+    ///
+    /// For each vertex in the vertex buffers, stores which collider (body index) it belongs to.
+    /// Used for collision detection and response.
     pub fn shapes_vertex_collider_id(&self) -> &GpuTensor<u32, B> {
         &self.shapes_vertex_collider_id
     }
 
+    /// CPU copy of shape data for all bodies.
+    ///
+    /// Returns a slice containing the [`GpuShape`] for each body in the set.
+    /// Primarily used for convenience in particle-based simulations.
     pub fn shapes_data(&self) -> &[GpuShape] {
         &self.shapes_data
     }
