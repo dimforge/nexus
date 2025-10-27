@@ -22,7 +22,7 @@ cd $tmp/crates/nexus2d
 ls
 sed 's#\.\./\.\./src#src#g' ./Cargo.toml > ./Cargo.toml.new
 mv Cargo.toml.new Cargo.toml
-sed 's#\.\./shaders#shaders#g' ./src/lib.rs > ./src/lib.rs.new
+sed 's#\.\./\.\./shaders#shaders#g' ./src/lib.rs > ./src/lib.rs.new
 mv src/lib.rs.new src/lib.rs
 cargo publish
 
@@ -30,7 +30,7 @@ cargo publish
 cd ../nexus3d
 sed 's#\.\./\.\./src#src#g' ./Cargo.toml > ./Cargo.toml.new
 mv Cargo.toml.new Cargo.toml
-sed 's#\.\./shaders#shaders#g' ./src/lib.rs > ./src/lib.rs.new
+sed 's#\.\./\.\./shaders#shaders#g' ./src/lib.rs > ./src/lib.rs.new
 mv src/lib.rs.new src/lib.rs
 cargo publish
 
