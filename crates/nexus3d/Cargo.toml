@@ -2,9 +2,8 @@
 name = "nexus3d"
 authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
 description = "Cross-platform 3D rigid-body physics."
-homepage = "https://wgmath.rs"
-repository = "https://github.com/dimforge/wgmath"
-version = "0.2.0"
+repository = "https://github.com/dimforge/nexus"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
