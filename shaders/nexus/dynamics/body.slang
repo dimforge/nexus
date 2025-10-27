@@ -60,10 +60,13 @@ public struct BodyState {
     public BodyVelocity velocity;
 }
 
-/// Computes new velocities after applying the given impulse.
 public func apply_impulse(mprops: BodyMassProperties, velocity: BodyVelocity, imp: Impulse) -> BodyVelocity {
     let acc_lin = mprops.inv_mass * imp.linear;
+#if DIM == 2
+    let acc_ang = imp.angular * mprops.inv_inertia;
+#else
     let acc_ang = mul(imp.angular, mprops.inv_inertia);
+#endif
     return BodyVelocity(velocity.linear + acc_lin, velocity.angular + acc_ang);
 }
 
@@ -71,9 +74,14 @@ public func apply_impulse(mprops: BodyMassProperties, velocity: BodyVelocity, im
 /// Computes new velocities after integrating forces by a timestep equal to `dt`.
 public func integrate_forces(mprops: BodyMassProperties, velocity: BodyVelocity, force: Force, dt: float) -> BodyVelocity {
     let acc_lin = mprops.inv_mass * force.linear;
+#if DIM == 2
+    let acc_ang = force.angular * mprops.inv_inertia;
+#else
     let acc_ang = mul(force.angular, mprops.inv_inertia);
+#endif
     return BodyVelocity(velocity.linear + acc_lin * dt, velocity.angular + acc_ang * dt);
 }
+
 
 #if DIM == 2
 /// Computes a new pose after integrating velocitie by a timestep equal to `dt`.
