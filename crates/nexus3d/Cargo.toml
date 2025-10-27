@@ -4,7 +4,7 @@ authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
 description = "Cross-platform 3D rigid-body physics."
 homepage = "https://wgmath.rs"
 repository = "https://github.com/dimforge/wgmath"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
@@ -29,7 +29,7 @@ encase = { workspace = true }
 bytemuck = { workspace = true }
 slang-hal = { workspace = true }
 stensor = { workspace = true }
-rapier3d = "0.28"# TODO: should be behind a feature?
+rapier3d = "0.30"# TODO: should be behind a feature?
 num-traits = "0.2"
 
 [dev-dependencies]

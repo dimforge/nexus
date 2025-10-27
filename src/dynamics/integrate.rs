@@ -5,9 +5,9 @@ use crate::dynamics::{GpuMassProperties, GpuVelocity};
 use crate::math::GpuSim;
 use slang_hal::backend::Backend;
 use slang_hal::function::GpuFunction;
-use stensor::tensor::GpuTensor;
 use slang_hal::Shader;
 use slang_hal::ShaderArgs;
+use stensor::tensor::GpuTensor;
 
 #[derive(Shader)]
 #[shader(module = "nexus::dynamics::integrate")]

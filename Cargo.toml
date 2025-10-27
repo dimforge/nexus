@@ -10,12 +10,12 @@ nalgebra = { version = "0.34.1", features = ["convert-bytemuck", "encase"] }
 bytemuck = { version = "1", features = ["derive", "extern_crate_std"] }
 futures = "0.3"
 
-stensor = "0.1"
-slang-hal = "0.1"
+stensor = "0.2"
+slang-hal = "0.2"
 
 # TODO: make the wgpu dependency optional too (all backends should be optional but with
 #       wgpu enabled by default).
-wgpu = { version = "26", features = ["naga-ir"] }
+wgpu = { version = "27", features = ["naga-ir"] }
 encase = "0.12"
 
 [workspace.lints]
