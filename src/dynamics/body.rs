@@ -10,9 +10,8 @@ use rapier::{
     dynamics::{RigidBodyHandle, RigidBodySet},
     geometry::ColliderSet,
 };
-use slang_hal::backend::Backend;
+use slang_hal::{backend::Backend, BufferUsages};
 use stensor::tensor::GpuTensor;
-use wgpu::BufferUsages;
 
 #[derive(Copy, Clone, PartialEq, encase::ShaderType)]
 #[repr(C)]

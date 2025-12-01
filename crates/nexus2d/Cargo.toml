@@ -21,6 +21,15 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 default = ["dim2"]
 dim2 = []
 
+comptime = [ "stensor/comptime" ]
+runtime = [ "stensor/runtime" ]
+
+webgpu = [ "stensor/webgpu" ]
+vulkan = [ "stensor/vulkan" ]
+metal = [ "stensor/metal" ]
+cpu = [ "stensor/cpu" ]
+cuda = [ "stensor/cuda" ]
+
 [dependencies]
 nalgebra = { workspace = true }
 wgpu = { workspace = true }
@@ -28,8 +37,13 @@ encase = { workspace = true }
 bytemuck = { workspace = true }
 slang-hal = { workspace = true }
 stensor = { workspace = true }
-rapier2d = "0.30" # TODO: should be behind a feature?
+rapier2d = "0.31" # TODO: should be behind a feature?
 num-traits = "0.2"
+
+[build-dependencies]
+stensor = "0.2" # To access its shaders at compile-time.
+include_dir = "0.7"
+slang-hal-build = "0.2"
 
 [dev-dependencies]
 nalgebra = { version = "0.34", features = ["rand"] }
