@@ -96,7 +96,7 @@ jobs:
           sweep-cache: true
 
       - name: Run clippy lints
-        run: SLANG_DIR=$SLANG_DIR cargo clippy --locked --workspace --all-targets -- --deny warnings
+        run: SLANG_DIR=$SLANG_DIR cargo clippy --locked --workspace --all-targets --features runtime -- --deny warnings
 
   # Check documentation.
   doc:
@@ -128,7 +128,7 @@ jobs:
           sweep-cache: true
 
       - name: Check documentation
-        run: SLANG_DIR=$SLANG_DIR cargo doc --locked --workspace --document-private-items --no-deps
+        run: SLANG_DIR=$SLANG_DIR cargo doc --locked --workspace --document-private-items --no-deps --features runtime
     # Testing.
   test:
     needs: setup-slang # Depends on setup-slang
@@ -163,4 +163,4 @@ jobs:
           sweep-cache: true
       - name: Run Cargo Tests
         run: |
-          SLANG_DIR=$SLANG_DIR LIBGL_ALWAYS_SOFTWARE=1 cargo test --verbose
+          SLANG_DIR=$SLANG_DIR LIBGL_ALWAYS_SOFTWARE=1 cargo test --verbose --features runtime

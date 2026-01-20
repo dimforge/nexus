@@ -3,7 +3,7 @@ name = "nexus3d"
 authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
 description = "Cross-platform 3D rigid-body physics."
 repository = "https://github.com/dimforge/nexus"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
@@ -41,8 +41,8 @@ rapier3d = "0.31"# TODO: should be behind a feature?
 num-traits = "0.2"
 
 [build-dependencies]
-stensor = "0.2" # To access its shaders at compile-time.
-slang-hal-build = "0.2"
+stensor = "0.3" # To access its shaders at compile-time.
+slang-hal-build = "0.3"
 include_dir = "0.7"
 
 
