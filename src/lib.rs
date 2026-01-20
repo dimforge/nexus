@@ -14,6 +14,8 @@ pub extern crate rapier2d as rapier;
 pub extern crate rapier3d as rapier;
 
 use slang_hal::re_exports::include_dir;
+
+#[cfg(feature = "runtime")]
 use slang_hal::re_exports::minislang::SlangCompiler;
 
 /// GPU-accelerated rigid body dynamics simulation.
@@ -50,6 +52,11 @@ pub mod math {
     pub type AngularInertia<N> = na::Matrix3<N>;
 }
 
+/// Re-exported dependencies.
+pub mod re_exports {
+    pub use stensor;
+}
+
 /// Directory containing the Slang shader source files.
 ///
 /// This includes all shader code needed for GPU-accelerated physics simulation.
@@ -63,6 +70,7 @@ pub const SLANG_SRC_DIR: include_dir::Dir<'_> =
 ///
 /// # Arguments
 /// * `compiler` - The Slang compiler instance to register shaders with
+#[cfg(feature = "runtime")]
 pub fn register_shaders(compiler: &mut SlangCompiler) {
     stensor::register_shaders(compiler);
     compiler.add_dir(SLANG_SRC_DIR.clone());

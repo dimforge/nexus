@@ -6,5 +6,5 @@ pub use body::{
 
 /// Rigid body definitions and GPU body set management.
 pub mod body;
-/// Physics integration routines (position, velocity updates).
-pub mod integrate;
+// /// Physics integration routines (position, velocity updates).
+// pub mod integrate;
