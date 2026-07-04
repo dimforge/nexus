@@ -34,6 +34,8 @@ pub use shaders::{Pad, PaddedVector};
 // Re-export glamx for users
 pub use glamx;
 
+/// Broad-phase collision detection (LBVH).
+pub mod broad_phase;
 /// Geometric queries (ray-casting, point projection, contact generation).
 pub mod queries;
 /// Shape definitions.
