@@ -6,6 +6,8 @@ repository = { workspace = true }
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
+readme = { workspace = true }
+exclude = { workspace = true }
 
 [lib]
 path = "../../src/lib.rs"

@@ -5,6 +5,8 @@ authors = ["Sébastien Crozet <developer@crozet.re>"]
 description = "Viewer for 3D GPU physics demos with nexus."
 edition = { workspace = true }
 license = { workspace = true }
+readme = { workspace = true }
+exclude = { workspace = true }
 repository = { workspace = true }
 
 [lib]

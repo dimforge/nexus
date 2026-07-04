@@ -20,6 +20,8 @@ authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/dimforge/nexus"
+readme = "README.md"
+exclude = ["**/.DS_Store"]
 
 [workspace.dependencies]
 glamx = { version = "0.3", default-features = false, features = ["nostd-libm", "bytemuck"] }

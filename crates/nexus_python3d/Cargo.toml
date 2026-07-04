@@ -6,6 +6,8 @@ description = "Python bindings for the 3D nexus GPU physics engine and viewer."
 edition = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+# Published to PyPI via maturin, not to crates.io.
+publish = false
 
 [lib]
 # `cdylib` is what Python loads; `rlib` keeps `cargo check`/`cargo test` happy.
