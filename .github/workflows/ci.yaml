@@ -178,5 +178,5 @@ jobs:
       - name: Build wheel and import-check
         run: |
           maturin build -m crates/nexus_python3d/Cargo.toml --out dist
-          pip install --no-index --find-links dist nexus3d
+          pip install --no-index --find-links dist dimforge-nexus3d
           python -c "import nexus3d; print('nexus3d import OK')"

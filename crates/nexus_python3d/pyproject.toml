@@ -3,7 +3,10 @@ requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "nexus3d"
+# PyPI distribution name. The import name stays `nexus3d` (see `module-name`
+# below); the `dimforge-` prefix avoids the pre-existing unrelated `nexus3d`
+# project on PyPI.
+name = "dimforge-nexus3d"
 version = "0.1.0"
 description = "Python bindings for the 3D nexus GPU physics engine and viewer"
 requires-python = ">=3.9"

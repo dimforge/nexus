@@ -1,6 +1,7 @@
 name: Python release
 
-# Builds the `nexus3d` wheels for every supported platform / Python version and,
+# Builds the `dimforge-nexus3d` wheels (import name `nexus3d`) for every
+# supported platform / Python version and,
 # when triggered by a `python-v*` tag (e.g. `python-v0.1.0`), publishes them to
 # PyPI. A manual `workflow_dispatch` run builds the wheels but does NOT publish,
 # which is handy for testing the matrix.

@@ -3,6 +3,15 @@
 Python bindings for the 3D [`nexus`](../../README.md) GPU physics engine and its
 viewer, built with [PyO3](https://pyo3.rs) + [maturin](https://www.maturin.rs).
 
+Published on PyPI as [`dimforge-nexus3d`](https://pypi.org/project/dimforge-nexus3d/)
+(the plain `nexus3d` name is taken by an unrelated project); the import name is
+still `nexus3d`:
+
+```bash
+pip install dimforge-nexus3d
+python -c "import nexus3d"
+```
+
 The API mirrors the Rust one closely, so the Rust examples translate almost
 line-for-line into Python. Compare [`examples3d/boxes3.rs`](../examples3d/boxes3.rs)
 with [`examples/boxes3.py`](examples/boxes3.py).
@@ -23,7 +32,7 @@ maturin develop --release -m crates/nexus_python3d/Cargo.toml --features metal
 
 # or build a wheel:
 maturin build --release -m crates/nexus_python3d/Cargo.toml --features metal -i python3
-pip install target/wheels/nexus3d-*.whl
+pip install target/wheels/dimforge_nexus3d-*.whl
 ```
 
 > **Note:** the module is built against the stable ABI (`abi3`, CPython ≥ 3.9),
