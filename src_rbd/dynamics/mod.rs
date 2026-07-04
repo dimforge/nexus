@@ -2,11 +2,13 @@
 
 pub use crate::shaders::dynamics::RbdSimParams;
 pub use coloring::{ColoringArgs, GpuColoring};
+pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs};
 pub use mprops_update::{GpuMpropsUpdate, GpuSyncColliderPosesShader};
 pub use prep_render::{RbdInstanceDesc, WgRbdPrepRender};
 pub use warmstart::{GpuWarmstart, WarmstartArgs};
 
 mod coloring;
+mod joint;
 mod mprops_update;
 mod prep_render;
 pub mod warmstart;
