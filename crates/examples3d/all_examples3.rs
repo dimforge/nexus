@@ -16,18 +16,29 @@ mod joints3;
 mod keva3;
 mod many_pyramids3;
 mod many_pyramids_batch3;
+// The robot loaders read URDF/MJCF assets from the filesystem, so they are
+// native-only.
+#[cfg(not(target_arch = "wasm32"))]
+mod mujoco_menagerie3;
 mod multibody_pendulum3;
 mod primitives3;
 mod pyramid3;
 mod trimesh3;
+#[cfg(not(target_arch = "wasm32"))]
+mod urdf3;
 
 /// Declares the demo registry: a `(name, kind)` list for the picker UI and a
 /// name -> `run()` dispatcher. Keeping both in one macro keeps them in sync.
+/// Entries can carry attributes (e.g. `#[cfg(...)]`) to exclude a demo from
+/// some targets.
 macro_rules! demos {
-    ( $( $name:literal => $kind:ident : $module:ident ),* $(,)? ) => {
+    ( $( $(#[$attr:meta])* $name:literal => $kind:ident : $module:ident ),* $(,)? ) => {
         fn demo_list() -> Vec<(String, DemoKind)> {
-            let mut demos: Vec<(String, DemoKind)> =
-                vec![ $( ($name.to_string(), DemoKind::$kind) ),* ];
+            let mut demos: Vec<(String, DemoKind)> = Vec::new();
+            $(
+                $(#[$attr])*
+                demos.push(($name.to_string(), DemoKind::$kind));
+            )*
             // Lexicographic sort, with stress tests (names starting with '(')
             // moved to the end of the list.
             demos.sort_by(|a, b| match (a.0.starts_with('('), b.0.starts_with('(')) {
@@ -43,7 +54,7 @@ macro_rules! demos {
                 // `run` may return `()` (legacy demos) or a `Result` (demos
                 // migrated to the `NexusState` API); discard whatever it yields
                 // so every arm has the same `()` type.
-                $( $name => { let _ = $module::run(viewer, pipeline).await; }, )*
+                $( $(#[$attr])* $name => { let _ = $module::run(viewer, pipeline).await; }, )*
                 _ => eprintln!("Unknown demo: '{name}'"),
             }
         }
@@ -69,6 +80,10 @@ demos! {
     "Joints (Revolute - Batched)" => Rbd : joint_revolute_batch3,
     "Multibody (Pendulum)" => Rbd : multibody_pendulum3,
     "Trimesh" => Rbd : trimesh3,
+    #[cfg(not(target_arch = "wasm32"))]
+    "URDF (multibody)" => Rbd : urdf3,
+    #[cfg(not(target_arch = "wasm32"))]
+    "MuJoCo Menagerie" => Rbd : mujoco_menagerie3,
 }
 
 struct CliOptions {

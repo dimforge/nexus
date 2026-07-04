@@ -30,6 +30,12 @@ anyhow = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true }
 
+# The URDF/MJCF robot loaders read their assets from the filesystem, so the
+# corresponding demos are native-only.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rapier3d-urdf = { workspace = true, features = ["stl"] }
+rapier3d-mjcf = { workspace = true }
+
 [[bin]]
 name = "all_examples3"
 path = "all_examples3.rs"
@@ -37,6 +43,10 @@ path = "all_examples3.rs"
 [[bin]]
 name = "bench_multibody_pendulum3"
 path = "bench_multibody_pendulum3.rs"
+
+[[bin]]
+name = "bench_urdf3"
+path = "bench_urdf3.rs"
 
 [[bin]]
 name = "bench_joints3"
