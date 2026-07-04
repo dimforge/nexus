@@ -54,7 +54,9 @@ jobs:
       # container, which is set up by `before-script-linux` below instead.
       - name: Install cargo-gpu (macOS/Windows)
         if: matrix.platform.os != 'linux'
-        run: cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }}
+        run: |
+          cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }}
+          cargo gpu install --auto-install-rust-toolchain
 
       - name: Build wheel
         uses: PyO3/maturin-action@v1
@@ -64,6 +66,7 @@ jobs:
           # Runs inside the manylinux container before the build (Linux only).
           before-script-linux: |
             cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }}
+            cargo gpu install --auto-install-rust-toolchain
           args: ${{ env.MATURIN_ARGS }} --out dist
 
       - name: Upload wheel artifact
