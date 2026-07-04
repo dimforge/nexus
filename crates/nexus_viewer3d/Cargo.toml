@@ -1,0 +1,37 @@
+[package]
+name = "nexus_viewer3d"
+version = "0.4.0"
+authors = ["Sébastien Crozet <developer@crozet.re>"]
+description = "Viewer for 3D GPU physics demos with nexus."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+name = "nexus_viewer3d"
+path = "../../src_viewer/lib.rs"
+required-features = ["dim3"]
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2", "cpu", "cuda", "metal"))',
+] }
+
+[features]
+default = ["dim3", "webgpu"]
+dim3 = []
+webgpu = ["khal/webgpu"]
+metal = ["khal/metal", "nexus3d/metal"]
+cpu = ["nexus3d/cpu", "vortx/cpu"]
+cpu-parallel = ["cpu", "nexus3d/cpu-parallel", "vortx/cpu-parallel"]
+cuda = ["nexus3d/cuda"]
+
+[dependencies]
+nexus3d = { workspace = true, features = ["rbd"]}
+glamx = { workspace = true }
+khal = { workspace = true }
+vortx = { workspace = true }
+rapier3d = { workspace = true, features = ["default"] }
+bytemuck = { workspace = true }
+kiss3d = { workspace = true, features = ["egui", "rt_switcher"] }
+web-time = { workspace = true }
