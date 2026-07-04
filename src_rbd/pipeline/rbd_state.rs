@@ -57,7 +57,7 @@ pub struct RbdCapacities {
     pub body_capacity: u32,
     /// Maximum number of collision pairs reserved per batch.
     ///
-    /// This may or may not be automatically resized depending on [`Self::resize_policy`].
+    /// This may or may not be automatically resized depending on [`Self::collisions_resize_policy`].
     pub collisions_capacity: u32,
     /// How internal collision buffers gets automatically resized (or not).
     ///
@@ -163,7 +163,8 @@ pub struct RbdState {
     /// `num_batches` as a uniform, the scan length for the max reduction.
     pub(super) num_batches_uniform: Tensor<TensorShape>,
     /// Non-blocking readback of `[max collision_pairs_len, uncolored]` used by
-    /// [`RbdPipeline::auto_resize_buffers`] to grow buffers without stalling.
+    /// [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers)
+    /// to grow buffers without stalling.
     pub(super) resize_readback: GpuReadback<u32>,
     pub(super) collision_pairs_indirect: Tensor<[u32; 3]>,
     /// CPU-side mirrors of the dynamic batch capacities. The capacity values
@@ -172,7 +173,7 @@ pub struct RbdState {
     pub(super) contacts_per_batch_cpu: u32,
     pub(super) collision_pairs_per_batch_cpu: u32,
     /// Most recently read live collision-pair count — the max across all batches,
-    /// harvested by the non-blocking readback in [`Self::auto_resize_buffers`].
+    /// harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers).
     /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize.
     pub(super) collision_pairs_len_cpu: u32,
     /// Single uniform aggregating every per-batch capacity and packed-buffer
@@ -227,19 +228,22 @@ pub struct RbdState {
 impl RbdState {
     /// Re-upload the shared `BatchIndices` uniform after any of its
     /// constituent per-batch capacities has changed (e.g. after the contacts
-    /// buffer grows in [`Self::auto_resize_buffers`], or after multibody
+    /// buffer grows in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers), or after multibody
     /// impulse-joint capacities are updated via
-    /// [`GpuMultibodySet::set_impulse_joints`]). Call whenever a cap edit
+    /// `GpuMultibodySet::set_impulse_joints`). Call whenever a cap edit
     /// happens that any kernel reads via its `batch_ids` uniform.
     pub(super) fn rebuild_batch_indices(&mut self, backend: &GpuBackend) {
-        let mut bi = BatchIndices::default();
-        bi.colliders_batch_capacity = self.num_colliders_per_batch;
-        bi.colliders_len = self.num_active_colliders;
-        bi.bodies_len = self.num_active_bodies;
-        bi.collision_pairs_batch_capacity = self.collision_pairs_per_batch_cpu;
-        bi.contacts_batch_capacity = self.contacts_per_batch_cpu;
-        bi.impulse_joints_batch_capacity = self.joints.joints_per_batch();
-        bi.impulse_joints_len = self.joints.num_active_joints();
+        #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
+        let mut bi = BatchIndices {
+            colliders_batch_capacity: self.num_colliders_per_batch,
+            colliders_len: self.num_active_colliders,
+            bodies_len: self.num_active_bodies,
+            collision_pairs_batch_capacity: self.collision_pairs_per_batch_cpu,
+            contacts_batch_capacity: self.contacts_per_batch_cpu,
+            impulse_joints_batch_capacity: self.joints.joints_per_batch(),
+            impulse_joints_len: self.joints.num_active_joints(),
+            ..Default::default()
+        };
         #[cfg(feature = "dim3")]
         self.multibodies.fill_batch_indices(&mut bi);
         self.batch_indices = Tensor::scalar(
@@ -250,7 +254,7 @@ impl RbdState {
         .unwrap();
     }
 
-    /// Shared per-batch index uniform — see [`Self::rebuild_batch_indices`].
+    /// Shared per-batch index uniform — see `Self::rebuild_batch_indices`.
     pub fn batch_indices(&self) -> &Tensor<BatchIndices> {
         &self.batch_indices
     }
@@ -285,7 +289,7 @@ impl RbdState {
     }
 
     /// Live collision-pair count (batch 0) most recently harvested by the
-    /// non-blocking readback in [`Self::auto_resize_buffers`]. Lags the GPU by a
+    /// non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
     /// frame or two; `0` until the first readback completes.
     pub fn collision_pairs_len(&self) -> u32 {
         self.collision_pairs_len_cpu
@@ -305,7 +309,7 @@ impl RbdState {
         self.multibodies.set_gravity(backend, gravity);
     }
 
-    /// Per-collider world pose. Same as [`Self::poses`].
+    /// Per-collider world pose.
     pub fn collider_world_poses(&self) -> &Tensor<Pose> {
         &self.collider_world_poses
     }

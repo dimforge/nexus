@@ -18,5 +18,5 @@ pub fn div_ceil(x: i32, y: i32) -> i32 {
 
 /// Division with ceiling (unsigned).
 pub fn udiv_ceil(x: u32, y: u32) -> u32 {
-    (x + y - 1) / y
+    x.div_ceil(y)
 }

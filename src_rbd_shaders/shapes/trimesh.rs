@@ -370,19 +370,16 @@ fn triangle_project_local_point_and_get_location(
             let res = b + bc * w;
             return ProjectionWithLocation::edge(res, bcoords, 1, false);
         }
-        FACE_CW | FACE_CCW => {
-            // Voronoi region of the face.
-            // NOTE: in some cases, numerical instability
-            // may result in the denominator being zero
-            // when the triangle is nearly degenerate.
-            if proj.params.x + proj.params.y + proj.params.z != 0.0 {
-                let denom = 1.0 / (proj.params.x + proj.params.y + proj.params.z);
-                let v = proj.params.y * denom;
-                let w = proj.params.z * denom;
-                let bcoords = Vec3::new(1.0 - v - w, v, w);
-                let res = a + ab * v + ac * w;
-                return ProjectionWithLocation::face(res, bcoords, proj.feature, false);
-            }
+        // Voronoi region of the face. The guard fails when numerical
+        // instability makes the denominator zero (nearly-degenerate triangle);
+        // we then fall through to the solid case below.
+        FACE_CW | FACE_CCW if proj.params.x + proj.params.y + proj.params.z != 0.0 => {
+            let denom = 1.0 / (proj.params.x + proj.params.y + proj.params.z);
+            let v = proj.params.y * denom;
+            let w = proj.params.z * denom;
+            let bcoords = Vec3::new(1.0 - v - w, v, w);
+            let res = a + ab * v + ac * w;
+            return ProjectionWithLocation::face(res, bcoords, proj.feature, false);
         }
         _ => { /* fall through to solid case */ }
     }

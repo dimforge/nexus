@@ -30,7 +30,7 @@ pub fn gpu_prefix_sum_sweep(
     let tid = thread_id.x as usize;
     let data_len = *batch_stride as usize;
     let data_offset = batch_id * data_len;
-    let aux_stride = (data_len + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+    let aux_stride = data_len.div_ceil(WORKGROUP_SIZE);
     let aux_offset = batch_id * aux_stride;
     // Global index for this thread's element within the batch
     let elt_id = tid + bid * WORKGROUP_SIZE;
@@ -126,7 +126,7 @@ pub fn gpu_add_data_grp(
     let bid = block_id.x as usize;
     let data_len = *batch_stride as usize;
     let data_offset = batch_id * data_len;
-    let aux_stride = (data_len + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+    let aux_stride = data_len.div_ceil(WORKGROUP_SIZE);
     let aux_offset = batch_id * aux_stride;
 
     if tid < data_len {

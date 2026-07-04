@@ -28,7 +28,7 @@ pub(super) fn sm_idx(r: u32, c: u32) -> usize {
 pub(super) fn lu_factor_in_shared(
     n: u32,
     lane: u32,
-    mat: &mut [f32; (MAX_MB_DOFS * MAX_MB_DOFS) as usize],
+    mat: &mut [f32; MAX_MB_DOFS * MAX_MB_DOFS],
     pivots_dst: &mut [u32],
     pivots_offset: usize,
     pivot_row_shared: &mut u32,
@@ -98,14 +98,14 @@ pub(super) fn lu_factor_in_shared(
     }
 }
 
-/// Inner of the workgroup-parallel triangular solves used by
-/// [`gpu_mb_lu_solve`] and [`gpu_mb_lu_factor_and_solve`]. Preconditions: `mat`
+/// Inner of the workgroup-parallel triangular solves used by the LU
+/// solve/factor-and-solve kernels. Preconditions: `mat`
 /// already holds the LU factors and `x` already holds the permuted rhs.
 #[inline]
 pub(super) fn lu_triangular_solve_in_place(
     n: u32,
     lane: u32,
-    mat: &[f32; (MAX_MB_DOFS * MAX_MB_DOFS) as usize],
+    mat: &[f32; MAX_MB_DOFS * MAX_MB_DOFS],
     x: &mut [f32; MAX_MB_DOFS],
     partial: &mut [f32; LANES as usize],
 ) {

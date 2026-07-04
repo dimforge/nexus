@@ -200,7 +200,7 @@ pub fn gpu_lbvh_build(
     let first_leaf_id = num_internal_nodes;
 
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
-    let morton_keys = Slice(&morton_keys, colliders_start as usize);
+    let morton_keys = Slice(morton_keys, colliders_start as usize);
 
     for i in StepRng::new(invocation_id.x..num_internal_nodes, num_threads) {
         // Determine the direction of the range (+1 or -1).
@@ -592,7 +592,7 @@ pub fn expand_bits_3d(v: u32) -> u32 {
     vv
 }
 
-/// Calculates a 30-bit Morton code for the given 3D point located within the unit cube [0,1].
+/// Calculates a 30-bit Morton code for the given 3D point located within the unit cube \[0,1\].
 #[cfg(feature = "dim3")]
 pub fn morton_3d(v: Vector) -> u32 {
     let scaled_x = v.x.clamp(0.0, 1023.0 / 1024.0) * 1024.0;
@@ -615,7 +615,7 @@ pub fn expand_bits_2d(v: u32) -> u32 {
     x
 }
 
-/// Calculates a 32-bit Morton code for the given 2D point located within the unit square [0,1].
+/// Calculates a 32-bit Morton code for the given 2D point located within the unit square \[0,1\].
 #[cfg(feature = "dim2")]
 pub fn morton_2d(v: Vector) -> u32 {
     let scaled_x = (v.x * 65536.0).clamp(0.0, 65535.0);
@@ -625,13 +625,13 @@ pub fn morton_2d(v: Vector) -> u32 {
     xx | (yy << 1)
 }
 
-/// Calculates a Morton code for the given point located within the unit hypercube [0,1].
+/// Calculates a Morton code for the given point located within the unit hypercube \[0,1\].
 #[cfg(feature = "dim2")]
 pub fn morton(v: Vector) -> u32 {
     morton_2d(v)
 }
 
-/// Calculates a Morton code for the given point located within the unit hypercube [0,1].
+/// Calculates a Morton code for the given point located within the unit hypercube \[0,1\].
 #[cfg(feature = "dim3")]
 pub fn morton(v: Vector) -> u32 {
     morton_3d(v)

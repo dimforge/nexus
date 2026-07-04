@@ -1,6 +1,6 @@
 <p align="center">
   <img src="assets/nexus-logo.jpg" height="200px">
-<br/>
+</p>
 <p align="center" style="font-size: xx-large">
         Cross-platform GPU multiphysics simulation
 </p>

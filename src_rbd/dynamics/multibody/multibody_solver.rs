@@ -171,10 +171,10 @@ impl GpuMultibodySolver {
         self.compute_dynamics(pass, mb, args)
     }
 
-    /// Per-substep work is split into five phases so the pipeline can interleave
-    /// them with the rigid-body substep: `substep_integrate_velocities` (P1),
-    /// `substep_build_constraints` (P2), `substep_solve_with_bias` (P3),
-    /// `substep_integrate_positions` (P4) and `substep_solve_no_bias` (P5).
+    // Per-substep work is split into five phases so the pipeline can interleave
+    // them with the rigid-body substep: `substep_integrate_velocities` (P1),
+    // `substep_build_constraints` (P2), `substep_solve_with_bias` (P3),
+    // `substep_integrate_positions` (P4) and `substep_solve_no_bias` (P5).
 
     /// P1: `dof_velocities += a · dt'` (apply the velocity increment).
     pub fn substep_integrate_velocities(

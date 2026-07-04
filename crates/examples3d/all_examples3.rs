@@ -33,6 +33,9 @@ mod urdf3;
 /// some targets.
 macro_rules! demos {
     ( $( $(#[$attr:meta])* $name:literal => $kind:ident : $module:ident ),* $(,)? ) => {
+        // Built with `push` (not `vec![]`) so per-entry `#[cfg]` attributes
+        // can exclude entries on some targets.
+        #[allow(clippy::vec_init_then_push)]
         fn demo_list() -> Vec<(String, DemoKind)> {
             let mut demos: Vec<(String, DemoKind)> = Vec::new();
             $(

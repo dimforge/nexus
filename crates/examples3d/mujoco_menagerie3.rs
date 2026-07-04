@@ -332,13 +332,13 @@ async fn select_scene(
     scene: &Path,
     render_colliders: bool,
 ) -> anyhow::Result<Result<NexusState, String>> {
-    if let Some(dofs) = scene_max_dofs(scene) {
-        if dofs > MAX_MB_DOFS {
-            return Ok(Err(format!(
-                "{} needs {dofs} DoFs (max {MAX_MB_DOFS}) — not supported by the GPU solver.",
-                scene_label(scene)
-            )));
-        }
+    if let Some(dofs) = scene_max_dofs(scene)
+        && dofs > MAX_MB_DOFS
+    {
+        return Ok(Err(format!(
+            "{} needs {dofs} DoFs (max {MAX_MB_DOFS}) — not supported by the GPU solver.",
+            scene_label(scene)
+        )));
     }
     viewer.clear_scene();
     let state = load_scene(viewer, scene, render_colliders).await?;
@@ -473,10 +473,29 @@ pub async fn run(
         // can step past an unsupported model), but the scene is only rebuilt when
         // the model is within the GPU solver's DoF cap — otherwise the current
         // scene stays and the picker shows a red error.
-        if let Some(i) = pending.take() {
-            if i != selected {
-                selected = i;
-                match select_scene(viewer, &scenes[selected], render_colliders).await? {
+        if let Some(i) = pending.take()
+            && i != selected
+        {
+            selected = i;
+            match select_scene(viewer, &scenes[selected], render_colliders).await? {
+                Ok(new_state) => {
+                    state = new_state;
+                    error = None;
+                }
+                Err(msg) => {
+                    eprintln!("{msg}");
+                    error = Some(msg);
+                }
+            }
+        }
+
+        // Apply a render-mode toggle: reload the current model with the new mode.
+        if let Some(new_mode) = pending_mode.take()
+            && new_mode != render_colliders
+        {
+            render_colliders = new_mode;
+            if let Some(scene) = scenes.get(selected) {
+                match select_scene(viewer, scene, render_colliders).await? {
                     Ok(new_state) => {
                         state = new_state;
                         error = None;
@@ -484,25 +503,6 @@ pub async fn run(
                     Err(msg) => {
                         eprintln!("{msg}");
                         error = Some(msg);
-                    }
-                }
-            }
-        }
-
-        // Apply a render-mode toggle: reload the current model with the new mode.
-        if let Some(new_mode) = pending_mode.take() {
-            if new_mode != render_colliders {
-                render_colliders = new_mode;
-                if let Some(scene) = scenes.get(selected) {
-                    match select_scene(viewer, scene, render_colliders).await? {
-                        Ok(new_state) => {
-                            state = new_state;
-                            error = None;
-                        }
-                        Err(msg) => {
-                            eprintln!("{msg}");
-                            error = Some(msg);
-                        }
                     }
                 }
             }

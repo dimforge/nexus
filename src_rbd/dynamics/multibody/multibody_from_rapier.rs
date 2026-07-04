@@ -217,18 +217,18 @@ impl GpuMultibodySet {
                     assembly_counter += link_ndofs;
 
                     let mut ws = make_workspace_init();
-                    ws.coords = link.joint.coords().into();
+                    ws.coords = link.joint.coords();
                     ws.joint_rot = link.joint.joint_rot();
 
                     // For free joints at the root, copy the rigid-body pose directly.
-                    if link.joint.data.locked_axes.is_empty() {
-                        if let Some(rb) = bodies.get(link.rigid_body_handle()) {
-                            let pos = rb.position();
-                            ws.coords[0] = pos.translation.x;
-                            ws.coords[1] = pos.translation.y;
-                            ws.coords[2] = pos.translation.z;
-                            ws.joint_rot = pos.rotation;
-                        }
+                    if link.joint.data.locked_axes.is_empty()
+                        && let Some(rb) = bodies.get(link.rigid_body_handle())
+                    {
+                        let pos = rb.position();
+                        ws.coords[0] = pos.translation.x;
+                        ws.coords[1] = pos.translation.y;
+                        ws.coords[2] = pos.translation.z;
+                        ws.joint_rot = pos.rotation;
                     }
 
                     workspaces.push(ws);
@@ -244,8 +244,8 @@ impl GpuMultibodySet {
                     for d in 0..link_ndofs as usize {
                         dof_vals.push(0.0);
                         dof_vels.push(0.0);
-                        dof_damping.push(mb_damping[rapier_assembly + d] as f32);
-                        dof_armature.push(mb_armature[rapier_assembly + d] as f32);
+                        dof_damping.push(mb_damping[rapier_assembly + d]);
+                        dof_armature.push(mb_armature[rapier_assembly + d]);
                     }
                     // Advance by rapier's full link DoF count (which includes a
                     // fixed root's DoFs, where `link_ndofs` above is 0).
@@ -311,11 +311,10 @@ impl GpuMultibodySet {
             let base = batch_idx * body_to_link_cap as usize;
             for (mb_idx, mb) in set.multibodies().enumerate() {
                 for (link_idx, link) in mb.links().enumerate() {
-                    if let Some(&local) = body_ids.get(&link.rigid_body_handle()) {
-                        if (local as u32) < body_to_link_cap {
-                            all_body_to_link[base + local as usize] =
-                                [mb_idx as u32, link_idx as u32];
-                        }
+                    if let Some(&local) = body_ids.get(&link.rigid_body_handle())
+                        && local < body_to_link_cap
+                    {
+                        all_body_to_link[base + local as usize] = [mb_idx as u32, link_idx as u32];
                     }
                 }
             }
@@ -353,21 +352,17 @@ impl GpuMultibodySet {
             }
 
             all_dof_vals.extend_from_slice(&per_env_dof_values[i]);
-            for _ in per_env_dof_values[i].len()..dofs_cap as usize {
-                all_dof_vals.push(0.0);
-            }
+            let pad = (dofs_cap as usize).saturating_sub(per_env_dof_values[i].len());
+            all_dof_vals.resize(all_dof_vals.len() + pad, 0.0);
             all_dof_vels.extend_from_slice(&per_env_dof_vels[i]);
-            for _ in per_env_dof_vels[i].len()..dofs_cap as usize {
-                all_dof_vels.push(0.0);
-            }
+            let pad = (dofs_cap as usize).saturating_sub(per_env_dof_vels[i].len());
+            all_dof_vels.resize(all_dof_vels.len() + pad, 0.0);
             all_dof_damping.extend_from_slice(&per_env_dof_damping[i]);
-            for _ in per_env_dof_damping[i].len()..dofs_cap as usize {
-                all_dof_damping.push(0.0);
-            }
+            let pad = (dofs_cap as usize).saturating_sub(per_env_dof_damping[i].len());
+            all_dof_damping.resize(all_dof_damping.len() + pad, 0.0);
             all_dof_armature.extend_from_slice(&per_env_dof_armature[i]);
-            for _ in per_env_dof_armature[i].len()..dofs_cap as usize {
-                all_dof_armature.push(0.0);
-            }
+            let pad = (dofs_cap as usize).saturating_sub(per_env_dof_armature[i].len());
+            all_dof_armature.resize(all_dof_armature.len() + pad, 0.0);
         }
 
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
@@ -407,25 +402,25 @@ impl GpuMultibodySet {
             },
             gen_forces: Tensor::vector(
                 backend,
-                &vec![0.0f32; (dofs_cap * num_batches) as usize],
+                vec![0.0f32; (dofs_cap * num_batches) as usize],
                 storage | BufferUsages::COPY_SRC,
             )
             .unwrap(),
             body_jacobians: Tensor::vector(
                 backend,
-                &vec![0.0f32; (jac_cap * num_batches) as usize],
+                vec![0.0f32; (jac_cap * num_batches) as usize],
                 storage,
             )
             .unwrap(),
             mass_matrices: Tensor::vector(
                 backend,
-                &vec![0.0f32; (mm_cap * num_batches) as usize],
+                vec![0.0f32; (mm_cap * num_batches) as usize],
                 storage,
             )
             .unwrap(),
             lu_pivots: Tensor::vector(
                 backend,
-                &vec![0u32; (dofs_cap * num_batches) as usize],
+                vec![0u32; (dofs_cap * num_batches) as usize],
                 storage,
             )
             .unwrap(),
@@ -435,24 +430,24 @@ impl GpuMultibodySet {
                 // icdt_cap * num_batches.
                 let a = (cor_cap * num_batches) as usize;
                 let b = (icdt_cap * num_batches) as usize;
-                Tensor::vector(backend, &vec![0.0f32; 2 * a + b], storage).unwrap()
+                Tensor::vector(backend, vec![0.0f32; 2 * a + b], storage).unwrap()
             },
             joint_constraints: Tensor::vector(
                 backend,
-                &vec![MultibodyJointConstraint::default(); (cons_cap * num_batches) as usize],
+                vec![MultibodyJointConstraint::default(); (cons_cap * num_batches) as usize],
                 storage,
             )
             .unwrap(),
             joint_constraint_columns: Tensor::vector(
                 backend,
-                &vec![0.0f32; (cons_col_cap * num_batches) as usize],
+                vec![0.0f32; (cons_col_cap * num_batches) as usize],
                 storage,
             )
             .unwrap(),
             body_to_link: Tensor::vector(backend, &all_body_to_link, storage).unwrap(),
             contact_constraints: Tensor::vector(
                 backend,
-                &vec![
+                vec![
                     MultibodyContactConstraint::default();
                     (contact_cons_cap * num_batches) as usize
                 ],
@@ -461,13 +456,13 @@ impl GpuMultibodySet {
             .unwrap(),
             contact_constraint_jacs: Tensor::vector(
                 backend,
-                &vec![0.0f32; (contact_cons_col_cap * num_batches) as usize],
+                vec![0.0f32; (contact_cons_col_cap * num_batches) as usize],
                 storage,
             )
             .unwrap(),
             contact_constraint_columns: Tensor::vector(
                 backend,
-                &vec![0.0f32; (contact_cons_col_cap * num_batches) as usize],
+                vec![0.0f32; (contact_cons_col_cap * num_batches) as usize],
                 storage,
             )
             .unwrap(),
@@ -477,22 +472,19 @@ impl GpuMultibodySet {
             // time when the host has actually counted the joints.
             mb_imp_joint_count: Tensor::vector(
                 backend,
-                &vec![0u32; num_batches as usize],
+                vec![0u32; num_batches as usize],
                 storage | BufferUsages::UNIFORM,
             )
             .unwrap(),
             mb_imp_joint_builders: Tensor::vector(
                 backend,
-                &vec![
-                    <MbImpulseJointBuilder as bytemuck::Zeroable>::zeroed();
-                    num_batches as usize
-                ],
+                vec![<MbImpulseJointBuilder as bytemuck::Zeroable>::zeroed(); num_batches as usize],
                 storage,
             )
             .unwrap(),
             mb_imp_joint_constraints: Tensor::vector(
                 backend,
-                &vec![
+                vec![
                     MbImpulseJointConstraint::default();
                     (MAX_AXIS_CONSTRAINTS as usize) * (num_batches as usize)
                 ],
@@ -501,7 +493,7 @@ impl GpuMultibodySet {
             .unwrap(),
             mb_imp_joint_jacobians: Tensor::vector(
                 backend,
-                &vec![0.0f32; num_batches as usize],
+                vec![0.0f32; num_batches as usize],
                 storage,
             )
             .unwrap(),
@@ -510,7 +502,7 @@ impl GpuMultibodySet {
             mb_imp_joint_jacobians_per_batch: 1,
             mb_imp_joint_color_groups: Tensor::vector(
                 backend,
-                &vec![0u32; num_batches as usize],
+                vec![0u32; num_batches as usize],
                 storage,
             )
             .unwrap(),

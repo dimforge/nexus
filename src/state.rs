@@ -97,7 +97,7 @@ pub struct NexusState {
     /// Set whenever the rapier worlds change; consumed by [`Self::finalize`] to
     /// decide whether the GPU [`RbdState`] needs rebuilding.
     rbd_dirty: bool,
-    /// Number of rigid-body solver steps advanced per [`Self::simulate`] call.
+    /// Number of rigid-body solver steps advanced per [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call.
     pub rbd_steps_per_frame: u32,
     /// Per-environment GPU collider-slot reservation. When > 0, the GPU
     /// [`RbdState`] is built with this many slots (rather than exactly the
@@ -155,12 +155,12 @@ impl NexusState {
     // ── Rigid-body runtime settings ─────────────────────────────────────
 
     /// Sets the number of rigid-body solver steps advanced per
-    /// [`Self::simulate`] call (default 1). Acts as a simulation-speed control.
+    /// [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call (default 1). Acts as a simulation-speed control.
     pub fn set_rbd_steps_per_frame(&mut self, steps: u32) {
         self.rbd_steps_per_frame = steps.max(1);
     }
 
-    /// Number of rigid-body solver steps per [`Self::simulate`] call.
+    /// Number of rigid-body solver steps per [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call.
     pub fn rbd_steps_per_frame(&self) -> u32 {
         self.rbd_steps_per_frame
     }
@@ -254,7 +254,7 @@ impl NexusState {
     /// later be added with [`Self::add_rigid_body`] *in place* — appended to the
     /// existing GPU buffers instead of rebuilding the whole scene.
     ///
-    /// Call this before the first [`Self::finalize`]/[`Self::simulate`]. Intended
+    /// Call this before the first [`Self::finalize`]/[`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate). Intended
     /// for single-environment scenes (the appended body data is shared across
     /// batches). `per_env` is a hard cap: once it's full, `add_rigid_body` falls
     /// back to a full rebuild.
@@ -521,6 +521,10 @@ impl NexusState {
                 let mut body_slot: std::collections::HashMap<_, u32> =
                     std::collections::HashMap::new();
                 let mut next_slot = 0u32;
+                // Not a plain loop counter: parentless colliders consume a slot
+                // without a map entry, and (on dim3) the multibody-link loop
+                // below continues the same counter.
+                #[allow(clippy::explicit_counter_loop)]
                 for (_, collider) in world.colliders.iter() {
                     let Some(body_handle) = collider.parent() else {
                         // Parentless collider → synthetic body slot (no handle

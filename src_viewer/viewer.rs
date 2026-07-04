@@ -2,8 +2,8 @@
 //!
 //! [`NexusViewer`] is the viewer analogue of kiss3d's `Window`: it owns the window,
 //! cameras, GPU backends and UI state, but knows nothing about a particular
-//! physics scene. Examples build a scene from rapier resources via
-//! [`NexusViewer::set_rbd`] and then own the loop:
+//! physics scene. Examples build a scene into a [`NexusState`] and register
+//! render shapes via [`NexusViewer::insert_shape`], then own the loop:
 //!
 //! ```ignore
 //! let mut viewer = NexusViewer::new(vec![]).await;
@@ -43,7 +43,7 @@ use crate::graphics::RenderContext;
 use crate::{DemoKind, RunState, Transition, UiSections};
 
 /// UI / runtime state that is independent from the GPU/window resources. Kept in
-/// its own struct so [`NexusViewer::render`] can split-borrow it from `window`.
+/// its own struct so [`NexusViewer::render_frame`] can split-borrow it from `window`.
 pub struct UiState {
     pub run_state: RunState,
     pub run_stats: RunStats,
@@ -535,26 +535,26 @@ impl NexusViewer {
     }
 
     async fn sync_timestamps(&mut self, timestamps: Option<&mut GpuTimestamps>) {
-        if let Some(timestamps) = timestamps {
-            if let Some(results) = timestamps.try_take(self.backend()) {
-                if !results.is_empty() {
-                    let mut aggregated: Vec<(String, f64)> = Vec::new();
-                    for r in &results {
-                        if let Some(existing) =
-                            aggregated.iter_mut().find(|(label, _)| label == &r.label)
-                        {
-                            existing.1 += r.duration_ms;
-                        } else {
-                            aggregated.push((r.label.clone(), r.duration_ms));
-                        }
+        if let Some(timestamps) = timestamps
+            && let Some(results) = timestamps.try_take(self.backend())
+        {
+            if !results.is_empty() {
+                let mut aggregated: Vec<(String, f64)> = Vec::new();
+                for r in &results {
+                    if let Some(existing) =
+                        aggregated.iter_mut().find(|(label, _)| label == &r.label)
+                    {
+                        existing.1 += r.duration_ms;
+                    } else {
+                        aggregated.push((r.label.clone(), r.duration_ms));
                     }
-
-                    self.last_gpu_total_time_ms = aggregated.iter().map(|e| e.1).sum();
-                    self.last_gpu_pass_times = aggregated;
                 }
-                // Clear the query set so `simulate` can record the next frame.
-                timestamps.reset();
+
+                self.last_gpu_total_time_ms = aggregated.iter().map(|e| e.1).sum();
+                self.last_gpu_pass_times = aggregated;
             }
+            // Clear the query set so `simulate` can record the next frame.
+            timestamps.reset();
         }
     }
 
@@ -689,7 +689,7 @@ impl NexusViewer {
     /// on screen during the freeze — and, on the web, actually composited first:
     /// rendering several real frames forces the browser to paint before the
     /// (blocking, non-yielding) `create_compute_pipeline` (see
-    /// [`COMPILE_BANNER_PRESENT_FRAMES`]).
+    /// `COMPILE_BANNER_PRESENT_FRAMES`).
     pub async fn show_compile_banner(&mut self) {
         for _ in 0..COMPILE_BANNER_PRESENT_FRAMES {
             let _ = self
@@ -720,7 +720,7 @@ impl NexusViewer {
     }
 
     /// Tears down the viewer-owned `NexusState` render nodes. A no-op for legacy
-    /// [`RbdScene`] demos (which detach their own nodes). Call between two runs.
+    /// `RbdScene` demos (which detach their own nodes). Call between two runs.
     pub fn clear_scene(&mut self) {
         self.scene3d = SceneNode3d::empty();
         self.scene2d = SceneNode2d::empty();
@@ -732,8 +732,7 @@ impl NexusViewer {
     /// returns `true` once and then latches the run state back to `Paused`.
     ///
     /// Examples driving a [`NexusState`] gate their `simulate` call on this, the
-    /// way [`RbdScene::simulate`](crate::RbdScene::simulate) does internally for
-    /// legacy demos.
+    /// way the legacy `RbdScene::simulate` did internally.
     pub fn simulating(&mut self) -> bool {
         match self.ui.run_state {
             RunState::Paused => false,
@@ -747,7 +746,8 @@ impl NexusViewer {
 
     /// Renders one frame of the viewer-owned `NexusState` scene and the UI.
     /// Returns `false` when the loop should end (window closed or a new demo
-    /// selected). This is the no-scene-argument counterpart of [`Self::render`].
+    /// selected). This is the no-scene-argument counterpart of the legacy
+    /// scene-argument `render`.
     pub async fn render_frame(&mut self) -> bool {
         let cont = self
             .window

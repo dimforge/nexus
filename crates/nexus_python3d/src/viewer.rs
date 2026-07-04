@@ -4,9 +4,9 @@
 //! the inner viewer is stored in an `Option` and swapped in place; the builder
 //! wrappers return the same Python object for fluent chaining.
 
+use crate::math::Pose;
 use crate::math::{Vec3, Vec4};
 use crate::nexus::{GpuTimestamps, NexusState};
-use crate::math::Pose;
 use crate::rbd::{RigidBodyHandle, SharedShape};
 use khal::backend::GpuBackend;
 use nexus_viewer3d::NexusViewer as RViewer;
@@ -97,13 +97,21 @@ impl NexusViewer {
         self.inner_mut().set_up_axis(up.0);
     }
     fn add_directional_light(&mut self, direction: Vec3) {
-        self.inner_mut().scene3d_mut().add_directional_light(direction.0);
+        self.inner_mut()
+            .scene3d_mut()
+            .add_directional_light(direction.0);
     }
 
     // --- shape registration ----------------------------------------------
 
-    fn insert_shape(&mut self, handle: RigidBodyHandle, shape: PyRef<SharedShape>, local_pose: Pose) {
-        self.inner_mut().insert_shape(handle.0, &shape.0, local_pose.0);
+    fn insert_shape(
+        &mut self,
+        handle: RigidBodyHandle,
+        shape: PyRef<SharedShape>,
+        local_pose: Pose,
+    ) {
+        self.inner_mut()
+            .insert_shape(handle.0, &shape.0, local_pose.0);
     }
     fn insert_shape_with_color(
         &mut self,

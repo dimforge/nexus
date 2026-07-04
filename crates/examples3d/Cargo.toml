@@ -40,14 +40,16 @@ rapier3d-mjcf = { workspace = true }
 name = "all_examples3"
 path = "all_examples3.rs"
 
-[[bin]]
-name = "bench_multibody_pendulum3"
-path = "bench_multibody_pendulum3.rs"
+# TODO: the bench harnesses below still use the removed `SimulationState`
+# viewer API; re-enable them once they are ported to `NexusState`.
+#[[bin]]
+#name = "bench_multibody_pendulum3"
+#path = "bench_multibody_pendulum3.rs"
 
-[[bin]]
-name = "bench_urdf3"
-path = "bench_urdf3.rs"
+#[[bin]]
+#name = "bench_urdf3"
+#path = "bench_urdf3.rs"
 
-[[bin]]
-name = "bench_joints3"
-path = "bench_joints3.rs"
+#[[bin]]
+#name = "bench_joints3"
+#path = "bench_joints3.rs"

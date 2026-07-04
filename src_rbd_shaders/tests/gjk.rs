@@ -4,7 +4,7 @@ use crate::queries::gjk::{
     CLOSEST_POINTS, INTERSECTION, VoronoiSimplex, closest_points, cso_point_from_shapes,
 };
 use crate::shapes::Shape;
-use crate::{PaddedVector, Pose, Vector};
+use crate::{Pose, Vector};
 
 #[test]
 fn test_separated_cuboids() {

@@ -246,16 +246,14 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
         // are skipped here — they were already turned into contacts. Only the
         // complex cases fall through to the PFM / trimesh / polyline handling.
         let mut checked = false;
-        if shape_ty1 == SHAPE_TYPE_BALL {
-            if shape_ty2 == SHAPE_TYPE_BALL {
-                checked = true;
-            } else if shape_ty2 == SHAPE_TYPE_CUBOID
+        if shape_ty1 == SHAPE_TYPE_BALL
+            && (shape_ty2 == SHAPE_TYPE_BALL
+                || shape_ty2 == SHAPE_TYPE_CUBOID
                 || shape_ty2 == SHAPE_TYPE_CAPSULE
                 || shape_ty2 == SHAPE_TYPE_CONE
-                || shape_ty2 == SHAPE_TYPE_CYLINDER
-            {
-                checked = true;
-            }
+                || shape_ty2 == SHAPE_TYPE_CYLINDER)
+        {
+            checked = true;
         }
         if !checked
             && shape_ty2 == SHAPE_TYPE_BALL
