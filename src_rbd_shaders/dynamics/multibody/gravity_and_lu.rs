@@ -45,7 +45,7 @@ pub fn gpu_mb_gravity_and_lu(
     #[spirv(uniform, descriptor_set = 0, binding = 8)] gravity: &Vec4,
     #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
     // Mass-matrix tile in shared memory.
-    #[spirv(workgroup)] mat: &mut [f32; (MAX_MB_DOFS * MAX_MB_DOFS) as usize],
+    #[spirv(workgroup)] mat: &mut [f32; MAX_MB_DOFS * MAX_MB_DOFS],
     // RHS / solution vector.
     #[spirv(workgroup)] x: &mut [f32; MAX_MB_DOFS],
     // Per-lane partial sums for the triangular-solve tree reduction.

@@ -52,7 +52,7 @@ pub fn gpu_mb_integrate_velocities(
 
     for d in 0..mb.ndofs {
         let di = d as usize;
-        dof_vel[di] = dof_vel[di] + acc[di] * dt;
+        dof_vel[di] += acc[di] * dt;
     }
 }
 

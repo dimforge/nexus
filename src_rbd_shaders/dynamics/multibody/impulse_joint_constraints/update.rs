@@ -198,7 +198,7 @@ impl MbImpulseJointBuilder {
         }
 
         // Linear motors.
-        for i in 0..(DIM as u32) {
+        for i in 0..DIM {
             if (motor_axes & (1 << i)) != 0 {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
@@ -262,7 +262,7 @@ impl MbImpulseJointBuilder {
         }
 
         // Linear locks.
-        for i in 0..(DIM as u32) {
+        for i in 0..DIM {
             if (locked_axes & (1 << i)) != 0 {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
@@ -328,7 +328,7 @@ impl MbImpulseJointBuilder {
         }
 
         // Linear limits.
-        for i in 0..(DIM as u32) {
+        for i in 0..DIM {
             if (limit_axes & (1 << i)) != 0 {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;

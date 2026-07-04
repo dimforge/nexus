@@ -336,10 +336,7 @@ impl SphericalJointBuilder {
         Self(self.0.limits(axis.to_rapier(), [min, max]))
     }
     fn motor_velocity(&self, axis: JointAxis, target_vel: f32, factor: f32) -> Self {
-        Self(
-            self.0
-                .motor_velocity(axis.to_rapier(), target_vel, factor),
-        )
+        Self(self.0.motor_velocity(axis.to_rapier(), target_vel, factor))
     }
     fn motor_position(&self, axis: JointAxis, target: f32, stiffness: f32, damping: f32) -> Self {
         Self(
@@ -348,10 +345,7 @@ impl SphericalJointBuilder {
         )
     }
     fn motor_model(&self, axis: JointAxis, model: MotorModel) -> Self {
-        Self(
-            self.0
-                .motor_model(axis.to_rapier(), model.to_rapier()),
-        )
+        Self(self.0.motor_model(axis.to_rapier(), model.to_rapier()))
     }
     fn motor_max_force(&self, axis: JointAxis, max_force: f32) -> Self {
         Self(self.0.motor_max_force(axis.to_rapier(), max_force))
@@ -385,10 +379,7 @@ impl RevoluteJointBuilder {
         Self(self.0.motor_velocity(target_vel, factor))
     }
     fn motor_position(&self, target_pos: f32, stiffness: f32, damping: f32) -> Self {
-        Self(
-            self.0
-                .motor_position(target_pos, stiffness, damping),
-        )
+        Self(self.0.motor_position(target_pos, stiffness, damping))
     }
     fn motor_model(&self, model: MotorModel) -> Self {
         Self(self.0.motor_model(model.to_rapier()))
@@ -434,10 +425,7 @@ impl PrismaticJointBuilder {
         Self(self.0.motor_velocity(target_vel, factor))
     }
     fn motor_position(&self, target_pos: f32, stiffness: f32, damping: f32) -> Self {
-        Self(
-            self.0
-                .motor_position(target_pos, stiffness, damping),
-        )
+        Self(self.0.motor_position(target_pos, stiffness, damping))
     }
     fn motor_model(&self, model: MotorModel) -> Self {
         Self(self.0.motor_model(model.to_rapier()))

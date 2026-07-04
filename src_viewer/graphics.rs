@@ -37,7 +37,7 @@ use {
 };
 
 /// PBR shading parameters for a body-attached visual mesh, applied on top of its
-/// base color/texture (see [`RenderContext::insert_visual_mesh`]). Carries MJCF
+/// base color/texture (see `RenderContext::insert_visual_mesh`). Carries MJCF
 /// `<material>` properties (metallic / roughness / specular / emission) through
 /// to the renderer; `None` leaves kiss3d's default shading untouched.
 #[cfg(feature = "dim3")]
@@ -86,13 +86,13 @@ pub struct InstancedNodeEntry {
     pub color: [f32; 4],
     pub scale: [f32; DIM],
     /// Local pose offset composed with the collider pose at render time. Defaults
-    /// to identity; populated when a [`super::VisualShape`] override is registered
-    /// in [`super::BatchEnvironment::visuals`] so that proxy-collider shapes (e.g.
+    /// to identity; populated when a `VisualShape` override is registered
+    /// in `BatchEnvironment::visuals` so that proxy-collider shapes (e.g.
     /// OBBs) can be replaced at the right local frame.
     pub local_pose: Pose,
 }
 
-/// Convert polygon vertices to a Vec<u32> key for exact matching in batching.
+/// Convert polygon vertices to a `Vec<u32>` key for exact matching in batching.
 #[cfg(feature = "dim2")]
 fn polygon_vertex_key(points: &[Vec2]) -> Vec<u32> {
     let mut key = Vec::with_capacity(points.len() * 2);
@@ -103,7 +103,7 @@ fn polygon_vertex_key(points: &[Vec2]) -> Vec<u32> {
     key
 }
 
-/// Convert polyhedron vertices to a Vec<u32> key for exact matching in batching.
+/// Convert polyhedron vertices to a `Vec<u32>` key for exact matching in batching.
 #[cfg(feature = "dim3")]
 fn polyhedron_vertex_key(points: &[Vec3]) -> Vec<u32> {
     let mut key = Vec::with_capacity(points.len() * 3);
@@ -153,7 +153,7 @@ pub struct InstancedNode {
 impl InstancedNode {
     /// Wraps a freshly created kiss3d node as an empty instanced node. When
     /// `transparent`, the node is flipped into the OIT pass (see
-    /// [`TRANSPARENT_NODE_ALPHA`]) so its translucent instances blend correctly;
+    /// `TRANSPARENT_NODE_ALPHA`) so its translucent instances blend correctly;
     /// opaque and translucent instances of the same shape must live in separate
     /// nodes because the transparent/opaque phase split is per-node, not
     /// per-instance.
@@ -663,9 +663,9 @@ impl RenderContext {
     /// Update rendering instances from a slice of collider world poses, indexed by
     /// the collider slot stored in each [`InstancedNodeEntry::pose_index`].
     ///
-    /// This is the backend-agnostic core of [`update_instances`]; it is used by the
+    /// This is the backend-agnostic core of `update_instances`; it is used by the
     /// viewer-owned `NexusState` rendering path, which reads the poses straight from
-    /// the GPU buffer instead of going through a [`PhysicsBackend`].
+    /// the GPU buffer instead of going through a `PhysicsBackend`.
     pub fn update_instances_from_poses(&mut self, state: &NexusState, poses: &[Pose]) {
         for instanced_node in &mut self.instances {
             instanced_node.data.clear();
@@ -895,7 +895,7 @@ impl RenderContext {
                     scale: Vector::ONE,
                     pose_index: visual.pose_index,
                 };
-                visual.desc = Some(Tensor::vector(backend, &[desc], BufferUsages::STORAGE)?);
+                visual.desc = Some(Tensor::vector(backend, [desc], BufferUsages::STORAGE)?);
                 visual.count_buf = Some(Tensor::scalar(
                     backend,
                     1,

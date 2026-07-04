@@ -125,7 +125,7 @@ pub struct SolverArgs<'a> {
     pub body_group: &'a Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform — see
     /// [`crate::shaders::utils::BatchIndices`]. Consumed by the (refactored)
-    /// multibody kernels via [`MultibodySolverArgs::batch_indices`]; the RBD
+    /// multibody kernels via `MultibodySolverArgs::batch_indices`; the RBD
     /// constraint-solver kernels will migrate to it next.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
 }

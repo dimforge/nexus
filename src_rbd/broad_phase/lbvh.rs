@@ -242,7 +242,7 @@ impl Lbvh {
         )?;
         drop(pass);
 
-        let mut pass = encoder.begin_pass("[RBD] lbvh-refit-internal", timestamps.as_deref_mut());
+        let mut pass = encoder.begin_pass("[RBD] lbvh-refit-internal", timestamps);
         self.shaders.refit_internal.call(
             &mut pass,
             [1u32, num_batches, 1],

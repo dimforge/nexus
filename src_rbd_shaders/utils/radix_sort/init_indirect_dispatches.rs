@@ -16,6 +16,9 @@ pub fn gpu_init_sort_dispatch(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] reduce_dispatch: &mut [u32; 3],
 ) {
     let mut num_keys = 0;
+    // Indexed loop on purpose: iterator-based loops over storage buffers are
+    // fragile under rust-gpu's SPIR-V codegen.
+    #[allow(clippy::needless_range_loop)]
     for i in 0..num_keys_arr.len() {
         num_keys = num_keys.max(num_keys_arr[i]);
     }

@@ -391,10 +391,7 @@ impl RbdState {
                 let max_id = body_ids.values().copied().max().unwrap_or_default();
                 let mut group: Vec<u32> = (0..=max_id).collect();
                 let mut is_mb: Vec<bool> = vec![false; (max_id + 1) as usize];
-                let mut next_group = max_id + 1;
-                for mb in mb_set.multibodies() {
-                    let g = next_group;
-                    next_group += 1;
+                for (g, mb) in (max_id + 1..).zip(mb_set.multibodies()) {
                     for link in mb.links() {
                         if let Some(&id) = body_ids.get(&link.rigid_body_handle()) {
                             group[id as usize] = g;
@@ -664,14 +661,17 @@ impl RbdState {
 
         let contacts_per_batch_cpu = capacities.collisions_capacity;
         let collision_pairs_per_batch_cpu = capacities.collisions_capacity;
-        let mut bi = BatchIndices::default();
-        bi.colliders_batch_capacity = num_colliders_per_batch as u32;
-        bi.colliders_len = num_colliders as u32;
-        bi.bodies_len = num_bodies as u32;
-        bi.collision_pairs_batch_capacity = collision_pairs_per_batch_cpu;
-        bi.contacts_batch_capacity = contacts_per_batch_cpu;
-        bi.impulse_joints_batch_capacity = joints.joints_per_batch();
-        bi.impulse_joints_len = joints.num_active_joints();
+        #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
+        let mut bi = BatchIndices {
+            colliders_batch_capacity: num_colliders_per_batch as u32,
+            colliders_len: num_colliders as u32,
+            bodies_len: num_bodies as u32,
+            collision_pairs_batch_capacity: collision_pairs_per_batch_cpu,
+            contacts_batch_capacity: contacts_per_batch_cpu,
+            impulse_joints_batch_capacity: joints.joints_per_batch(),
+            impulse_joints_len: joints.num_active_joints(),
+            ..Default::default()
+        };
         #[cfg(feature = "dim3")]
         multibodies.fill_batch_indices(&mut bi);
         let batch_indices = Tensor::scalar(

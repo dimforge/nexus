@@ -816,7 +816,7 @@ fn propagate_velocities(
         let stat = stat_slice[k_usize];
 
         let (jv_local_lin, jv_local_ang) =
-            jacobian_mul_coordinates(stat.data.locked_axes, stat.assembly_id, &vel_slice);
+            jacobian_mul_coordinates(stat.data.locked_axes, stat.assembly_id, vel_slice);
 
         let (joint_velocity, rb_vels) = if k == 0 {
             let jv = Velocity::new(jv_local_lin, jv_local_ang);

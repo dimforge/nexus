@@ -8,9 +8,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: --deny warnings
-  RUSTDOCFLAGS: --deny warnings
-  SLANG_TAG: 2025.18.2
+  # NOTE: don't set a global `RUSTFLAGS: --deny warnings`: the shader crates
+  # compile under cargo-gpu's own (nightly) toolchain, which inherits RUSTFLAGS
+  # and would fail on warnings we don't control. Strict linting of our own code
+  # is enforced through `cargo clippy ... -- --deny warnings` instead.
 
 jobs:
   # Check formatting.
@@ -29,49 +30,12 @@ jobs:
 
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
-  setup-slang:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    outputs:
-      slang-dir: ${{ steps.setup.outputs.slang-dir }} # Pass SLANG_DIR to dependent jobs
-      slang-cache-key: ${{ steps.setup.outputs.slang-cache-key }} # Pass SLANG_DIR to dependent jobs
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Cache Slang
-        id: cache-slang
-        uses: actions/cache/restore@v4 # Restore first
-        with:
-          path: |
-            ~/.cache/slang  # Matches script's default OUTPUT_DIR
-          key: slang-v$SLANG_TAG-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Setup Slang
-        id: setup
-        run: |
-          echo "version=$SLANG_TAG" >> $GITHUB_OUTPUT  # Output for cache key
-          SLANG_DIR=$(./.github/workflows/download_slang.sh --version $SLANG_TAG | grep '^SLANG_DIR=' | cut -d'=' -f2-)
-          echo "slang-dir=$SLANG_DIR" >> $GITHUB_OUTPUT  # Output for dependents
-          echo "slang-cache-key=slang-v$SLANG_TAG-${{ runner.os }}-${{ runner.arch }}" >> $GITHUB_OUTPUT
-          echo "SLANG_DIR=$SLANG_DIR" >> $GITHUB_ENV  # For this job if needed
-
-      - name: Save Slang Cache
-        if: steps.cache-slang.outputs.cache-hit != 'true' # Only save on miss
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.cache/slang
-          key: ${{ steps.setup.outputs.slang-cache-key }}
   # Run clippy lints.
   clippy:
-    needs: setup-slang # Depends on setup-slang
     name: Clippy
     runs-on: ubuntu-latest
-    env:
-      SLANG_DIR: ${{ needs.setup-slang.outputs.slang-dir }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -84,11 +48,8 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends build-essential curl wget file libssl-dev
 
-      - name: Retrieve Cache for Slang
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/slang
-          key: ${{ needs.setup-slang.outputs.slang-cache-key }}
+      - name: Install cargo-gpu (rust-gpu shader compiler)
+        run: cargo install cargo-gpu --version 0.10.0-alpha.1
 
       - name: Populate target directory from cache
         uses: Leafwing-Studios/cargo-cache@v2
@@ -96,16 +57,13 @@ jobs:
           sweep-cache: true
 
       - name: Run clippy lints
-        run: SLANG_DIR=$SLANG_DIR cargo clippy --locked --workspace --all-targets --features runtime -- --deny warnings
+        run: cargo clippy --workspace --all-targets -- --deny warnings
 
   # Check documentation.
   doc:
-    needs: setup-slang # Depends on setup-slang
     name: Docs
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      SLANG_DIR: ${{ needs.setup-slang.outputs.slang-dir }}
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -116,27 +74,27 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends build-essential curl wget file libssl-dev
 
-      - name: Retrieve Cache for Slang
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/slang
-          key: ${{ needs.setup-slang.outputs.slang-cache-key }}
+      - name: Install cargo-gpu (rust-gpu shader compiler)
+        run: cargo install cargo-gpu --version 0.10.0-alpha.1
 
       - name: Populate target directory from cache
         uses: Leafwing-Studios/cargo-cache@v2
         with:
           sweep-cache: true
 
+      # `nexus_python3d` is excluded: its lib is named `nexus3d` (the Python
+      # module name), which collides with the `nexus3d` crate's doc output. The
+      # bindings are covered by the dedicated python job.
       - name: Check documentation
-        run: SLANG_DIR=$SLANG_DIR cargo doc --locked --workspace --document-private-items --no-deps --features runtime
-    # Testing.
+        run: cargo doc --workspace --exclude nexus_python3d --document-private-items --no-deps
+        env:
+          RUSTDOCFLAGS: --deny warnings
+
+  # Testing.
   test:
-    needs: setup-slang # Depends on setup-slang
     name: Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      SLANG_DIR: ${{ needs.setup-slang.outputs.slang-dir }}
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -151,31 +109,25 @@ jobs:
             build-essential curl wget file libssl-dev \
             libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 
-      - name: Retrieve Cache for Slang
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/slang
-          key: ${{ needs.setup-slang.outputs.slang-cache-key }}
+      - name: Install cargo-gpu (rust-gpu shader compiler)
+        run: cargo install cargo-gpu --version 0.10.0-alpha.1
 
       - name: Populate target directory from cache
         uses: Leafwing-Studios/cargo-cache@v2
         with:
           sweep-cache: true
+
+      # `nexus_python3d` is excluded: pyo3's `extension-module` feature leaves
+      # the Python symbols unresolved, so its test binaries cannot link. The
+      # bindings are covered by the dedicated python job.
       - name: Run Cargo Tests
-        run: |
-          SLANG_DIR=$SLANG_DIR LIBGL_ALWAYS_SOFTWARE=1 cargo test --verbose --features runtime
+        run: LIBGL_ALWAYS_SOFTWARE=1 cargo test --workspace --exclude nexus_python3d --verbose
 
   # Build the Python bindings (`nexus3d`) into a wheel and import-check it.
   python:
     name: Python bindings
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # The shader dependencies compile under cargo-gpu's own toolchain, so don't
-    # force `--deny warnings` on the whole tree here (strict linting of the
-    # bindings crate itself is done with `clippy --no-deps` below).
-    env:
-      RUSTFLAGS: ""
-      RUSTDOCFLAGS: ""
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

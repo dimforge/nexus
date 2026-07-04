@@ -11,7 +11,7 @@ use super::types::{MAX_JOINT_DOFS, MultibodyLinkStatic};
 #[inline]
 pub fn count_free_dofs(locked: u32) -> u32 {
     crate::dynamics::joint::SPATIAL_DIM as u32
-        - (locked & ((LIN_AXES_MASK | ANG_AXES_MASK) as u32)).count_ones()
+        - (locked & (LIN_AXES_MASK | ANG_AXES_MASK)).count_ones()
 }
 
 /// Number of free linear DOFs (bits 0..DIM).

@@ -170,27 +170,22 @@ impl Triangle {
                 let res = b + bc * w;
                 return ProjectionWithLocation::edge(res, bcoords, 1, is_proj_inside(pt, res));
             }
-            FACE_CW | FACE_CCW => {
-                // Voronoi region of the face.
-                #[cfg(feature = "dim3")]
-                {
-                    // NOTE: in some cases, numerical instability
-                    // may result in the denominator being zero
-                    // when the triangle is nearly degenerate.
-                    if proj.params.x + proj.params.y + proj.params.z != 0.0 {
-                        let denom = 1.0 / (proj.params.x + proj.params.y + proj.params.z);
-                        let v = proj.params.y * denom;
-                        let w = proj.params.z * denom;
-                        let bcoords = Vec3::new(1.0 - v - w, v, w);
-                        let res = a + ab * v + ac * w;
-                        return ProjectionWithLocation::face(
-                            res,
-                            bcoords,
-                            proj.feature,
-                            is_proj_inside(pt, res),
-                        );
-                    }
-                }
+            // Voronoi region of the face. The guard fails when numerical
+            // instability makes the denominator zero (nearly-degenerate
+            // triangle); we then fall through to the solid case below.
+            #[cfg(feature = "dim3")]
+            FACE_CW | FACE_CCW if proj.params.x + proj.params.y + proj.params.z != 0.0 => {
+                let denom = 1.0 / (proj.params.x + proj.params.y + proj.params.z);
+                let v = proj.params.y * denom;
+                let w = proj.params.z * denom;
+                let bcoords = Vec3::new(1.0 - v - w, v, w);
+                let res = a + ab * v + ac * w;
+                return ProjectionWithLocation::face(
+                    res,
+                    bcoords,
+                    proj.feature,
+                    is_proj_inside(pt, res),
+                );
             }
             _ => { /* FACE_INTERIOR, 2D only (implemented below) */ }
         }
@@ -254,6 +249,8 @@ const AB: u32 = 0;
 const AC: u32 = 1;
 const BC: u32 = 2;
 const FACE_CW: u32 = 3;
+// Only produced (and matched) by the 3D projection path.
+#[cfg(feature = "dim3")]
 const FACE_CCW: u32 = 4;
 
 struct ProjectionInfo {

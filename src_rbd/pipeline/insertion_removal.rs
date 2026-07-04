@@ -39,9 +39,9 @@ impl RbdState {
     /// inserting more than that into a single batch panics (the batched buffers
     /// are not grown/restrided by the incremental path).
     pub fn empty(backend: &GpuBackend, capacities: RbdCapacities) -> Self {
-        let num_batches = capacities.batches as u32;
-        let capacity_per_batch = capacities.body_capacity as u32;
-        let collisions_capacity = capacities.collisions_capacity as u32;
+        let num_batches = capacities.batches;
+        let capacity_per_batch = capacities.body_capacity;
+        let collisions_capacity = capacities.collisions_capacity;
         let num_colliders_per_batch = capacity_per_batch;
         let num_bodies_total = (capacity_per_batch * num_batches) as usize;
 
@@ -110,8 +110,8 @@ impl RbdState {
 
         // Shared shape vertex/index buffers: dummy data to avoid empty bindings.
         let vertex_buffers =
-            Tensor::vector(backend, &[Point::ZERO.into()], BufferUsages::STORAGE).unwrap();
-        let index_buffers = Tensor::vector(backend, &[0u32, 0, 0], BufferUsages::STORAGE).unwrap();
+            Tensor::vector(backend, [Point::ZERO.into()], BufferUsages::STORAGE).unwrap();
+        let index_buffers = Tensor::vector(backend, [0u32, 0, 0], BufferUsages::STORAGE).unwrap();
         let body_group = Tensor::vector(backend, &all_body_group, BufferUsages::STORAGE).unwrap();
 
         // Per-body buffers carry COPY_DST | COPY_SRC so `append_bodies` /
@@ -199,15 +199,18 @@ impl RbdState {
 
         let contacts_per_batch_cpu = collisions_capacity;
         let collision_pairs_per_batch_cpu = collisions_capacity;
-        let mut bi = BatchIndices::default();
-        bi.colliders_batch_capacity = num_colliders_per_batch;
-        // No body is active initially; bodies are added later via `append_bodies`.
-        bi.colliders_len = 0;
-        bi.bodies_len = 0;
-        bi.collision_pairs_batch_capacity = collision_pairs_per_batch_cpu;
-        bi.contacts_batch_capacity = contacts_per_batch_cpu;
-        bi.impulse_joints_batch_capacity = joints.joints_per_batch();
-        bi.impulse_joints_len = joints.num_active_joints();
+        #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
+        let mut bi = BatchIndices {
+            colliders_batch_capacity: num_colliders_per_batch,
+            // No body is active initially; bodies are added later via `append_bodies`.
+            colliders_len: 0,
+            bodies_len: 0,
+            collision_pairs_batch_capacity: collision_pairs_per_batch_cpu,
+            contacts_batch_capacity: contacts_per_batch_cpu,
+            impulse_joints_batch_capacity: joints.joints_per_batch(),
+            impulse_joints_len: joints.num_active_joints(),
+            ..Default::default()
+        };
         #[cfg(feature = "dim3")]
         multibodies.fill_batch_indices(&mut bi);
         let batch_indices = Tensor::scalar(

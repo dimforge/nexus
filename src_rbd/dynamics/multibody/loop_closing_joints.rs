@@ -127,17 +127,17 @@ impl GpuMultibodySet {
                 // is applied to `LinkOrBody::Body` sides only). Fixed-side fold
                 // is still a TODO mirroring rapier's `is_fixed` branch.
                 let mut joint_data = convert_generic_joint(joint.data);
-                if side_a_kind == SIDE_KIND_BODY {
-                    if let Some(rb) = rb1 {
-                        let com = rb.mass_properties().local_mprops.local_com;
-                        joint_data.local_frame_a.translation -= com;
-                    }
+                if side_a_kind == SIDE_KIND_BODY
+                    && let Some(rb) = rb1
+                {
+                    let com = rb.mass_properties().local_mprops.local_com;
+                    joint_data.local_frame_a.translation -= com;
                 }
-                if side_b_kind == SIDE_KIND_BODY {
-                    if let Some(rb) = rb2 {
-                        let com = rb.mass_properties().local_mprops.local_com;
-                        joint_data.local_frame_b.translation -= com;
-                    }
+                if side_b_kind == SIDE_KIND_BODY
+                    && let Some(rb) = rb2
+                {
+                    let com = rb.mass_properties().local_mprops.local_com;
+                    joint_data.local_frame_b.translation -= com;
                 }
 
                 // Per-axis stride = 2 * (ndofs_a + ndofs_b); reserve
@@ -154,7 +154,7 @@ impl GpuMultibodySet {
                     side_b_kind,
                     side_b_id,
                     side_b_link,
-                    constraint_id: constraint_id,
+                    constraint_id,
                     jacobian_offset: jac_offset,
                     jacobian_capacity: cap_floats,
                     #[cfg(feature = "dim3")]
@@ -274,13 +274,13 @@ impl GpuMultibodySet {
         self.mb_imp_joint_builders = Tensor::vector(backend, &all_builders, storage).unwrap();
         self.mb_imp_joint_constraints = Tensor::vector(
             backend,
-            &vec![MbImpulseJointConstraint::default(); (cons_cap * self.num_batches) as usize],
+            vec![MbImpulseJointConstraint::default(); (cons_cap * self.num_batches) as usize],
             storage,
         )
         .unwrap();
         self.mb_imp_joint_jacobians = Tensor::vector(
             backend,
-            &vec![0.0f32; (jac_cap * self.num_batches) as usize],
+            vec![0.0f32; (jac_cap * self.num_batches) as usize],
             storage,
         )
         .unwrap();

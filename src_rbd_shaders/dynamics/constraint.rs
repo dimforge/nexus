@@ -235,7 +235,7 @@ pub struct TwoBodyConstraintTangentPart {
 
     #[cfg(feature = "dim3")]
     /// Inverse effective mass components (3D: 3 values for 2x2 mass matrix).
-    /// r[0] = r_00, r[1] = r_11, r[2] = r_01 (symmetric, so r_10 = r_01)
+    /// `r[0]` = r_00, `r[1]` = r_11, `r[2]` = r_01 (symmetric, so r_10 = r_01)
     pub r: [f32; 3],
     #[cfg(feature = "dim3")]
     pub _padding0: [u32; 3],

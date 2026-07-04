@@ -87,7 +87,6 @@ impl RbdPipeline {
                 self.multibody_solver
                     .init_step(&mut pass, &mut state.multibodies, &mut args)?;
                 drop(pass);
-                drop(args);
                 backend.submit(encoder)?;
             }
         }

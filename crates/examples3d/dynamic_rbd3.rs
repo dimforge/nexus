@@ -82,7 +82,7 @@ pub async fn run(
         if viewer.simulating() {
             // Drop in a whole batch of bodies periodically — all inserted with a
             // single batched append, without rebuilding the scene.
-            if frame % SPAWN_PERIOD == 0 && added < MAX_BODIES {
+            if frame.is_multiple_of(SPAWN_PERIOD) && added < MAX_BODIES {
                 let n = BODIES_PER_SPAWN.min(MAX_BODIES - added);
                 let mut batch = Vec::with_capacity(n);
                 let mut shapes = Vec::with_capacity(n);
@@ -99,7 +99,7 @@ pub async fn run(
                     let body = RigidBodyBuilder::dynamic().translation(pos).build();
                     // Alternate between balls and cubes (both primitive shapes,
                     // which is what the in-place append path supports).
-                    let collider = if idx % 3 == 0 {
+                    let collider = if idx.is_multiple_of(3) {
                         ColliderBuilder::ball(0.5).build()
                     } else {
                         ColliderBuilder::cuboid(0.4, 0.4, 0.4).build()

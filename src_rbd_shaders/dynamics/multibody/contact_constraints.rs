@@ -632,8 +632,8 @@ pub fn gpu_mb_warmstart_contact_constraints(
             if !is_self {
                 let free = solver_vels.read(colliders_start + cons.free_body_id as usize);
                 let mut new_free = free;
-                new_free.linear = new_free.linear + cons.lin_jac * (cons.free_body_im * imp);
-                new_free.angular = new_free.angular + cons.ii_ang_jac * imp;
+                new_free.linear += cons.lin_jac * (cons.free_body_im * imp);
+                new_free.angular += cons.ii_ang_jac * imp;
                 solver_vels.write(colliders_start + cons.free_body_id as usize, new_free);
             }
         }
@@ -824,8 +824,8 @@ pub fn gpu_mb_solve_contact_constraints(
             }
             if !is_self {
                 let mut new_free = free;
-                new_free.linear = new_free.linear + cons.lin_jac * (cons.free_body_im * delta);
-                new_free.angular = new_free.angular + cons.ii_ang_jac * delta;
+                new_free.linear += cons.lin_jac * (cons.free_body_im * delta);
+                new_free.angular += cons.ii_ang_jac * delta;
                 solver_vels.write(colliders_start + cons.free_body_id as usize, new_free);
             }
         }

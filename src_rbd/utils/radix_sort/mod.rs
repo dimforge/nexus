@@ -589,8 +589,8 @@ mod tests {
     }
 
     async fn test_sorting_generic(gpu: &GpuBackend, num_iterations: u32) {
-        let sort = RadixSort::from_backend(&gpu).unwrap();
-        let mut workspace = RadixSortWorkspace::new(&gpu);
+        let sort = RadixSort::from_backend(gpu).unwrap();
+        let mut workspace = RadixSortWorkspace::new(gpu);
 
         for i in 0u32..num_iterations {
             let keys_inp = [
@@ -616,21 +616,21 @@ mod tests {
             let input_usages = BufferUsages::STORAGE;
             let output_usages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
-            let mut keys = Tensor::vector(&gpu, keys_inp, input_usages).unwrap();
-            let mut values = Tensor::vector(&gpu, &values_inp, input_usages).unwrap();
-            let mut out_keys = Tensor::vector(&gpu, keys_inp, output_usages).unwrap();
-            let mut out_values = Tensor::vector(&gpu, &values_inp, output_usages).unwrap();
+            let keys = Tensor::vector(gpu, keys_inp, input_usages).unwrap();
+            let values = Tensor::vector(gpu, &values_inp, input_usages).unwrap();
+            let mut out_keys = Tensor::vector(gpu, keys_inp, output_usages).unwrap();
+            let mut out_values = Tensor::vector(gpu, &values_inp, output_usages).unwrap();
             let num_points =
-                Tensor::scalar(&gpu, keys_inp.len() as u32, BufferUsages::STORAGE).unwrap();
+                Tensor::scalar(gpu, keys_inp.len() as u32, BufferUsages::STORAGE).unwrap();
 
             let mut encoder = gpu.begin_encoding();
             let mut pass = encoder.begin_pass("test", None);
             sort.dispatch(
-                &gpu,
+                gpu,
                 &mut pass,
                 &mut workspace,
-                &mut keys,
-                &mut values,
+                &keys,
+                &values,
                 &num_points,
                 32,
                 1,
@@ -639,7 +639,7 @@ mod tests {
             )
             .unwrap();
             drop(pass);
-            gpu.submit(encoder);
+            gpu.submit(encoder).unwrap();
 
             let result_keys = gpu.slow_read_vec(out_keys.buffer()).await.unwrap();
             let result_values = gpu.slow_read_vec(out_values.buffer()).await.unwrap();
@@ -655,8 +655,8 @@ mod tests {
 
     async fn test_sorting_big_generic(gpu: &GpuBackend, num_ranges: u32) {
         use rand::Rng;
-        let sort = RadixSort::from_backend(&gpu).unwrap();
-        let mut workspace = RadixSortWorkspace::new(&gpu);
+        let sort = RadixSort::from_backend(gpu).unwrap();
+        let mut workspace = RadixSortWorkspace::new(gpu);
 
         // Simulate some data as one might find for a bunch of gaussians.
         let mut rng = rand::rng();
@@ -676,21 +676,20 @@ mod tests {
         let input_usages = BufferUsages::STORAGE;
         let output_usages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
-        let mut keys = Tensor::vector(&gpu, &keys_inp, input_usages).unwrap();
-        let mut values = Tensor::vector(&gpu, &values_inp, input_usages).unwrap();
-        let mut out_keys = Tensor::vector(&gpu, &keys_inp, output_usages).unwrap();
-        let mut out_values = Tensor::vector(&gpu, &values_inp, output_usages).unwrap();
-        let num_points =
-            Tensor::scalar(&gpu, keys_inp.len() as u32, BufferUsages::STORAGE).unwrap();
+        let keys = Tensor::vector(gpu, &keys_inp, input_usages).unwrap();
+        let values = Tensor::vector(gpu, &values_inp, input_usages).unwrap();
+        let mut out_keys = Tensor::vector(gpu, &keys_inp, output_usages).unwrap();
+        let mut out_values = Tensor::vector(gpu, &values_inp, output_usages).unwrap();
+        let num_points = Tensor::scalar(gpu, keys_inp.len() as u32, BufferUsages::STORAGE).unwrap();
 
         let mut encoder = gpu.begin_encoding();
         let mut pass = encoder.begin_pass("test", None);
         sort.dispatch(
-            &gpu,
+            gpu,
             &mut pass,
             &mut workspace,
-            &mut keys,
-            &mut values,
+            &keys,
+            &values,
             &num_points,
             32,
             1,
@@ -699,7 +698,7 @@ mod tests {
         )
         .unwrap();
         drop(pass);
-        gpu.submit(encoder);
+        gpu.submit(encoder).unwrap();
 
         let result_keys = gpu.slow_read_vec(out_keys.buffer()).await.unwrap();
         let result_values = gpu.slow_read_vec(out_values.buffer()).await.unwrap();
@@ -713,8 +712,8 @@ mod tests {
     }
 
     async fn test_sorting_batched_generic(gpu: &GpuBackend, num_batches: u32, per_batch: u32) {
-        let sort = RadixSort::from_backend(&gpu).unwrap();
-        let mut workspace = RadixSortWorkspace::new(&gpu);
+        let sort = RadixSort::from_backend(gpu).unwrap();
+        let mut workspace = RadixSortWorkspace::new(gpu);
 
         // Create per-batch keys: each batch has keys in a different range.
         let mut keys_inp = Vec::new();
@@ -730,21 +729,21 @@ mod tests {
         let input_usages = BufferUsages::STORAGE;
         let output_usages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
-        let mut keys = Tensor::vector(&gpu, &keys_inp, input_usages).unwrap();
-        let mut values = Tensor::vector(&gpu, &values_inp, input_usages).unwrap();
-        let mut out_keys = Tensor::vector(&gpu, &keys_inp, output_usages).unwrap();
-        let mut out_values = Tensor::vector(&gpu, &values_inp, output_usages).unwrap();
+        let keys = Tensor::vector(gpu, &keys_inp, input_usages).unwrap();
+        let values = Tensor::vector(gpu, &values_inp, input_usages).unwrap();
+        let mut out_keys = Tensor::vector(gpu, &keys_inp, output_usages).unwrap();
+        let mut out_values = Tensor::vector(gpu, &values_inp, output_usages).unwrap();
         let n_sort_data = vec![per_batch; num_batches as usize];
-        let n_sort = Tensor::vector(&gpu, &n_sort_data, BufferUsages::STORAGE).unwrap();
+        let n_sort = Tensor::vector(gpu, &n_sort_data, BufferUsages::STORAGE).unwrap();
 
         let mut encoder = gpu.begin_encoding();
         let mut pass = encoder.begin_pass("test", None);
         sort.dispatch(
-            &gpu,
+            gpu,
             &mut pass,
             &mut workspace,
-            &mut keys,
-            &mut values,
+            &keys,
+            &values,
             &n_sort,
             32,
             num_batches,
@@ -753,7 +752,7 @@ mod tests {
         )
         .unwrap();
         drop(pass);
-        gpu.submit(encoder);
+        gpu.submit(encoder).unwrap();
 
         let result_keys: Vec<u32> = gpu.slow_read_vec(out_keys.buffer()).await.unwrap();
         let result_values: Vec<u32> = gpu.slow_read_vec(out_values.buffer()).await.unwrap();
@@ -801,8 +800,8 @@ mod tests {
         per_batch: u32,
     ) {
         use rand::Rng;
-        let sort = RadixSort::from_backend(&gpu).unwrap();
-        let mut workspace = RadixSortWorkspace::new(&gpu);
+        let sort = RadixSort::from_backend(gpu).unwrap();
+        let mut workspace = RadixSortWorkspace::new(gpu);
 
         let total = num_batches * per_batch;
         let mut rng = rand::rng();
@@ -819,13 +818,13 @@ mod tests {
         let input_usages = BufferUsages::STORAGE;
         let output_usages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
-        let mut keys = Tensor::vector(&gpu, &keys_inp, input_usages).unwrap();
-        let mut values = Tensor::vector(&gpu, &values_inp, input_usages).unwrap();
-        let mut out_keys = Tensor::vector_uninit(&gpu, total, output_usages).unwrap();
-        let mut out_values = Tensor::vector_uninit(&gpu, total, output_usages).unwrap();
+        let keys = Tensor::vector(gpu, &keys_inp, input_usages).unwrap();
+        let values = Tensor::vector(gpu, &values_inp, input_usages).unwrap();
+        let mut out_keys = Tensor::vector_uninit(gpu, total, output_usages).unwrap();
+        let mut out_values = Tensor::vector_uninit(gpu, total, output_usages).unwrap();
         let n_sort = Tensor::vector(
-            &gpu,
-            &vec![per_batch; num_batches as usize],
+            gpu,
+            vec![per_batch; num_batches as usize],
             BufferUsages::STORAGE,
         )
         .unwrap();
@@ -833,11 +832,11 @@ mod tests {
         let mut encoder = gpu.begin_encoding();
         let mut pass = encoder.begin_pass("test", None);
         sort.dispatch(
-            &gpu,
+            gpu,
             &mut pass,
             &mut workspace,
-            &mut keys,
-            &mut values,
+            &keys,
+            &values,
             &n_sort,
             32,
             num_batches,
@@ -846,7 +845,7 @@ mod tests {
         )
         .unwrap();
         drop(pass);
-        gpu.submit(encoder);
+        gpu.submit(encoder).unwrap();
 
         let result_keys: Vec<u32> = gpu.slow_read_vec(out_keys.buffer()).await.unwrap();
 
@@ -881,8 +880,8 @@ mod tests {
         per_batch: u32,
     ) {
         use rand::Rng;
-        let sort = RadixSort::from_backend(&gpu).unwrap();
-        let mut workspace = RadixSortWorkspace::new(&gpu);
+        let sort = RadixSort::from_backend(gpu).unwrap();
+        let mut workspace = RadixSortWorkspace::new(gpu);
 
         let total = num_batches * per_batch;
         let mut rng = rand::rng();
@@ -899,21 +898,21 @@ mod tests {
         let input_usages = BufferUsages::STORAGE;
         let output_usages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
-        let mut keys = Tensor::vector(&gpu, &keys_inp, input_usages).unwrap();
-        let mut values = Tensor::vector(&gpu, &values_inp, input_usages).unwrap();
-        let mut out_keys = Tensor::vector_uninit(&gpu, total, output_usages).unwrap();
-        let mut out_values = Tensor::vector_uninit(&gpu, total, output_usages).unwrap();
+        let keys = Tensor::vector(gpu, &keys_inp, input_usages).unwrap();
+        let values = Tensor::vector(gpu, &values_inp, input_usages).unwrap();
+        let mut out_keys = Tensor::vector_uninit(gpu, total, output_usages).unwrap();
+        let mut out_values = Tensor::vector_uninit(gpu, total, output_usages).unwrap();
         let n_sort_data = vec![per_batch; num_batches as usize];
-        let n_sort = Tensor::vector(&gpu, &n_sort_data, BufferUsages::STORAGE).unwrap();
+        let n_sort = Tensor::vector(gpu, &n_sort_data, BufferUsages::STORAGE).unwrap();
 
         let mut encoder = gpu.begin_encoding();
         let mut pass = encoder.begin_pass("test", None);
         sort.dispatch(
-            &gpu,
+            gpu,
             &mut pass,
             &mut workspace,
-            &mut keys,
-            &mut values,
+            &keys,
+            &values,
             &n_sort,
             32,
             num_batches,
@@ -922,7 +921,7 @@ mod tests {
         )
         .unwrap();
         drop(pass);
-        gpu.submit(encoder);
+        gpu.submit(encoder).unwrap();
 
         let result_keys: Vec<u32> = gpu.slow_read_vec(out_keys.buffer()).await.unwrap();
 
