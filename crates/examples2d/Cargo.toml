@@ -1,0 +1,32 @@
+[package]
+name = "nexus_examples_2d"
+version = "0.4.0"
+authors = ["Sébastien Crozet <developer@crozet.re>"]
+edition = { workspace = true }
+
+[features]
+default = []
+cpu = ["nexus_viewer2d/cpu"]
+cpu-parallel = ["cpu", "nexus_viewer2d/cpu-parallel"]
+cuda = ["nexus_viewer2d/cuda"]
+metal = ["nexus_viewer2d/metal"]
+
+[dependencies]
+glamx = { workspace = true }
+nexus2d = { workspace = true, features = [ "rbd" ] }
+nexus_viewer2d = { workspace = true }
+nexus_rbd2d = { workspace = true, features = ["default"] }
+rapier2d = { workspace = true, features = ["default"] }
+khal = { workspace = true }
+Inflector = { workspace = true }
+kiss3d = { workspace = true }
+oorandom = { workspace = true }
+rand = "0.10"
+anyhow = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true }
+
+[[bin]]
+name = "all_examples2"
+path = "all_examples2.rs"
