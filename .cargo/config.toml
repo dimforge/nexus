@@ -1,0 +1,5 @@
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"
+
+#[target.aarch64-apple-darwin]
+#rustflags = ["-C", "link-arg=-Wl,-rpath,/opt/homebrew/Caskroom/miniforge/base/lib"]

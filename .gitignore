@@ -1,4 +1,3 @@
-/target
 *.lock
 .vscode
 .idea
@@ -7,6 +6,10 @@ dist
 dist2d
 dist3d
 assets/**/*.bin
-src/autogen2d
-src/autogen3d
 publish/
+*.spv
+manifest.json
+__pycache__
+target
+.claude
+*.ptx

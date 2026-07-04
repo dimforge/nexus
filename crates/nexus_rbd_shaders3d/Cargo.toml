@@ -1,0 +1,46 @@
+[package]
+name = "nexus_rbd_shaders3d"
+authors = { workspace = true }
+description = "3D GPU shaders for nexus physics engine (rust-gpu)."
+repository = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+links = "nexus_rbd_shaders3d"
+build = "build.rs"
+
+[lib]
+path = "../../src_rbd_shaders/lib.rs"
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2"))',
+    'cfg(target_arch, values("spirv", "nvptx64"))',
+    'cfg(target_arch_is_gpu)',
+] }
+
+[features]
+default = ["dim3"]
+dim3 = []
+unsafe_remove_boundchecks = ["vortx-shaders/unsafe_remove_boundchecks"]
+push_constants = []
+cpu = []
+cpu-parallel = ["cpu", "vortx-shaders/cpu-parallel"]
+cuda = []
+
+[dependencies]
+vortx-shaders = { workspace = true }
+khal-std = { workspace = true }
+unroll = { workspace = true }
+crunchy = { workspace = true }
+glamx = { workspace = true }
+parry3d = { workspace = true, features = ["dim3","f32"] }
+rapier3d = { workspace = true, features = ["dim3","f32","bytemuck"] }
+
+[build-dependencies]
+khal-std = { workspace = true }
+
+# Host-only dependencies (excluded on GPU targets: spirv, nvptx64).
+[target.'cfg(not(any(target_arch = "spirv", target_arch = "nvptx64")))'.dependencies]
+bytemuck = { workspace = true }
+khal = { workspace = true }

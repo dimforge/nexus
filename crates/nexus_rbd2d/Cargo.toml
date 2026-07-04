@@ -1,0 +1,54 @@
+[package]
+name = "nexus_rbd2d"
+authors = { workspace = true }
+description = "Cross-platform 2D GPU-accelerated rigid-body physics."
+repository = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[lib]
+name = "nexus_rbd2d"
+path = "../../src_rbd/lib.rs"
+required-features = ["dim2"]
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim3"))',
+] }
+
+[features]
+default = ["dim2", "f32", "webgpu"]
+dim2 = []
+f32 = []
+f64 = []
+webgpu = ["khal/webgpu"]
+metal = ["khal/metal"]
+cpu = ["nexus_rbd_shaders2d/cpu", "vortx/cpu"]
+cpu-parallel = ["cpu", "vortx/cpu-parallel", "nexus_rbd_shaders2d/cpu-parallel"]
+cuda = ["khal/cuda", "khal-builder/cuda", "nexus_rbd_shaders2d/cuda"]
+
+[dependencies]
+nexus_rbd_shaders2d = { workspace = true }
+glamx = { workspace = true }
+include_dir = { workspace = true }
+khal = { workspace = true }
+vortx = { workspace = true }
+bytemuck = { workspace = true }
+web-time = { workspace = true }
+futures = { workspace = true }
+bvh = { workspace = true }
+
+# Optional dependencies for rapier/parry interop
+rapier2d = { workspace = true, features = ["default"] }
+parry2d = { workspace = true, features = ["default"] }
+
+[dev-dependencies]
+futures-test = { workspace = true }
+serial_test = { workspace = true }
+approx = { workspace = true }
+rand = { workspace = true }
+
+[build-dependencies]
+khal-builder = {workspace = true}
+nexus_rbd_shaders2d = { workspace = true }

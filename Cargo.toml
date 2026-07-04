@@ -1,35 +1,72 @@
 [workspace]
 members = [
-    "crates/nexus2d",
-    "crates/nexus3d"
+    "crates/nexus_rbd2d",
+    "crates/nexus_rbd3d",
+    "crates/nexus_rbd_shaders2d",
+    "crates/nexus_rbd_shaders3d",
 ]
 resolver = "2"
 
+[workspace.package]
+version = "0.4.0"
+authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dimforge/nexus"
+
 [workspace.dependencies]
-nalgebra = { version = "0.34.1", features = ["convert-bytemuck", "encase"] }
-bytemuck = { version = "1", features = ["derive", "extern_crate_std"] }
+glamx = { version = "0.3", default-features = false, features = ["nostd-libm", "bytemuck"] }
+include_dir = "0.7"
+khal-std = "0.2"
+khal = { version = "0.2", features = ["derive"]}
+vortx = { version = "0.3", features = ["unsafe_remove_boundchecks"] }
+bytemuck = { version = "1", features = ["derive"] }
+web-time = "1"
+static_assertions = "1"
 futures = "0.3"
+bitflags = "2"
+bvh = "0.7"
 
-stensor = "0.3"
-slang-hal = "0.3"
+# Physics / geometry. default-features off for the no_std shader crates; host
+# crates opt back in with `features = ["default"]`.
+rapier2d = { version = "0.34", default-features = false }
+rapier3d = { version = "0.34", default-features = false }
+parry2d = { version = "0.29", default-features = false }
+parry3d = { version = "0.29", default-features = false }
 
-# TODO: make the wgpu dependency optional too (all backends should be optional but with
-#       wgpu enabled by default).
-wgpu = { version = "27", features = ["naga-ir"] }
-encase = "0.12"
+# Dev deps
+futures-test = "0.3"
+serial_test = "3"
+approx = "0.5"
+rand = "0.9"
+
+# Shaders deps
+khal-builder = "0.2"
+vortx-shaders = { version = "0.3", default-features = false }
+unroll = "0.1"
+crunchy = "0.2.4"
+
+# Shader crates
+nexus_rbd_shaders2d = { version = "0.4.0", path = "crates/nexus_rbd_shaders2d" }
+nexus_rbd_shaders3d = { version = "0.4.0", path = "crates/nexus_rbd_shaders3d" }
+
+# Internal crates. rbd is pulled with default-features off so dependents can
+# pick their own feature set, mirroring the rapier/parry pattern.
+nexus_rbd2d = { version = "0.4.0", path = "crates/nexus_rbd2d", default-features = false }
+nexus_rbd3d = { version = "0.4.0", path = "crates/nexus_rbd3d", default-features = false }
 
 [workspace.lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(feature, values("dim2", "dim3"))'
+    'cfg(feature, values("dim2", "dim3", "cpu", "cuda", "metal"))',
+    'cfg(target_arch_is_gpu)',
 ] }
 
-[profile.release]
-opt-level = 'z'
-
 [patch.crates-io]
-#stensor = { path = "../stensor" }
-#encase = { path = "../encase" }
-#shader-slang = { path = "../slang-rs" }
-#minislang = { path = "../slmath/crates/minislang" }
-#slang-hal-derive = { path = "../slmath/crates/slang-hal-derive" }
-#slang-hal = { path = "../slmath/crates/slang-hal" }
+## Local glam clone with SPIR-V vector-arithmetic intrinsics (Vec3 add/sub/mul/scale).
+#glam = { path = "../glam-rs" }
+#khal = { path = "../khal/crates/khal" }
+#khal-derive = { path = "../khal/crates/khal-derive" }
+#khal-std = { path = "../khal/crates/khal-std" }
+#khal-builder = { path = "../khal/crates/khal-builder" }
+#vortx = { path = "../vortx" }
+#vortx-shaders = { path = "../vortx/vortx-shaders" }
