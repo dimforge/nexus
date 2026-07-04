@@ -1,0 +1,115 @@
+name: Python release
+
+# Builds the `nexus3d` wheels for every supported platform / Python version and,
+# when triggered by a `python-v*` tag (e.g. `python-v0.1.0`), publishes them to
+# PyPI. A manual `workflow_dispatch` run builds the wheels but does NOT publish,
+# which is handy for testing the matrix.
+#
+# Requires a `PYPI_API_TOKEN` repository secret (a PyPI API token) for the
+# publish step.
+on:
+  push:
+    tags:
+      - "python-v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  # Passed to every `maturin build`. Default features (webgpu + extension-module)
+  # give portable wheels; wgpu picks the native GPU API at runtime.
+  MATURIN_ARGS: --release -m crates/nexus_python3d/Cargo.toml
+  CARGO_GPU_VERSION: 0.10.0-alpha.1
+
+jobs:
+  # One abi3 wheel per platform (see the `abi3-py39` pyo3 feature): a single
+  # `cp39-abi3` wheel runs on CPython 3.9 and every newer version, so there is
+  # no per-Python-version matrix.
+  wheels:
+    name: Wheel ${{ matrix.platform.os }}-${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: linux, runner: ubuntu-latest, target: x86_64 }
+          - { os: macos, runner: macos-14, target: aarch64 }
+          - { os: windows, runner: windows-latest, target: x64 }
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # On macOS/Windows the wheel is built directly on the runner, so cargo-gpu
+      # must be installed here. On Linux the build runs inside the manylinux
+      # container, which is set up by `before-script-linux` below instead.
+      - name: Install cargo-gpu (macOS/Windows)
+        if: matrix.platform.os != 'linux'
+        run: cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }}
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          manylinux: auto
+          # Runs inside the manylinux container before the build (Linux only).
+          before-script-linux: |
+            cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }}
+          args: ${{ env.MATURIN_ARGS }} --out dist
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform.os }}-${{ matrix.platform.target }}
+          path: dist/*.whl
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: -m crates/nexus_python3d/Cargo.toml --out dist
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist/*.tar.gz
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [wheels, sdist]
+    # Only publish for an actual `python-v*` tag — a manual run just builds.
+    if: startsWith(github.ref, 'refs/tags/python-v')
+    environment: pypi
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        with:
+          command: upload
+          args: --non-interactive --skip-existing dist/*
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}

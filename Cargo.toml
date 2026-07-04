@@ -10,6 +10,7 @@ members = [
     "crates/nexus_rbd3d",
     "crates/nexus_rbd_shaders2d",
     "crates/nexus_rbd_shaders3d",
+    "crates/nexus_python3d",
 ]
 resolver = "2"
 
@@ -84,6 +85,29 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 [patch.crates-io]
 ## Local glam clone with SPIR-V vector-arithmetic intrinsics (Vec3 add/sub/mul/scale).
 #glam = { path = "../glam-rs" }
+# 30% faster for loop in P2G
+#naga = { git = "https://github.com/sebcrozet/wgpu", branch = "for-loop-opt" }
+#khal = { git = "https://github.com/dimforge/khal", branch = "nonblock-readback" }
+#khal-derive = { git = "https://github.com/dimforge/khal", branch = "nonblock-readback" }
+#khal-std = { git = "https://github.com/dimforge/khal", branch = "nonblock-readback" }
+#khal-builder = { git = "https://github.com/dimforge/khal", branch = "nonblock-readback" }
+#kiss3d = { git = "https://github.com/dimforge/kiss3d", branch = "render-2d" }
+#rapier3d = { git = "https://github.com/dimforge/rapier", branch = "multibody-fixes" }
+#rapier3d-mjcf = { git = "https://github.com/dimforge/rapier", branch = "multibody-fixes" }
+#rapier3d-urdf = { git = "https://github.com/dimforge/rapier", branch = "multibody-fixes" }
+#rapier3d-meshloader = { git = "https://github.com/dimforge/rapier", branch = "multibody-fixes" }
+#vortx = { git = "https://github.com/dimforge/vortx", branch = "int-reduce" }
+#vortx-shaders = { git = "https://github.com/dimforge/vortx", branch = "int-reduce" }
+
+#glamx = { path = "../glamx" }
+#kiss3d = { path = "../kiss3d" }
+#parry2d = { path = "../parry/crates/parry2d" }
+#parry3d = { path = "../parry/crates/parry3d" }
+#rapier2d = { path = "../rapier/crates/rapier2d" }
+#rapier3d = { path = "../rapier/crates/rapier3d" }
+#rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
+#rapier3d-urdf = { path = "../rapier/crates/rapier3d-urdf" }
+#rapier3d-meshloader = { path = "../rapier/crates/rapier3d-meshloader" }
 #khal = { path = "../khal/crates/khal" }
 #khal-derive = { path = "../khal/crates/khal-derive" }
 #khal-std = { path = "../khal/crates/khal-std" }

@@ -164,3 +164,55 @@ jobs:
       - name: Run Cargo Tests
         run: |
           SLANG_DIR=$SLANG_DIR LIBGL_ALWAYS_SOFTWARE=1 cargo test --verbose --features runtime
+
+  # Build the Python bindings (`nexus3d`) into a wheel and import-check it.
+  python:
+    name: Python bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # The shader dependencies compile under cargo-gpu's own toolchain, so don't
+    # force `--deny warnings` on the whole tree here (strict linting of the
+    # bindings crate itself is done with `clippy --no-deps` below).
+    env:
+      RUSTFLAGS: ""
+      RUSTDOCFLAGS: ""
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential curl wget file libssl-dev \
+            libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+
+      - name: Install cargo-gpu (rust-gpu shader compiler)
+        run: cargo install cargo-gpu --version 0.10.0-alpha.1
+
+      - name: Install maturin
+        run: pip install maturin
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Clippy (bindings crate)
+        run: cargo clippy --package nexus_python3d --no-deps -- --deny warnings
+
+      - name: Build wheel and import-check
+        run: |
+          maturin build -m crates/nexus_python3d/Cargo.toml --out dist
+          pip install --no-index --find-links dist nexus3d
+          python -c "import nexus3d; print('nexus3d import OK')"
