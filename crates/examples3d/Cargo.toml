@@ -1,0 +1,43 @@
+[package]
+name = "nexus_examples_3d"
+version = "0.4.0"
+authors = ["Sébastien Crozet <developer@crozet.re>"]
+edition = { workspace = true }
+
+[features]
+default = []
+cpu = ["nexus_viewer3d/cpu"]
+cpu-parallel = ["cpu", "nexus_viewer3d/cpu-parallel"]
+cuda = ["nexus_viewer3d/cuda"]
+metal = ["nexus_viewer3d/metal"]
+
+[dependencies]
+glamx = { workspace = true }
+nexus3d = { workspace = true, features = [ "rbd" ] }
+nexus_viewer3d = { workspace = true }
+nexus_rbd3d = { workspace = true, features = ["default"] } # TODO: remove this
+rapier3d = { workspace = true, features = ["default"] }
+khal = { workspace = true }
+vortx = { workspace = true }
+Inflector = { workspace = true }
+kiss3d = { workspace = true }
+oorandom = { workspace = true }
+rand = "0.10"
+pollster = { workspace = true }
+env_logger = "0.11"
+anyhow = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true }
+
+[[bin]]
+name = "all_examples3"
+path = "all_examples3.rs"
+
+[[bin]]
+name = "bench_multibody_pendulum3"
+path = "bench_multibody_pendulum3.rs"
+
+[[bin]]
+name = "bench_joints3"
+path = "bench_joints3.rs"

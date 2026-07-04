@@ -4,6 +4,8 @@ members = [
     "crates/nexus3d",
     "crates/nexus_viewer2d",
     "crates/nexus_viewer3d",
+    "crates/examples2d",
+    "crates/examples3d",
     "crates/nexus_rbd2d",
     "crates/nexus_rbd3d",
     "crates/nexus_rbd_shaders2d",
