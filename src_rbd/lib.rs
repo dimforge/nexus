@@ -38,6 +38,8 @@ pub use glamx;
 pub mod queries;
 /// Shape definitions.
 pub mod shapes;
+/// Utilities (GPU radix sort, prefix sum, etc.).
+pub mod utils;
 
 #[cfg(feature = "dim3")]
 pub mod math {
