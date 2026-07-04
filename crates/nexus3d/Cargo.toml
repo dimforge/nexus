@@ -1,0 +1,37 @@
+[package]
+name = "nexus3d"
+authors = { workspace = true }
+description = "Cross-platform 3D GPU-accelerated multiphysics."
+repository = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[lib]
+path = "../../src/lib.rs"
+required-features = ["dim3"]
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2", "dim3"))',
+] }
+
+[features]
+default = ["dim3", "f32", "webgpu"]
+dim3 = []
+f32 = []
+f64 = []
+webgpu = ["nexus_rbd3d?/webgpu"]
+metal = ["nexus_rbd3d?/metal"]
+cpu = ["nexus_rbd3d?/cpu"]
+cpu-parallel = ["cpu", "nexus_rbd3d?/cpu-parallel"]
+cuda = ["nexus_rbd3d?/cuda"]
+
+rbd = ["dep:nexus_rbd3d"]
+
+[dependencies]
+bitflags = { workspace = true }
+web-time = { workspace = true }
+khal = { workspace = true }
+nexus_rbd3d = { workspace = true, optional = true, features = ["default"] }
+

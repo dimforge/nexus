@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "crates/nexus2d",
+    "crates/nexus3d",
     "crates/nexus_rbd2d",
     "crates/nexus_rbd3d",
     "crates/nexus_rbd_shaders2d",
@@ -52,6 +54,8 @@ nexus_rbd_shaders3d = { version = "0.4.0", path = "crates/nexus_rbd_shaders3d" }
 
 # Internal crates. rbd is pulled with default-features off so dependents can
 # pick their own feature set, mirroring the rapier/parry pattern.
+nexus2d = { version = "0.4.0", path = "crates/nexus2d" }
+nexus3d = { version = "0.4.0", path = "crates/nexus3d" }
 nexus_rbd2d = { version = "0.4.0", path = "crates/nexus_rbd2d", default-features = false }
 nexus_rbd3d = { version = "0.4.0", path = "crates/nexus_rbd3d", default-features = false }
 
