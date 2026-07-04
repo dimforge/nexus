@@ -3,6 +3,8 @@
 mod basis;
 mod indices;
 pub mod linalg; // TODO: this should be moved to vortx
+pub mod prefix_sum;
+pub mod radix_sort;
 mod slice;
 
 pub use basis::orthonormal_basis3;
