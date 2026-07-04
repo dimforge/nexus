@@ -1,0 +1,18 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "nexus3d"
+version = "0.1.0"
+description = "Python bindings for the 3D nexus GPU physics engine and viewer"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[tool.maturin]
+# `extension-module` is a default crate feature (see Cargo.toml), so it stays on
+# even when extra features are passed on the command line.
+module-name = "nexus3d"

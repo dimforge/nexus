@@ -1,0 +1,45 @@
+[package]
+name = "nexus_python3d"
+version = { workspace = true }
+authors = { workspace = true }
+description = "Python bindings for the 3D nexus GPU physics engine and viewer."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+# `cdylib` is what Python loads; `rlib` keeps `cargo check`/`cargo test` happy.
+name = "nexus3d"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2", "cpu", "cuda", "metal"))',
+] }
+
+[features]
+# `webgpu` is the default backend. `extension-module` is default too: it MUST
+# stay enabled or the imported module links a second libpython and crashes at
+# import. Keeping it in `default` means `maturin build --features metal` can't
+# accidentally drop it (maturin keeps default features unless told otherwise).
+default = ["webgpu", "extension-module"]
+webgpu = ["nexus_viewer3d/webgpu"]
+metal = ["nexus_viewer3d/metal"]
+cuda = ["nexus_viewer3d/cuda"]
+cpu = ["nexus_viewer3d/cpu"]
+cpu-parallel = ["nexus_viewer3d/cpu-parallel"]
+# Build as a real Python extension module (no libpython link).
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
+nexus3d = { workspace = true, features = ["rbd"] }
+nexus_viewer3d = { workspace = true }
+rapier3d = { workspace = true, features = ["default"] }
+rapier3d-urdf = { workspace = true, features = ["stl", "wavefront"] }
+rapier3d-mjcf = { workspace = true }
+glamx = { workspace = true }
+anyhow = { workspace = true }
+khal = { workspace = true }
+pollster = { workspace = true }
