@@ -35,7 +35,11 @@ pub use shaders::{Pad, PaddedVector};
 // Re-export glamx for users
 pub use glamx;
 
+const VALIDATE_LBVH_TOPOLOGY: bool = false;
+
 pub mod dynamics;
+pub mod pipeline;
+pub use pipeline::RbdCapacities;
 
 /// Broad-phase collision detection (LBVH).
 pub mod broad_phase;
