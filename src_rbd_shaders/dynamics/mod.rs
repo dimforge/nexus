@@ -13,6 +13,7 @@ mod constraint;
 mod joint;
 mod joint_constraint;
 mod joint_constraint_builder;
+mod multibody;
 mod sim_params;
 mod solver_utils;
 mod warmstart;
@@ -31,6 +32,7 @@ pub use joint::{
 };
 pub use joint_constraint::*;
 pub use joint_constraint_builder::{JointConstraintBuilder, JointConstraintHelper, new_helper};
+pub use multibody::*;
 pub use sim_params::*;
 // Re-export solver items; update_constraint comes from joint_constraint_builder for joints
 pub use coloring::*;
