@@ -28,11 +28,14 @@ pub static SPIRV_DIR: Dir<'static> = include_dir!("$OUT_DIR/shaders-spirv");
 
 // Re-export commonly used types from shader crate
 pub use shaders::bounding_volumes::Aabb;
+pub use shaders::dynamics::{Force, Impulse, LocalMassProperties, Velocity, WorldMassProperties};
 pub use shaders::shapes::Shape;
 pub use shaders::{Pad, PaddedVector};
 
 // Re-export glamx for users
 pub use glamx;
+
+pub mod dynamics;
 
 /// Broad-phase collision detection (LBVH).
 pub mod broad_phase;
