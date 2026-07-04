@@ -399,6 +399,7 @@ pub fn abs(x: f32) -> f32 {
 // Modules
 //
 pub mod bounding_volumes;
+pub mod broad_phase;
 pub mod queries;
 pub mod shapes;
 pub mod utils;
