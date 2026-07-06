@@ -1,4 +1,5 @@
 *.lock
+!flake.lock
 .vscode
 .idea
 .DS_Store
