@@ -777,6 +777,17 @@ impl NexusViewer {
         self.ui.transition.is_none()
     }
 
+    /// Captures the last rendered frame as `(width, height, rgb)`, where `rgb`
+    /// is row-major, top-to-bottom, 3 bytes (R, G, B) per pixel.
+    ///
+    /// This is the off-screen counterpart of the on-window presentation done by
+    /// [`Self::render_frame`]: call `render_frame` to draw the scene, then this
+    /// to read the framebuffer back to the CPU (e.g. to export a video).
+    pub fn snap_rgb(&mut self) -> (u32, u32, Vec<u8>) {
+        let img = self.window.snap_image();
+        (img.width(), img.height(), img.into_raw())
+    }
+
     /// Draws example-specific egui widgets into the current frame's UI pass.
     ///
     /// Call this once per frame, after [`Self::render_frame`], to overlay a

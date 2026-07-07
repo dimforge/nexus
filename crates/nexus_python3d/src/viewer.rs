@@ -10,6 +10,7 @@ use crate::nexus::{GpuTimestamps, NexusState};
 use crate::rbd::{RigidBodyHandle, SharedShape};
 use khal::backend::GpuBackend;
 use nexus_viewer3d::NexusViewer as RViewer;
+use numpy::{IntoPyArray, PyArray3, PyArrayMethods};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -160,6 +161,19 @@ impl NexusViewer {
     /// Whether the simulation should advance this frame (honors play/pause/step).
     fn simulating(&mut self) -> bool {
         self.inner_mut().simulating()
+    }
+
+    /// Returns the last rendered frame as an `(H, W, 3)` `uint8` NumPy array
+    /// (row-major, top-to-bottom, RGB), like `mujoco.Renderer.render()`.
+    ///
+    /// Call once per frame after [`render_frame`][Self::render_frame] to export
+    /// frames off-screen (e.g. to encode a video) instead of only presenting to
+    /// the window.
+    fn render<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyArray3<u8>>> {
+        let (w, h, rgb) = self.inner_mut().snap_rgb();
+        rgb.into_pyarray(py)
+            .reshape([h as usize, w as usize, 3])
+            .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
     }
 
     /// Reads GPU state back into the renderer. Call once per frame after
