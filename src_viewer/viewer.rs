@@ -340,8 +340,24 @@ impl NexusViewer {
     /// falls back to the GPU→CPU readback path.
     fn direct_render_path(&self) -> bool {
         self.webgpu_shared
+            && !self.rt_active()
             && self.ui.backend_type == BackendType::Gpu
             && matches!(self.webgpu, Some(KhalGpuBackend::WebGpu(_)))
+    }
+
+    /// Whether the path tracer has been used/configured. The tracer rebuilds its
+    /// acceleration structure from the CPU-side instance buffers, so while it is
+    /// active `sync` must take the readback path — the zero-readback kernel only
+    /// updates kiss3d's GPU instance buffers, which the tracer never reads.
+    fn rt_active(&self) -> bool {
+        #[cfg(feature = "dim3")]
+        {
+            self.raytracer.is_some()
+        }
+        #[cfg(not(feature = "dim3"))]
+        {
+            false
+        }
     }
 
     #[cfg(feature = "cuda")]
