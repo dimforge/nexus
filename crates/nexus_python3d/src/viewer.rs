@@ -165,6 +165,12 @@ impl NexusViewer {
         pollster::block_on(self.inner_mut().render_frame())
     }
 
+    /// Whether `render_frame` draws the built-in egui panel (default `True`).
+    /// Disable for clean frame capture with `render`.
+    fn set_draw_ui(&mut self, enabled: bool) {
+        self.inner_mut().set_draw_ui(enabled);
+    }
+
     /// Whether the simulation should advance this frame (honors play/pause/step).
     fn simulating(&mut self) -> bool {
         self.inner_mut().simulating()

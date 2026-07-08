@@ -145,6 +145,9 @@ pub struct NexusViewer {
     last_gpu_pass_times: Vec<(String, f64)>,
     /// Total GPU time matching [`Self::last_gpu_pass_times`].
     last_gpu_total_time_ms: f64,
+    /// Whether [`Self::render_frame`] draws the built-in egui panel. Disable
+    /// for clean frame capture ([`Self::snap_rgb`]).
+    draw_ui: bool,
     pub ui: UiState,
 }
 
@@ -218,6 +221,7 @@ impl NexusViewer {
             render_resources_backend: None,
             last_gpu_pass_times: Vec::new(),
             last_gpu_total_time_ms: 0.0,
+            draw_ui: true,
             ui: UiState {
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
@@ -774,10 +778,12 @@ impl NexusViewer {
         let gpu_available = self.webgpu.is_some();
         // Disjoint closure capture (edition 2024): the closure borrows `self.ui`
         // and `scene_ui` while `self.window` is the receiver.
-        self.window.draw_ui(|ctx| {
-            crate::ui::setup_custom_theme(ctx);
-            crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
-        });
+        if self.draw_ui {
+            self.window.draw_ui(|ctx| {
+                crate::ui::setup_custom_theme(ctx);
+                crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
+            });
+        }
 
         self.ui.transition.is_none()
     }
@@ -791,6 +797,12 @@ impl NexusViewer {
     pub fn snap_rgb(&mut self) -> (u32, u32, Vec<u8>) {
         let img = self.window.snap_image();
         (img.width(), img.height(), img.into_raw())
+    }
+
+    /// Whether [`Self::render_frame`] draws the built-in egui panel (default
+    /// `true`). Disable for clean frame capture.
+    pub fn set_draw_ui(&mut self, enabled: bool) {
+        self.draw_ui = enabled;
     }
 
     /// Draws example-specific egui widgets into the current frame's UI pass.
