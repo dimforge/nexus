@@ -194,6 +194,12 @@ impl NexusViewer {
         self.inner_mut().set_raytracer_denoise(enabled);
     }
 
+    /// Which intersection backend the path tracer uses: `"hardware"` (RT-core
+    /// ray queries) or `"software"` (portable compute-shader BVH fallback).
+    fn raytracer_backend(&mut self) -> &'static str {
+        self.inner_mut().raytracer_backend_name()
+    }
+
     /// Whether the simulation should advance this frame (honors play/pause/step).
     fn simulating(&mut self) -> bool {
         self.inner_mut().simulating()

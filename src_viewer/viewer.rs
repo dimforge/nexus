@@ -869,6 +869,25 @@ impl NexusViewer {
             .set_max_bounces(bounces);
     }
 
+    /// Which intersection backend the path tracer uses: hardware ray queries
+    /// (RT cores, when the device supports them) or the portable
+    /// compute-shader BVH fallback.
+    #[cfg(feature = "dim3")]
+    pub fn raytracer_backend(&mut self) -> kiss3d::renderer::RayBackend {
+        self.raytracer.get_or_insert_with(RayTracer::new).backend()
+    }
+
+    /// [`Self::raytracer_backend`] as a string (`"hardware"` / `"software"`),
+    /// for consumers that don't depend on kiss3d directly (e.g. the Python
+    /// bindings).
+    #[cfg(feature = "dim3")]
+    pub fn raytracer_backend_name(&mut self) -> &'static str {
+        match self.raytracer_backend() {
+            kiss3d::renderer::RayBackend::Hardware => "hardware",
+            kiss3d::renderer::RayBackend::Software => "software",
+        }
+    }
+
     /// Enables/disables the path tracer's denoiser.
     #[cfg(feature = "dim3")]
     pub fn set_raytracer_denoise(&mut self, enabled: bool) {
