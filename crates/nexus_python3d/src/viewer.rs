@@ -58,10 +58,17 @@ impl NexusViewer {
 impl NexusViewer {
     /// Opens a window and probes the GPU. Blocks on the async setup.
     ///
-    /// Must be called on the main thread (required by the OS windowing system).
+    /// `width`/`height` set the window and render-target resolution
+    /// (default 1200x900). Must be called on the main thread (required by the
+    /// OS windowing system).
     #[new]
-    fn new() -> Self {
-        NexusViewer(Some(pollster::block_on(RViewer::new(Vec::new()))))
+    #[pyo3(signature = (width=1200, height=900))]
+    fn new(width: u32, height: u32) -> Self {
+        NexusViewer(Some(pollster::block_on(RViewer::new_with_size(
+            Vec::new(),
+            width,
+            height,
+        ))))
     }
 
     // --- backend selection (fluent) --------------------------------------

@@ -154,13 +154,18 @@ impl NexusViewer {
     /// `demos` is the list of `(name, kind)` shown in the demo picker; pass an
     /// empty vec for a standalone single-example viewer (no picker).
     pub async fn new(demos: Vec<(String, DemoKind)>) -> Self {
+        Self::new_with_size(demos, 1200, 900).await
+    }
+
+    /// Like [`Self::new`] but with an explicit window/render resolution.
+    pub async fn new_with_size(demos: Vec<(String, DemoKind)>, width: u32, height: u32) -> Self {
         // NOTE: PASSTHROUGH_SHADERS is required for compute shaders with spirv_passthrough on
         //       platforms running vulkan (to work around some naga limitations).
         let setup = kiss3d::window::CanvasSetup {
             required_features: Features::PASSTHROUGH_SHADERS,
             ..Default::default()
         };
-        let mut window = Window::new_with_setup("nexus demos", 1200, 900, setup).await;
+        let mut window = Window::new_with_setup("nexus demos", width, height, setup).await;
         window.set_background_color(Color::new(245.0 / 255.0, 245.0 / 255.0, 236.0 / 255.0, 1.0));
         // Disable MSAA, this puts extra load on the GPU that ends up
         // falsifying the gpu physics timestamps.
