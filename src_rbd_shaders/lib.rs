@@ -407,15 +407,15 @@ pub fn abs(x: f32) -> f32 {
 /// An out-of-range index is a bug: debug (host) builds catch it with a
 /// `debug_assert!`, release/device builds fold it to the last column rather
 /// than carrying panic machinery into the kernel.
-pub trait ColBranchless {
+pub trait ColumnIndex {
     type Column;
-    fn col_b(&self, index: usize) -> Self::Column;
+    fn col_at(&self, index: usize) -> Self::Column;
 }
 
-impl ColBranchless for glamx::Mat3 {
+impl ColumnIndex for glamx::Mat3 {
     type Column = glamx::Vec3;
     #[inline(always)]
-    fn col_b(&self, index: usize) -> glamx::Vec3 {
+    fn col_at(&self, index: usize) -> glamx::Vec3 {
         debug_assert!(index < 3, "Mat3 column index out of range");
         match index {
             0 => self.x_axis,
@@ -425,10 +425,10 @@ impl ColBranchless for glamx::Mat3 {
     }
 }
 
-impl ColBranchless for glamx::Mat2 {
+impl ColumnIndex for glamx::Mat2 {
     type Column = glamx::Vec2;
     #[inline(always)]
-    fn col_b(&self, index: usize) -> glamx::Vec2 {
+    fn col_at(&self, index: usize) -> glamx::Vec2 {
         debug_assert!(index < 2, "Mat2 column index out of range");
         match index {
             0 => self.x_axis,
