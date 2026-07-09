@@ -182,7 +182,7 @@ impl NexusViewer {
     /// Call once per frame after [`render_frame`][Self::render_frame] to export
     /// frames off-screen (e.g. to encode a video) instead of only presenting to
     /// the window.
-    fn render<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyArray3<u8>>> {
+    fn snap_rgb<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyArray3<u8>>> {
         let (w, h, rgb) = self.inner_mut().snap_rgb();
         rgb.into_pyarray(py)
             .reshape([h as usize, w as usize, 3])
