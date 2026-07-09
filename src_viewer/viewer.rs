@@ -947,6 +947,43 @@ impl NexusViewer {
             .set_denoise(enabled);
     }
 
+    /// Reads back environment `env`'s multibody link workspaces from the GPU in
+    /// one readback: per link, the generalized joint coordinates, accumulated
+    /// joint rotation, world pose, and world-space velocity. Links are in the
+    /// GPU build's traversal order (multibodies, then links, parent before
+    /// child) — the same order `NexusState::control_multibody_motors` targets.
+    /// Empty when no multibody state exists.
+    ///
+    /// Velocities are only meaningful after the first simulated step (the
+    /// forward-kinematics pass fills them); coordinates and poses are valid
+    /// from `finalize`.
+    pub async fn read_multibody_links(
+        &mut self,
+        state: &NexusState,
+        env: u32,
+    ) -> Vec<nexus::rbd::shaders::dynamics::MultibodyLinkWorkspace> {
+        let Some(rbd) = state.rbd.as_ref() else {
+            return Vec::new();
+        };
+        let mbs = rbd.multibodies();
+        let stride = mbs.links_per_batch() as usize;
+        if stride == 0 {
+            return Vec::new();
+        }
+        let mut all = bytemuck::zeroed_vec(mbs.links_workspace().len() as usize);
+        if self
+            .backend()
+            .slow_read_buffer(mbs.links_workspace().buffer(), &mut all)
+            .await
+            .is_err()
+        {
+            return Vec::new();
+        }
+        let start = (env as usize * stride).min(all.len());
+        let end = (start + stride).min(all.len());
+        all[start..end].to_vec()
+    }
+
     /// Draws example-specific egui widgets into the current frame's UI pass.
     ///
     /// Call this once per frame, after [`Self::render_frame`], to overlay a

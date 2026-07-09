@@ -52,15 +52,17 @@ impl GpuTimestamps {
 }
 
 /// The GPU-resident state of a multiphysics simulation
-/// (`nexus3d::prelude::NexusState`).
+/// (`nexus3d::prelude::NexusState`). The second field keeps the
+/// `rapier3d-mjcf` robot handles of the last `insert_mjcf`, so
+/// `apply_actuator_controls` can drive the robot's actuators per step.
 #[pyclass(name = "NexusState", unsendable)]
-pub struct NexusState(pub RNexusState);
+pub struct NexusState(pub RNexusState, pub Option<crate::loaders::MjcfHandles>);
 
 #[pymethods]
 impl NexusState {
     #[new]
     fn new() -> Self {
-        NexusState(RNexusState::default())
+        NexusState(RNexusState::default(), None)
     }
 
     // --- rigid bodies -----------------------------------------------------
@@ -273,7 +275,73 @@ impl NexusState {
         scene_path: std::path::PathBuf,
         render_colliders: bool,
     ) -> PyResult<MjcfSceneInfo> {
-        crate::loaders::insert_mjcf(&mut self.0, viewer, &scene_path, render_colliders)
+        let (info, handles) =
+            crate::loaders::insert_mjcf(&mut self.0, viewer, &scene_path, render_colliders)?;
+        self.1 = handles;
+        Ok(info)
+    }
+
+    // --- MJCF actuation -----------------------------------------------------
+
+    /// Names of the MJCF `<actuator>`s of the robot loaded by `insert_mjcf`, in
+    /// actuator (control-vector) order. Unnamed actuators fall back to the name
+    /// of the joint they drive. Empty before `insert_mjcf`.
+    fn actuator_names(&self) -> Vec<String> {
+        self.1
+            .as_ref()
+            .map(|h| {
+                h.actuators
+                    .iter()
+                    .map(|a| {
+                        a.actuator
+                            .name
+                            .clone()
+                            .or_else(|| a.actuator.joint.clone())
+                            .unwrap_or_default()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Applies one MJCF control vector (one entry per actuator, in
+    /// `actuator_names` order) to the robot loaded by `insert_mjcf`, with full
+    /// MJCF actuator semantics (`<position>` servos with kp/kv, `<motor>`
+    /// force/gear, force limits), and pushes the resulting joint-motor state to
+    /// the GPU in one buffer write.
+    ///
+    /// Call once per control step, after `finalize`; the next
+    /// `NexusPipeline.simulate` steps the solver against the new targets. This
+    /// is the GPU counterpart of stepping rapier natively with actuators.
+    #[pyo3(signature = (viewer, ctrl, env=0))]
+    fn apply_actuator_controls(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        ctrl: Vec<f32>,
+        env: usize,
+    ) -> PyResult<()> {
+        let Some(handles) = self.1.as_ref() else {
+            return Err(PyRuntimeError::new_err(
+                "no MJCF robot loaded (call insert_mjcf first)",
+            ));
+        };
+        if ctrl.len() != handles.actuators.len() {
+            return Err(PyRuntimeError::new_err(format!(
+                "ctrl has {} entries but the robot has {} actuators",
+                ctrl.len(),
+                handles.actuators.len()
+            )));
+        }
+        let handles = handles.clone();
+        self.0
+            .control_multibody_motors(viewer.backend(), env, |world| {
+                handles.apply_controls_multibody(
+                    &mut world.bodies,
+                    &mut world.multibody_joints,
+                    &ctrl,
+                );
+            })
+            .map_err(gpu_err)
     }
 
     // --- rbd config -------------------------------------------------------
