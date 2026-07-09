@@ -3,6 +3,7 @@
 //! This module contains functions to build and update joint constraints from
 //! joint definitions and body states.
 
+use crate::ColBranchless;
 use super::body::{Velocity, WorldMassProperties};
 use super::joint::{ANG_AXES_MASK, GenericJoint, LIN_AXES_MASK, MotorParameters, SPATIAL_DIM};
 use super::joint_constraint::{JointConstraint, JointConstraintElement, JointSolverBody};
@@ -122,7 +123,7 @@ pub fn new_helper(
         // Then snap the locked ones.
         for i in 0..DIM {
             if (locked_lin_axes & (1u32 << i)) != 0 {
-                let axis = basis.col(i);
+                let axis = basis.col_b(i);
                 new_center1 -= axis * lin_err.dot(axis);
             }
         }
@@ -141,8 +142,8 @@ pub fn new_helper(
         basis,
         // In 2D, cmat is a Vec2 representing [-r.y, r.x], and we need the dot product
         // with each column of basis to get the angular Jacobian components.
-        cmat1_basis: [cmat1.dot(basis.col(0)), cmat1.dot(basis.col(1))],
-        cmat2_basis: [cmat2.dot(basis.col(0)), cmat2.dot(basis.col(1))],
+        cmat1_basis: [cmat1.dot(basis.col_b(0)), cmat1.dot(basis.col_b(1))],
+        cmat2_basis: [cmat2.dot(basis.col_b(0)), cmat2.dot(basis.col_b(1))],
         lin_err,
         ang_err,
     }
@@ -170,7 +171,7 @@ pub fn new_helper(
         // Then snap the locked ones.
         for i in 0..DIM {
             if (locked_lin_axes & (1u32 << i)) != 0 {
-                let axis = basis.col(i);
+                let axis = basis.col_b(i);
                 new_center1 -= axis * lin_err.dot(axis);
             }
         }
@@ -241,9 +242,9 @@ impl JointConstraintHelper {
         params: &RbdSimParams,
     ) -> JointConstraintElement {
         #[cfg(feature = "dim2")]
-        let lin_jac = self.basis.col(locked_axis);
+        let lin_jac = self.basis.col_b(locked_axis);
         #[cfg(feature = "dim3")]
-        let lin_jac = self.basis.col(locked_axis);
+        let lin_jac = self.basis.col_b(locked_axis);
 
         #[cfg(feature = "dim2")]
         let ang_jac1 = self.cmat1_basis.read(locked_axis);
@@ -251,9 +252,9 @@ impl JointConstraintHelper {
         let ang_jac2 = self.cmat2_basis.read(locked_axis);
 
         #[cfg(feature = "dim3")]
-        let ang_jac1 = self.cmat1_basis.col(locked_axis);
+        let ang_jac1 = self.cmat1_basis.col_b(locked_axis);
         #[cfg(feature = "dim3")]
-        let ang_jac2 = self.cmat2_basis.col(locked_axis);
+        let ang_jac2 = self.cmat2_basis.col_b(locked_axis);
 
         let rhs_wo_bias = 0.0;
         let erp_inv_dt = params.joint_erp_inv_dt();
@@ -294,7 +295,7 @@ impl JointConstraintHelper {
         #[cfg(feature = "dim2")]
         let ang_jac = 1.0;
         #[cfg(feature = "dim3")]
-        let ang_jac = self.ang_basis.col(_locked_axis);
+        let ang_jac = self.ang_basis.col_b(_locked_axis);
 
         let rhs_wo_bias = 0.0;
         let erp_inv_dt = params.joint_erp_inv_dt();
@@ -407,8 +408,8 @@ impl JointConstraintHelper {
         #[cfg(feature = "dim2")]
         for i in 0..DIM {
             if (coupled_axes & (1u32 << i)) != 0 {
-                let coeff = self.basis.col(i).dot(self.lin_err);
-                lin_jac += self.basis.col(i) * coeff;
+                let coeff = self.basis.col_b(i).dot(self.lin_err);
+                lin_jac += self.basis.col_b(i) * coeff;
                 ang_jac1 += self.cmat1_basis.read(i) * coeff;
                 ang_jac2 += self.cmat2_basis.read(i) * coeff;
             }
@@ -417,10 +418,10 @@ impl JointConstraintHelper {
         #[cfg(feature = "dim3")]
         for i in 0..DIM {
             if (coupled_axes & (1u32 << i)) != 0 {
-                let coeff = self.basis.col(i).dot(self.lin_err);
-                lin_jac += self.basis.col(i) * coeff;
-                ang_jac1 += self.cmat1_basis.col(i) * coeff;
-                ang_jac2 += self.cmat2_basis.col(i) * coeff;
+                let coeff = self.basis.col_b(i).dot(self.lin_err);
+                lin_jac += self.basis.col_b(i) * coeff;
+                ang_jac1 += self.cmat1_basis.col_b(i) * coeff;
+                ang_jac2 += self.cmat2_basis.col_b(i) * coeff;
             }
         }
 
@@ -517,8 +518,8 @@ impl JointConstraintHelper {
         #[cfg(feature = "dim2")]
         for i in 0..DIM {
             if (coupled_axes & (1u32 << i)) != 0 {
-                let coeff = self.basis.col(i).dot(self.lin_err);
-                lin_jac += self.basis.col(i) * coeff;
+                let coeff = self.basis.col_b(i).dot(self.lin_err);
+                lin_jac += self.basis.col_b(i) * coeff;
                 ang_jac1 += self.cmat1_basis.read(i) * coeff;
                 ang_jac2 += self.cmat2_basis.read(i) * coeff;
             }
@@ -527,10 +528,10 @@ impl JointConstraintHelper {
         #[cfg(feature = "dim3")]
         for i in 0..DIM {
             if (coupled_axes & (1u32 << i)) != 0 {
-                let coeff = self.basis.col(i).dot(self.lin_err);
-                lin_jac += self.basis.col(i) * coeff;
-                ang_jac1 += self.cmat1_basis.col(i) * coeff;
-                ang_jac2 += self.cmat2_basis.col(i) * coeff;
+                let coeff = self.basis.col_b(i).dot(self.lin_err);
+                lin_jac += self.basis.col_b(i) * coeff;
+                ang_jac1 += self.cmat1_basis.col_b(i) * coeff;
+                ang_jac2 += self.cmat2_basis.col_b(i) * coeff;
             }
         }
 
@@ -602,7 +603,7 @@ impl JointConstraintHelper {
         #[cfg(feature = "dim2")]
         let ang_jac = 1.0;
         #[cfg(feature = "dim3")]
-        let ang_jac = self.ang_basis.col(_limited_axis);
+        let ang_jac = self.ang_basis.col_b(_limited_axis);
 
         let rhs_wo_bias = 0.0;
         let erp_inv_dt = params.joint_erp_inv_dt();
@@ -643,7 +644,7 @@ impl JointConstraintHelper {
         #[cfg(feature = "dim2")]
         let ang_jac = 1.0;
         #[cfg(feature = "dim3")]
-        let ang_jac = self.basis.col(_motor_axis);
+        let ang_jac = self.basis.col_b(_motor_axis);
 
         let mut rhs_wo_bias = 0.0;
         if motor_params.erp_inv_dt != 0.0 {

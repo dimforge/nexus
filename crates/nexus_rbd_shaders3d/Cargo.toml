@@ -29,6 +29,7 @@ push_constants = []
 cpu = []
 cpu-parallel = ["cpu", "vortx-shaders/cpu-parallel"]
 cuda = []
+cuda-oxide = ["khal-std/cuda-oxide", "vortx-shaders/cuda-oxide"]
 
 [dependencies]
 vortx-shaders = { workspace = true }

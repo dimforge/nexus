@@ -407,3 +407,43 @@ pub mod utils;
 
 #[cfg(test)]
 mod tests;
+
+/// Branchless-ish, panic-free matrix column access for device code.
+///
+/// `Mat::col` panics with a formatted message on an out-of-range index, which
+/// cuda-oxide device kernels cannot carry (panic message formatting is
+/// unsupported on the GPU).
+/// `index` **must** be in range (`0..2` for `Mat2`, `0..3` for `Mat3`); every
+/// caller in this crate derives it from an axis mask, so this always holds.
+/// An out-of-range index is a bug: debug (host) builds catch it with a
+/// `debug_assert!`, release/device builds fold it to the last column rather
+/// than carrying panic machinery into the kernel.
+pub trait ColBranchless {
+    type Column;
+    fn col_b(&self, index: usize) -> Self::Column;
+}
+
+impl ColBranchless for glamx::Mat3 {
+    type Column = glamx::Vec3;
+    #[inline(always)]
+    fn col_b(&self, index: usize) -> glamx::Vec3 {
+        debug_assert!(index < 3, "Mat3 column index out of range");
+        match index {
+            0 => self.x_axis,
+            1 => self.y_axis,
+            _ => self.z_axis,
+        }
+    }
+}
+
+impl ColBranchless for glamx::Mat2 {
+    type Column = glamx::Vec2;
+    #[inline(always)]
+    fn col_b(&self, index: usize) -> glamx::Vec2 {
+        debug_assert!(index < 2, "Mat2 column index out of range");
+        match index {
+            0 => self.x_axis,
+            _ => self.y_axis,
+        }
+    }
+}

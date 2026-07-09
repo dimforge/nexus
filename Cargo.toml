@@ -26,7 +26,7 @@ exclude = ["**/.DS_Store"]
 [workspace.dependencies]
 glamx = { version = "0.3", default-features = false, features = ["nostd-libm", "bytemuck"] }
 include_dir = "0.7"
-khal-std = "0.2"
+khal-std = { version = "0.2", default-features = false }
 khal = { version = "0.2", features = ["derive"]}
 vortx = { version = "0.3", features = ["unsafe_remove_boundchecks"] }
 bytemuck = { version = "1", features = ["derive"] }
@@ -110,9 +110,9 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 #rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
 #rapier3d-urdf = { path = "../rapier/crates/rapier3d-urdf" }
 #rapier3d-meshloader = { path = "../rapier/crates/rapier3d-meshloader" }
-#khal = { path = "../khal/crates/khal" }
-#khal-derive = { path = "../khal/crates/khal-derive" }
-#khal-std = { path = "../khal/crates/khal-std" }
-#khal-builder = { path = "../khal/crates/khal-builder" }
-#vortx = { path = "../vortx" }
-#vortx-shaders = { path = "../vortx/vortx-shaders" }
+khal = { path = "../khal/crates/khal" }
+khal-derive = { path = "../khal/crates/khal-derive" }
+khal-std = { path = "../khal/crates/khal-std" }
+khal-builder = { path = "../khal/crates/khal-builder" }
+vortx = { path = "../vortx" }
+vortx-shaders = { path = "../vortx/vortx-shaders" }
