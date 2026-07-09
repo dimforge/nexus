@@ -74,7 +74,7 @@ pub(super) fn side_dot_vel_par(
     solver_vels: &[Velocity],
     colliders_start: usize,
     lane: u32,
-    partial: &mut [f32; LANES as usize],
+    partial: &mut impl MaybeIndexUnchecked<f32>,
 ) -> f32 {
     // Lane → term mapping:
     //   * SIDE_KIND_MB:   lane l (< ndofs)      → J[l] · v_dof[l]

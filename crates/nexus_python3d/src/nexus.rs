@@ -345,6 +345,31 @@ impl NexusPipeline {
             .map_err(gpu_err)
     }
 
+    /// Captures one frame's rigid-body step sequence
+    /// (`rbd_steps_per_frame` solver steps) into a CUDA graph, executing it
+    /// once. Subsequent `replay_cuda_graph` calls replay the whole sequence
+    /// with a single `cuGraphLaunch` — the fast path for capture/eval loops.
+    ///
+    /// Returns `False` when the backend is not CUDA. Call after the scene is
+    /// finalized and a few warmup `simulate` calls (the graph records raw
+    /// buffer addresses; buffer growth after capture invalidates it).
+    #[cfg(feature = "cuda")]
+    fn capture_cuda_graph(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        mut state: PyRefMut<NexusState>,
+    ) -> PyResult<bool> {
+        pollster::block_on(self.0.capture_rbd_graph(viewer.backend(), &mut state.0))
+            .map_err(gpu_err)
+    }
+
+    /// Replays the captured rigid-body CUDA graph (see `capture_cuda_graph`).
+    /// Returns `False` when no graph has been captured.
+    #[cfg(feature = "cuda")]
+    fn replay_cuda_graph(&mut self) -> PyResult<bool> {
+        self.0.replay_rbd_graph().map_err(gpu_err)
+    }
+
     /// Advances the simulation by one frame. Blocks on the async GPU work.
     #[pyo3(signature = (viewer, state, timestamps=None))]
     fn simulate(

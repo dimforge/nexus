@@ -49,9 +49,15 @@ impl GpuWarmstart {
         pass: &mut GpuPass,
         args: WarmstartArgs<'a>,
     ) -> Result<(), GpuBackendError> {
+        let nb = (args.contacts_len.len() as u32).max(1);
+        let ws_grid = [
+            (args.new_constraints.len() as u32 / nb).max(1).div_ceil(64),
+            nb,
+            1,
+        ];
         self.transfer_warmstart_impulses_kernel.call(
             pass,
-            args.contacts_len_indirect,
+            crate::dispatch_grid(args.contacts_len_indirect, ws_grid),
             args.old_body_constraint_counts,
             args.old_body_constraint_ids,
             args.old_constraints,

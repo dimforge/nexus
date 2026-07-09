@@ -28,7 +28,7 @@ pub(super) fn sm_idx(r: u32, c: u32) -> usize {
 pub(super) fn lu_factor_in_shared(
     n: u32,
     lane: u32,
-    mat: &mut [f32; MAX_MB_DOFS * MAX_MB_DOFS],
+    mat: &mut impl MaybeIndexUnchecked<f32>,
     pivots_dst: &mut [u32],
     pivots_offset: usize,
     pivot_row_shared: &mut u32,
@@ -105,9 +105,9 @@ pub(super) fn lu_factor_in_shared(
 pub(super) fn lu_triangular_solve_in_place(
     n: u32,
     lane: u32,
-    mat: &[f32; MAX_MB_DOFS * MAX_MB_DOFS],
-    x: &mut [f32; MAX_MB_DOFS],
-    partial: &mut [f32; LANES as usize],
+    mat: &impl MaybeIndexUnchecked<f32>,
+    x: &mut impl MaybeIndexUnchecked<f32>,
+    partial: &mut impl MaybeIndexUnchecked<f32>,
 ) {
     // NOTE: fixed number of iterations for uniform control flow.
     // TODO(PERF): on non-web platforms we could just use `n` as the upper bound.
@@ -174,7 +174,7 @@ pub(super) fn lu_apply_pivots(
     lane: u32,
     buf_pivots: &[u32],
     pivots_offset: usize,
-    x: &mut [f32; MAX_MB_DOFS],
+    x: &mut impl MaybeIndexUnchecked<f32>,
 ) {
     if lane == 0 {
         for k in 0..n {

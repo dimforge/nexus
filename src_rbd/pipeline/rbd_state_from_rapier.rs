@@ -42,6 +42,10 @@ impl RbdState {
         )],
         capacities: RbdCapacities,
     ) -> Self {
+        // Fixed-grid dispatch default: ON for CUDA (each indirect dispatch there
+        // costs a stream sync + host count read), OFF for WebGPU/Metal (native
+        // indirect dispatch). `NEXUS_FIXED_GRID` overrides.
+        crate::set_fixed_dispatch_grid_default(backend.is_cuda());
         let num_batches = environments.len() as u32;
 
         // Equal-topology invariant: every environment must share the same
