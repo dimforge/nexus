@@ -130,6 +130,7 @@ impl RbdState {
         let max_colliders = num_colliders.max(num_bodies_capacity);
 
         let mut all_poses = Vec::new();
+        let mut all_vels = Vec::new();
         let mut all_local_mprops = Vec::new();
         let mut all_mprops = Vec::new();
         let mut all_shapes = Vec::new();
@@ -252,6 +253,7 @@ impl RbdState {
                             let (local_mprops, mprops) =
                                 make_body_mprops(&body_pose, b.is_dynamic().then_some(b));
                             all_poses.push(body_pose);
+                            all_vels.push(GpuVelocity::new(b.linvel(), b.angvel()));
                             all_local_mprops.push(local_mprops);
                             all_mprops.push(mprops);
                             idx
@@ -264,6 +266,7 @@ impl RbdState {
                         let body_pose = Pose::IDENTITY;
                         let (local_mprops, mprops) = make_body_mprops(&body_pose, None);
                         all_poses.push(body_pose);
+                        all_vels.push(GpuVelocity::default());
                         all_local_mprops.push(local_mprops);
                         all_mprops.push(mprops);
                         (idx, *co.position())
@@ -297,6 +300,7 @@ impl RbdState {
                         let (local_mprops, mprops) =
                             make_body_mprops(&body_pose, b.is_dynamic().then_some(b));
                         all_poses.push(body_pose);
+                        all_vels.push(GpuVelocity::new(b.linvel(), b.angvel()));
                         all_local_mprops.push(local_mprops);
                         all_mprops.push(mprops);
                         idx
@@ -329,6 +333,7 @@ impl RbdState {
             // `max(num_colliders, num_bodies)`) with dummy fixed bodies.
             for _ in env_body_count..max_colliders {
                 all_poses.push(dummy_pose);
+                all_vels.push(GpuVelocity::default());
                 all_local_mprops.push(dummy_local_mprops);
                 all_mprops.push(dummy_mprops);
             }
@@ -523,7 +528,11 @@ impl RbdState {
         let num_colliders_per_batch = max_colliders;
         let num_bodies_total = num_colliders_per_batch * num_batches as usize;
 
-        let all_vels = vec![GpuVelocity::default(); num_bodies_total];
+        // Initial body velocities were accumulated in body-slot order alongside
+        // `all_poses`; zero-filling here would silently drop each body's initial
+        // linvel/angvel (gravity used to mask the linear part, but e.g. an
+        // initial spin was lost entirely).
+        debug_assert_eq!(all_vels.len(), num_bodies_total);
         let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
         let shapes = Tensor::vector(backend, &all_shapes, storage).unwrap();
         let collider_local_poses =
