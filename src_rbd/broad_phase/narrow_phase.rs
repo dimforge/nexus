@@ -50,12 +50,20 @@ impl GpuNarrowPhase {
         collider_materials: &Tensor<crate::shaders::queries::ColliderMaterial>,
     ) -> Result<(), GpuBackendError> {
         let num_batches = contacts_len.len() as u32;
+        // Capacity-based grids for fixed-grid dispatch (see `crate::dispatch_grid`).
+        let nb = num_batches.max(1);
+        let pairs_grid = [
+            (collision_pairs.len() as u32 / nb).max(1).div_ceil(64),
+            num_batches,
+            1,
+        ];
+        let pfm_grid = [(pfm_pairs.len() as u32 / nb).max(1).div_ceil(64), num_batches, 1];
         self.reset_narrow_phase
             .call(pass, [1u32, num_batches, 1], contacts_len, pfm_pairs_len)?;
 
         self.narrow_phase.call(
             pass,
-            collision_pairs_indirect,
+            crate::dispatch_grid(collision_pairs_indirect, pairs_grid),
             collision_pairs,
             collision_pairs_len,
             poses,
@@ -71,7 +79,7 @@ impl GpuNarrowPhase {
         // separate dispatch so each pass fits 8 storage buffers).
         self.narrow_phase_deferred.call(
             pass,
-            collision_pairs_indirect,
+            crate::dispatch_grid(collision_pairs_indirect, pairs_grid),
             collision_pairs,
             collision_pairs_len,
             poses,
@@ -87,7 +95,7 @@ impl GpuNarrowPhase {
             .call(pass, 1u32, pfm_pairs_len, pfm_pairs_indirect)?;
         self.narrow_phase_pfm_pfm.call(
             pass,
-            &*pfm_pairs_indirect,
+            crate::dispatch_grid(&*pfm_pairs_indirect, pfm_grid),
             contacts,
             contacts_len,
             pfm_pairs,
