@@ -266,14 +266,22 @@ impl NexusState {
     /// Loads a MuJoCo MJCF scene into environment 0 as multibodies, registering
     /// its render shapes (and a sized floor) with `viewer`. Returns scene info
     /// (suggested camera + whether the scene is Z-up). Call `finalize` after.
-    #[pyo3(signature = (viewer, scene_path, render_colliders=false))]
+    /// Per-environment collision-pair capacity (default 4096). Lower this
+    /// before `finalize` when batching many small environments — pair-keyed
+    /// GPU workspaces scale with `capacity x num_envs`.
+    fn set_rbd_collisions_capacity(&mut self, capacity: u32) {
+        self.0.set_rbd_collisions_capacity(capacity);
+    }
+
+    #[pyo3(signature = (viewer, scene_path, render_colliders=false, env=0))]
     fn insert_mjcf(
         &mut self,
         viewer: PyRefMut<NexusViewer>,
         scene_path: std::path::PathBuf,
         render_colliders: bool,
+        env: usize,
     ) -> PyResult<MjcfSceneInfo> {
-        crate::loaders::insert_mjcf(&mut self.0, viewer, &scene_path, render_colliders)
+        crate::loaders::insert_mjcf(&mut self.0, viewer, &scene_path, render_colliders, env)
     }
 
     // --- rbd config -------------------------------------------------------
