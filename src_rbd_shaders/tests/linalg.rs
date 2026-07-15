@@ -8,12 +8,12 @@
 //!   - `quadform_spatial` (block-diagonal spatial-mass CRBA step),
 //!   - `gemv_tr_spatial`,
 //!   - `skew_tr`,
-//!   - `lu_decompose` + `lu_solve_in_place`, including reuse of the same LU factor
+//!   - `ltdl_decompose` + `lu_solve_in_place`, including reuse of the same factor
 //!     with multiple right-hand sides.
 
 use crate::utils::linalg::{
     MatSlice, axpy_mat, copy_from, fill, gemm, gemm_mat3_lhs, gemm_tr, gemv_tr_spatial,
-    lu_decompose, lu_solve_in_place, quadform_spatial, skew, skew_tr,
+    ltdl_decompose, lu_solve_in_place, quadform_spatial, skew, skew_tr,
 };
 use glamx::{Mat3, Vec3};
 
@@ -486,25 +486,27 @@ fn matvec(m_rows: &[&[f32]], x: &[f32]) -> Vec<f32> {
 }
 
 #[test]
-fn lu_solve_identity_recovers_rhs() {
+fn ltdl_solve_identity_recovers_rhs() {
+    // Identity matrix = a forest of root DOFs (no parents anywhere).
     let n = 4u32;
     let mut buf_m = vec![0.0f32; (n * n) as usize];
     let m = MatSlice::dense(0, n, n);
     for i in 0..n {
         buf_m[m.idx(i, i)] = 1.0;
     }
-    let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf_m, m, &mut pivots, 0);
+    let parents = vec![u32::MAX; n as usize];
+    ltdl_decompose(&mut buf_m, m, &parents, 0);
 
     let mut rhs = vec![7.0, -3.0, 2.5, 1.25];
     let want = rhs.clone();
-    lu_solve_in_place(&buf_m, m, &pivots, 0, &mut rhs, 0);
+    lu_solve_in_place(&buf_m, m, &parents, 0, &mut rhs, 0);
     assert_slice_eq(&rhs, &want);
 }
 
 #[test]
-fn lu_solve_spd_matrix() {
-    // A symmetric positive-definite 3×3 (mimics a small mass matrix).
+fn ltdl_solve_spd_matrix() {
+    // A symmetric positive-definite 3×3 (mimics a small mass matrix). A dense
+    // SPD matrix is the chain-tree special case: parents[k] = k - 1.
     //  M = [[4, 1, 2],
     //       [1, 5, 3],
     //       [2, 3, 6]]
@@ -514,13 +516,12 @@ fn lu_solve_spd_matrix() {
     let m = MatSlice::dense(0, n, n);
     pack_matrix(&mut buf, m, rows);
 
-    // Decompose.
-    let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf, m, &mut pivots, 0);
+    let parents = vec![u32::MAX, 0, 1];
+    ltdl_decompose(&mut buf, m, &parents, 0);
 
     // Solve M · x = b with b = [1, 2, 3].
     let mut rhs = vec![1.0f32, 2.0, 3.0];
-    lu_solve_in_place(&buf, m, &pivots, 0, &mut rhs, 0);
+    lu_solve_in_place(&buf, m, &parents, 0, &mut rhs, 0);
 
     // Verify by multiplying back: M · x ≈ b.
     let mx = matvec(rows, &rhs);
@@ -528,34 +529,48 @@ fn lu_solve_spd_matrix() {
 }
 
 #[test]
-fn lu_solve_requires_pivoting() {
-    // This matrix has a zero top-left entry, so Doolittle without pivoting would fail.
-    // Partial pivoting should swap rows and produce a correct factor + solve.
-    //  M = [[0, 2, 1],
-    //       [1, 0, 3],
-    //       [4, 1, 0]]
-    let rows: &[&[f32]] = &[&[0.0, 2.0, 1.0], &[1.0, 0.0, 3.0], &[4.0, 1.0, 0.0]];
-    let n = 3u32;
+fn ltdl_solve_branched_tree() {
+    // Branch-induced sparsity: DOFs 1 and 2 hang off root 0 on DIFFERENT
+    // branches (M[1,2] = M[2,1] = 0), DOF 3 continues branch 1's chain.
+    //        0
+    //       / \
+    //      1   2
+    //      |
+    //      3
+    //  M = [[6, 1, 2, 1],
+    //       [1, 5, 0, 2],
+    //       [2, 0, 4, 0],
+    //       [1, 2, 0, 3]]
+    let rows: &[&[f32]] = &[
+        &[6.0, 1.0, 2.0, 1.0],
+        &[1.0, 5.0, 0.0, 2.0],
+        &[2.0, 0.0, 4.0, 0.0],
+        &[1.0, 2.0, 0.0, 3.0],
+    ];
+    let n = 4u32;
     let mut buf = vec![0.0f32; (n * n) as usize];
     let m = MatSlice::dense(0, n, n);
     pack_matrix(&mut buf, m, rows);
 
-    let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf, m, &mut pivots, 0);
+    let parents = vec![u32::MAX, 0, 0, 1];
+    ltdl_decompose(&mut buf, m, &parents, 0);
+
+    // The factorization must not have filled in the cross-branch zeros.
+    approx_eq(buf[m.idx(2, 1)], 0.0);
 
     // Pick a known solution, compute b = M·x, then confirm the solve recovers x.
-    let x_true = [1.5f32, -0.5, 2.0];
+    let x_true = [1.5f32, -0.5, 2.0, 0.75];
     let b = matvec(rows, &x_true);
 
     let mut rhs = b.clone();
-    lu_solve_in_place(&buf, m, &pivots, 0, &mut rhs, 0);
+    lu_solve_in_place(&buf, m, &parents, 0, &mut rhs, 0);
     assert_slice_eq(&rhs, &x_true);
 }
 
 #[test]
-fn lu_factor_reused_across_multiple_rhs() {
-    // The point of splitting `lu_decompose` and `lu_solve` is that we should be able
-    // to solve multiple right-hand sides without re-factoring. Verify that here.
+fn ltdl_factor_reused_across_multiple_rhs() {
+    // The point of splitting `ltdl_decompose` and the solve is that we should
+    // be able to solve multiple right-hand sides without re-factoring.
     let rows: &[&[f32]] = &[
         &[6.0, 2.0, 1.0, 0.0],
         &[2.0, 5.0, 2.0, 1.0],
@@ -567,9 +582,9 @@ fn lu_factor_reused_across_multiple_rhs() {
     let m = MatSlice::dense(0, n, n);
     pack_matrix(&mut buf, m, rows);
 
-    // Decompose once.
-    let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf, m, &mut pivots, 0);
+    // Decompose once (dense SPD -> chain tree).
+    let parents = vec![u32::MAX, 0, 1, 2];
+    ltdl_decompose(&mut buf, m, &parents, 0);
 
     // Solve three different RHSes with the same factorization.
     let rhss = [
@@ -579,7 +594,7 @@ fn lu_factor_reused_across_multiple_rhs() {
     ];
     for b in &rhss {
         let mut rhs = b.to_vec();
-        lu_solve_in_place(&buf, m, &pivots, 0, &mut rhs, 0);
+        lu_solve_in_place(&buf, m, &parents, 0, &mut rhs, 0);
         // Verify: M · rhs ≈ b.
         let mx = matvec(rows, &rhs);
         assert_slice_eq(&mx, b);
@@ -587,23 +602,23 @@ fn lu_factor_reused_across_multiple_rhs() {
 }
 
 #[test]
-fn lu_solve_respects_offsets() {
+fn ltdl_solve_respects_offsets() {
     // Run two independent systems in one set of buffers using nonzero offsets —
     // this is how the multibody kernels share a flat buffer across multibodies.
     let rows_a: &[&[f32]] = &[&[3.0, 1.0], &[1.0, 2.0]];
     let rows_b: &[&[f32]] = &[&[5.0, 2.0], &[2.0, 4.0]];
     let n = 2u32;
 
-    // Layout: [A (4) | B (4)] for matrices, pivots similarly, RHS similarly.
+    // Layout: [A (4) | B (4)] for matrices, parents similarly, RHS similarly.
     let mut buf_m = vec![0.0f32; 8];
     let m_a = MatSlice::dense(0, n, n);
     let m_b = MatSlice::dense(4, n, n);
     pack_matrix(&mut buf_m, m_a, rows_a);
     pack_matrix(&mut buf_m, m_b, rows_b);
 
-    let mut pivots = vec![0u32; 4];
-    lu_decompose(&mut buf_m, m_a, &mut pivots, 0);
-    lu_decompose(&mut buf_m, m_b, &mut pivots, 2);
+    let parents = vec![u32::MAX, 0, u32::MAX, 0];
+    ltdl_decompose(&mut buf_m, m_a, &parents, 0);
+    ltdl_decompose(&mut buf_m, m_b, &parents, 2);
 
     let x_a_true = [1.0f32, -1.0];
     let x_b_true = [2.0f32, 0.5];
@@ -611,8 +626,8 @@ fn lu_solve_respects_offsets() {
     let b_b = matvec(rows_b, &x_b_true);
 
     let mut buf_rhs = vec![b_a[0], b_a[1], b_b[0], b_b[1]];
-    lu_solve_in_place(&buf_m, m_a, &pivots, 0, &mut buf_rhs, 0);
-    lu_solve_in_place(&buf_m, m_b, &pivots, 2, &mut buf_rhs, 2);
+    lu_solve_in_place(&buf_m, m_a, &parents, 0, &mut buf_rhs, 0);
+    lu_solve_in_place(&buf_m, m_b, &parents, 2, &mut buf_rhs, 2);
 
     assert_slice_eq(&buf_rhs[0..2], &x_a_true);
     assert_slice_eq(&buf_rhs[2..4], &x_b_true);

@@ -21,9 +21,7 @@ use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, fill_par, gemv_tr_spatial_spli
 use crate::utils::{BatchIndices, Slice};
 use crate::{AngVector, Vector, gcross_av};
 
-use super::lu::{
-    LANES, lu_apply_pivots, lu_factor_in_shared, lu_triangular_solve_in_place, sm_idx,
-};
+use super::lu::{LANES, NO_PARENT, ltdl_factor_in_shared, ltdl_solve_in_shared, sm_idx};
 use super::types::{MultibodyInfo, MultibodyLinkStatic, MultibodyLinkWorkspace};
 
 /// Fused gravity / Coriolis-force assembly + LU factor + LU solve.
@@ -235,20 +233,49 @@ pub fn gpu_mb_gravity_and_lu(
         }
         x.write(lane as usize, gen_forces.read(rhs_offset + lane as usize));
     }
+
+    // Per-DOF parent array (tree metadata for the sparse LᵀDL factor/solves),
+    // written into the old pivots buffer so downstream solves read the tree
+    // from the binding they already have. A joint's DOFs chain internally;
+    // its first DOF hangs off the last DOF of the nearest ancestor link that
+    // has any (welded links contribute none).
+    if lane == 0 {
+        let mut k = 0u32;
+        while k < num_links {
+            let stat = stat_slice[k as usize];
+            if stat.ndofs > 0 {
+                let mut p = NO_PARENT;
+                if k != 0 {
+                    let mut a = stat.parent_link_id;
+                    for _ in 0..MAX_MB_DOFS as u32 {
+                        let s = stat_slice[a as usize];
+                        if s.ndofs > 0 {
+                            p = s.assembly_id + s.ndofs - 1;
+                            break;
+                        }
+                        if a == 0 {
+                            break;
+                        }
+                        a = s.parent_link_id;
+                    }
+                }
+                lu_pivots.write(piv_offset + stat.assembly_id as usize, p);
+                for t in 1..stat.ndofs {
+                    lu_pivots.write(
+                        piv_offset + (stat.assembly_id + t) as usize,
+                        stat.assembly_id + t - 1,
+                    );
+                }
+            }
+            k += 1;
+        }
+    }
     workgroup_memory_barrier_with_group_sync();
 
-    lu_factor_in_shared(
-        ndofs,
-        lane,
-        mat,
-        lu_pivots,
-        piv_offset,
-        pivot_row_shared,
-        inv_akk_shared,
-    );
+    ltdl_factor_in_shared(ndofs, lane, mat, lu_pivots, piv_offset);
 
-    // Persist LU factors to global memory (joint / contact constraint init
-    // reuses them for unit-RHS solves).
+    // Persist the LᵀDL factors to global memory (joint / contact constraint
+    // init reuses them for unit-RHS solves).
     if lane < ndofs {
         for r in 0..ndofs {
             mass_matrices.write(m_view.idx(r, lane), mat.read(sm_idx(r, lane)));
@@ -256,9 +283,11 @@ pub fn gpu_mb_gravity_and_lu(
     }
 
     // ---- Phase 4: solve M·x = τ for the gravity rhs. ----
-    lu_apply_pivots(ndofs, lane, lu_pivots, piv_offset, x);
-    lu_triangular_solve_in_place(ndofs, lane, mat, x, partial);
+    ltdl_solve_in_shared(ndofs, lane, mat, lu_pivots, piv_offset, x);
 
+    let _ = partial;
+    let _ = pivot_row_shared;
+    let _ = inv_akk_shared;
     if lane < ndofs {
         gen_forces.write(rhs_offset + lane as usize, x.read(lane as usize));
     }
