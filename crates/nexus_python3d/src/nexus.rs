@@ -263,9 +263,6 @@ impl NexusState {
         })
     }
 
-    /// Loads a MuJoCo MJCF scene into environment 0 as multibodies, registering
-    /// its render shapes (and a sized floor) with `viewer`. Returns scene info
-    /// (suggested camera + whether the scene is Z-up). Call `finalize` after.
     /// Per-environment collision-pair capacity (default 4096). Lower this
     /// before `finalize` when batching many small environments — pair-keyed
     /// GPU workspaces scale with `capacity x num_envs`.
@@ -273,6 +270,10 @@ impl NexusState {
         self.0.set_rbd_collisions_capacity(capacity);
     }
 
+    /// Loads a MuJoCo MJCF scene into environment `env` as multibodies,
+    /// registering its render shapes (and a sized floor) with `viewer`. Returns
+    /// scene info (suggested camera + whether the scene is Z-up). Call
+    /// `finalize` after.
     #[pyo3(signature = (viewer, scene_path, render_colliders=false, env=0))]
     fn insert_mjcf(
         &mut self,
