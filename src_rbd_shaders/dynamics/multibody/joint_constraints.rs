@@ -370,17 +370,7 @@ fn emit_limit_constraint(
     // near-rigid, matching the old hardcoded `1/dt`).
     let min_enabled = curr_pos < limits[0];
     let max_enabled = limits[1] < curr_pos;
-    // INACTIVE limit (joint strictly inside its bounds): the row would carry
-    // zero positional bias AND both impulse clamps at 0, so it can never apply
-    // any impulse — dead weight in every PGS sweep. Skip emission: the slot
-    // stays `kind = 0` (pre-zeroed by the discovery walk), which the PGS
-    // sweeps already skip (`if cons.kind == 0 { continue }`). Result-identical,
-    // and it saves the O(ndofs) `compute_constraint_column` back-solve per
-    // limit per substep — a robot standing at its home pose has essentially
-    // every joint inside its limits every substep, so the joint-constraint
-    // work drops from #limited-joints rows to #violated rows (~0). Constraints
-    // are rebuilt from current coords each substep, so a joint reaching its
-    // bound re-emits on the next substep exactly as before.
+    // No limit is active, skip the constraint for the current substep.
     if !min_enabled && !max_enabled {
         return;
     }
