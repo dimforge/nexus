@@ -145,6 +145,9 @@ pub struct NexusViewer {
     last_gpu_pass_times: Vec<(String, f64)>,
     /// Total GPU time matching [`Self::last_gpu_pass_times`].
     last_gpu_total_time_ms: f64,
+    /// Whether [`Self::render_frame`] draws the built-in egui panel. Disable
+    /// for clean frame capture ([`Self::snap_rgb`]).
+    draw_ui: bool,
     pub ui: UiState,
 }
 
@@ -154,13 +157,18 @@ impl NexusViewer {
     /// `demos` is the list of `(name, kind)` shown in the demo picker; pass an
     /// empty vec for a standalone single-example viewer (no picker).
     pub async fn new(demos: Vec<(String, DemoKind)>) -> Self {
+        Self::new_with_size(demos, 1200, 900).await
+    }
+
+    /// Like [`Self::new`] but with an explicit window/render resolution.
+    pub async fn new_with_size(demos: Vec<(String, DemoKind)>, width: u32, height: u32) -> Self {
         // NOTE: PASSTHROUGH_SHADERS is required for compute shaders with spirv_passthrough on
         //       platforms running vulkan (to work around some naga limitations).
         let setup = kiss3d::window::CanvasSetup {
             required_features: Features::PASSTHROUGH_SHADERS,
             ..Default::default()
         };
-        let mut window = Window::new_with_setup("nexus demos", 1200, 900, setup).await;
+        let mut window = Window::new_with_setup("nexus demos", width, height, setup).await;
         window.set_background_color(Color::new(245.0 / 255.0, 245.0 / 255.0, 236.0 / 255.0, 1.0));
         // Disable MSAA, this puts extra load on the GPU that ends up
         // falsifying the gpu physics timestamps.
@@ -213,6 +221,7 @@ impl NexusViewer {
             render_resources_backend: None,
             last_gpu_pass_times: Vec::new(),
             last_gpu_total_time_ms: 0.0,
+            draw_ui: true,
             ui: UiState {
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
@@ -769,12 +778,31 @@ impl NexusViewer {
         let gpu_available = self.webgpu.is_some();
         // Disjoint closure capture (edition 2024): the closure borrows `self.ui`
         // and `scene_ui` while `self.window` is the receiver.
-        self.window.draw_ui(|ctx| {
-            crate::ui::setup_custom_theme(ctx);
-            crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
-        });
+        if self.draw_ui {
+            self.window.draw_ui(|ctx| {
+                crate::ui::setup_custom_theme(ctx);
+                crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
+            });
+        }
 
         self.ui.transition.is_none()
+    }
+
+    /// Captures the last rendered frame as `(width, height, rgb)`, where `rgb`
+    /// is row-major, top-to-bottom, 3 bytes (R, G, B) per pixel.
+    ///
+    /// This is the off-screen counterpart of the on-window presentation done by
+    /// [`Self::render_frame`]: call `render_frame` to draw the scene, then this
+    /// to read the framebuffer back to the CPU (e.g. to export a video).
+    pub fn snap_rgb(&mut self) -> (u32, u32, Vec<u8>) {
+        let img = self.window.snap_image();
+        (img.width(), img.height(), img.into_raw())
+    }
+
+    /// Whether [`Self::render_frame`] draws the built-in egui panel (default
+    /// `true`). Disable for clean frame capture.
+    pub fn set_draw_ui(&mut self, enabled: bool) {
+        self.draw_ui = enabled;
     }
 
     /// Draws example-specific egui widgets into the current frame's UI pass.

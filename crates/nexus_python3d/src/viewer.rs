@@ -10,6 +10,7 @@ use crate::nexus::{GpuTimestamps, NexusState};
 use crate::rbd::{RigidBodyHandle, SharedShape};
 use khal::backend::GpuBackend;
 use nexus_viewer3d::NexusViewer as RViewer;
+use numpy::{IntoPyArray, PyArray3, PyArrayMethods};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -57,10 +58,17 @@ impl NexusViewer {
 impl NexusViewer {
     /// Opens a window and probes the GPU. Blocks on the async setup.
     ///
-    /// Must be called on the main thread (required by the OS windowing system).
+    /// `width`/`height` set the window and render-target resolution
+    /// (default 1200x900). Must be called on the main thread (required by the
+    /// OS windowing system).
     #[new]
-    fn new() -> Self {
-        NexusViewer(Some(pollster::block_on(RViewer::new(Vec::new()))))
+    #[pyo3(signature = (width=1200, height=900))]
+    fn new(width: u32, height: u32) -> Self {
+        NexusViewer(Some(pollster::block_on(RViewer::new_with_size(
+            Vec::new(),
+            width,
+            height,
+        ))))
     }
 
     // --- backend selection (fluent) --------------------------------------
@@ -157,9 +165,28 @@ impl NexusViewer {
         pollster::block_on(self.inner_mut().render_frame())
     }
 
+    /// Whether `render_frame` draws the built-in egui panel (default `True`).
+    /// Disable for clean frame capture with `render`.
+    fn set_draw_ui(&mut self, enabled: bool) {
+        self.inner_mut().set_draw_ui(enabled);
+    }
+
     /// Whether the simulation should advance this frame (honors play/pause/step).
     fn simulating(&mut self) -> bool {
         self.inner_mut().simulating()
+    }
+
+    /// Returns the last rendered frame as an `(H, W, 3)` `uint8` NumPy array
+    /// (row-major, top-to-bottom, RGB), like `mujoco.Renderer.render()`.
+    ///
+    /// Call once per frame after [`render_frame`][Self::render_frame] to export
+    /// frames off-screen (e.g. to encode a video) instead of only presenting to
+    /// the window.
+    fn snap_rgb<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyArray3<u8>>> {
+        let (w, h, rgb) = self.inner_mut().snap_rgb();
+        rgb.into_pyarray(py)
+            .reshape([h as usize, w as usize, 3])
+            .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
     }
 
     /// Reads GPU state back into the renderer. Call once per frame after
