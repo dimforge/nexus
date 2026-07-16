@@ -957,6 +957,7 @@ impl NexusViewer {
     /// Velocities are only meaningful after the first simulated step (the
     /// forward-kinematics pass fills them); coordinates and poses are valid
     /// from `finalize`.
+    #[cfg(feature = "dim3")]
     pub async fn read_multibody_links(
         &mut self,
         state: &NexusState,

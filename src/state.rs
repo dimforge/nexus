@@ -242,6 +242,7 @@ impl NexusState {
     /// Unlike [`Self::rbd_world_mut`] this does NOT mark the world dirty: motor
     /// updates are per-step control, not a topology change, so no GPU rebuild
     /// is triggered. Call after [`Self::finalize`]; a no-op before it.
+    #[cfg(all(feature = "dim3", feature = "rbd"))]
     pub fn control_multibody_motors<F>(
         &mut self,
         backend: &GpuBackend,
