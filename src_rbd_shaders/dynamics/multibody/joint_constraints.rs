@@ -370,6 +370,10 @@ fn emit_limit_constraint(
     // near-rigid, matching the old hardcoded `1/dt`).
     let min_enabled = curr_pos < limits[0];
     let max_enabled = limits[1] < curr_pos;
+    // No limit is active, skip the constraint for the current substep.
+    if !min_enabled && !max_enabled {
+        return;
+    }
     let lo_excess = (limits[0] - curr_pos).max(0.0);
     let hi_excess = (curr_pos - limits[1]).max(0.0);
     let rhs_bias = (hi_excess - lo_excess) * erp_inv_dt;
