@@ -2,7 +2,7 @@
 
 use crate::shaders::utils::radix_sort::{
     GpuInitSortBatched, GpuInitSortDispatch, GpuSortCount, GpuSortReduce, GpuSortScan,
-    GpuSortScanAdd, GpuSortScatter, SortUniforms,
+    GpuSortScanAdd, GpuSortScatter, GpuSortSmall, SMALL_SORT_MAX, SMALL_SORT_WG, SortUniforms,
 };
 use khal::backend::{GpuBackend, GpuBackendError, GpuPass};
 use khal::{BufferUsages, Shader};
@@ -30,6 +30,7 @@ pub struct RadixSort {
     scan: GpuSortScan,
     scan_add: GpuSortScanAdd,
     scatter: GpuSortScatter,
+    small: GpuSortSmall,
 }
 
 /// Workspace buffers for radix sort operations.
@@ -119,6 +120,38 @@ impl RadixSort {
                 input_values,
                 n_sort,
                 num_batches,
+                output_keys,
+                output_values,
+            );
+        }
+
+        // Fast path: small per-batch capacity → one segmented bitonic-sort
+        // launch (output bit-identical to the radix path) instead of the
+        // ~ceil(bits/4)×5-launch radix cascade.
+        let per_batch_max = input_keys.len() as u32 / num_batches.max(1);
+        let small_enabled = std::env::var("NEXUS_SMALL_SORT")
+            .map(|v| v != "0")
+            .unwrap_or(true);
+        if small_enabled && per_batch_max > 0 && per_batch_max <= SMALL_SORT_MAX {
+            workspace.pass_uniforms.clear();
+            workspace.pass_uniforms.push(Tensor::scalar(
+                backend,
+                SortUniforms {
+                    shift: 0,
+                    max_keys_per_batch: per_batch_max,
+                    has_aux: 0,
+                },
+                BufferUsages::STORAGE | BufferUsages::UNIFORM,
+            )?);
+            // `call` takes logical THREAD counts (div_ceil'd by the workgroup
+            // size) — one 64-wide workgroup per batch.
+            return self.small.call(
+                pass,
+                [num_batches * SMALL_SORT_WG, 1, 1],
+                &workspace.pass_uniforms[0],
+                n_sort,
+                input_keys,
+                input_values,
                 output_keys,
                 output_values,
             );
