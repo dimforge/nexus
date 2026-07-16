@@ -311,11 +311,7 @@ impl GpuMultibodySet {
                 offset += 1;
             }
         }
-        backend.write_buffer(
-            self.links_static.buffer_mut(),
-            0,
-            &self.links_static_mirror,
-        )
+        backend.write_buffer(self.links_static.buffer_mut(), 0, &self.links_static_mirror)
     }
 
     /// Upload a new gravity vector.
