@@ -37,36 +37,36 @@ pub fn setup_custom_theme(ctx: &egui::Context) {
 
         v.widgets.noninteractive.bg_fill = faint_bg;
         v.widgets.noninteractive.weak_bg_fill = faint_bg;
-        v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, stroke_color);
+        v.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, stroke_color);
         v.widgets.noninteractive.corner_radius = rounding;
-        v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, text_color);
+        v.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, text_color);
 
         v.widgets.inactive.bg_fill = widget_bg;
         v.widgets.inactive.weak_bg_fill = widget_bg;
-        v.widgets.inactive.bg_stroke = Stroke::new(1.0, stroke_color);
+        v.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, stroke_color);
         v.widgets.inactive.corner_radius = small_rounding;
-        v.widgets.inactive.fg_stroke = Stroke::new(1.0, text_color);
+        v.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, text_color);
 
         v.widgets.hovered.bg_fill = widget_bg_hover;
         v.widgets.hovered.weak_bg_fill = widget_bg_hover;
-        v.widgets.hovered.bg_stroke = Stroke::new(1.0, stroke_hover);
+        v.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, stroke_hover);
         v.widgets.hovered.corner_radius = small_rounding;
-        v.widgets.hovered.fg_stroke = Stroke::new(1.5, text_color);
+        v.widgets.hovered.fg_stroke = Stroke::new(1.5_f32, text_color);
 
         v.widgets.active.bg_fill = widget_bg_active;
         v.widgets.active.weak_bg_fill = widget_bg_active;
-        v.widgets.active.bg_stroke = Stroke::new(1.0, accent);
+        v.widgets.active.bg_stroke = Stroke::new(1.0_f32, accent);
         v.widgets.active.corner_radius = small_rounding;
-        v.widgets.active.fg_stroke = Stroke::new(2.0, accent_active);
+        v.widgets.active.fg_stroke = Stroke::new(2.0_f32, accent_active);
 
         v.widgets.open.bg_fill = widget_bg;
         v.widgets.open.weak_bg_fill = widget_bg;
-        v.widgets.open.bg_stroke = Stroke::new(1.0, stroke_color);
+        v.widgets.open.bg_stroke = Stroke::new(1.0_f32, stroke_color);
         v.widgets.open.corner_radius = small_rounding;
-        v.widgets.open.fg_stroke = Stroke::new(1.0, text_color);
+        v.widgets.open.fg_stroke = Stroke::new(1.0_f32, text_color);
 
         v.selection.bg_fill = accent.gamma_multiply(0.25);
-        v.selection.stroke = Stroke::new(1.0, accent);
+        v.selection.stroke = Stroke::new(1.0_f32, accent);
 
         v.hyperlink_color = accent;
         v.faint_bg_color = faint_bg;
@@ -77,7 +77,7 @@ pub fn setup_custom_theme(ctx: &egui::Context) {
 
         v.window_corner_radius = CornerRadius::same(8);
         v.window_fill = window_fill;
-        v.window_stroke = Stroke::new(1.0, stroke_color);
+        v.window_stroke = Stroke::new(1.0_f32, stroke_color);
 
         v.panel_fill = bg_fill;
 
