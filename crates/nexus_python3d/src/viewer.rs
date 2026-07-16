@@ -171,6 +171,35 @@ impl NexusViewer {
         self.inner_mut().set_draw_ui(enabled);
     }
 
+    /// Renders one path-traced frame with kiss3d's GPU path tracer instead of
+    /// the rasterizer. Samples accumulate across calls while the scene is
+    /// static; call it several times (or raise `set_raytracer_samples_per_frame`)
+    /// before `render` to converge. Returns `False` when the window is closed.
+    fn raytrace_frame(&mut self) -> bool {
+        pollster::block_on(self.inner_mut().raytrace_frame())
+    }
+
+    /// Number of path-tracing samples accumulated per `raytrace_frame` call.
+    fn set_raytracer_samples_per_frame(&mut self, samples: u32) {
+        self.inner_mut().set_raytracer_samples_per_frame(samples);
+    }
+
+    /// Maximum path-tracing bounce depth.
+    fn set_raytracer_max_bounces(&mut self, bounces: u32) {
+        self.inner_mut().set_raytracer_max_bounces(bounces);
+    }
+
+    /// Enables/disables the path tracer's denoiser.
+    fn set_raytracer_denoise(&mut self, enabled: bool) {
+        self.inner_mut().set_raytracer_denoise(enabled);
+    }
+
+    /// Which intersection backend the path tracer uses: `"hardware"` (RT-core
+    /// ray queries) or `"software"` (portable compute-shader BVH fallback).
+    fn raytracer_backend(&mut self) -> &'static str {
+        self.inner_mut().raytracer_backend_name()
+    }
+
     /// Whether the simulation should advance this frame (honors play/pause/step).
     fn simulating(&mut self) -> bool {
         self.inner_mut().simulating()

@@ -23,6 +23,8 @@ use khal::re_exports::wgpu::{Features, Limits};
 use std::time::Duration;
 
 use kiss3d::prelude::Color;
+#[cfg(feature = "dim3")]
+use kiss3d::renderer::RayTracer;
 use kiss3d::scene::{SceneNode2d, SceneNode3d};
 use kiss3d::window::{NumSamples, Window};
 
@@ -148,6 +150,10 @@ pub struct NexusViewer {
     /// Whether [`Self::render_frame`] draws the built-in egui panel. Disable
     /// for clean frame capture ([`Self::snap_rgb`]).
     draw_ui: bool,
+    /// Lazily-created path tracer for [`Self::raytrace_frame`]. Kept across
+    /// frames so samples keep accumulating while the scene is static.
+    #[cfg(feature = "dim3")]
+    raytracer: Option<RayTracer>,
     pub ui: UiState,
 }
 
@@ -222,6 +228,8 @@ impl NexusViewer {
             last_gpu_pass_times: Vec::new(),
             last_gpu_total_time_ms: 0.0,
             draw_ui: true,
+            #[cfg(feature = "dim3")]
+            raytracer: None,
             ui: UiState {
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
@@ -332,8 +340,24 @@ impl NexusViewer {
     /// falls back to the GPU→CPU readback path.
     fn direct_render_path(&self) -> bool {
         self.webgpu_shared
+            && !self.rt_active()
             && self.ui.backend_type == BackendType::Gpu
             && matches!(self.webgpu, Some(KhalGpuBackend::WebGpu(_)))
+    }
+
+    /// Whether the path tracer has been used/configured. The tracer rebuilds its
+    /// acceleration structure from the CPU-side instance buffers, so while it is
+    /// active `sync` must take the readback path — the zero-readback kernel only
+    /// updates kiss3d's GPU instance buffers, which the tracer never reads.
+    fn rt_active(&self) -> bool {
+        #[cfg(feature = "dim3")]
+        {
+            self.raytracer.is_some()
+        }
+        #[cfg(not(feature = "dim3"))]
+        {
+            false
+        }
     }
 
     #[cfg(feature = "cuda")]
@@ -803,6 +827,73 @@ impl NexusViewer {
     /// `true`). Disable for clean frame capture.
     pub fn set_draw_ui(&mut self, enabled: bool) {
         self.draw_ui = enabled;
+    }
+
+    /// Renders one path-traced frame of the viewer-owned scene with kiss3d's
+    /// GPU path tracer, instead of the rasterizer used by
+    /// [`Self::render_frame`].
+    ///
+    /// The tracer accumulates samples across calls while the scene and camera
+    /// are static, and restarts accumulation automatically when either changes.
+    /// Call it several times per video frame (or raise
+    /// [`Self::set_raytracer_samples_per_frame`]) to converge before grabbing
+    /// the image with [`Self::snap_rgb`]. Returns `false` when the loop
+    /// should end (window closed).
+    #[cfg(feature = "dim3")]
+    pub async fn raytrace_frame(&mut self) -> bool {
+        let raytracer = self.raytracer.get_or_insert_with(RayTracer::new);
+        let cont = self
+            .window
+            .raytrace_3d(&mut self.scene3d, &mut self.camera3d, raytracer)
+            .await;
+        if !cont {
+            self.ui.transition = Some(Transition::Quit);
+        }
+        cont
+    }
+
+    /// Number of path-tracing samples accumulated per [`Self::raytrace_frame`]
+    /// call (default: chosen by kiss3d from the GPU tier).
+    #[cfg(feature = "dim3")]
+    pub fn set_raytracer_samples_per_frame(&mut self, samples: u32) {
+        self.raytracer
+            .get_or_insert_with(RayTracer::new)
+            .set_samples_per_frame(samples);
+    }
+
+    /// Maximum path-tracing bounce depth.
+    #[cfg(feature = "dim3")]
+    pub fn set_raytracer_max_bounces(&mut self, bounces: u32) {
+        self.raytracer
+            .get_or_insert_with(RayTracer::new)
+            .set_max_bounces(bounces);
+    }
+
+    /// Which intersection backend the path tracer uses: hardware ray queries
+    /// (RT cores, when the device supports them) or the portable
+    /// compute-shader BVH fallback.
+    #[cfg(feature = "dim3")]
+    pub fn raytracer_backend(&mut self) -> kiss3d::renderer::RayBackend {
+        self.raytracer.get_or_insert_with(RayTracer::new).backend()
+    }
+
+    /// [`Self::raytracer_backend`] as a string (`"hardware"` / `"software"`),
+    /// for consumers that don't depend on kiss3d directly (e.g. the Python
+    /// bindings).
+    #[cfg(feature = "dim3")]
+    pub fn raytracer_backend_name(&mut self) -> &'static str {
+        match self.raytracer_backend() {
+            kiss3d::renderer::RayBackend::Hardware => "hardware",
+            kiss3d::renderer::RayBackend::Software => "software",
+        }
+    }
+
+    /// Enables/disables the path tracer's denoiser.
+    #[cfg(feature = "dim3")]
+    pub fn set_raytracer_denoise(&mut self, enabled: bool) {
+        self.raytracer
+            .get_or_insert_with(RayTracer::new)
+            .set_denoise(enabled);
     }
 
     /// Draws example-specific egui widgets into the current frame's UI pass.
