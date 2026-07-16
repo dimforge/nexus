@@ -395,6 +395,48 @@ pub fn abs(x: f32) -> f32 {
     Float::abs(x)
 }
 
+/// Panic-free matrix column access for GPU shader code.
+///
+/// glam's `col` panics with a message on an out-of-range index, which GPU
+/// backends that cannot lower panic-message formatting (e.g. cuda-oxide /
+/// PTX) reject at device-codegen time — even when the panic branch is
+/// unreachable at runtime.
+///
+/// `index` **must** be in range (`0..2` for `Mat2`, `0..3` for `Mat3`); every
+/// caller in this crate derives it from an axis mask, so this always holds.
+/// An out-of-range index is a bug: debug (host) builds catch it with a
+/// `debug_assert!`, release/device builds fold it to the last column rather
+/// than carrying panic machinery into the kernel.
+pub trait ColumnIndex {
+    type Column;
+    fn col_at(&self, index: usize) -> Self::Column;
+}
+
+impl ColumnIndex for glamx::Mat3 {
+    type Column = glamx::Vec3;
+    #[inline(always)]
+    fn col_at(&self, index: usize) -> glamx::Vec3 {
+        debug_assert!(index < 3, "Mat3 column index out of range");
+        match index {
+            0 => self.x_axis,
+            1 => self.y_axis,
+            _ => self.z_axis,
+        }
+    }
+}
+
+impl ColumnIndex for glamx::Mat2 {
+    type Column = glamx::Vec2;
+    #[inline(always)]
+    fn col_at(&self, index: usize) -> glamx::Vec2 {
+        debug_assert!(index < 2, "Mat2 column index out of range");
+        match index {
+            0 => self.x_axis,
+            _ => self.y_axis,
+        }
+    }
+}
+
 //
 // Modules
 //
