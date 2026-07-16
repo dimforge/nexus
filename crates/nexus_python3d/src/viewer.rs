@@ -54,12 +54,7 @@ impl NexusViewer {
     }
 
     /// Wraps raw RGB pixels as an `(H, W, 3)` numpy array.
-    fn to_array(
-        py: Python<'_>,
-        w: u32,
-        h: u32,
-        rgb: Vec<u8>,
-    ) -> PyResult<Bound<'_, PyArray3<u8>>> {
+    fn to_array(py: Python<'_>, w: u32, h: u32, rgb: Vec<u8>) -> PyResult<Bound<'_, PyArray3<u8>>> {
         rgb.into_pyarray(py)
             .reshape([h as usize, w as usize, 3])
             .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
@@ -252,7 +247,10 @@ impl NexusViewer {
     /// first call. Unlike `snap_rgb` this never stalls the GPU pipeline waiting
     /// for the copy. Call [`snap_rgb_flush`][Self::snap_rgb_flush] after the loop
     /// to collect the final frame.
-    fn snap_rgb_async<'py>(&mut self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyArray3<u8>>>> {
+    fn snap_rgb_async<'py>(
+        &mut self,
+        py: Python<'py>,
+    ) -> PyResult<Option<Bound<'py, PyArray3<u8>>>> {
         match self.inner_mut().snap_rgb_async() {
             Some((w, h, rgb)) => Ok(Some(Self::to_array(py, w, h, rgb)?)),
             None => Ok(None),
@@ -261,7 +259,10 @@ impl NexusViewer {
 
     /// Completes and returns the capture left in flight by
     /// [`snap_rgb_async`][Self::snap_rgb_async], or `None` when there is none.
-    fn snap_rgb_flush<'py>(&mut self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyArray3<u8>>>> {
+    fn snap_rgb_flush<'py>(
+        &mut self,
+        py: Python<'py>,
+    ) -> PyResult<Option<Bound<'py, PyArray3<u8>>>> {
         match self.inner_mut().snap_rgb_flush() {
             Some((w, h, rgb)) => Ok(Some(Self::to_array(py, w, h, rgb)?)),
             None => Ok(None),
