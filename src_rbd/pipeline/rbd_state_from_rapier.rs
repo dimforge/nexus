@@ -146,6 +146,10 @@ impl RbdState {
         // the equal-topology invariant and to set `BatchIndices::bodies_len`.
         let mut all_env_body_counts: Vec<usize> = Vec::new();
         let mut shape_buffers = ShapeBuffers::default();
+        // TriMesh dedupe: a `SharedShape` cloned across envs (e.g. shared
+        // terrain) is serialized into `shape_buffers` once and its `Shape`
+        // descriptor reused — keyed by the parry shape data pointer.
+        let mut trimesh_cache: HashMap<usize, crate::shaders::shapes::Shape> = HashMap::new();
         let mut joint_envs: Vec<(
             &ImpulseJointSet,
             HashMap<crate::rapier::dynamics::RigidBodyHandle, u32>,
@@ -273,9 +277,24 @@ impl RbdState {
                     }
                 };
 
-                all_shapes.push(
-                    shape_from_parry(co.shape(), &mut shape_buffers).expect("Unsupported shape"),
-                );
+                let gpu_shape = match co.shape().as_typed_shape() {
+                    crate::parry::shape::TypedShape::TriMesh(tm) => {
+                        let key = tm as *const _ as *const u8 as usize;
+                        match trimesh_cache.get(&key) {
+                            Some(&s) => s,
+                            None => {
+                                let s = shape_from_parry(co.shape(), &mut shape_buffers)
+                                    .expect("Unsupported shape");
+                                trimesh_cache.insert(key, s);
+                                s
+                            }
+                        }
+                    }
+                    _ => {
+                        shape_from_parry(co.shape(), &mut shape_buffers).expect("Unsupported shape")
+                    }
+                };
+                all_shapes.push(gpu_shape);
                 all_collider_local_poses.push(collider_local_pose);
                 all_collision_groups.push(co.collision_groups());
                 all_collider_materials.push(collider_material_from_rapier(co));
