@@ -52,6 +52,13 @@ impl NexusViewer {
     pub fn backend(&self) -> &GpuBackend {
         self.inner().backend()
     }
+
+    /// Wraps raw RGB pixels as an `(H, W, 3)` numpy array.
+    fn to_array(py: Python<'_>, w: u32, h: u32, rgb: Vec<u8>) -> PyResult<Bound<'_, PyArray3<u8>>> {
+        rgb.into_pyarray(py)
+            .reshape([h as usize, w as usize, 3])
+            .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
+    }
 }
 
 #[pymethods]
@@ -61,14 +68,32 @@ impl NexusViewer {
     /// `width`/`height` set the window and render-target resolution
     /// (default 1200x900). Must be called on the main thread (required by the
     /// OS windowing system).
+    ///
+    /// With `headless=True` no OS window (and no swapchain) is created:
+    /// frames render into an off-screen texture, unthrottled by the display's
+    /// refresh rate — the fast path for video capture, and the only path on
+    /// machines without a display server.
     #[new]
-    #[pyo3(signature = (width=1200, height=900))]
-    fn new(width: u32, height: u32) -> Self {
-        NexusViewer(Some(pollster::block_on(RViewer::new_with_size(
-            Vec::new(),
-            width,
-            height,
-        ))))
+    #[pyo3(signature = (width=1200, height=900, headless=false))]
+    fn new(width: u32, height: u32, headless: bool) -> Self {
+        let inner = if headless {
+            pollster::block_on(RViewer::new_headless_with_size(Vec::new(), width, height))
+        } else {
+            pollster::block_on(RViewer::new_with_size(Vec::new(), width, height))
+        };
+        NexusViewer(Some(inner))
+    }
+
+    /// Whether presentation is vsync-locked (always `False` headless).
+    fn vsync(&self) -> bool {
+        self.inner().vsync()
+    }
+
+    /// Enables/disables vsync. With vsync off, `render_frame` no longer waits
+    /// for the display refresh (~60 Hz), so windowed capture runs as fast as
+    /// the GPU allows. No-op on a headless viewer.
+    fn set_vsync(&mut self, enabled: bool) {
+        self.inner_mut().set_vsync(enabled);
     }
 
     // --- backend selection (fluent) --------------------------------------
@@ -213,9 +238,35 @@ impl NexusViewer {
     /// the window.
     fn snap_rgb<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyArray3<u8>>> {
         let (w, h, rgb) = self.inner_mut().snap_rgb();
-        rgb.into_pyarray(py)
-            .reshape([h as usize, w as usize, 3])
-            .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
+        Self::to_array(py, w, h, rgb)
+    }
+
+    /// Pipelined variant of [`snap_rgb`][Self::snap_rgb] for video capture: starts
+    /// a non-blocking capture of the frame just rendered and returns the
+    /// *previous* frame's pixels (one frame of latency), or `None` on the
+    /// first call. Unlike `snap_rgb` this never stalls the GPU pipeline waiting
+    /// for the copy. Call [`snap_rgb_flush`][Self::snap_rgb_flush] after the loop
+    /// to collect the final frame.
+    fn snap_rgb_async<'py>(
+        &mut self,
+        py: Python<'py>,
+    ) -> PyResult<Option<Bound<'py, PyArray3<u8>>>> {
+        match self.inner_mut().snap_rgb_async() {
+            Some((w, h, rgb)) => Ok(Some(Self::to_array(py, w, h, rgb)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Completes and returns the capture left in flight by
+    /// [`snap_rgb_async`][Self::snap_rgb_async], or `None` when there is none.
+    fn snap_rgb_flush<'py>(
+        &mut self,
+        py: Python<'py>,
+    ) -> PyResult<Option<Bound<'py, PyArray3<u8>>>> {
+        match self.inner_mut().snap_rgb_flush() {
+            Some((w, h, rgb)) => Ok(Some(Self::to_array(py, w, h, rgb)?)),
+            None => Ok(None),
+        }
     }
 
     /// Reads GPU state back into the renderer. Call once per frame after

@@ -168,13 +168,32 @@ impl NexusViewer {
 
     /// Like [`Self::new`] but with an explicit window/render resolution.
     pub async fn new_with_size(demos: Vec<(String, DemoKind)>, width: u32, height: u32) -> Self {
-        // NOTE: PASSTHROUGH_SHADERS is required for compute shaders with spirv_passthrough on
-        //       platforms running vulkan (to work around some naga limitations).
-        let setup = kiss3d::window::CanvasSetup {
+        let window = Window::new_with_setup("nexus demos", width, height, Self::setup()).await;
+        Self::with_window(window, demos).await
+    }
+
+    /// Like [`Self::new_with_size`] but headless: no OS window, no swapchain,
+    /// no vsync — frames render straight into an off-screen texture, which is
+    /// what you want for video capture or on a machine with no display server.
+    pub async fn new_headless_with_size(
+        demos: Vec<(String, DemoKind)>,
+        width: u32,
+        height: u32,
+    ) -> Self {
+        let window = Window::new_headless_with_setup(width, height, Self::setup()).await;
+        Self::with_window(window, demos).await
+    }
+
+    // NOTE: PASSTHROUGH_SHADERS is required for compute shaders with spirv_passthrough on
+    //       platforms running vulkan (to work around some naga limitations).
+    fn setup() -> kiss3d::window::CanvasSetup {
+        kiss3d::window::CanvasSetup {
             required_features: Features::PASSTHROUGH_SHADERS,
             ..Default::default()
-        };
-        let mut window = Window::new_with_setup("nexus demos", width, height, setup).await;
+        }
+    }
+
+    async fn with_window(mut window: Window, demos: Vec<(String, DemoKind)>) -> Self {
         window.set_background_color(Color::new(245.0 / 255.0, 245.0 / 255.0, 236.0 / 255.0, 1.0));
         // Disable MSAA, this puts extra load on the GPU that ends up
         // falsifying the gpu physics timestamps.
@@ -821,6 +840,38 @@ impl NexusViewer {
     pub fn snap_rgb(&mut self) -> (u32, u32, Vec<u8>) {
         let img = self.window.snap_image();
         (img.width(), img.height(), img.into_raw())
+    }
+
+    /// Pipelined frame capture: completes the capture started by the previous
+    /// call (returning *that* frame, one frame late) and starts a non-blocking
+    /// capture of the frame just rendered. Returns `None` on the first call.
+    /// Unlike [`Self::snap_rgb`] this never stalls waiting for the GPU, since
+    /// the copy of frame N is collected only after frame N+1 was rendered.
+    /// Call [`Self::snap_rgb_flush`] after the loop to collect the last frame.
+    pub fn snap_rgb_async(&mut self) -> Option<(u32, u32, Vec<u8>)> {
+        let prev = self.snap_rgb_flush();
+        self.window.snap_begin();
+        prev
+    }
+
+    /// Completes and returns a capture left in flight by
+    /// [`Self::snap_rgb_async`], or `None` when there is none.
+    pub fn snap_rgb_flush(&mut self) -> Option<(u32, u32, Vec<u8>)> {
+        let img = self.window.snap_finish()?;
+        Some((img.width(), img.height(), img.into_raw()))
+    }
+
+    /// Whether presentation is vsync-locked (windowed viewers only; always
+    /// `false` headless).
+    pub fn vsync(&self) -> bool {
+        self.window.vsync()
+    }
+
+    /// Enables/disables vsync on the window's swapchain. With vsync off,
+    /// [`Self::render_frame`] no longer blocks on the display refresh —
+    /// essential when capturing video faster than real time. No-op headless.
+    pub fn set_vsync(&mut self, enabled: bool) {
+        self.window.set_vsync(enabled);
     }
 
     /// Whether [`Self::render_frame`] draws the built-in egui panel (default
