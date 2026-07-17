@@ -180,9 +180,14 @@ pub fn gpu_narrow_phase_shape_shape(
 
         let pair = collision_pairs[i as usize];
         // Resolve the parent rigid-bodies here (the broad phase no longer does)
-        // and skip pairs whose colliders share the same body.
-        let body1 = collider_parent.read(pair.colliders.x as usize);
-        let body2 = collider_parent.read(pair.colliders.y as usize);
+        // and skip pairs whose colliders share the same body. Pair ids are
+        // env-local, and `collider_parent` is batch-strided like the other
+        // per-collider buffers — an unsliced read here silently returned
+        // batch 0's parents for every batch (masked whenever all envs are
+        // identical, wrong the moment they aren't).
+        let coll_base = batch_ids.coll_start(batch_id);
+        let body1 = collider_parent.read(coll_base + pair.colliders.x as usize);
+        let body2 = collider_parent.read(coll_base + pair.colliders.y as usize);
         if body1 == body2 {
             continue;
         }
@@ -643,8 +648,9 @@ pub fn gpu_narrow_phase_pfm_pfm(
         // is where the deferred (PFM / trimesh / polyline) pairs get the same-body
         // filtering that the analytic pass does inline — the broad phase no longer
         // does it, and the deferred pass has no spare storage binding for it.
-        let body1 = collider_parent.read(pair.colliders.x as usize);
-        let body2 = collider_parent.read(pair.colliders.y as usize);
+        let coll_base = batch_ids.coll_start(batch_id);
+        let body1 = collider_parent.read(coll_base + pair.colliders.x as usize);
+        let body2 = collider_parent.read(coll_base + pair.colliders.y as usize);
         if body1 == body2 {
             continue;
         }
