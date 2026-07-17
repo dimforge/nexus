@@ -186,8 +186,8 @@ impl RbdPipeline {
                 &state.vertex_buffers,
                 &state.index_buffers,
                 &state.collision_pairs,
-                &state.collision_pairs_len,
-                &state.collision_pairs_indirect,
+                &mut state.collision_pairs_len,
+                &mut state.collision_pairs_indirect,
                 &mut state.contacts,
                 &mut state.contacts_len,
                 &mut state.contacts_indirect,
@@ -197,6 +197,8 @@ impl RbdPipeline {
                 &state.batch_indices,
                 &state.collider_parent,
                 &state.collider_materials,
+                &mut state.pairs_flat_offsets,
+                &mut state.pfm_flat_offsets,
             )?;
 
             drop(pass);

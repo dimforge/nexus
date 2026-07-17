@@ -184,6 +184,12 @@ pub struct RbdState {
     pub(super) pfm_pairs: Tensor<NarrowPhasePfmPair>,
     pub(super) pfm_pairs_len: Tensor<u32>,
     pub(super) pfm_pairs_indirect: Tensor<[u32; 3]>,
+    /// Flat-dispatch prefix offsets (`num_batches + 1`) over the per-batch
+    /// collision-pair / PFM work-lists, rebuilt on the GPU each step by
+    /// `gpu_flatten_batches_dispatch` so the narrow-phase kernels can pack
+    /// items from many batches into full warps.
+    pub(super) pairs_flat_offsets: Tensor<u32>,
+    pub(super) pfm_flat_offsets: Tensor<u32>,
     pub(super) contacts: Tensor<GpuIndexedContact>,
     pub(super) contacts_len: Tensor<u32>,
     pub(super) contacts_indirect: Tensor<[u32; 3]>,

@@ -70,6 +70,65 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
     *indirect_args.at_mut(2) = 1;
 }
 
+/// Builds the flat-dispatch layout for a per-batch work-list: exclusive prefix
+/// offsets (so item `t` of the flat range maps back to a batch via
+/// [`find_batch`]) and the matching 1-D indirect grid.
+///
+/// This replaces the max-over-batches indirect grids for the narrow-phase
+/// kernels: with `[max/64, num_batches, 1]` every batch rounds its handful of
+/// pairs up to a full 64-lane workgroup (a robot env has ~7 pairs → ~11% lane
+/// occupancy, thousands of near-empty workgroups). The flat grid packs items
+/// from consecutive batches into the same warps: `[total/64, 1, 1]`.
+///
+/// Serial over batches in one thread — same pattern (and cost) as the existing
+/// `gpu_narrow_phase_init_contacts_dispatch` max-scan.
+#[spirv_bindgen]
+#[spirv(compute(threads(1)))]
+pub fn gpu_flatten_batches_dispatch(
+    // NOTE: `lens` is mutable only for `atomic_load_u32` (see the note on
+    //       `gpu_narrow_phase_init_contacts_dispatch`).
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] lens: &mut [u32],
+    // `num_batches + 1` entries; `offsets[num_batches]` is the total.
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] offsets: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] indirect_args: &mut [u32; 3],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+) {
+    let num_batches = lens.len();
+    // Same clamp as the consuming kernels: a batch's list may overflow its
+    // capacity slot; the overflowing tail was never written and must not be
+    // walked.
+    let capacity = batch_ids.contacts_batch_capacity;
+    let mut total = 0u32;
+    for i in 0..num_batches {
+        offsets.write(i, total);
+        total += atomic_load_u32(lens.at_mut(i)).min(capacity);
+    }
+    offsets.write(num_batches, total);
+    *indirect_args.at_mut(0) = total.div_ceil(WORKGROUP_SIZE);
+    *indirect_args.at_mut(1) = 1;
+    *indirect_args.at_mut(2) = 1;
+}
+
+/// Largest `b` with `offsets[b] <= t` — the batch owning flat item `t`.
+/// Invariant: `offsets[0] == 0 <= t < offsets[num_batches]`.
+fn find_batch(offsets: &[u32], num_batches: u32, t: u32) -> u32 {
+    let mut lo = 0u32;
+    let mut hi = num_batches;
+    // Bounded loop instead of `while` (see the trimesh BVH walk for why).
+    for _ in 0..32 {
+        if lo + 1 >= hi {
+            break;
+        }
+        let mid = (lo + hi) / 2;
+        if offsets.read(mid as usize) <= t {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    lo
+}
+
 const PREDICTION: f32 = 2.0e-3; // TODO: make the prediction configurable.
 
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
@@ -83,7 +142,10 @@ pub fn gpu_narrow_phase_shape_shape(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs: &[CollisionPair],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] collision_pairs_len: &[u32],
+    // Flat-dispatch prefix offsets from `gpu_flatten_batches_dispatch`
+    // (`num_batches + 1` entries; replaces the per-batch `collision_pairs_len`,
+    // which it already folds in, clamped to capacity).
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] pairs_offsets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] shapes: &[Shape],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contacts: &mut [IndexedManifold],
@@ -97,23 +159,25 @@ pub fn gpu_narrow_phase_shape_shape(
     collider_materials: &[ColliderMaterial],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
     let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
-    let collision_pairs = batch_ids.contact_batch(batch_id, collision_pairs);
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
-    let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
-    let contacts_len = contacts_len.at_mut(batch_id as usize);
+    // Flat over all batches' pairs: consecutive lanes take consecutive pairs
+    // regardless of which batch owns them, so warps stay packed even when each
+    // batch only has a handful.
+    let num_batches = pairs_offsets.len() - 1;
+    let total = pairs_offsets.read(num_batches);
 
-    // NOTE: `collision_pairs_len` might be greater than `contacts_batch_apacity` if the
-    //       narrow-phase found more pairs than the buffer can contain.
-    let len = collision_pairs_len
-        .read(batch_id as usize)
-        .min(contacts_batch_capacity as u32);
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let batch_id = find_batch(pairs_offsets, num_batches as u32, t);
+        let i = t - pairs_offsets.read(batch_id as usize);
 
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
+        let collision_pairs = batch_ids.contact_batch(batch_id, collision_pairs);
+        let poses = batch_ids.coll_batch(batch_id, poses);
+        let shapes = batch_ids.coll_batch(batch_id, shapes);
+        let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
+        let mut contacts = SliceMut(&mut *contacts, batch_ids.contacts_start(batch_id));
+        let contacts_len = contacts_len.at_mut(batch_id as usize);
+
         let pair = collision_pairs[i as usize];
         // Resolve the parent rigid-bodies here (the broad phase no longer does)
         // and skip pairs whose colliders share the same body.
@@ -200,7 +264,8 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs: &[CollisionPair],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] collision_pairs_len: &[u32],
+    // Flat-dispatch prefix offsets (see `gpu_narrow_phase_shape_shape`).
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] pairs_offsets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] shapes: &[Shape],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
@@ -214,25 +279,25 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
-    let collision_pairs = batch_ids.contact_batch(batch_id, collision_pairs);
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let mut pfm_pairs = batch_ids.contact_batch_mut(batch_id, pfm_pairs);
-    let pfm_pairs_len = pfm_pairs_len.at_mut(batch_id as usize);
-
-    let len = collision_pairs_len
-        .read(batch_id as usize)
-        .min(contacts_batch_capacity as u32);
+    let num_batches = pairs_offsets.len() - 1;
+    let total = pairs_offsets.read(num_batches);
 
     // NOTE: same-body collider pairs are *not* filtered in this pass — it is
     //       already at the 8-storage-buffer WebGPU limit and can't take the
     //       `collider_parent` binding. The complex pairs it emits are filtered
     //       downstream in `gpu_narrow_phase_pfm_pfm` (which has room) before any
     //       contact is written.
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let batch_id = find_batch(pairs_offsets, num_batches as u32, t);
+        let i = t - pairs_offsets.read(batch_id as usize);
+
+        let collision_pairs = batch_ids.contact_batch(batch_id, collision_pairs);
+        let poses = batch_ids.coll_batch(batch_id, poses);
+        let shapes = batch_ids.coll_batch(batch_id, shapes);
+        let mut pfm_pairs = SliceMut(&mut *pfm_pairs, batch_ids.contacts_start(batch_id));
+        let pfm_pairs_len = pfm_pairs_len.at_mut(batch_id as usize);
+
         let pair = collision_pairs[i as usize];
         let pose1 = poses[pair.colliders.x as usize];
         let pose2 = poses[pair.colliders.y as usize];
@@ -541,7 +606,9 @@ pub fn gpu_narrow_phase_pfm_pfm(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &mut [IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] pfm_pairs: &[NarrowPhasePfmPair],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] pfm_pairs_len: &[u32],
+    // Flat-dispatch prefix offsets over the per-batch PFM work-lists (see
+    // `gpu_narrow_phase_shape_shape`; replaces the per-batch `pfm_pairs_len`).
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] pfm_offsets: &[u32],
     // NOTE: we assume that max_pfm_pairs == contacts_batch_capacity
     //       And we assume all batch dimensions are given the same buffer allocation sizes
     //       (i.e. the same `contacts_batch_capacity`).
@@ -557,16 +624,20 @@ pub fn gpu_narrow_phase_pfm_pfm(
     collider_materials: &[ColliderMaterial],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
     let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
-    let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
-    let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
-    let pfm_pairs = batch_ids.contact_batch(batch_id, pfm_pairs);
-    let contacts_len = contacts_len.at_mut(batch_id as usize);
-    let pfm_pairs_len = pfm_pairs_len.read(batch_id as usize);
+    let num_batches = pfm_offsets.len() - 1;
+    let total = pfm_offsets.read(num_batches);
 
-    for i in StepRng::new(invocation_id.x..pfm_pairs_len, num_threads) {
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let batch_id = find_batch(pfm_offsets, num_batches as u32, t);
+        let i = t - pfm_offsets.read(batch_id as usize);
+
+        let mut contacts = SliceMut(&mut *contacts, batch_ids.contacts_start(batch_id));
+        let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
+        let pfm_pairs = batch_ids.contact_batch(batch_id, pfm_pairs);
+        let contacts_len = contacts_len.at_mut(batch_id as usize);
+
         let pair = pfm_pairs[i as usize];
         // Resolve the parent rigid-bodies and skip same-body collider pairs. This
         // is where the deferred (PFM / trimesh / polyline) pairs get the same-body
