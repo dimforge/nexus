@@ -13,8 +13,8 @@ use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuRemoveCfmAndBiasKernel, GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
     GpuSolverIncColor, GpuSolverInitConstraints, GpuSolverResetColor, GpuSolverSortConstraints,
-    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused, GpuWarmstart,
-    GpuWarmstartFused, LocalMassProperties,
+    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused,
+    GpuStepGaussSeidelFusedNoBias, GpuWarmstart, GpuWarmstartFused, LocalMassProperties,
     RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity, WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
@@ -47,6 +47,7 @@ pub struct GpuSolver {
     /// dispatch chain above is the fallback.
     warmstart_fused: GpuWarmstartFused,
     step_gauss_seidel_fused: GpuStepGaussSeidelFused,
+    step_gauss_seidel_fused_no_bias: GpuStepGaussSeidelFusedNoBias,
     /// Initializes solver velocity increments.
     init_solver_vels_inc: GpuInitSolverVelsInc,
     /// Seeds the COM-centered solver poses from the body world poses
@@ -307,28 +308,36 @@ impl GpuSolver {
              * P1/F1 — integrate velocities (apply `a · dt'` / gravity increment).
              */
             mb_phase!(substep_integrate_velocities);
-            self.apply_solver_vels_inc.call(
-                pass,
-                [args.num_colliders, args.num_batches, 1],
-                args.solver_vels,
-                args.solver_vels_inc,
-                args.batch_indices,
-            )?;
+            if !args.fuse_color_loops {
+                // Fused path folds the increment into gpu_warmstart_fused's
+                // shared-memory staging.
+                self.apply_solver_vels_inc.call(
+                    pass,
+                    [args.num_colliders, args.num_batches, 1],
+                    args.solver_vels,
+                    args.solver_vels_inc,
+                    args.batch_indices,
+                )?;
+            }
 
             /*
              * P2/F2 — build + warmstart constraints.
              */
             mb_phase!(substep_build_constraints);
-            self.update_constraints.call(
-                pass,
-                args.contacts_len_indirect,
-                args.constraints,
-                args.constraint_builders,
-                args.contacts_len,
-                args.solver_body_poses,
-                args.sim_params,
-                args.batch_indices,
-            )?;
+            if !args.fuse_color_loops {
+                // Fused path folds the constraint refresh into
+                // gpu_warmstart_fused's prologue.
+                self.update_constraints.call(
+                    pass,
+                    args.contacts_len_indirect,
+                    args.constraints,
+                    args.constraint_builders,
+                    args.contacts_len,
+                    args.solver_body_poses,
+                    args.sim_params,
+                    args.batch_indices,
+                )?;
+            }
             joint_solver.update(pass, &mut joint_args, args.solver_body_poses)?;
             if args.fuse_color_loops {
                 self.warmstart_fused.call(
@@ -340,6 +349,10 @@ impl GpuSolver {
                     args.contacts_len,
                     args.num_colors_uniform,
                     args.batch_indices,
+                    args.solver_vels_inc,
+                    args.constraint_builders,
+                    args.solver_body_poses,
+                    args.sim_params,
                 )?;
             } else {
                 self.reset_color.call(pass, 1u32, args.curr_color)?;
@@ -409,15 +422,19 @@ impl GpuSolver {
              */
             mb_phase!(substep_solve_no_bias);
             joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
-            self.remove_cfm_and_bias_kernel.call(
-                pass,
-                args.contacts_len_indirect,
-                args.constraints,
-                args.contacts_len,
-                args.batch_indices,
-            )?;
+            if !args.fuse_color_loops {
+                // Fused path folds the CFM/bias strip into the no-bias kernel's
+                // prologue.
+                self.remove_cfm_and_bias_kernel.call(
+                    pass,
+                    args.contacts_len_indirect,
+                    args.constraints,
+                    args.contacts_len,
+                    args.batch_indices,
+                )?;
+            }
             if args.fuse_color_loops {
-                self.step_gauss_seidel_fused.call(
+                self.step_gauss_seidel_fused_no_bias.call(
                     pass,
                     [64u32, args.num_batches, 1],
                     args.constraints,

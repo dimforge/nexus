@@ -468,27 +468,61 @@ pub const FUSED_SOLVE_MAX_BODIES: usize = 64;
 #[spirv(compute(threads(64)))]
 pub fn gpu_warmstart_fused(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contacts_len: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    // Absorbed `gpu_apply_solver_vels_inc`: the increment is added while
+    // staging velocities into shared memory.
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] solver_vels_inc: &[Velocity],
+    // Absorbed `gpu_solver_update_constraints`: each lane refreshes its own
+    // contacts' constraints before the color walk. No barrier needed — a
+    // constraint is only ever read by the same lane that updated it.
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
+    constraint_builders: &[TwoBodyConstraintBuilder],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 8)] solver_body_poses: &[Pose],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 9)] all_params: &[RbdSimParams],
     #[spirv(workgroup)] vels_smem: &mut [Velocity; FUSED_SOLVE_MAX_BODIES],
 ) {
     // Grid is [1, num_batches, 1] workgroups, so global x == lane in workgroup.
     let lane = invocation_id.x;
     let batch_id = invocation_id.y;
     let num_bodies = batch_ids.colliders_len;
+    let num_dyn_bodies = batch_ids.bodies_len;
     let cbase = batch_ids.contacts_start(batch_id);
     let vbase = batch_ids.coll_start(batch_id);
     let len = contacts_len
         .read(batch_id as usize)
         .min(batch_ids.contacts_batch_capacity);
     let nc = *num_colors;
+    let params = all_params.at(batch_id as usize);
 
     for i in StepRng::new(lane..num_bodies, 64) {
-        vels_smem[i as usize] = *solver_vels.at(vbase + i as usize);
+        let g = vbase + i as usize;
+        let mut v = *solver_vels.at(g);
+        // Same bound as the absorbed kernel: increments only exist for the
+        // first `bodies_len` slots.
+        if i < num_dyn_bodies {
+            let inc = solver_vels_inc.at(g);
+            v.linear += inc.linear;
+            v.angular += inc.angular;
+        }
+        vels_smem[i as usize] = v;
+    }
+
+    {
+        let solver_body_poses = batch_ids.coll_batch(batch_id, solver_body_poses);
+        for i in StepRng::new(lane..len, 64) {
+            let ci = cbase + i as usize;
+            constraints.at_mut(ci).update_constraint(
+                constraint_builders.at(ci),
+                &solver_body_poses,
+                params,
+            );
+        }
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -543,6 +577,62 @@ pub fn gpu_step_gauss_seidel_fused(
 
     for i in StepRng::new(lane..num_bodies, 64) {
         vels_smem[i as usize] = *solver_vels.at(vbase + i as usize);
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    for color in 1..=nc {
+        for i in StepRng::new(lane..len, 64) {
+            if constraints_colors.read(cbase + i as usize) == color {
+                let constraint = constraints.at_mut(cbase + i as usize);
+                let a = constraint.solver_body_a as usize;
+                let b = constraint.solver_body_b as usize;
+                let mut va = vels_smem[a];
+                let mut vb = vels_smem[b];
+                constraint.solve_constraint_gauss_seidel(&mut va, &mut vb);
+                vels_smem[a] = va;
+                vels_smem[b] = vb;
+            }
+        }
+        workgroup_memory_barrier_with_group_sync();
+    }
+
+    for i in StepRng::new(lane..num_bodies, 64) {
+        solver_vels.write(vbase + i as usize, vels_smem[i as usize]);
+    }
+}
+
+/// The no-bias variant of [`gpu_step_gauss_seidel_fused`]: identical color
+/// walk, plus the absorbed `gpu_remove_cfm_and_bias_kernel` as a prologue
+/// (each lane strips CFM/bias from its own contacts before solving them, so
+/// no barrier is needed between the two).
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_step_gauss_seidel_fused_no_bias(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    constraints: &mut [TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints_colors: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contacts_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] vels_smem: &mut [Velocity; FUSED_SOLVE_MAX_BODIES],
+) {
+    let lane = invocation_id.x;
+    let batch_id = invocation_id.y;
+    let num_bodies = batch_ids.colliders_len;
+    let cbase = batch_ids.contacts_start(batch_id);
+    let vbase = batch_ids.coll_start(batch_id);
+    let len = contacts_len
+        .read(batch_id as usize)
+        .min(batch_ids.contacts_batch_capacity);
+    let nc = *num_colors;
+
+    for i in StepRng::new(lane..num_bodies, 64) {
+        vels_smem[i as usize] = *solver_vels.at(vbase + i as usize);
+    }
+    for i in StepRng::new(lane..len, 64) {
+        constraints.at_mut(cbase + i as usize).remove_cfm_and_bias();
     }
     workgroup_memory_barrier_with_group_sync();
 
