@@ -13,7 +13,8 @@ use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuRemoveCfmAndBiasKernel, GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
     GpuSolverIncColor, GpuSolverInitConstraints, GpuSolverResetColor, GpuSolverSortConstraints,
-    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuWarmstart, LocalMassProperties,
+    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused, GpuWarmstart,
+    GpuWarmstartFused, LocalMassProperties,
     RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity, WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
@@ -40,6 +41,12 @@ pub struct GpuSolver {
     warmstart: GpuWarmstart,
     /// Gauss-Seidel iteration step (sequential per color).
     step_gauss_seidel: GpuStepGaussSeidel,
+    /// One-workgroup-per-env fused variants of the color loops (velocities
+    /// staged in shared memory, colors ordered by workgroup barriers). Used
+    /// when every batch's body count fits the shared stage; the per-color
+    /// dispatch chain above is the fallback.
+    warmstart_fused: GpuWarmstartFused,
+    step_gauss_seidel_fused: GpuStepGaussSeidelFused,
     /// Initializes solver velocity increments.
     init_solver_vels_inc: GpuInitSolverVelsInc,
     /// Seeds the COM-centered solver poses from the body world poses
@@ -71,6 +78,13 @@ pub struct SolverArgs<'a> {
     pub contacts_len: &'a Tensor<u32>,
     /// Indirect dispatch arguments based on contact count.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
+    /// `num_colors` as a single-element uniform, consumed by the fused color
+    /// kernels (must equal [`Self::num_colors`]).
+    pub num_colors_uniform: &'a Tensor<u32>,
+    /// Run the fused one-workgroup-per-env color kernels instead of the
+    /// per-color dispatch chain. Only valid when every batch's body count is
+    /// <= `FUSED_SOLVE_MAX_BODIES`.
+    pub fuse_color_loops: bool,
     /// Solver constraints (output from constraint initialization).
     pub constraints: &'a mut Tensor<TwoBodyConstraint>,
     /// Builder data for initializing constraints.
@@ -316,19 +330,32 @@ impl GpuSolver {
                 args.batch_indices,
             )?;
             joint_solver.update(pass, &mut joint_args, args.solver_body_poses)?;
-            self.reset_color.call(pass, 1u32, args.curr_color)?;
-            for _ in 0..args.num_colors {
-                self.warmstart.call(
+            if args.fuse_color_loops {
+                self.warmstart_fused.call(
                     pass,
-                    args.contacts_len_indirect,
+                    [64u32, args.num_batches, 1],
                     args.constraints,
                     args.solver_vels,
                     args.constraints_colors,
                     args.contacts_len,
-                    args.curr_color,
+                    args.num_colors_uniform,
                     args.batch_indices,
                 )?;
-                self.inc_color.call(pass, 1u32, args.curr_color)?
+            } else {
+                self.reset_color.call(pass, 1u32, args.curr_color)?;
+                for _ in 0..args.num_colors {
+                    self.warmstart.call(
+                        pass,
+                        args.contacts_len_indirect,
+                        args.constraints,
+                        args.solver_vels,
+                        args.constraints_colors,
+                        args.contacts_len,
+                        args.curr_color,
+                        args.batch_indices,
+                    )?;
+                    self.inc_color.call(pass, 1u32, args.curr_color)?
+                }
             }
 
             /*
@@ -336,19 +363,32 @@ impl GpuSolver {
              */
             mb_phase!(substep_solve_with_bias);
             joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
-            self.reset_color.call(pass, 1u32, args.curr_color)?;
-            for _ in 0..args.num_colors {
-                self.step_gauss_seidel.call(
+            if args.fuse_color_loops {
+                self.step_gauss_seidel_fused.call(
                     pass,
-                    args.contacts_len_indirect,
+                    [64u32, args.num_batches, 1],
                     args.constraints,
                     args.solver_vels,
                     args.constraints_colors,
                     args.contacts_len,
-                    args.curr_color,
+                    args.num_colors_uniform,
                     args.batch_indices,
                 )?;
-                self.inc_color.call(pass, 1u32, args.curr_color)?
+            } else {
+                self.reset_color.call(pass, 1u32, args.curr_color)?;
+                for _ in 0..args.num_colors {
+                    self.step_gauss_seidel.call(
+                        pass,
+                        args.contacts_len_indirect,
+                        args.constraints,
+                        args.solver_vels,
+                        args.constraints_colors,
+                        args.contacts_len,
+                        args.curr_color,
+                        args.batch_indices,
+                    )?;
+                    self.inc_color.call(pass, 1u32, args.curr_color)?
+                }
             }
 
             /*
@@ -376,19 +416,32 @@ impl GpuSolver {
                 args.contacts_len,
                 args.batch_indices,
             )?;
-            self.reset_color.call(pass, 1u32, args.curr_color)?;
-            for _ in 0..args.num_colors {
-                self.step_gauss_seidel.call(
+            if args.fuse_color_loops {
+                self.step_gauss_seidel_fused.call(
                     pass,
-                    args.contacts_len_indirect,
+                    [64u32, args.num_batches, 1],
                     args.constraints,
                     args.solver_vels,
                     args.constraints_colors,
                     args.contacts_len,
-                    args.curr_color,
+                    args.num_colors_uniform,
                     args.batch_indices,
                 )?;
-                self.inc_color.call(pass, 1u32, args.curr_color)?
+            } else {
+                self.reset_color.call(pass, 1u32, args.curr_color)?;
+                for _ in 0..args.num_colors {
+                    self.step_gauss_seidel.call(
+                        pass,
+                        args.contacts_len_indirect,
+                        args.constraints,
+                        args.solver_vels,
+                        args.constraints_colors,
+                        args.contacts_len,
+                        args.curr_color,
+                        args.batch_indices,
+                    )?;
+                    self.inc_color.call(pass, 1u32, args.curr_color)?
+                }
             }
         }
 

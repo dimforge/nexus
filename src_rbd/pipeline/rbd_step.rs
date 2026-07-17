@@ -217,6 +217,9 @@ impl RbdPipeline {
                 contacts: &state.contacts,
                 contacts_len: &state.contacts_len,
                 contacts_len_indirect: &state.contacts_indirect,
+                num_colors_uniform: &state.num_colors_uniform,
+                // Prep never runs the color loops, so no fusion here.
+                fuse_color_loops: false,
                 constraints: &mut state.new_constraints,
                 constraint_builders: &mut state.new_constraint_builders,
                 sim_params: &state.sim_params,
@@ -293,11 +296,30 @@ impl RbdPipeline {
 
         let num_colors = stats.num_colors;
 
+        // Keep the fused-kernel color-count uniform in sync (the count only
+        // moves when the Grow policy raises `max_colors`, so this is rare).
+        if state.num_colors_uniform_cpu != num_colors {
+            state.num_colors_uniform = vortx::tensor::Tensor::scalar(
+                backend,
+                num_colors,
+                BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            )
+            .unwrap();
+            state.num_colors_uniform_cpu = num_colors;
+        }
+        // One 64-lane workgroup per env stages that env's velocities in shared
+        // memory; batches with more bodies than the stage fall back to the
+        // per-color dispatch chain.
+        let fuse_color_loops = state.num_colliders_per_batch
+            <= crate::shaders::dynamics::FUSED_SOLVE_MAX_BODIES as u32;
+
         // Create solver_args for solve phase (after coloring is complete)
         let solver_args = SolverArgs {
             contacts: &state.contacts,
             contacts_len: &state.contacts_len,
             contacts_len_indirect: &state.contacts_indirect,
+            num_colors_uniform: &state.num_colors_uniform,
+            fuse_color_loops,
             constraints: &mut state.new_constraints,
             constraint_builders: &mut state.new_constraint_builders,
             sim_params: &state.sim_params,

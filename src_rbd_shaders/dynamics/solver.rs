@@ -6,7 +6,11 @@ use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use crate::{AngVector, Pose, Vector};
-use khal_std::{index::MaybeIndexUnchecked, iter::StepRng, sync::atomic_add_u32};
+use khal_std::{
+    index::MaybeIndexUnchecked,
+    iter::StepRng,
+    sync::{atomic_add_u32, workgroup_memory_barrier_with_group_sync},
+};
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
 use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
@@ -437,6 +441,129 @@ pub fn gpu_step_gauss_seidel(
             solver_vels[solver_id1] = solver_vel1;
             solver_vels[solver_id2] = solver_vel2;
         }
+    }
+}
+
+
+/// Max rigid bodies per batch supported by the fused (one-workgroup-per-env)
+/// contact solvers below — bounds the shared-memory velocity stage. The host
+/// falls back to the per-color dispatch loop when a batch exceeds it.
+pub const FUSED_SOLVE_MAX_BODIES: usize = 64;
+
+/// Fused warmstart: the whole per-substep color loop in ONE dispatch, one
+/// 64-lane workgroup per batch (env).
+///
+/// The per-color dispatch chain exists to order contacts that share a body —
+/// but bodies are only ever shared *within* a batch, so the ordering barrier
+/// only needs workgroup scope, not a device-wide dispatch boundary. Each
+/// workgroup stages its batch's `solver_vels` in shared memory (which is what
+/// the workgroup barrier fences), walks colors `1..=num_colors` with a barrier
+/// between them, and writes velocities back once. This replaces
+/// `reset_color + num_colors x (warmstart + inc_color)` — dozens of dependent
+/// dispatches whose cost was launch/barrier latency, not lane math.
+///
+/// Constraint data needs no fence: each contact belongs to exactly one color
+/// and is touched by exactly one lane in the whole kernel.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_warmstart_fused(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints_colors: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contacts_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] vels_smem: &mut [Velocity; FUSED_SOLVE_MAX_BODIES],
+) {
+    // Grid is [1, num_batches, 1] workgroups, so global x == lane in workgroup.
+    let lane = invocation_id.x;
+    let batch_id = invocation_id.y;
+    let num_bodies = batch_ids.colliders_len;
+    let cbase = batch_ids.contacts_start(batch_id);
+    let vbase = batch_ids.coll_start(batch_id);
+    let len = contacts_len
+        .read(batch_id as usize)
+        .min(batch_ids.contacts_batch_capacity);
+    let nc = *num_colors;
+
+    for i in StepRng::new(lane..num_bodies, 64) {
+        vels_smem[i as usize] = *solver_vels.at(vbase + i as usize);
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    // NOTE: bounded loop over a uniform value; every lane sees the same bound
+    // so the barriers stay in uniform control flow.
+    for color in 1..=nc {
+        for i in StepRng::new(lane..len, 64) {
+            if constraints_colors.read(cbase + i as usize) == color {
+                let constraint = constraints.at(cbase + i as usize);
+                let a = constraint.solver_body_a as usize;
+                let b = constraint.solver_body_b as usize;
+                let mut va = vels_smem[a];
+                let mut vb = vels_smem[b];
+                constraint.warmstart_constraint(&mut va, &mut vb);
+                vels_smem[a] = va;
+                vels_smem[b] = vb;
+            }
+        }
+        workgroup_memory_barrier_with_group_sync();
+    }
+
+    for i in StepRng::new(lane..num_bodies, 64) {
+        solver_vels.write(vbase + i as usize, vels_smem[i as usize]);
+    }
+}
+
+/// Fused Gauss-Seidel: same one-workgroup-per-env structure as
+/// [`gpu_warmstart_fused`] (see there for the why), replacing the per-color
+/// `step_gauss_seidel` dispatch chain in both the with-bias and no-bias phases.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_step_gauss_seidel_fused(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    constraints: &mut [TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints_colors: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contacts_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] vels_smem: &mut [Velocity; FUSED_SOLVE_MAX_BODIES],
+) {
+    let lane = invocation_id.x;
+    let batch_id = invocation_id.y;
+    let num_bodies = batch_ids.colliders_len;
+    let cbase = batch_ids.contacts_start(batch_id);
+    let vbase = batch_ids.coll_start(batch_id);
+    let len = contacts_len
+        .read(batch_id as usize)
+        .min(batch_ids.contacts_batch_capacity);
+    let nc = *num_colors;
+
+    for i in StepRng::new(lane..num_bodies, 64) {
+        vels_smem[i as usize] = *solver_vels.at(vbase + i as usize);
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    for color in 1..=nc {
+        for i in StepRng::new(lane..len, 64) {
+            if constraints_colors.read(cbase + i as usize) == color {
+                let constraint = constraints.at_mut(cbase + i as usize);
+                let a = constraint.solver_body_a as usize;
+                let b = constraint.solver_body_b as usize;
+                let mut va = vels_smem[a];
+                let mut vb = vels_smem[b];
+                constraint.solve_constraint_gauss_seidel(&mut va, &mut vb);
+                vels_smem[a] = va;
+                vels_smem[b] = vb;
+            }
+        }
+        workgroup_memory_barrier_with_group_sync();
+    }
+
+    for i in StepRng::new(lane..num_bodies, 64) {
+        solver_vels.write(vbase + i as usize, vels_smem[i as usize]);
     }
 }
 

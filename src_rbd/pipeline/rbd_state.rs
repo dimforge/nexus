@@ -190,6 +190,10 @@ pub struct RbdState {
     /// items from many batches into full warps.
     pub(super) pairs_flat_offsets: Tensor<u32>,
     pub(super) pfm_flat_offsets: Tensor<u32>,
+    /// `max_colors + 1` as a uniform for the fused color-loop kernels, plus a
+    /// CPU mirror so the tensor is only recreated when the count grows.
+    pub(super) num_colors_uniform: Tensor<u32>,
+    pub(super) num_colors_uniform_cpu: u32,
     pub(super) contacts: Tensor<GpuIndexedContact>,
     pub(super) contacts_len: Tensor<u32>,
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
