@@ -108,24 +108,30 @@ impl GpuMultibodySolver {
     /// the last call carrying `is_last_substep = true`.
     pub fn init_step(
         &self,
-        pass: &mut GpuPass,
+        encoder: &mut khal::backend::GpuEncoder,
+        mut timestamps: Option<&mut khal::backend::GpuTimestamps>,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
     ) -> Result<(), GpuBackendError> {
+        use khal::backend::Encoder;
         if mb.is_empty() {
             return Ok(());
         }
         // Zero the accumulated contact impulses so the first substep's warmstart
         // starts cold (within a frame they are then preserved across substeps).
         // One 64-lane workgroup per multibody (lanes stride the slots).
-        self.reset_contact_warmstart.call(
-            pass,
-            [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1],
-            &mb.multibody_info,
-            &mut mb.contact_constraints,
-            args.batch_indices,
-        )?;
-        self.compute_dynamics(pass, mb, args)
+        {
+            let mut pass = encoder.begin_pass("[RBD] mbi/reset", timestamps.as_deref_mut());
+            self.reset_contact_warmstart.call(
+                &mut pass,
+                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1],
+                &mb.multibody_info,
+                &mut mb.contact_constraints,
+                args.batch_indices,
+            )?;
+        }
+        let mut pass = encoder.begin_pass("[RBD] mbi/dynamics", timestamps.as_deref_mut());
+        self.compute_dynamics(&mut pass, mb, args)
     }
 
     /// Stash `contacts_len[batch]` into each `MultibodyInfo` — must run after

@@ -86,8 +86,6 @@ impl RbdPipeline {
         {
             if !state.multibodies.is_empty() {
                 let mut encoder = backend.begin_encoding();
-                let mut pass =
-                    encoder.begin_pass("[RBD] multibody-init-step", timestamps.as_deref_mut());
                 let mut args = crate::dynamics::MultibodySolverArgs {
                     poses: &mut state.body_poses,
                     collider_world_poses: &state.collider_world_poses,
@@ -96,11 +94,14 @@ impl RbdPipeline {
                     contacts_len: &state.contacts_len,
                     solver_vels: &mut state.solver_vels,
                     batch_indices: &state.batch_indices,
-                color_uniforms: &state.color_uniforms,
+                    color_uniforms: &state.color_uniforms,
                 };
-                self.multibody_solver
-                    .init_step(&mut pass, &mut state.multibodies, &mut args)?;
-                drop(pass);
+                self.multibody_solver.init_step(
+                    &mut encoder,
+                    timestamps.as_deref_mut(),
+                    &mut state.multibodies,
+                    &mut args,
+                )?;
                 backend.submit(encoder)?;
             }
         }
