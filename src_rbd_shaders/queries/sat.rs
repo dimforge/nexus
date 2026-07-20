@@ -40,6 +40,7 @@ pub const EPSILON: f32 = 1.1920929E-7;
 
 #[cfg(feature = "dim3")]
 /// Computes the separation of two cuboids along `axis1`.
+#[inline(always)]
 pub fn cuboid_cuboid_compute_separation_wrt_local_line(
     cuboid1: &Cuboid,
     cuboid2: &Cuboid,
@@ -65,6 +66,7 @@ pub fn cuboid_cuboid_compute_separation_wrt_local_line(
 ///
 /// All combinations of edges from both cuboids are taken into
 /// account.
+#[inline(always)]
 pub fn cuboid_cuboid_find_local_separating_edge_twoway(
     cuboid1: &Cuboid,
     cuboid2: &Cuboid,
@@ -116,6 +118,7 @@ pub fn cuboid_cuboid_find_local_separating_edge_twoway(
 /// Finds the best separating normal between two cuboids.
 ///
 /// Only the normals from `cuboid1` are tested.
+#[inline(always)]
 pub fn cuboid_cuboid_find_local_separating_normal_oneway(
     cuboid1: &Cuboid,
     cuboid2: &Cuboid,
