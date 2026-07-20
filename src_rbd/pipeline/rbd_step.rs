@@ -293,8 +293,42 @@ impl RbdPipeline {
                 batch_indices: &state.batch_indices,
                 body_group: &state.body_group,
             };
+            self.coloring.dispatch_topo_gc_reset(&mut pass, coloring_args)?;
+
+            // Seed the coloring from the previous frame's colors (contacts
+            // persist, so most constraints can reuse their old color and the
+            // topo-gc iterations converge in 1-2 rounds instead of ~num_colors).
+            let seed_args = crate::dynamics::warmstart::SeedColorsArgs {
+                contacts_len: &state.contacts_len,
+                old_body_constraint_counts: &state.old_constraints_counts,
+                old_body_constraint_ids: &state.old_body_constraint_ids,
+                old_constraints: &state.old_constraints,
+                new_constraints: &state.new_constraints,
+                old_constraints_colors: &state.old_constraints_colors,
+                constraints_colors: &mut state.constraints_colors,
+                colored: &mut state.colored,
+                contacts_len_indirect: &state.contacts_indirect,
+                batch_indices: &state.batch_indices,
+            };
+            self.warmstart.seed_colors_from_warmstart(&mut pass, seed_args)?;
+
+            let coloring_args = ColoringArgs {
+                contacts_len_indirect: &state.contacts_indirect,
+                body_constraint_counts: &state.new_constraints_counts,
+                body_constraint_ids: &state.new_body_constraint_ids,
+                constraints: &state.new_constraints,
+                constraints_colors: &mut state.constraints_colors,
+                constraints_rands: &mut state.constraints_rands,
+                curr_color: &mut state.curr_color,
+                uncolored: &mut state.uncolored,
+                uncolored_staging: &state.uncolored_staging,
+                contacts_len: &state.contacts_len,
+                colored: &mut state.colored,
+                batch_indices: &state.batch_indices,
+                body_group: &state.body_group,
+            };
             self.coloring
-                .dispatch_topo_gc_bounded(&mut pass, coloring_args, state.max_colors)?;
+                .dispatch_topo_gc_iterations(&mut pass, coloring_args, state.max_colors)?;
 
             // Bucket-sort the constraint ids by color so each colored solver
             // sweep only touches its own constraints.
@@ -408,6 +442,10 @@ impl RbdPipeline {
             &mut state.old_constraints_counts,
             &mut state.new_constraints_counts,
         );
+        std::mem::swap(
+            &mut state.old_constraints_colors,
+            &mut state.constraints_colors,
+        );
 
         Ok(stats)
     }
@@ -498,6 +536,10 @@ impl RbdPipeline {
                     Tensor::vector_uninit(backend, new_capacity * 2 * nb, storage)?;
                 state.constraints_colors =
                     Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                // Zeroed (not uninit): 0 = "uncolored" disables color seeding
+                // for the frame right after the resize.
+                state.old_constraints_colors =
+                    Tensor::vector(backend, &vec![0u32; (new_capacity * nb) as usize], storage)?;
                 state.colored = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
                 state.constraints_rands =
                     Tensor::vector_uninit(backend, new_capacity * nb, storage)?;

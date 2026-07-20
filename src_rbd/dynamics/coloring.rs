@@ -303,6 +303,28 @@ impl GpuColoring {
     ) -> Result<(), GpuBackendError> {
         // Reset coloring state.
         self.dispatch_reset_topo_gc(pass, &mut args)?;
+        self.dispatch_topo_gc_iterations(pass, args, max_colors)
+    }
+
+    /// Resets the topo-gc coloring state (all constraints uncolored). Public
+    /// so a seeding pass (e.g. warmstart color transfer) can run between the
+    /// reset and [`Self::dispatch_topo_gc_iterations`].
+    pub fn dispatch_topo_gc_reset<'a>(
+        &self,
+        pass: &mut GpuPass,
+        mut args: ColoringArgs<'a>,
+    ) -> Result<(), GpuBackendError> {
+        self.dispatch_reset_topo_gc(pass, &mut args)
+    }
+
+    /// Runs the bounded topo-gc step/fix-conflicts iterations, assuming the
+    /// coloring state was already reset (and possibly seeded).
+    pub fn dispatch_topo_gc_iterations<'a>(
+        &self,
+        pass: &mut GpuPass,
+        mut args: ColoringArgs<'a>,
+        max_colors: u32,
+    ) -> Result<(), GpuBackendError> {
         for _ in 0..max_colors {
             self.reset_completion_flag_topo_gc
                 .call(pass, 1u32, args.uncolored)?;

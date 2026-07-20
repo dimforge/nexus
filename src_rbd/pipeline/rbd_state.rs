@@ -196,6 +196,10 @@ pub struct RbdState {
     pub(super) old_constraints_counts: Tensor<u32>,
     pub(super) old_body_constraint_ids: Tensor<u32>,
     pub(super) constraints_colors: Tensor<u32>,
+    /// Previous frame's constraint colors (aligned with `old_constraints`),
+    /// used to seed the topo-gc coloring. Swapped with `constraints_colors`
+    /// at the end of each step.
+    pub(super) old_constraints_colors: Tensor<u32>,
     pub(super) colored: Tensor<u32>,
     pub(super) constraints_rands: Tensor<u32>,
     /// Per-batch per-color constraint counts (stride `max_colors + 3`), see
