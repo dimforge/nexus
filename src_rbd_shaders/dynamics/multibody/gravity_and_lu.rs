@@ -17,7 +17,9 @@ use glamx::Vec4;
 
 use crate::dynamics::body::Velocity;
 use crate::dynamics::joint::SPATIAL_DIM;
-use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, fill_par, gemv_tr_spatial_split_par};
+use crate::utils::linalg::{
+    MAX_MB_DOFS, MatSlice, fill_par, gemv_tr_spatial_split_par, lu_decompose, lu_solve_in_place,
+};
 use crate::utils::{BatchIndices, Slice};
 use crate::{AngVector, Vector, gcross_av};
 
@@ -524,6 +526,192 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     if lane < ndofs {
         gen_forces.write(rhs_offset + lane as usize, x.read(seg + lane as usize));
     }
+}
+
+/// SERIAL tier of the fused gravity + LU kernel (Genesis-style): one thread
+/// per `(multibody, batch)`, 64 multibodies per workgroup with every lane
+/// busy and NO barriers at all. Selected by the host when `max_ndofs ≤ 8`:
+/// at that size the whole gravity assembly + 8×8 LU factor + solve is a
+/// short serial chain per thread, and dropping the lane-parallel tiers'
+/// ~60-barrier dependency chain wins at every batch count (dramatically so
+/// when the batch count is too small to hide barrier latency). The factor
+/// runs in place in global `mass_matrices` (the whole matrix is 2 cache
+/// lines), the solve in place on `gen_forces`.
+///
+/// With no barriers, non-uniform control flow is fine: the kernel early-outs
+/// on out-of-range threads and loops only over the real `num_links`.
+#[spirv_bindgen]
+#[spirv(compute(threads(64, 1, 1)))]
+pub fn gpu_mb_gravity_and_lu_t1(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    links_workspace: &mut [MultibodyLinkWorkspace],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] lu_pivots: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_state: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 8)] gravity: &Vec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+) {
+    let num_mb = batch_ids.multibodies_len;
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
+        return;
+    }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
+
+    let mb = batch_ids
+        .mb_batch(batch_id, multibody_info)
+        .read(mb_idx as usize);
+    let num_links = mb.num_links;
+    let ndofs = mb.ndofs;
+    if ndofs == 0 {
+        return;
+    }
+    let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
+    let gen_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let mb_mm_base = batch_ids.mm_start(batch_id) + mb.mass_matrix_offset as usize;
+    let piv_offset = gen_base;
+    let rhs_offset = gen_base;
+
+    let stat_slice = batch_ids
+        .mb_links_batch(batch_id, links_static)
+        .offset(mb.first_link as usize);
+    let mut ws_slice = batch_ids
+        .mb_links_batch_mut(batch_id, links_workspace)
+        .offset(mb.first_link as usize);
+    let vel_slice = Slice(dof_state, gen_base);
+    let damping_slice = Slice(
+        dof_state,
+        batch_ids.dof_damping_section_offset as usize + gen_base,
+    );
+
+    // ---- Phase 1: zero the generalized-force vector. ----
+    for d in 0..ndofs {
+        gen_forces.write(gen_base + d as usize, 0.0);
+    }
+
+    #[cfg(feature = "dim3")]
+    let g = Vec3::new(gravity.x, gravity.y, gravity.z);
+    #[cfg(feature = "dim2")]
+    let g = Vec2::new(gravity.x, gravity.y);
+
+    // ---- Phase 2: per-link gravity / Coriolis-force assembly (serial:
+    // parents precede children in link order, so `kinematic_acc` reads see
+    // the parent's write in program order). ----
+    for k in 0..num_links {
+        let mut acc_lin = Vector::ZERO;
+        #[cfg(feature = "dim3")]
+        let mut acc_ang: AngVector = AngVector::ZERO;
+        #[cfg(feature = "dim2")]
+        let mut acc_ang: AngVector = 0.0;
+
+        let (self_joint_vel_lin, self_joint_vel_ang, self_shift02, self_shift23, self_rb_ang) = {
+            let ws = &ws_slice[k as usize];
+            (
+                ws.joint_velocity.linear,
+                ws.joint_velocity.angular,
+                ws.shift02,
+                ws.shift23,
+                ws.rb_vels.angular,
+            )
+        };
+
+        if k != 0 {
+            let stat = stat_slice[k as usize];
+            let parent_ws = &ws_slice[stat.parent_link_id as usize];
+            let parent_acc_lin = parent_ws.kinematic_acc.linear;
+            let parent_acc_ang = parent_ws.kinematic_acc.angular;
+            let parent_ang = parent_ws.rb_vels.angular;
+
+            acc_lin = parent_acc_lin;
+            acc_ang = parent_acc_ang;
+
+            acc_lin += gcross_av(parent_ang, self_joint_vel_lin) * 2.0;
+            #[cfg(feature = "dim3")]
+            {
+                acc_ang += parent_ang.cross(self_joint_vel_ang);
+            }
+            #[cfg(feature = "dim2")]
+            {
+                let _ = self_joint_vel_ang;
+            }
+            acc_lin += gcross_av(parent_ang, gcross_av(parent_ang, self_shift02));
+            acc_lin += gcross_av(parent_acc_ang, self_shift02);
+        } else {
+            let _ = self_joint_vel_ang;
+            let _ = self_shift02;
+        }
+        let rb_ang = self_rb_ang;
+        acc_lin += gcross_av(rb_ang, gcross_av(rb_ang, self_shift23));
+        acc_lin += gcross_av(acc_ang, self_shift23);
+
+        ws_slice[k as usize].kinematic_acc = Velocity::new(acc_lin, acc_ang);
+
+        let lmp = stat_slice[k as usize].local_mprops;
+        let inv_mass_x = lmp.inv_mass.x;
+        if inv_mass_x != 0.0 {
+            let mass = 1.0 / inv_mass_x;
+            let rb_inertia = ws_slice[k as usize].link_world_inertia(&lmp);
+
+            #[cfg(feature = "dim3")]
+            let gyroscopic = {
+                let i_omega = rb_inertia * rb_ang;
+                rb_ang.cross(i_omega)
+            };
+            #[cfg(feature = "dim2")]
+            let gyroscopic: AngVector = 0.0;
+
+            let i_acc_ang = rb_inertia * acc_ang;
+
+            let f_lin = (g - acc_lin) * mass;
+            let f_ang = -gyroscopic - i_acc_ang;
+
+            let body_jacobian = MatSlice::dense(
+                mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
+                SPATIAL_DIM as u32,
+                ndofs,
+            );
+
+            // Single lane owns the whole gemv (lane = 0, lanes = 1).
+            gemv_tr_spatial_split_par(
+                gen_forces,
+                gen_base,
+                1.0,
+                body_jacobians,
+                body_jacobian,
+                f_lin,
+                f_ang,
+                1.0,
+                0,
+                1,
+            );
+        }
+    }
+
+    // Damping subtraction — see `gpu_mb_gravity_and_lu`.
+    for i in 0..ndofs {
+        let idx = gen_base + i as usize;
+        let cur = gen_forces.read(idx);
+        gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
+    }
+
+    // ---- Phase 3 + 4: factor M in place in global memory, then solve
+    // M·x = τ in place on the gravity rhs. ----
+    let m_view = MatSlice::dense(mb_mm_base, ndofs, ndofs);
+    lu_decompose(mass_matrices, m_view, lu_pivots, piv_offset);
+    lu_solve_in_place(
+        mass_matrices,
+        m_view,
+        lu_pivots,
+        piv_offset,
+        gen_forces,
+        rhs_offset,
+    );
 }
 
 /// Stamps one packed-tier entry point of the fused gravity + LU kernel.

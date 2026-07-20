@@ -175,10 +175,26 @@ impl GpuMultibodySet {
         [self.num_active_multibodies * self.num_batches, 1, 1]
     }
 
-    /// Lanes per multibody for the packed per-multibody workgroup kernels —
-    /// mirrored into `BatchIndices::mb_pack_lanes`.
+    /// Lanes per multibody for the packed per-multibody dynamics kernels
+    /// (`compute_dynamics_pre`, `gravity_and_lu`) — mirrored into
+    /// `BatchIndices::mb_pack_lanes`.
+    ///
+    /// `1` selects the SERIAL tier (Genesis-style): one thread runs its
+    /// multibody's whole FK/CRBA/LU chain with no barriers at all, 64
+    /// multibodies per workgroup with every lane busy. For small robots this
+    /// beats lane-parallelism — whose ~60-barrier dependency chain caps how
+    /// fast one multibody can finish — but ONLY once there are enough
+    /// multibodies for the thread count to hide the long serial chain's
+    /// latency (measured crossover between 1024 and 4096 on Apple M-series;
+    /// below that, spreading each robot across 8 lanes wins despite the
+    /// barriers).
     pub(crate) fn pack_lanes(&self) -> u32 {
-        self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)
+        let total_mb = self.num_active_multibodies * self.num_batches;
+        if self.max_ndofs <= 8 && total_mb >= 2048 {
+            1
+        } else {
+            self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)
+        }
     }
 
     /// Thread-count grid for the packed per-multibody WORKGROUP kernels

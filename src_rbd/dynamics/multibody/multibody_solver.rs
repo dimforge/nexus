@@ -6,7 +6,7 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
     GpuMbComputeDynamicsWithoutCoriolisPre,
-    GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT8,
+    GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
     GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
     GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
@@ -29,6 +29,9 @@ pub struct GpuMultibodySolver {
     /// with a `T×T` shared tile each, selected by `max_ndofs`. The fallback
     /// `gravity_and_lu` (one multibody per workgroup, 64×64 tile) only runs
     /// for `max_ndofs > 32`.
+    /// Serial tier (one thread per multibody, no barriers — see the kernel
+    /// docs), selected for `max_ndofs ≤ 8`.
+    gravity_and_lu_t1: GpuMbGravityAndLuT1,
     gravity_and_lu_t8: GpuMbGravityAndLuT8,
     gravity_and_lu_t16: GpuMbGravityAndLuT16,
     gravity_and_lu_t32: GpuMbGravityAndLuT32,
@@ -689,6 +692,7 @@ impl GpuMultibodySolver {
             };
         }
         match mb.pack_lanes() {
+            1 => grav_lu!(gravity_and_lu_t1),
             8 => grav_lu!(gravity_and_lu_t8),
             16 => grav_lu!(gravity_and_lu_t16),
             32 => grav_lu!(gravity_and_lu_t32),
