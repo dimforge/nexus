@@ -42,6 +42,7 @@ impl GpuNarrowPhase {
         contacts: &mut Tensor<GpuIndexedContact>,
         contacts_len: &mut Tensor<u32>,
         contacts_indirect: &mut Tensor<[u32; 3]>,
+        mb_sweep_indirect: &mut Tensor<[u32; 3]>,
         pfm_pairs: &mut Tensor<NarrowPhasePfmPair>,
         pfm_pairs_len: &mut Tensor<u32>,
         pfm_pairs_indirect: &mut Tensor<[u32; 3]>,
@@ -100,8 +101,16 @@ impl GpuNarrowPhase {
             collider_materials,
         )?;
         // Single 256-lane workgroup: parallel max over the per-batch counts.
-        self.init_contacts_indirect_args
-            .call(pass, 256u32, contacts_len, contacts_indirect)?;
+        // Also emits the (possibly zero-workgroup) grid for the per-multibody
+        // contact-constraint dispatches.
+        self.init_contacts_indirect_args.call(
+            pass,
+            256u32,
+            contacts_len,
+            contacts_indirect,
+            mb_sweep_indirect,
+            batch_indices,
+        )?;
 
         Ok(())
     }

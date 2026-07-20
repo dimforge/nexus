@@ -44,15 +44,35 @@ pub fn gpu_reset_narrow_phase(
 
 /// Initializes indirect dispatch arguments for constraint solver. Dispatch one
 /// [`MAX_REDUCE_LANES`]-thread workgroup.
+///
+/// Also emits `mb_sweep_indirect`, the workgroup grid for the per-multibody
+/// contact-constraint dispatches (`[multibodies_batch_capacity, num_batches,
+/// 1]`): it collapses to zero workgroups when NO batch has any contact, so
+/// the multibody contact build/warmstart/solve dispatches cost nothing on
+/// contact-free steps instead of launching one early-returning workgroup per
+/// (multibody, batch).
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_narrow_phase_init_contacts_dispatch(
     #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] mb_sweep_indirect: &mut [u32; 3],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
     #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
 ) {
     max_len_indirect_args(lid.x, contacts_len, indirect_args, partial);
+    // `partial[0]` holds the max after the reduction (all lanes synced).
+    if lid.x == 0 {
+        let any_contacts = partial.read(0) > 0;
+        *mb_sweep_indirect.at_mut(0) = if any_contacts {
+            batch_ids.multibodies_batch_capacity
+        } else {
+            0
+        };
+        *mb_sweep_indirect.at_mut(1) = batch_ids.num_batches;
+        *mb_sweep_indirect.at_mut(2) = 1;
+    }
 }
 
 pub(crate) const PREDICTION: f32 = 2.0e-3; // TODO: make the prediction configurable.

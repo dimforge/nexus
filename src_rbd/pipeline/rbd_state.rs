@@ -196,6 +196,10 @@ pub struct RbdState {
     pub(super) contacts: Tensor<GpuIndexedContact>,
     pub(super) contacts_len: Tensor<u32>,
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
+    /// Workgroup grid for the per-multibody contact-constraint dispatches:
+    /// `[multibodies_batch_capacity, num_batches, 1]`, or all-zero when no
+    /// batch has any contact this step (written by the narrow-phase reduce).
+    pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
     pub(super) new_constraints: Tensor<TwoBodyConstraint>,
     pub(super) new_constraint_builders: Tensor<TwoBodyConstraintBuilder>,
     pub(super) new_constraints_counts: Tensor<u32>,

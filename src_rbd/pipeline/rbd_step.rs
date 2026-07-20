@@ -99,6 +99,7 @@ impl RbdPipeline {
                     solver_vels: &mut state.solver_vels,
                     batch_indices: &state.batch_indices,
                     color_uniforms: &state.color_uniforms,
+                    mb_sweep_indirect: &state.mb_sweep_indirect,
                 };
                 self.multibody_solver.init_step(
                     &mut encoder,
@@ -261,6 +262,7 @@ impl RbdPipeline {
                 &mut state.contacts,
                 &mut state.contacts_len,
                 &mut state.contacts_indirect,
+                &mut state.mb_sweep_indirect,
                 &mut state.pfm_pairs,
                 &mut state.pfm_pairs_len,
                 &mut state.pfm_pairs_indirect,
@@ -311,6 +313,7 @@ impl RbdPipeline {
                 num_solver_iterations: state.num_solver_iterations,
                 body_group: &state.body_group,
                 batch_indices: &state.batch_indices,
+                mb_sweep_indirect: &state.mb_sweep_indirect,
                 colorless_warmstart: false,
                 fused_color_sweeps,
                 rb_contacts_inert: state.rb_contacts_inert,
@@ -461,6 +464,7 @@ impl RbdPipeline {
             num_solver_iterations: state.num_solver_iterations,
             body_group: &state.body_group,
             batch_indices: &state.batch_indices,
+            mb_sweep_indirect: &state.mb_sweep_indirect,
             // The gather warmstart is only valid without multibody grouping —
             // see `SolverArgs::colorless_warmstart`.
             #[cfg(feature = "dim3")]

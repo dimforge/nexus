@@ -627,35 +627,30 @@ pub fn gpu_mb_stash_contacts_len(
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_reset_contact_warmstart(
-    #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(local_invocation_id)] local_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     contact_constraints: &mut [MultibodyContactConstraint],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    // One thread per (slot, multibody, batch), flattened — consecutive
+    // threads zero consecutive slots. The store targets only the `impulse`
+    // field (a full-struct read-modify-write here costs ~30× the traffic).
+    // Zero to capacity: the per-frame contact count isn't known yet, and last
+    // frame's count may be smaller than this frame's.
+    const MAXC: u32 = MAX_MB_CONTACT_CONSTRAINTS_PER_MB;
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    let per_batch = num_mb * MAXC;
+    if invocation_id.x >= per_batch * batch_ids.num_batches {
         return;
     }
-    let mb_start = batch_ids.mb_start(batch_id);
+    let batch_id = invocation_id.x / per_batch;
+    let r = invocation_id.x % per_batch;
+    let mb_idx = r / MAXC;
+    let s = r % MAXC;
+
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
-    if mb.ndofs == 0 {
-        return;
-    }
-    let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
-    // Zero to capacity (the per-frame contact count isn't known here, and last
-    // frame's count may be smaller than this frame's).
-    for s in StepRng::new(lane..MAX_MB_CONTACT_CONSTRAINTS_PER_MB, LANES) {
-        let mut cons = contact_constraints.read(cons_base + s as usize);
-        cons.impulse = 0.0;
-        contact_constraints.write(cons_base + s as usize, cons);
-    }
+    let idx = cons_start + (mb_idx * MAXC + s) as usize;
+    contact_constraints.at_mut(idx).impulse = 0.0;
 }
 
 /// Warmstart: re-apply each active contact constraint's accumulated `impulse`

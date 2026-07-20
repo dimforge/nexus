@@ -159,6 +159,10 @@ pub struct SolverArgs<'a> {
     /// multibody kernels via `MultibodySolverArgs::batch_indices`; the RBD
     /// constraint-solver kernels will migrate to it next.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
+    /// GPU-written workgroup grid for the per-multibody contact-constraint
+    /// dispatches (zero workgroups on contact-free steps) — forwarded to
+    /// [`MultibodySolverArgs::mb_sweep_indirect`].
+    pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
 }
 
 impl GpuSolver {
@@ -314,6 +318,7 @@ impl GpuSolver {
                     solver_vels: &mut *args.solver_vels,
                     batch_indices: args.batch_indices,
                     color_uniforms: args.color_uniforms,
+                    mb_sweep_indirect: args.mb_sweep_indirect,
                 };
                 solver.stash_contacts_len(&mut pass, state, &mut mb_args)?;
             }
@@ -337,6 +342,7 @@ impl GpuSolver {
                     solver_vels: &mut *args.solver_vels,
                     batch_indices: args.batch_indices,
                     color_uniforms: args.color_uniforms,
+                    mb_sweep_indirect: args.mb_sweep_indirect,
                 };
                 solver.build_contact_constraints(
                     encoder,
@@ -378,6 +384,7 @@ impl GpuSolver {
                         solver_vels: &mut *args.solver_vels,
                         batch_indices: args.batch_indices,
                         color_uniforms: args.color_uniforms,
+                        mb_sweep_indirect: args.mb_sweep_indirect,
                     };
                     solver.$method(&mut pass, state, &mut mb_args $(, $extra)*)?;
                 }
@@ -421,6 +428,7 @@ impl GpuSolver {
                         solver_vels: &mut *args.solver_vels,
                         batch_indices: args.batch_indices,
                         color_uniforms: args.color_uniforms,
+                        mb_sweep_indirect: args.mb_sweep_indirect,
                     };
                     solver.substep_build_constraints(
                         encoder,
