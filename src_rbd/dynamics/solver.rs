@@ -19,7 +19,7 @@ use crate::shaders::dynamics::{
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
-use khal::backend::{GpuBackend, GpuBackendError, GpuPass};
+use khal::backend::{Encoder, GpuBackend, GpuBackendError, GpuEncoder, GpuPass, GpuTimestamps};
 use vortx::tensor::Tensor;
 
 /// GPU shader bundle for the constraint solver.
@@ -232,7 +232,8 @@ impl GpuSolver {
     /// `velocity_solver::solve_constraints`.
     pub fn solve_tgs<'a>(
         &self,
-        pass: &mut GpuPass,
+        encoder: &mut GpuEncoder,
+        mut timestamps: Option<&mut GpuTimestamps>,
         joint_solver: &GpuJointSolver,
         args: SolverArgs<'a>,
         mut joint_args: JointSolverArgs<'a>,
@@ -248,16 +249,36 @@ impl GpuSolver {
         /*
          * Init solver vel increments.
          */
-        self.init_solver_vels_inc.call(
-            pass,
-            [args.num_colliders, args.num_batches, 1],
-            args.solver_vels_inc,
-            args.mprops,
-            args.sim_params,
-            args.batch_indices,
-        )?;
+        {
+            let mut pass = encoder.begin_pass("[RBD] slv/init", timestamps.as_deref_mut());
+            self.init_solver_vels_inc.call(
+                &mut pass,
+                [args.num_colliders, args.num_batches, 1],
+                args.solver_vels_inc,
+                args.mprops,
+                args.sim_params,
+                args.batch_indices,
+            )?;
 
-        joint_solver.init(pass, &mut joint_args)?;
+            joint_solver.init(&mut pass, &mut joint_args)?;
+
+            // Bound for the per-substep contact scans: runs after the narrow
+            // phase wrote `contacts_len`, before the first substep build.
+            #[cfg(feature = "dim3")]
+            if let (Some(solver), Some(state)) = (mb_solver, mb_state.as_deref_mut()) {
+                let mut mb_args = MultibodySolverArgs {
+                    poses: &mut *args.solver_body_poses,
+                    collider_world_poses: args.collider_world_poses,
+                    mprops: args.mprops,
+                    contacts: args.contacts,
+                    contacts_len: args.contacts_len,
+                    solver_vels: &mut *args.solver_vels,
+                    batch_indices: args.batch_indices,
+                    color_uniforms: args.color_uniforms,
+                };
+                solver.stash_contacts_len(&mut pass, state, &mut mb_args)?;
+            }
+        }
 
         // Per substep, the multibody work is split into five phases that are
         // INTERLEAVED with the matching rigid-body phases, mirroring rapier's
@@ -277,9 +298,10 @@ impl GpuSolver {
         // of `args.solver_vels` / `args.solver_body_poses` must be released
         // before the interleaved rigid-body call that touches the same buffers.
         macro_rules! mb_phase {
-            ($method:ident $(, $extra:expr)*) => {{
+            ($label:expr, $method:ident $(, $extra:expr)*) => {{
                 #[cfg(feature = "dim3")]
                 if let (Some(solver), Some(state)) = (mb_solver, mb_state.as_deref_mut()) {
+                    let mut pass = encoder.begin_pass($label, timestamps.as_deref_mut());
                     let mut mb_args = MultibodySolverArgs {
                         poses: &mut *args.solver_body_poses,
                         collider_world_poses: args.collider_world_poses,
@@ -290,7 +312,7 @@ impl GpuSolver {
                         batch_indices: args.batch_indices,
                         color_uniforms: args.color_uniforms,
                     };
-                    solver.$method(pass, state, &mut mb_args $(, $extra)*)?;
+                    solver.$method(&mut pass, state, &mut mb_args $(, $extra)*)?;
                 }
             }};
         }
@@ -304,47 +326,99 @@ impl GpuSolver {
             /*
              * P1/F1 — integrate velocities (apply `a · dt'` / gravity increment).
              */
-            mb_phase!(substep_integrate_velocities);
-            self.apply_solver_vels_inc.call(
-                pass,
-                [args.num_colliders, args.num_batches, 1],
-                args.solver_vels,
-                args.solver_vels_inc,
-                args.batch_indices,
-            )?;
+            mb_phase!("[RBD] slv/mb-integrate-vels", substep_integrate_velocities);
+            {
+                let mut pass =
+                    encoder.begin_pass("[RBD] slv/rb-apply-inc", timestamps.as_deref_mut());
+                self.apply_solver_vels_inc.call(
+                    &mut pass,
+                    [args.num_colliders, args.num_batches, 1],
+                    args.solver_vels,
+                    args.solver_vels_inc,
+                    args.batch_indices,
+                )?;
+            }
 
             /*
              * P2/F2 — build + warmstart constraints.
              */
-            mb_phase!(substep_build_constraints);
-            self.update_constraints.call(
-                pass,
-                args.contacts_len_indirect,
-                args.constraints,
-                args.constraint_builders,
-                args.contacts_len,
-                args.solver_body_poses,
-                args.sim_params,
-                args.batch_indices,
-            )?;
-            joint_solver.update(pass, &mut joint_args, args.solver_body_poses)?;
-            if args.colorless_warmstart {
-                // One gather dispatch over bodies instead of `num_colors`
-                // scatter dispatches (each constraint is visited once per
-                // body side, but the dispatch count drops by ~num_colors).
-                self.warmstart_without_colors.call(
+            {
+                #[cfg(feature = "dim3")]
+                if let (Some(solver), Some(state)) = (mb_solver, mb_state.as_deref_mut()) {
+                    let mut mb_args = MultibodySolverArgs {
+                        poses: &mut *args.solver_body_poses,
+                        collider_world_poses: args.collider_world_poses,
+                        mprops: args.mprops,
+                        contacts: args.contacts,
+                        contacts_len: args.contacts_len,
+                        solver_vels: &mut *args.solver_vels,
+                        batch_indices: args.batch_indices,
+                        color_uniforms: args.color_uniforms,
+                    };
+                    solver.substep_build_constraints(
+                        encoder,
+                        timestamps.as_deref_mut(),
+                        state,
+                        &mut mb_args,
+                    )?;
+                }
+            }
+            {
+                let mut pass =
+                    encoder.begin_pass("[RBD] slv/rb-build-warmstart", timestamps.as_deref_mut());
+                let pass = &mut pass;
+                self.update_constraints.call(
                     pass,
-                    [args.num_colliders, args.num_batches, 1],
-                    args.body_constraint_counts,
-                    args.body_constraint_ids,
+                    args.contacts_len_indirect,
                     args.constraints,
-                    args.solver_vels,
+                    args.constraint_builders,
+                    args.contacts_len,
+                    args.solver_body_poses,
+                    args.sim_params,
                     args.batch_indices,
                 )?;
-            } else {
-                // NOTE: contact colors start at 1 (0 = unassigned).
+                joint_solver.update(pass, &mut joint_args, args.solver_body_poses)?;
+                if args.colorless_warmstart {
+                    // One gather dispatch over bodies instead of `num_colors`
+                    // scatter dispatches (each constraint is visited once per
+                    // body side, but the dispatch count drops by ~num_colors).
+                    self.warmstart_without_colors.call(
+                        pass,
+                        [args.num_colliders, args.num_batches, 1],
+                        args.body_constraint_counts,
+                        args.body_constraint_ids,
+                        args.constraints,
+                        args.solver_vels,
+                        args.batch_indices,
+                    )?;
+                } else {
+                    // NOTE: contact colors start at 1 (0 = unassigned).
+                    for c in 1..=args.num_colors {
+                        self.warmstart.call(
+                            pass,
+                            args.contacts_len_indirect,
+                            args.constraints,
+                            args.solver_vels,
+                            args.color_bucket_starts,
+                            args.color_sorted_ids,
+                            &args.color_uniforms[c as usize],
+                            args.batch_indices,
+                        )?;
+                    }
+                }
+            }
+
+            /*
+             * P3/F3 — solve ALL joints + contacts WITH bias.
+             */
+            mb_phase!("[RBD] slv/mb-solve-bias", substep_solve_with_bias);
+            {
+                let mut pass =
+                    encoder.begin_pass("[RBD] slv/rb-solve-bias", timestamps.as_deref_mut());
+                let pass = &mut pass;
+                joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
                 for c in 1..=args.num_colors {
-                    self.warmstart.call(
+                    self.step_gauss_seidel.call(
                         pass,
                         args.contacts_len_indirect,
                         args.constraints,
@@ -353,61 +427,56 @@ impl GpuSolver {
                         args.color_sorted_ids,
                         &args.color_uniforms[c as usize],
                         args.batch_indices,
+                        // use_bias = 1 (`color_uniforms[c]` holds the constant `c`).
+                        &args.color_uniforms[1],
                     )?;
                 }
             }
 
             /*
-             * P3/F3 — solve ALL joints + contacts WITH bias.
+             * P4/F4 — integrate ALL positions once.
              */
-            mb_phase!(substep_solve_with_bias);
-            joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
-            for c in 1..=args.num_colors {
-                self.step_gauss_seidel.call(
-                    pass,
-                    args.contacts_len_indirect,
-                    args.constraints,
+            mb_phase!(
+                "[RBD] slv/mb-integrate-pos",
+                substep_integrate_positions,
+                is_last_substep
+            );
+            {
+                let mut pass =
+                    encoder.begin_pass("[RBD] slv/rb-integrate", timestamps.as_deref_mut());
+                self.integrate_linearized.call(
+                    &mut pass,
+                    [args.num_colliders, args.num_batches, 1],
+                    args.solver_body_poses,
                     args.solver_vels,
-                    args.color_bucket_starts,
-                    args.color_sorted_ids,
-                    &args.color_uniforms[c as usize],
+                    args.sim_params,
                     args.batch_indices,
-                    // use_bias = 1 (`color_uniforms[c]` holds the constant `c`).
-                    &args.color_uniforms[1],
                 )?;
             }
 
             /*
-             * P4/F4 — integrate ALL positions once.
-             */
-            mb_phase!(substep_integrate_positions, is_last_substep);
-            self.integrate_linearized.call(
-                pass,
-                [args.num_colliders, args.num_batches, 1],
-                args.solver_body_poses,
-                args.solver_vels,
-                args.sim_params,
-                args.batch_indices,
-            )?;
-
-            /*
              * P5/F5 — solve ALL joints + contacts WITHOUT bias (stabilization).
              */
-            mb_phase!(substep_solve_no_bias);
-            joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
-            for c in 1..=args.num_colors {
-                self.step_gauss_seidel.call(
-                    pass,
-                    args.contacts_len_indirect,
-                    args.constraints,
-                    args.solver_vels,
-                    args.color_bucket_starts,
-                    args.color_sorted_ids,
-                    &args.color_uniforms[c as usize],
-                    args.batch_indices,
-                    // use_bias = 0 (`color_uniforms[c]` holds the constant `c`).
-                    &args.color_uniforms[0],
-                )?;
+            mb_phase!("[RBD] slv/mb-solve-nobias", substep_solve_no_bias);
+            {
+                let mut pass =
+                    encoder.begin_pass("[RBD] slv/rb-solve-nobias", timestamps.as_deref_mut());
+                let pass = &mut pass;
+                joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
+                for c in 1..=args.num_colors {
+                    self.step_gauss_seidel.call(
+                        pass,
+                        args.contacts_len_indirect,
+                        args.constraints,
+                        args.solver_vels,
+                        args.color_bucket_starts,
+                        args.color_sorted_ids,
+                        &args.color_uniforms[c as usize],
+                        args.batch_indices,
+                        // use_bias = 0 (`color_uniforms[c]` holds the constant `c`).
+                        &args.color_uniforms[0],
+                    )?;
+                }
             }
         }
 
@@ -415,16 +484,19 @@ impl GpuSolver {
          * Writeback body velocities and convert COM-centered solver poses
          * back to body-origin poses.
          */
-        self.finalize.call(
-            pass,
-            [args.num_colliders, args.num_batches, 1],
-            args.vels,
-            args.solver_vels,
-            args.body_poses,
-            args.solver_body_poses,
-            args.local_mprops,
-            args.batch_indices,
-        )?;
+        {
+            let mut pass = encoder.begin_pass("[RBD] slv/finalize", timestamps.as_deref_mut());
+            self.finalize.call(
+                &mut pass,
+                [args.num_colliders, args.num_batches, 1],
+                args.vels,
+                args.solver_vels,
+                args.body_poses,
+                args.solver_body_poses,
+                args.local_mprops,
+                args.batch_indices,
+            )?;
+        }
 
         Ok(())
     }

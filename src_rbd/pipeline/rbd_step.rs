@@ -439,7 +439,6 @@ impl RbdPipeline {
 
         {
             let mut encoder = backend.begin_encoding();
-            let mut pass = encoder.begin_pass("[RBD] solver", timestamps.as_deref_mut());
             #[cfg(feature = "dim3")]
             let mb = if state.multibodies.is_empty() {
                 None
@@ -447,14 +446,14 @@ impl RbdPipeline {
                 Some((&self.multibody_solver, &mut state.multibodies))
             };
             self.solver.solve_tgs(
-                &mut pass,
+                &mut encoder,
+                timestamps.as_deref_mut(),
                 &self.joint_solver,
                 solver_args,
                 joint_solver_args,
                 #[cfg(feature = "dim3")]
                 mb,
             )?;
-            drop(pass);
 
             // Resolve all accumulated timestamps before the final submit.
             if let Some(ts) = &timestamps {

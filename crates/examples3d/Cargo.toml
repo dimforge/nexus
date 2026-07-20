@@ -64,5 +64,9 @@ name = "bench_batch_sweep3"
 path = "bench_batch_sweep3.rs"
 
 [[bin]]
+name = "bench_mjcf3"
+path = "bench_mjcf3.rs"
+
+[[bin]]
 name = "test_warmstart3"
 path = "test_warmstart3.rs"

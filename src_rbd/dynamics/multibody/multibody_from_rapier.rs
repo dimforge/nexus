@@ -152,6 +152,7 @@ impl GpuMultibodySet {
                     max_constraints,
                     self_contacts_enabled: if mb.self_contacts_enabled() { 1 } else { 0 },
                     contact_constraint_count: 0,
+                    batch_contacts_len: 0,
                 });
 
                 // `assembly_id` is not exposed publicly on `MultibodyLink`, so we

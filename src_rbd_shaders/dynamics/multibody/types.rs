@@ -351,4 +351,11 @@ pub struct MultibodyInfo {
     /// multibody. Written by `gpu_mb_init_contact_constraints`, read by the
     /// warmstart / finalize / solve / remove-bias contact kernels.
     pub contact_constraint_count: u32,
+    /// Per-step copy of `contacts_len[batch]`, stashed by
+    /// `gpu_mb_stash_contacts_len` after the narrow phase.
+    /// `gpu_mb_init_contact_constraints` is at the 8-storage-buffer WebGPU
+    /// limit, so it can't bind `contacts_len` directly; this bound lets its
+    /// manifold scan stop at the actual contact count instead of walking the
+    /// full per-batch capacity.
+    pub batch_contacts_len: u32,
 }

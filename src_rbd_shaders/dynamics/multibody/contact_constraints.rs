@@ -181,10 +181,11 @@ pub fn gpu_mb_init_contact_constraints(
         col_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
 
     let contacts_slice = batch_ids.contact_batch(batch_id, contacts);
-    // Iterate to capacity (instead of reading a `contacts_len` storage buffer):
-    // empty slots have `contact.len == 0` and are skipped. Drops one binding to
-    // fit the 8-storage-buffer WebGPU limit; matches `gpu_solver_init_constraints`.
-    let n_contacts = batch_ids.contacts_batch_capacity;
+    // The kernel can't bind `contacts_len` (it already uses the full
+    // 8-storage-buffer WebGPU budget), so `gpu_mb_stash_contacts_len` copies
+    // the count into `MultibodyInfo` once per step. Clamp to capacity for
+    // safety (a stale/overflowed count must never read out of bounds).
+    let n_contacts = mb.batch_contacts_len.min(batch_ids.contacts_batch_capacity);
     let mut count = 0u32;
 
     for ci in 0..n_contacts {
@@ -545,6 +546,36 @@ pub fn gpu_mb_init_contact_constraints(
     // The solve / finalize / remove-bias kernels iterate `0..count` so we
     // don't need to mark surplus slots inactive — they're never read.
     mb.contact_constraint_count = count;
+    multibody_info.write(mb_start + mb_idx as usize, mb);
+}
+
+/// Stash `contacts_len[batch]` into each multibody's `batch_contacts_len`.
+/// Runs once per step, after the narrow phase and before the substep loop.
+///
+/// `gpu_mb_init_contact_constraints` already binds 8 storage buffers (the
+/// WebGPU limit) so it can't read `contacts_len` directly; this copy lets its
+/// per-substep manifold scan stop at the actual contact count instead of
+/// walking the full per-batch capacity (4096 by default — the scan used to
+/// dominate single-robot steps).
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_stash_contacts_len(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    multibody_info: &mut [MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+) {
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
+    let num_mb = batch_ids.multibodies_len;
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
+        return;
+    }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
+    let mb_start = batch_ids.mb_start(batch_id);
+    let mut mb = multibody_info.read(mb_start + mb_idx as usize);
+    mb.batch_contacts_len = contacts_len.read(batch_id as usize);
     multibody_info.write(mb_start + mb_idx as usize, mb);
 }
 
