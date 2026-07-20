@@ -343,11 +343,12 @@ pub fn gpu_lbvh_refit_internal(
 
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
 
-    // All threads must execute the same number of outer loop iterations for uniform control flow.
-    // NOTE: we calculate the interation count based on `colliders_batch_capacity` instead of
-    //       `num_bodies` since the latter is non-uniform because it originates from a storage
-    //       buffer.
-    let num_iterations = batch_ids.colliders_batch_capacity.div_ceil(num_threads);
+    // All threads must execute the same number of outer loop iterations for
+    // uniform control flow. `colliders_len` comes from the `BatchIndices`
+    // UNIFORM buffer, so it is uniform for the compiler's control-flow
+    // analysis — no need to over-iterate to the buffer capacity (which is
+    // 65536 by default, i.e. up to ~20x more barrier rounds than needed).
+    let num_iterations = num_bodies.div_ceil(num_threads);
 
     // NOTE: using unchecked indexing (via MaybeIndexUnchecked) because otherwise the bounds
     //        checking inserted by rustgpu breaks the shader when targeting some NVidia graphics
@@ -449,7 +450,15 @@ pub fn gpu_lbvh_refit(
         // Propagate to ancestors.
         let mut curr_id = tree.at(curr_leaf_id as usize).parent;
 
-        loop {
+        // NOTE: bounded `for` (tree depth <= 32 in practice) instead of `loop`
+        //       to avoid the unstructured-SPIR-V miscompilation on macOS.
+        // NOTE: this kernel is currently UNUSED by the pipeline: its
+        //       cross-workgroup refit_count protocol needs acquire/release
+        //       atomics (khal's are relaxed), so the propagation could read a
+        //       sibling AABB before it is visible. The single-workgroup
+        //       `gpu_lbvh_refit_internal` + per-level device-scope barriers is
+        //       the safe variant.
+        for _ in 0..32u32 {
             let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count, 1);
 
             if refit_count == 0 {
