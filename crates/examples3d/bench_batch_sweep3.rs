@@ -183,6 +183,16 @@ async fn bench_point(
     let mut pipeline = NexusPipeline::default();
     state.finalize(backend).await?;
 
+    // `NEXUS_EXPLICIT_CORIOLIS=1`: MuJoCo/Genesis-style explicit coriolis —
+    // the mass matrix / LU / gravity solve runs once per step instead of
+    // once per substep (different integration semantics, so checksums are
+    // not comparable with the implicit default).
+    if std::env::var("NEXUS_EXPLICIT_CORIOLIS").is_ok()
+        && let Some(rbd) = state.rbd.as_mut()
+    {
+        rbd.multibodies_mut().set_implicit_coriolis(false);
+    }
+
     for _ in 0..n_warmup {
         pipeline.simulate(backend, &mut state, None).await?;
     }
