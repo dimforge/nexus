@@ -250,9 +250,10 @@ impl GpuMultibodySolver {
         // the free-body solver velocities) so the contact starts "warm" each
         // substep — mirrors rapier's per-substep `contact_constraints.warmstart`
         // and matches what the rigid-body solver does for free contacts. On the
-        // first substep the impulse was just reset to 0, so this is a no-op.
+        // first substep the impulse was just reset to 0 (Phase 0's
+        // `reset_contact_warmstart`), so it is provably a no-op — skipped.
         // One 64-lane workgroup per multibody (one DOF per lane).
-        {
+        if !first_substep {
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
             let warmstart_dispatch =
