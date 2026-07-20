@@ -5,7 +5,7 @@
 
 use crate::math::Pose;
 use crate::shaders::dynamics::{
-    GpuIncJointColor, GpuInitJointConstraints, GpuRemoveJointBias, GpuResetJointColor,
+    GpuInitJointConstraints, GpuRemoveJointBias,
     GpuSolveJointConstraints, GpuUpdateJointConstraints, ImpulseJoint, JointConstraint,
     JointConstraintBuilder, LocalMassProperties, RbdSimParams, Velocity, WorldMassProperties,
 };
@@ -83,8 +83,9 @@ pub struct GpuImpulseJointSet {
     /// Identical across batches by the equal-topology invariant.
     num_active_joints: u32,
     num_colors: u32,
-    max_color_group_len: u32,
-    curr_color: Tensor<u32>,
+    /// Host copy of the per-color prefix sums in `color_groups` (identical
+    /// across batches), used to size each per-color solve dispatch exactly.
+    color_groups_cpu: Vec<u32>,
     color_groups: Tensor<u32>,
     joints: Tensor<ImpulseJoint>,
     builders: Tensor<JointConstraintBuilder>,
@@ -170,7 +171,6 @@ impl GpuImpulseJointSet {
         let max_joints = filtered_lens.iter().copied().max().unwrap_or(0);
 
         let mut global_num_colors = 0u32;
-        let mut global_max_color_group_len = 0u32;
 
         // Per-environment sorted joints and color groups.
         let mut per_env_sorted_joints: Vec<Vec<ImpulseJoint>> = Vec::new();
@@ -255,8 +255,6 @@ impl GpuImpulseJointSet {
                 color_groups[*color as usize] += 1;
             }
 
-            let env_max_color_group_len = color_groups.iter().copied().max().unwrap_or_default();
-
             // Prefix sum.
             for i in 0..color_groups.len().saturating_sub(1) {
                 color_groups[i + 1] += color_groups[i];
@@ -273,7 +271,6 @@ impl GpuImpulseJointSet {
             }
 
             global_num_colors = global_num_colors.max(env_num_colors);
-            global_max_color_group_len = global_max_color_group_len.max(env_max_color_group_len);
 
             per_env_sorted_joints.push(sorted_gpu_joints);
             per_env_color_groups.push(color_groups);
@@ -329,8 +326,7 @@ impl GpuImpulseJointSet {
             // invariant, so the per-batch active count is any env's count.
             num_active_joints: filtered_lens.first().copied().unwrap_or(0),
             num_colors: global_num_colors,
-            max_color_group_len: global_max_color_group_len,
-            curr_color: Tensor::scalar(backend, 0u32, usage | BufferUsages::UNIFORM).unwrap(),
+            color_groups_cpu: all_color_groups.clone(),
             color_groups: Tensor::vector(backend, &all_color_groups, usage).unwrap(),
             joints: Tensor::vector(backend, &all_joints, usage).unwrap(),
             builders: Tensor::matrix_uninit(backend, num_batches, max_joints, usage).unwrap(),
@@ -372,8 +368,6 @@ pub struct GpuJointSolver {
     init_joint_constraints: GpuInitJointConstraints,
     /// Updates joint constraints each substep.
     update_joint_constraints: GpuUpdateJointConstraints,
-    reset_joint_color: GpuResetJointColor,
-    inc_joint_color: GpuIncJointColor,
     /// Solves joint constraints.
     solve_joint_constraints: GpuSolveJointConstraints,
     /// Removes bias from joint constraints.
@@ -394,6 +388,9 @@ pub struct JointSolverArgs<'a> {
     pub local_mprops: &'a Tensor<LocalMassProperties>,
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
+    /// Per-color-index uniform tensors (`color_uniforms[c]` holds `c`),
+    /// shared with the contact solver. See [`super::SolverArgs::color_uniforms`].
+    pub color_uniforms: &'a [Tensor<u32>],
 }
 
 impl GpuJointSolver {
@@ -464,23 +461,28 @@ impl GpuJointSolver {
             )?;
         }
 
-        self.reset_joint_color
-            .call(pass, 1u32, &mut args.joints.curr_color)?;
-
-        for _ in 0..args.joints.num_colors {
-            // TODO PERF: figure out a way to dispatch a number of threads that fits
-            //            more tightly the size of the current color.
+        // One dispatch per color, sized exactly to that color's group (the
+        // prefix sums are known on the host). The color index is bound as a
+        // tiny pre-built uniform instead of a GPU-incremented cursor.
+        for c in 0..args.joints.num_colors as usize {
+            let start = if c > 0 {
+                args.joints.color_groups_cpu[c - 1]
+            } else {
+                0
+            };
+            let group_len = args.joints.color_groups_cpu[c] - start;
+            if group_len == 0 {
+                continue;
+            }
             self.solve_joint_constraints.call(
                 pass,
-                [args.joints.max_color_group_len, args.num_batches, 1],
+                [group_len, args.num_batches, 1],
                 &mut args.joints.constraints,
                 solver_vels,
                 &args.joints.color_groups,
-                &args.joints.curr_color,
+                &args.color_uniforms[c],
                 args.batch_indices,
             )?;
-            self.inc_joint_color
-                .call(pass, 1u32, &mut args.joints.curr_color)?;
         }
 
         Ok(())

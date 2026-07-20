@@ -199,6 +199,12 @@ pub struct RbdState {
     pub(super) colored: Tensor<u32>,
     pub(super) constraints_rands: Tensor<u32>,
     pub(super) curr_color: Tensor<u32>,
+    /// Pre-built per-color-index uniforms: `color_uniforms[c]` holds the
+    /// constant `c`. Bound by every colored sweep (contacts, impulse joints,
+    /// multibody impulse joints) instead of a GPU-incremented cursor, removing
+    /// two 1-thread dispatches per color per sweep. Grown on demand by
+    /// [`Self::ensure_color_uniforms`].
+    pub(super) color_uniforms: Vec<Tensor<u32>>,
     pub(super) uncolored: Tensor<u32>,
     pub(super) uncolored_staging: Tensor<u32>,
     pub(super) lbvh: LbvhState,
@@ -264,6 +270,16 @@ impl RbdState {
     /// time at the cost of dropping over-budget constraints.
     pub fn set_max_colors(&mut self, max_colors: u32) {
         self.max_colors = max_colors.max(1);
+    }
+
+    /// Grows [`Self::color_uniforms`] so indices `0..n` are available. Each
+    /// entry is a tiny immutable uniform holding its own index; existing
+    /// entries are never reallocated.
+    pub(super) fn ensure_color_uniforms(&mut self, backend: &GpuBackend, n: u32) {
+        for c in self.color_uniforms.len() as u32..n {
+            self.color_uniforms
+                .push(Tensor::scalar(backend, c, BufferUsages::UNIFORM).unwrap());
+        }
     }
 
     /// Returns the configured max color count.

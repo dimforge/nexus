@@ -4,14 +4,15 @@ use super::multibody_set::*;
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
-    GpuIncJointColor, GpuMbComputeDynamicsPre, GpuMbComputeDynamicsWithoutCoriolisPre,
-    GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints, GpuMbGravityAndLu,
-    GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
-    GpuMbIntegrateVelocities, GpuMbRemoveContactConstraintBias,
-    GpuMbRemoveImpulseJointConstraintBias, GpuMbRemoveSolveJointNoBias, GpuMbResetContactWarmstart,
-    GpuMbSolveContactConstraints, GpuMbSolveImpulseJointConstraints, GpuMbSolveJointConstraints,
-    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, GpuResetJointColor,
-    Velocity, WorldMassProperties,
+    GpuMbComputeDynamicsPre,
+    GpuMbComputeDynamicsWithoutCoriolisPre,
+    GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbInitContactConstraints,
+    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
+    GpuMbRemoveContactConstraintBias, GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbResetContactWarmstart, GpuMbWarmstartContactConstraints,
+    GpuMbRemoveSolveJointNoBias, GpuMbSolveContactConstraints, GpuMbSolveImpulseJointConstraints,
+    GpuMbFinalizeImpulseJointConstraints, GpuMbSolveJointConstraints,
+    GpuMbUpdateImpulseJointConstraints, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -41,10 +42,6 @@ pub struct GpuMultibodySolver {
     /// split out so the build pass fits 8 storage buffers.
     finalize_impulse_joint_constraints: GpuMbFinalizeImpulseJointConstraints,
     solve_impulse_joint_constraints: GpuMbSolveImpulseJointConstraints,
-    /// Color cursor reset / increment for the colored impulse-joint solve
-    /// loop. Reuses the free-body joint color kernels (generic `&mut u32`).
-    reset_imp_joint_color: GpuResetJointColor,
-    inc_imp_joint_color: GpuIncJointColor,
     remove_impulse_joint_constraint_bias: GpuMbRemoveImpulseJointConstraintBias,
     integrate_velocities: GpuMbIntegrateVelocities,
     integrate: GpuMbIntegrate,
@@ -71,6 +68,10 @@ pub struct MultibodySolverArgs<'a> {
     /// Shared `BatchIndices` uniform — per-batch caps and packed-section
     /// offsets read by every multibody kernel. Owned by `RbdState`.
     pub batch_indices: &'a Tensor<BatchIndices>,
+    /// Per-color-index uniform tensors (`color_uniforms[c]` holds `c`),
+    /// shared with the contact/joint solvers. Bound by each colored
+    /// impulse-joint sweep instead of a GPU-incremented cursor.
+    pub color_uniforms: &'a [Tensor<u32>],
 }
 
 impl GpuMultibodySolver {
@@ -356,10 +357,9 @@ impl GpuMultibodySolver {
             )?;
             // Colored PGS sweep WITH bias: one dispatch per color, each
             // color's joints solved race-free in parallel (graph coloring
-            // done at init in `set_impulse_joints`).
-            self.reset_imp_joint_color
-                .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
-            for _ in 0..mb.mb_imp_joint_num_colors {
+            // done at init in `set_impulse_joints`). The color index is a
+            // pre-built uniform instead of a GPU-incremented cursor.
+            for c in 0..mb.mb_imp_joint_num_colors as usize {
                 self.solve_impulse_joint_constraints.call(
                     pass,
                     // One workgroup (MB_LU_LANES threads) per joint; thread
@@ -374,13 +374,11 @@ impl GpuMultibodySolver {
                     &mb.mb_imp_joint_jacobians,
                     &mb.mb_imp_joint_color_groups,
                     args.batch_indices,
-                    &mb.mb_imp_joint_curr_color,
+                    &args.color_uniforms[c],
                     &mb.multibody_info,
                     &mut mb.dof_state,
                     args.solver_vels,
                 )?;
-                self.inc_imp_joint_color
-                    .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
             }
         }
 
@@ -488,9 +486,7 @@ impl GpuMultibodySolver {
         if mb.mb_imp_joints_per_batch > 0 {
             // Final stabilization sweep WITHOUT bias — colored, one
             // dispatch per color (see the with-bias sweep above).
-            self.reset_imp_joint_color
-                .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
-            for _ in 0..mb.mb_imp_joint_num_colors {
+            for c in 0..mb.mb_imp_joint_num_colors as usize {
                 self.solve_impulse_joint_constraints.call(
                     pass,
                     // One workgroup (MB_LU_LANES threads) per joint; thread
@@ -505,13 +501,11 @@ impl GpuMultibodySolver {
                     &mb.mb_imp_joint_jacobians,
                     &mb.mb_imp_joint_color_groups,
                     args.batch_indices,
-                    &mb.mb_imp_joint_curr_color,
+                    &args.color_uniforms[c],
                     &mb.multibody_info,
                     &mut mb.dof_state,
                     args.solver_vels,
                 )?;
-                self.inc_imp_joint_color
-                    .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
             }
         }
 

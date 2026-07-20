@@ -18,39 +18,6 @@ use crate::utils::{BatchIndices, Slice, SliceMut};
 
 const WORKGROUP_SIZE: u32 = 64;
 
-/// Resets the current color to 1 (for graph coloring).
-#[spirv_bindgen]
-#[spirv(compute(threads(1)))]
-pub fn gpu_solver_reset_color(
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] curr_color: &mut u32,
-) {
-    // NOTE: this `for` loop is silly. It doesn't do anything
-    //       more than a `*curr_color = 1` in a convoluted
-    //       way because otherwise rustgpu apparently does not generate
-    //       the spirv for this kernel (seems to happen if the kernel is
-    //       too trivial.
-    for k in 0..1 {
-        // NOTE: our first colors start at 1 instead of 0.
-        *curr_color = 1 + k;
-    }
-}
-
-/// Increments the current color.
-#[spirv_bindgen]
-#[spirv(compute(threads(1)))]
-pub fn gpu_solver_inc_color(
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] curr_color: &mut u32,
-) {
-    // NOTE: this `for` loop is silly. It doesn't do anything
-    //       more than a `*curr_color += 1` in a convoluted
-    //       way because otherwise rustgpu apparently does not generate
-    //       the spirv for this kernel (seems to happen if the kernel is
-    //       too trivial.
-    for k in 0..1 {
-        *curr_color += 1 + k;
-    }
-}
-
 /// Initializes constraints from contact manifolds.
 ///
 /// Split into two passes to stay within WebGPU's 8-storage-buffer per-stage

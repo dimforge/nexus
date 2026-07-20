@@ -12,9 +12,10 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuRemoveCfmAndBiasKernel, GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
-    GpuSolverIncColor, GpuSolverInitConstraints, GpuSolverResetColor, GpuSolverSortConstraints,
-    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuWarmstart, LocalMassProperties,
-    RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity, WorldMassProperties,
+    GpuSolverInitConstraints, GpuSolverSortConstraints,
+    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuWarmstart, GpuWarmstartWithoutColors,
+    LocalMassProperties, RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity,
+    WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -25,8 +26,6 @@ use vortx::tensor::Tensor;
 #[derive(Shader)]
 pub struct GpuSolver {
     sort_constraints: GpuSolverSortConstraints,
-    reset_color: GpuSolverResetColor,
-    inc_color: GpuSolverIncColor,
     /// Initializes constraints from contact manifolds.
     init_constraints: GpuSolverInitConstraints,
     /// Companion counting pass to `init_constraints` (split out to keep each
@@ -115,8 +114,11 @@ pub struct SolverArgs<'a> {
     pub body_constraint_ids: &'a mut Tensor<u32>,
     /// Color assigned to each constraint by graph coloring.
     pub constraints_colors: &'a Tensor<u32>,
-    /// Current color being processed.
-    pub curr_color: &'a mut Tensor<u32>,
+    /// Per-color-index uniform tensors: `color_uniforms[c]` holds the constant
+    /// `c`. Bound (instead of a GPU-incremented cursor) by each color-sweep
+    /// dispatch, which removes the 1-thread `reset_color`/`inc_color`
+    /// dispatches (and their barriers) from every color loop.
+    pub color_uniforms: &'a [Tensor<u32>],
     /// Prefix sum shader for building constraint ranges.
     pub prefix_sum: &'a GpuPrefixSum,
     /// Number of solver iterations (max across all environments).
@@ -277,6 +279,7 @@ impl GpuSolver {
                         contacts_len: args.contacts_len,
                         solver_vels: &mut *args.solver_vels,
                         batch_indices: args.batch_indices,
+                        color_uniforms: args.color_uniforms,
                     };
                     solver.$method(pass, state, &mut mb_args $(, $extra)*)?;
                 }
@@ -316,8 +319,8 @@ impl GpuSolver {
                 args.batch_indices,
             )?;
             joint_solver.update(pass, &mut joint_args, args.solver_body_poses)?;
-            self.reset_color.call(pass, 1u32, args.curr_color)?;
-            for _ in 0..args.num_colors {
+            // NOTE: contact colors start at 1 (0 = unassigned).
+            for c in 1..=args.num_colors {
                 self.warmstart.call(
                     pass,
                     args.contacts_len_indirect,
@@ -325,10 +328,9 @@ impl GpuSolver {
                     args.solver_vels,
                     args.constraints_colors,
                     args.contacts_len,
-                    args.curr_color,
+                    &args.color_uniforms[c as usize],
                     args.batch_indices,
                 )?;
-                self.inc_color.call(pass, 1u32, args.curr_color)?
             }
 
             /*
@@ -336,8 +338,7 @@ impl GpuSolver {
              */
             mb_phase!(substep_solve_with_bias);
             joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
-            self.reset_color.call(pass, 1u32, args.curr_color)?;
-            for _ in 0..args.num_colors {
+            for c in 1..=args.num_colors {
                 self.step_gauss_seidel.call(
                     pass,
                     args.contacts_len_indirect,
@@ -345,10 +346,9 @@ impl GpuSolver {
                     args.solver_vels,
                     args.constraints_colors,
                     args.contacts_len,
-                    args.curr_color,
+                    &args.color_uniforms[c as usize],
                     args.batch_indices,
                 )?;
-                self.inc_color.call(pass, 1u32, args.curr_color)?
             }
 
             /*
@@ -376,8 +376,7 @@ impl GpuSolver {
                 args.contacts_len,
                 args.batch_indices,
             )?;
-            self.reset_color.call(pass, 1u32, args.curr_color)?;
-            for _ in 0..args.num_colors {
+            for c in 1..=args.num_colors {
                 self.step_gauss_seidel.call(
                     pass,
                     args.contacts_len_indirect,
@@ -385,10 +384,9 @@ impl GpuSolver {
                     args.solver_vels,
                     args.constraints_colors,
                     args.contacts_len,
-                    args.curr_color,
+                    &args.color_uniforms[c as usize],
                     args.batch_indices,
                 )?;
-                self.inc_color.call(pass, 1u32, args.curr_color)?
             }
         }
 

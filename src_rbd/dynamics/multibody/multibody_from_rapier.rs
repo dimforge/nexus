@@ -366,7 +366,6 @@ impl GpuMultibodySet {
         }
 
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
-        let usage_u = storage | BufferUsages::UNIFORM;
 
         Self {
             num_batches,
@@ -506,7 +505,6 @@ impl GpuMultibodySet {
                 storage,
             )
             .unwrap(),
-            mb_imp_joint_curr_color: Tensor::scalar(backend, 0u32, usage_u).unwrap(),
             mb_imp_joint_num_colors: 0,
             mb_imp_joint_max_color_group_len: 0,
             joint_constraints_per_batch: cons_cap,

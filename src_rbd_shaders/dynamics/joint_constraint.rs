@@ -160,39 +160,6 @@ pub struct JointConstraintElement {
     pub impulse_bounds: Vec2,
 }
 
-/// Resets the joint color to 0.
-#[spirv_bindgen]
-#[spirv(compute(threads(1)))]
-pub fn gpu_reset_joint_color(
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] curr_color: &mut u32,
-) {
-    // NOTE: this `for` loop is silly. It doesn’t do anything
-    //       more than a `*curr_color = 0` in a convoluted
-    //       way because otherwise rustgpu apparently does not generate
-    //       the spirv for this kernel (seems to happen if the kernel is
-    //       too trivial.
-    for k in 0..1 {
-        // NOTE: for joints, our first colors start at 0.
-        *curr_color = k;
-    }
-}
-
-/// Increments the joint color.
-#[spirv_bindgen]
-#[spirv(compute(threads(1)))]
-pub fn gpu_inc_joint_color(
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] curr_color: &mut u32,
-) {
-    // NOTE: this `for` loop is silly. It doesn’t do anything
-    //       more than a `*curr_color += 1` in a convoluted
-    //       way because otherwise rustgpu apparently does not generate
-    //       the spirv for this kernel (seems to happen if the kernel is
-    //       too trivial.
-    for k in 0..1 {
-        *curr_color += 1 + k;
-    }
-}
-
 /// Initializes joint constraint builders and constraints.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
