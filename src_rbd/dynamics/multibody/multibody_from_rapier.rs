@@ -471,6 +471,30 @@ impl GpuMultibodySet {
                 storage,
             )
             .unwrap(),
+            // Per-multibody Delassus blocks for the constraint-space contact
+            // sweep — MAX_MB_CONTACT_CONSTRAINTS_PER_MB² floats each (147 KB
+            // in 3D), so only small total multibody counts get them; larger
+            // batched scenes keep the dof-space solve.
+            contact_delassus: {
+                // Sized by the CAPACITY stride (the kernels index blocks by
+                // `batch · multibodies_batch_capacity + mb_idx`).
+                let total_mbs = mb_cap * num_batches;
+                if global_max_mb > 0 && total_mbs <= MAX_DELASSUS_MULTIBODIES {
+                    let block = (MAX_MB_CONTACT_CONSTRAINTS_PER_MB
+                        * MAX_MB_CONTACT_CONSTRAINTS_PER_MB)
+                        as usize;
+                    Some(
+                        Tensor::vector_uninit(
+                            backend,
+                            (total_mbs as usize * block) as u32,
+                            storage,
+                        )
+                        .unwrap(),
+                    )
+                } else {
+                    None
+                }
+            },
 
             // Impulse-joint buffers are sized for "no MB-touching joints" by
             // default — `set_impulse_joints` resizes them at pipeline build

@@ -19,6 +19,13 @@ use vortx::tensor::Tensor;
 /// `gpu_mb_lu_solve`.
 pub(super) const MB_LU_LANES: u32 = 64;
 
+/// Maximum TOTAL multibody count (capacity × batches) for which the
+/// constraint-space (Delassus) contact solve is enabled — each multibody's
+/// Delassus block costs `MAX_MB_CONTACT_CONSTRAINTS_PER_MB²` floats (~147 KB
+/// in 3D), so huge batched scenes keep the dof-space sweep (~19 MB at this
+/// cap).
+pub(super) const MAX_DELASSUS_MULTIBODIES: u32 = 128;
+
 use crate::shaders::dynamics::{GenericJoint, JointLimits, JointMotor};
 
 /// GPU-resident articulated multibody set, packed across simulation batches.
@@ -91,6 +98,12 @@ pub struct GpuMultibodySet {
     pub(super) contact_constraint_jacs: Tensor<f32>,
     /// Per-constraint M⁻¹·Jᵀ column (length `ndofs`).
     pub(super) contact_constraint_columns: Tensor<f32>,
+    /// Per-multibody Delassus blocks (`MAX_MB_CONTACT_CONSTRAINTS_PER_MB²`
+    /// floats each) for the constraint-space contact sweep. Only allocated
+    /// when the total multibody count is at most
+    /// [`MAX_DELASSUS_MULTIBODIES`] (the blocks are ~147 KB each in 3D);
+    /// `None` selects the dof-space solve path.
+    pub(super) contact_delassus: Option<Tensor<f32>>,
 
     /// Per-batch number of multibody-touching impulse joints (body1 OR body2
     /// part of any multibody).
