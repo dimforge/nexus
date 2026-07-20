@@ -15,6 +15,7 @@
 
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
+use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use crate::dynamics::ConstraintSoftness;
@@ -643,10 +644,16 @@ pub fn gpu_mb_warmstart_contact_constraints(
 /// Pass 2: for each emitted constraint, LU back-solve `M · column = Jᵀ`
 /// (the row produced by the init kernel) and set `inv_lhs = 1 / (Jᵀ ·
 /// column + free_body_inv_r)`.
+///
+/// One workgroup per multibody, one lane per constraint slot (strided): the
+/// per-constraint back-solves are mutually independent, so the up-to-192
+/// solves that used to run sequentially on a single thread now run 64-wide
+/// (no shared memory or barriers needed).
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_contact_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mass_matrices: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] lu_pivots: &[u32],
@@ -657,8 +664,10 @@ pub fn gpu_mb_finalize_contact_constraints(
     contact_constraint_columns: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    const LANES: u32 = 64;
+    let batch_id = workgroup_id.y;
+    let mb_idx = workgroup_id.x;
+    let lane = local_id.x;
     let num_mb = batch_ids.multibodies_len;
     if mb_idx >= num_mb {
         return;
@@ -683,7 +692,7 @@ pub fn gpu_mb_finalize_contact_constraints(
     let m = MatSlice::dense(mb_mm_base, ndofs, ndofs);
     let count = mb.contact_constraint_count;
 
-    for s in 0..count {
+    for s in StepRng::new(lane..count, LANES) {
         let col_offset = col_base + (s as usize) * dofs_stride;
         // 1) Copy J^T row into the column buffer (it'll be overwritten by the
         //    LU solve with the M⁻¹·Jᵀ result).

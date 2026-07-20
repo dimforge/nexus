@@ -27,6 +27,9 @@ pub(super) fn sm_idx(r: u32, c: u32) -> usize {
 #[inline]
 pub(super) fn lu_factor_in_shared(
     n: u32,
+    // Uniform-sourced upper bound for `n` (e.g. `BatchIndices::mb_max_ndofs`);
+    // the loop trip count must be uniform because of the barriers inside.
+    max_n: u32,
     lane: u32,
     mat: &mut [f32; MAX_MB_DOFS * MAX_MB_DOFS],
     pivots_dst: &mut [u32],
@@ -34,9 +37,8 @@ pub(super) fn lu_factor_in_shared(
     pivot_row_shared: &mut u32,
     inv_akk_shared: &mut f32,
 ) {
-    // NOTE: fixed number of iterations for uniform control flow.
-    // TODO(PERF): on non-web platforms we could just use `n` as the upper bound.
-    for k in 0..MAX_DOFS_U32 {
+    // NOTE: uniform trip count (from a uniform buffer) for the barriers below.
+    for k in 0..max_n {
         let active = k < n;
         if active && lane == 0 {
             let mut pivot_row = k;
@@ -104,14 +106,15 @@ pub(super) fn lu_factor_in_shared(
 #[inline]
 pub(super) fn lu_triangular_solve_in_place(
     n: u32,
+    // Uniform-sourced upper bound for `n` — see `lu_factor_in_shared`.
+    max_n: u32,
     lane: u32,
     mat: &[f32; MAX_MB_DOFS * MAX_MB_DOFS],
     x: &mut [f32; MAX_MB_DOFS],
     partial: &mut [f32; LANES as usize],
 ) {
-    // NOTE: fixed number of iterations for uniform control flow.
-    // TODO(PERF): on non-web platforms we could just use `n` as the upper bound.
-    for i in 0..MAX_DOFS_U32 {
+    // NOTE: uniform trip count (from a uniform buffer) for the barriers below.
+    for i in 0..max_n {
         let active = i < n;
         let s = if active && lane < i {
             mat.read(sm_idx(i, lane)) * x.read(lane as usize)
@@ -135,9 +138,8 @@ pub(super) fn lu_triangular_solve_in_place(
         workgroup_memory_barrier_with_group_sync();
     }
 
-    // NOTE: fixed number of iterations for uniform control flow.
-    // TODO(PERF): on non-web platforms we could just use `n` as the upper bound.
-    for step in 0..MAX_DOFS_U32 {
+    // NOTE: uniform trip count (from a uniform buffer) for the barriers below.
+    for step in 0..max_n {
         let active = step < n;
         // For dummy iterations (step >= n), `i` is not meaningful — guard
         // every use of it behind `active`.

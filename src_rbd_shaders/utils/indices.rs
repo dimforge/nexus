@@ -53,6 +53,13 @@ pub struct BatchIndices {
     /// contrast, are stored single-batch (identical coloring across batches)
     /// and read at offset 0.
     pub mb_imp_joint_color_groups_batch_capacity: u32,
+    /// Max `ndofs` across every multibody in every batch. Uniform-sourced
+    /// upper bound for the per-DOF loops (LU factor/solve) that need uniform
+    /// control flow, much tighter than the hard `MAX_MB_DOFS = 64` cap.
+    pub mb_max_ndofs: u32,
+    /// Max link count across every multibody in every batch (same purpose as
+    /// [`Self::mb_max_ndofs`] for per-link loops).
+    pub mb_max_links: u32,
     /// Per-batch stride of the contact-solver color-bucket buffers
     /// (`color_counts` / `color_starts` / `color_cursors`), = `max_colors + 3`
     /// so that `starts[c + 1]` is in bounds for every swept color.

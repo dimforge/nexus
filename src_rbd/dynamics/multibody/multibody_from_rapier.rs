@@ -48,6 +48,9 @@ impl GpuMultibodySet {
 
         let mut global_max_mb = 0u32;
         let mut global_max_links = 0u32;
+        // Per-multibody maxima (not per-env sums) for the uniform loop bounds.
+        let mut max_mb_ndofs = 0u32;
+        let mut max_mb_links = 0u32;
         let mut global_max_dofs = 0u32;
         let mut global_max_jac = 0u32;
         let mut global_max_mm = 0u32;
@@ -99,6 +102,8 @@ impl GpuMultibodySet {
                 };
                 let ndofs = mb.ndofs() as u32 - root_ndof_adjust;
                 let num_links = mb.num_links() as u32;
+                max_mb_ndofs = max_mb_ndofs.max(ndofs);
+                max_mb_links = max_mb_links.max(num_links);
 
                 // Count maximum constraint slots this multibody could need: for
                 // each non-root non-kinematic joint, every free axis with a limit
@@ -507,6 +512,8 @@ impl GpuMultibodySet {
             .unwrap(),
             mb_imp_joint_num_colors: 0,
             mb_imp_joint_max_color_group_len: 0,
+            max_ndofs: max_mb_ndofs,
+            max_links: max_mb_links,
             joint_constraints_per_batch: cons_cap,
             joint_constraint_columns_per_batch: cons_col_cap,
             contact_constraints_per_batch: contact_cons_cap,

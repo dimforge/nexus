@@ -57,6 +57,9 @@ pub fn gpu_mb_gravity_and_lu(
     let batch_id = wg_id.y;
     let mb_idx = wg_id.x;
     let lane = lid.x;
+    // Uniform-sourced loop bounds (see `BatchIndices::mb_max_ndofs`).
+    let max_ndofs = batch_ids.mb_max_ndofs;
+    let max_links = batch_ids.mb_max_links;
 
     let mb = batch_ids
         .mb_batch(batch_id, multibody_info)
@@ -98,9 +101,8 @@ pub fn gpu_mb_gravity_and_lu(
     let g = Vec2::new(gravity.x, gravity.y);
 
     // ---- Phase 2: per-link gravity / Coriolis-force assembly. ----
-    // NOTE: fixed number of iterations for uniform control flow.
-    // TODO(PERF): on non-web platforms we could just use `num_links` as the upper bound.
-    for k in 0..MAX_MB_DOFS as u32 {
+    // NOTE: uniform trip count (from the `BatchIndices` uniform).
+    for k in 0..max_links {
         let active = k < num_links;
         let mut acc_lin = Vector::ZERO;
         #[cfg(feature = "dim3")]
@@ -239,6 +241,7 @@ pub fn gpu_mb_gravity_and_lu(
 
     lu_factor_in_shared(
         ndofs,
+        max_ndofs,
         lane,
         mat,
         lu_pivots,
@@ -257,7 +260,7 @@ pub fn gpu_mb_gravity_and_lu(
 
     // ---- Phase 4: solve M·x = τ for the gravity rhs. ----
     lu_apply_pivots(ndofs, lane, lu_pivots, piv_offset, x);
-    lu_triangular_solve_in_place(ndofs, lane, mat, x, partial);
+    lu_triangular_solve_in_place(ndofs, max_ndofs, lane, mat, x, partial);
 
     if lane < ndofs {
         gen_forces.write(rhs_offset + lane as usize, x.read(lane as usize));

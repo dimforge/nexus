@@ -254,9 +254,13 @@ impl GpuMultibodySolver {
             args.contacts,
         )?;
 
+        // One 64-lane workgroup per multibody: the per-constraint LU
+        // back-solves are independent, so they run one-per-lane instead of
+        // sequentially on a single thread.
+        let finalize_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
         self.finalize_contact_constraints.call(
             pass,
-            dispatch,
+            finalize_dispatch,
             &mb.multibody_info,
             &mb.mass_matrices,
             &mb.lu_pivots,

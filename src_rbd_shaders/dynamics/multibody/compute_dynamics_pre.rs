@@ -107,6 +107,7 @@ pub fn gpu_mb_compute_dynamics_pre(
         mb_jac_base,
         ndofs,
         num_links,
+        batch_ids.mb_max_links,
         &stat_slice,
         &ws_slice.as_ref(),
         body_jacobians,
@@ -128,9 +129,8 @@ pub fn gpu_mb_compute_dynamics_pre(
 
     workgroup_memory_barrier_with_group_sync();
 
-    // NOTE: fixed number of iterations for uniform control flow.
-    // TODO(PERF): on non-web platforms we could just use `mb.num_links` as the upper bound.
-    for k in 0..MAX_MB_DOFS as u32 {
+    // NOTE: uniform trip count (from the `BatchIndices` uniform).
+    for k in 0..batch_ids.mb_max_links {
         let loop_is_active = k < num_links;
         let mut inv_mass_x = 0.0;
         let mut mass = 0.0;
@@ -545,6 +545,7 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
         mb_jac_base,
         ndofs,
         num_links,
+        batch_ids.mb_max_links,
         &stat_slice,
         &ws_slice.as_ref(),
         body_jacobians,
@@ -561,9 +562,8 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
     fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, LANES);
     workgroup_memory_barrier_with_group_sync();
 
-    // NOTE: fixed number of iterations for uniform control flow.
-    // TODO(PERF): on non-web platforms we could just use `num_links` as the upper bound.
-    for k in 0..MAX_MB_DOFS as u32 {
+    // NOTE: uniform trip count (from the `BatchIndices` uniform).
+    for k in 0..batch_ids.mb_max_links {
         let mut active = k < num_links;
         if active {
             let lmp = stat_slice[k as usize].local_mprops;
@@ -721,16 +721,17 @@ fn update_body_jacobians(
     mb_jac_base: usize,
     ndofs: u32,
     num_links: u32,
+    // Uniform-sourced upper bound for `num_links` (`BatchIndices::mb_max_links`).
+    max_links: u32,
     stat_slice: &Slice<MultibodyLinkStatic>,
     ws_slice: &Slice<MultibodyLinkWorkspace>,
     body_jacobians: &mut [f32],
 ) {
-    // TODO(PERF): on non-web platforms we could just use `mb.num_links` as the upper bound.
     // TODO(PERF): instead of copying the body jacobian over and over for each body, we should
     //             precompute a bit set that indicates which dofs are part of the kinematic tree
     //             of each node. For a max number of DOFs set to 32, this means a single addition 32-bits
     //             value per node.
-    for k in 0..MAX_MB_DOFS as u32 {
+    for k in 0..max_links {
         let mut parent_to_world = Pose::default();
         let link_j = MatSlice::dense(
             mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
