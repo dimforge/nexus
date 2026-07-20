@@ -9,7 +9,7 @@ mod slice;
 
 pub use basis::orthonormal_basis3;
 pub use indices::BatchIndices;
-pub use slice::{Slice, SliceMut};
+pub use slice::{ISlice, ISliceMut, Slice, SliceMut};
 
 /// Division with ceiling (signed).
 pub fn div_ceil(x: i32, y: i32) -> i32 {

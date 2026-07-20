@@ -66,30 +66,28 @@ pub fn gpu_mb_gravity_and_lu(
     let max_links = batch_ids.mb_max_links;
 
     let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
+        .ib(batch_id, multibody_info)
         .read(mb_idx as usize);
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
-    let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
-    let gen_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
-    let mb_mm_base = batch_ids.mm_start(batch_id) + mb.mass_matrix_offset as usize;
-    let piv_offset = gen_base;
-    let rhs_offset = gen_base;
+    let mb_jac_base = mb.jacobian_offset as usize;
+    let gen_base = mb.first_dof as usize;
+    let mb_mm_base = mb.mass_matrix_offset as usize;
+    let piv = batch_ids.ivec(batch_id, gen_base);
 
     let stat_slice = batch_ids
-        .mb_links_batch(batch_id, links_static)
+        .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let mut ws_slice = batch_ids
-        .mb_links_batch_mut(batch_id, links_workspace)
+        .ib_mut(batch_id, links_workspace)
         .offset(mb.first_link as usize);
-    let vel_slice = Slice(dof_state, gen_base);
-    let damping_slice = Slice(
-        dof_state,
-        batch_ids.dof_damping_section_offset as usize + gen_base,
-    );
+    let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
+    let damping_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(batch_ids.dof_batch_capacity as usize + gen_base);
 
     // ---- Phase 1: zero the generalized-force vector (parallel across DOFs). ----
-    let accelerations = MatSlice::dense(gen_base, ndofs, 1);
+    let accelerations = batch_ids.imat(batch_id, gen_base, ndofs, 1);
     // TODO(perf): up to a certain number of degrees of freedom, we could actually run all the
     //             calculations in shared memory and only write the result in the end.
     //             Currently, the max number of dofs is 32 but we still accumulate forces/accelerations
@@ -197,7 +195,7 @@ pub fn gpu_mb_gravity_and_lu(
                 let f_lin = (g - acc_lin) * mass;
                 let f_ang = -gyroscopic - i_acc_ang;
 
-                let body_jacobian = MatSlice::dense(
+                let body_jacobian = batch_ids.imat(batch_id, 
                     mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,
                     ndofs,
@@ -205,7 +203,7 @@ pub fn gpu_mb_gravity_and_lu(
 
                 gemv_tr_spatial_split_par(
                     gen_forces,
-                    gen_base,
+                    batch_ids.ivec(batch_id, gen_base),
                     1.0,
                     body_jacobians,
                     body_jacobian,
@@ -227,19 +225,22 @@ pub fn gpu_mb_gravity_and_lu(
     workgroup_memory_barrier_with_group_sync();
     let i = lane;
     if i < ndofs {
-        let idx = gen_base + i as usize;
+        let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
         gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
     }
     workgroup_memory_barrier_with_group_sync();
 
     // ---- Phase 3: load M into shared memory, factor in place. ----
-    let m_view = MatSlice::dense(mb_mm_base, ndofs, ndofs);
+    let m_view = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
     if lane < ndofs {
         for r in 0..ndofs {
             mat.write(sm_idx(r, lane), mass_matrices.read(m_view.idx(r, lane)));
         }
-        x.write(lane as usize, gen_forces.read(rhs_offset + lane as usize));
+        x.write(
+            lane as usize,
+            gen_forces.read(batch_ids.mbi(batch_id, gen_base + lane as usize)),
+        );
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -249,7 +250,7 @@ pub fn gpu_mb_gravity_and_lu(
         lane,
         mat,
         lu_pivots,
-        piv_offset,
+        piv,
         pivot_row_shared,
         inv_akk_shared,
     );
@@ -263,11 +264,11 @@ pub fn gpu_mb_gravity_and_lu(
     }
 
     // ---- Phase 4: solve M·x = τ for the gravity rhs. ----
-    lu_apply_pivots(ndofs, lane, lu_pivots, piv_offset, x);
+    lu_apply_pivots(ndofs, lane, lu_pivots, piv, x);
     lu_triangular_solve_in_place(ndofs, max_ndofs, lane, mat, x, partial);
 
     if lane < ndofs {
-        gen_forces.write(rhs_offset + lane as usize, x.read(lane as usize));
+        gen_forces.write(batch_ids.mbi(batch_id, gen_base + lane as usize), x.read(lane as usize));
     }
 }
 
@@ -319,33 +320,31 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
 
     let mb = if active_slot {
         batch_ids
-            .mb_batch(batch_id, multibody_info)
+            .ib(batch_id, multibody_info)
             .read(mb_idx as usize)
     } else {
         MultibodyInfo::default()
     };
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
-    let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
-    let gen_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
-    let mb_mm_base = batch_ids.mm_start(batch_id) + mb.mass_matrix_offset as usize;
-    let piv_offset = gen_base;
-    let rhs_offset = gen_base;
+    let mb_jac_base = mb.jacobian_offset as usize;
+    let gen_base = mb.first_dof as usize;
+    let mb_mm_base = mb.mass_matrix_offset as usize;
+    let piv = batch_ids.ivec(batch_id, gen_base);
 
     let stat_slice = batch_ids
-        .mb_links_batch(batch_id, links_static)
+        .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let mut ws_slice = batch_ids
-        .mb_links_batch_mut(batch_id, links_workspace)
+        .ib_mut(batch_id, links_workspace)
         .offset(mb.first_link as usize);
-    let vel_slice = Slice(dof_state, gen_base);
-    let damping_slice = Slice(
-        dof_state,
-        batch_ids.dof_damping_section_offset as usize + gen_base,
-    );
+    let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
+    let damping_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(batch_ids.dof_batch_capacity as usize + gen_base);
 
     // ---- Phase 1: zero the generalized-force vector (parallel across DOFs). ----
-    let accelerations = MatSlice::dense(gen_base, ndofs, 1);
+    let accelerations = batch_ids.imat(batch_id, gen_base, ndofs, 1);
     fill_par(gen_forces, accelerations, 0.0, lane, T);
     workgroup_memory_barrier_with_group_sync();
 
@@ -444,7 +443,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
                 let f_lin = (g - acc_lin) * mass;
                 let f_ang = -gyroscopic - i_acc_ang;
 
-                let body_jacobian = MatSlice::dense(
+                let body_jacobian = batch_ids.imat(batch_id, 
                     mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,
                     ndofs,
@@ -452,7 +451,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
 
                 gemv_tr_spatial_split_par(
                     gen_forces,
-                    gen_base,
+                    batch_ids.ivec(batch_id, gen_base),
                     1.0,
                     body_jacobians,
                     body_jacobian,
@@ -470,14 +469,14 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     workgroup_memory_barrier_with_group_sync();
     let i = lane;
     if i < ndofs {
-        let idx = gen_base + i as usize;
+        let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
         gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
     }
     workgroup_memory_barrier_with_group_sync();
 
     // ---- Phase 3: load M into this slot's shared tile, factor in place. ----
-    let m_view = MatSlice::dense(mb_mm_base, ndofs, ndofs);
+    let m_view = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
     if lane < ndofs {
         for r in 0..ndofs {
             mat.write(
@@ -485,7 +484,10 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
                 mass_matrices.read(m_view.idx(r, lane)),
             );
         }
-        x.write(seg + lane as usize, gen_forces.read(rhs_offset + lane as usize));
+        x.write(
+            seg + lane as usize,
+            gen_forces.read(batch_ids.mbi(batch_id, gen_base + lane as usize)),
+        );
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -497,7 +499,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
         active_slot,
         mat,
         lu_pivots,
-        piv_offset,
+        piv,
         pivot_row_shared,
         inv_akk_shared,
     );
@@ -511,7 +513,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     }
 
     // ---- Phase 4: solve M·x = τ for the gravity rhs. ----
-    lu_apply_pivots_packed::<T>(ndofs, slot, lane, active_slot, lu_pivots, piv_offset, x);
+    lu_apply_pivots_packed::<T>(ndofs, slot, lane, active_slot, lu_pivots, piv, x);
     lu_triangular_solve_in_place_packed::<T, MATN>(
         ndofs,
         max_ndofs,
@@ -524,7 +526,10 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     );
 
     if lane < ndofs {
-        gen_forces.write(rhs_offset + lane as usize, x.read(seg + lane as usize));
+        gen_forces.write(
+            batch_ids.mbi(batch_id, gen_base + lane as usize),
+            x.read(seg + lane as usize),
+        );
     }
 }
 
@@ -565,34 +570,32 @@ pub fn gpu_mb_gravity_and_lu_t1(
     let mb_idx = invocation_id.x % num_mb;
 
     let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
+        .ib(batch_id, multibody_info)
         .read(mb_idx as usize);
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
     if ndofs == 0 {
         return;
     }
-    let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
-    let gen_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
-    let mb_mm_base = batch_ids.mm_start(batch_id) + mb.mass_matrix_offset as usize;
-    let piv_offset = gen_base;
-    let rhs_offset = gen_base;
+    let mb_jac_base = mb.jacobian_offset as usize;
+    let gen_base = mb.first_dof as usize;
+    let mb_mm_base = mb.mass_matrix_offset as usize;
+    let piv = batch_ids.ivec(batch_id, gen_base);
 
     let stat_slice = batch_ids
-        .mb_links_batch(batch_id, links_static)
+        .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let mut ws_slice = batch_ids
-        .mb_links_batch_mut(batch_id, links_workspace)
+        .ib_mut(batch_id, links_workspace)
         .offset(mb.first_link as usize);
-    let vel_slice = Slice(dof_state, gen_base);
-    let damping_slice = Slice(
-        dof_state,
-        batch_ids.dof_damping_section_offset as usize + gen_base,
-    );
+    let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
+    let damping_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(batch_ids.dof_batch_capacity as usize + gen_base);
 
     // ---- Phase 1: zero the generalized-force vector. ----
     for d in 0..ndofs {
-        gen_forces.write(gen_base + d as usize, 0.0);
+        gen_forces.write(batch_ids.mbi(batch_id, gen_base + d as usize), 0.0);
     }
 
     #[cfg(feature = "dim3")]
@@ -671,7 +674,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
             let f_lin = (g - acc_lin) * mass;
             let f_ang = -gyroscopic - i_acc_ang;
 
-            let body_jacobian = MatSlice::dense(
+            let body_jacobian = batch_ids.imat(batch_id, 
                 mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
                 SPATIAL_DIM as u32,
                 ndofs,
@@ -680,7 +683,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
             // Single lane owns the whole gemv (lane = 0, lanes = 1).
             gemv_tr_spatial_split_par(
                 gen_forces,
-                gen_base,
+                batch_ids.ivec(batch_id, gen_base),
                 1.0,
                 body_jacobians,
                 body_jacobian,
@@ -695,22 +698,22 @@ pub fn gpu_mb_gravity_and_lu_t1(
 
     // Damping subtraction — see `gpu_mb_gravity_and_lu`.
     for i in 0..ndofs {
-        let idx = gen_base + i as usize;
+        let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
         gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
     }
 
     // ---- Phase 3 + 4: factor M in place in global memory, then solve
     // M·x = τ in place on the gravity rhs. ----
-    let m_view = MatSlice::dense(mb_mm_base, ndofs, ndofs);
-    lu_decompose(mass_matrices, m_view, lu_pivots, piv_offset);
+    let m_view = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
+    lu_decompose(mass_matrices, m_view, lu_pivots, piv);
     lu_solve_in_place(
         mass_matrices,
         m_view,
         lu_pivots,
-        piv_offset,
+        piv,
         gen_forces,
-        rhs_offset,
+        batch_ids.ivec(batch_id, gen_base),
     );
 }
 

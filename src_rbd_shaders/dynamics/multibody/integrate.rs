@@ -10,7 +10,7 @@ use khal_std::macros::{spirv, spirv_bindgen};
 
 #[cfg(feature = "dim2")]
 use crate::rotation_from_angle;
-use crate::utils::{BatchIndices, Slice, SliceMut};
+use crate::utils::BatchIndices;
 use crate::{ANG_DIM, DIM};
 #[cfg(feature = "dim3")]
 use crate::{Vector, rotation_from_scaled_axis, rotation_renormalize_fast};
@@ -44,12 +44,15 @@ pub fn gpu_mb_integrate_velocities(
     let dt = *dt_uniform;
 
     let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
+        .ib(batch_id, multibody_info)
         .read(mb_idx as usize);
-    let gen_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
 
-    let mut dof_vel = SliceMut(dof_state, gen_base);
-    let acc = Slice(gen_accelerations, gen_base);
+    let mut dof_vel = batch_ids
+        .ib_mut(batch_id, dof_state)
+        .offset(mb.first_dof as usize);
+    let acc = batch_ids
+        .ib(batch_id, gen_accelerations)
+        .offset(mb.first_dof as usize);
 
     for d in 0..mb.ndofs {
         let di = d as usize;
@@ -81,19 +84,22 @@ pub fn gpu_mb_integrate(
     let dt = *dt_uniform;
 
     let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
+        .ib(batch_id, multibody_info)
         .read(mb_idx as usize);
     let num_links = mb.num_links;
-    let gen_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
 
     let stat_slice = batch_ids
-        .mb_links_batch(batch_id, links_static)
+        .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let mut ws_slice = batch_ids
-        .mb_links_batch_mut(batch_id, links_workspace)
+        .ib_mut(batch_id, links_workspace)
         .offset(mb.first_link as usize);
-    let dof_val = SliceMut(dof_values, gen_base);
-    let dof_vel = Slice(dof_state, gen_base);
+    let dof_val = batch_ids
+        .ib_mut(batch_id, dof_values)
+        .offset(mb.first_dof as usize);
+    let dof_vel = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(mb.first_dof as usize);
 
     // Per-link coord / joint_rot update (uses the already-corrected `dof_velocities`).
     //
@@ -156,5 +162,5 @@ pub fn gpu_mb_integrate(
 
     // Silence dof_val unused warning — it will be used once we also support
     // setting coords directly (e.g. user-controlled kinematic DOFs).
-    let _ = dof_val.0;
+    let _ = dof_val.buf;
 }

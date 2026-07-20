@@ -5,7 +5,7 @@ use khal_std::index::MaybeIndexUnchecked;
 
 use crate::dynamics::body::WorldMassProperties;
 use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK, SPATIAL_DIM};
-use crate::utils::linalg::{MatSlice, lu_solve_in_place};
+use crate::utils::linalg::{MatSlice, lu_solve_in_place, VSlice};
 use crate::{DIM, Pose};
 
 use super::super::types::{MultibodyInfo, MultibodyLinkWorkspace};
@@ -24,9 +24,10 @@ pub(super) fn solve_mb_wj(
     ndofs: u32,
     mb: &MultibodyInfo,
     mass_matrices: &[f32],
-    mm_start: usize,
     lu_pivots: &[u32],
-    dof_start: usize,
+    // Interleaved dynamics-buffer view (`stride = num_batches`, `shift =
+    // batch_id`).
+    il: VSlice,
 ) {
     // Copy J into the W·J slot, then LU back-solve in place (matches the old
     // fused path: `wj = M⁻¹·j`).
@@ -35,10 +36,15 @@ pub(super) fn solve_mb_wj(
         let v = jacobians.read(j_id as usize + k as usize);
         jacobians.write(wj_base + k as usize, v);
     }
-    let mb_mm_base = mm_start + mb.mass_matrix_offset as usize;
-    let m = MatSlice::dense(mb_mm_base, ndofs, ndofs);
-    let piv_offset = dof_start + mb.first_dof as usize;
-    lu_solve_in_place(mass_matrices, m, lu_pivots, piv_offset, jacobians, wj_base);
+    let m = MatSlice::interleaved(
+        mb.mass_matrix_offset as usize,
+        ndofs,
+        ndofs,
+        il.stride,
+        il.shift,
+    );
+    let piv = VSlice::interleaved(mb.first_dof as usize, il.stride, il.shift);
+    lu_solve_in_place(mass_matrices, m, lu_pivots, piv, jacobians, VSlice::dense(wj_base));
 }
 
 impl MbImpulseJointBuilder {
@@ -50,11 +56,11 @@ impl MbImpulseJointBuilder {
         jacobians: &mut [f32],
         jac_buf_start: usize,
         multibody_info: &[MultibodyInfo],
-        mb_start: usize,
         links_workspace: &[MultibodyLinkWorkspace],
-        links_start: usize,
         body_jacobians: &[f32],
-        body_jac_start: usize,
+        // Interleaved dynamics-buffer view (`stride = num_batches`, `shift =
+        // batch_id`).
+        il: VSlice,
         poses: &[Pose],
         colliders_start: usize,
         mprops: &[WorldMassProperties],
@@ -78,12 +84,12 @@ impl MbImpulseJointBuilder {
         // SPIR-V's "pointer to arbitrary element" restriction). Free / fixed
         // sides ignore the read.
         let mb_a = if self.side_a_kind == SIDE_KIND_MB {
-            multibody_info.read(mb_start + self.side_a_id as usize)
+            multibody_info.read(il.atz(self.side_a_id as usize))
         } else {
             MultibodyInfo::default()
         };
         let mb_b = if self.side_b_kind == SIDE_KIND_MB {
-            multibody_info.read(mb_start + self.side_b_id as usize)
+            multibody_info.read(il.atz(self.side_b_id as usize))
         } else {
             MultibodyInfo::default()
         };
@@ -94,7 +100,7 @@ impl MbImpulseJointBuilder {
             self.side_a_link,
             &mb_a,
             links_workspace,
-            links_start,
+            il,
             poses,
             colliders_start,
         );
@@ -104,7 +110,7 @@ impl MbImpulseJointBuilder {
             self.side_b_link,
             &mb_b,
             links_workspace,
-            links_start,
+            il,
             poses,
             colliders_start,
         );
@@ -187,7 +193,7 @@ impl MbImpulseJointBuilder {
                     j_id_a,
                     j_id_b,
                     body_jacobians,
-                    body_jac_start,
+                    il,
                     mprops,
                     colliders_start,
                 );
@@ -219,7 +225,7 @@ impl MbImpulseJointBuilder {
                     j_id_a,
                     j_id_b,
                     body_jacobians,
-                    body_jac_start,
+                    il,
                     mprops,
                     colliders_start,
                 );
@@ -251,7 +257,7 @@ impl MbImpulseJointBuilder {
                     j_id_a,
                     j_id_b,
                     body_jacobians,
-                    body_jac_start,
+                    il,
                     mprops,
                     colliders_start,
                 );
@@ -283,7 +289,7 @@ impl MbImpulseJointBuilder {
                     j_id_a,
                     j_id_b,
                     body_jacobians,
-                    body_jac_start,
+                    il,
                     mprops,
                     colliders_start,
                 );
@@ -317,7 +323,7 @@ impl MbImpulseJointBuilder {
                     j_id_a,
                     j_id_b,
                     body_jacobians,
-                    body_jac_start,
+                    il,
                     mprops,
                     colliders_start,
                 );
@@ -351,7 +357,7 @@ impl MbImpulseJointBuilder {
                     j_id_a,
                     j_id_b,
                     body_jacobians,
-                    body_jac_start,
+                    il,
                     mprops,
                     colliders_start,
                 );
@@ -381,7 +387,7 @@ pub(super) fn side_world_pose(
     side_link: u32,
     mb: &MultibodyInfo,
     links_workspace: &[MultibodyLinkWorkspace],
-    links_start: usize,
+    il: VSlice,
     poses: &[Pose],
     colliders_start: usize,
 ) -> Pose {
@@ -391,6 +397,6 @@ pub(super) fn side_world_pose(
     if side_kind == SIDE_KIND_BODY {
         return poses.read(colliders_start + side_id as usize);
     }
-    let link_global = links_start + mb.first_link as usize + side_link as usize;
+    let link_global = il.atz(mb.first_link as usize + side_link as usize);
     links_workspace.read(link_global).local_to_world
 }

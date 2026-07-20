@@ -7,7 +7,7 @@
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
-use crate::utils::linalg::MAX_MB_DOFS;
+use crate::utils::linalg::{MAX_MB_DOFS, VSlice};
 
 /// Workgroup width for the parallelised LU kernels. Must match the
 /// `threads(N, 1, 1)` attribute and `MB_LU_LANES` on the host side.
@@ -33,7 +33,7 @@ pub(super) fn lu_factor_in_shared(
     lane: u32,
     mat: &mut [f32; MAX_MB_DOFS * MAX_MB_DOFS],
     pivots_dst: &mut [u32],
-    pivots_offset: usize,
+    piv: VSlice,
     pivot_row_shared: &mut u32,
     inv_akk_shared: &mut f32,
 ) {
@@ -55,7 +55,7 @@ pub(super) fn lu_factor_in_shared(
                 }
             }
             *pivot_row_shared = pivot_row;
-            pivots_dst.write(pivots_offset + k as usize, pivot_row);
+            pivots_dst.write(piv.at(k), pivot_row);
         }
         workgroup_memory_barrier_with_group_sync();
         let pivot_row = *pivot_row_shared;
@@ -198,7 +198,7 @@ pub(super) fn lu_factor_in_shared_packed<const T: u32, const MATN: usize, const 
     active_slot: bool,
     mat: &mut [f32; MATN],
     pivots_dst: &mut [u32],
-    pivots_offset: usize,
+    piv: VSlice,
     pivot_row_shared: &mut [u32; SLOTS],
     inv_akk_shared: &mut [f32; SLOTS],
 ) {
@@ -220,7 +220,7 @@ pub(super) fn lu_factor_in_shared_packed<const T: u32, const MATN: usize, const 
                 }
             }
             pivot_row_shared.write(slot as usize, pivot_row);
-            pivots_dst.write(pivots_offset + k as usize, pivot_row);
+            pivots_dst.write(piv.at(k), pivot_row);
         }
         workgroup_memory_barrier_with_group_sync();
         let pivot_row = pivot_row_shared.read(slot as usize);
@@ -348,13 +348,13 @@ pub(super) fn lu_apply_pivots_packed<const T: u32>(
     lane: u32,
     active_slot: bool,
     buf_pivots: &[u32],
-    pivots_offset: usize,
+    piv: VSlice,
     x: &mut [f32; 64],
 ) {
     let seg = (slot * T) as usize;
     if active_slot && lane == 0 {
         for k in 0..n {
-            let p = buf_pivots.read(pivots_offset + k as usize);
+            let p = buf_pivots.read(piv.at(k));
             if p != k {
                 let a = x.read(seg + k as usize);
                 let b = x.read(seg + p as usize);
@@ -373,12 +373,12 @@ pub(super) fn lu_apply_pivots(
     n: u32,
     lane: u32,
     buf_pivots: &[u32],
-    pivots_offset: usize,
+    piv: VSlice,
     x: &mut [f32; MAX_MB_DOFS],
 ) {
     if lane == 0 {
         for k in 0..n {
-            let p = buf_pivots.read(pivots_offset + k as usize);
+            let p = buf_pivots.read(piv.at(k));
             if p != k {
                 let a = x.read(k as usize);
                 let b = x.read(p as usize);

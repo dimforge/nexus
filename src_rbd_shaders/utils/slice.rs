@@ -80,3 +80,119 @@ impl<T: Copy> IndexMut<usize> for SliceMut<'_, T> {
         self.0.at_mut(self.1 + i)
     }
 }
+
+// Batch-interleaved variants: element `i` of the view lives at
+// `(base + i) · stride + shift` in the backing buffer. Used by the multibody
+// dynamics buffers, which are laid out batch-minor (`intra · num_batches +
+// batch_id`, Genesis-style) so that the flattened one-thread-per-(multibody,
+// batch) kernels access memory coalesced across lanes. `stride = 1, shift =
+// 0` degenerates to [`Slice`].
+pub struct ISlice<'a, T> {
+    pub buf: &'a [T],
+    pub base: usize,
+    pub stride: u32,
+    pub shift: u32,
+}
+
+impl<'a, T: Copy> ISlice<'a, T> {
+    #[inline(always)]
+    fn flat(&self, i: usize) -> usize {
+        (self.base + i) * self.stride as usize + self.shift as usize
+    }
+
+    #[inline]
+    pub fn at(&self, i: usize) -> &'a T {
+        self.buf.at(self.flat(i))
+    }
+
+    #[inline]
+    pub fn read(&self, i: usize) -> T {
+        self.buf.read(self.flat(i))
+    }
+
+    #[inline]
+    pub fn offset(self, offset: usize) -> Self {
+        ISlice {
+            base: self.base + offset,
+            ..self
+        }
+    }
+}
+
+pub struct ISliceMut<'a, T> {
+    pub buf: &'a mut [T],
+    pub base: usize,
+    pub stride: u32,
+    pub shift: u32,
+}
+
+impl<'a, T: Copy> ISliceMut<'a, T> {
+    #[inline(always)]
+    fn flat(&self, i: usize) -> usize {
+        (self.base + i) * self.stride as usize + self.shift as usize
+    }
+
+    #[inline]
+    pub fn as_ref(&self) -> ISlice<'_, T> {
+        ISlice {
+            buf: &*self.buf,
+            base: self.base,
+            stride: self.stride,
+            shift: self.shift,
+        }
+    }
+
+    #[inline]
+    pub fn at(&self, i: usize) -> &T {
+        self.buf.at(self.flat(i))
+    }
+
+    #[inline]
+    pub fn read(&self, i: usize) -> T {
+        self.buf.read(self.flat(i))
+    }
+
+    #[inline]
+    pub fn at_mut(&mut self, i: usize) -> &mut T {
+        let idx = self.flat(i);
+        self.buf.at_mut(idx)
+    }
+
+    #[inline]
+    pub fn write(&mut self, i: usize, value: T) {
+        let idx = self.flat(i);
+        self.buf.write(idx, value)
+    }
+
+    #[inline]
+    pub fn offset(self, offset: usize) -> Self {
+        ISliceMut {
+            base: self.base + offset,
+            ..self
+        }
+    }
+}
+
+impl<T: Copy> Index<usize> for ISlice<'_, T> {
+    type Output = T;
+    #[inline(always)]
+    fn index(&self, i: usize) -> &T {
+        self.buf.at(self.flat(i))
+    }
+}
+
+impl<T: Copy> Index<usize> for ISliceMut<'_, T> {
+    type Output = T;
+    #[inline(always)]
+    fn index(&self, i: usize) -> &T {
+        self.buf.at(self.flat(i))
+    }
+}
+
+impl<T: Copy> IndexMut<usize> for ISliceMut<'_, T> {
+    #[inline(always)]
+    fn index_mut(&mut self, i: usize) -> &mut T {
+        let idx = self.flat(i);
+        self.buf.at_mut(idx)
+    }
+}

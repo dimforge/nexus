@@ -305,8 +305,9 @@ impl GpuMultibodySet {
         axis: JointAxis,
         target_vel: f32,
     ) -> Result<(), GpuBackendError> {
-        let stride = self.links_per_batch;
-        let global_idx = (batch * stride + link_id) as usize;
+        // Batch-interleaved links layout: element `link_id` of batch `batch`
+        // lives at `link_id · num_batches + batch` (mirror included).
+        let global_idx = (link_id * self.num_batches + batch) as usize;
         let axis_id = axis as usize;
         let entry = match self.links_static_mirror.get_mut(global_idx) {
             Some(e) => e,

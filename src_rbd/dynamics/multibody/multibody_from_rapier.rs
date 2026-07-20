@@ -373,6 +373,31 @@ impl GpuMultibodySet {
 
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
 
+        // Batch-interleaved (batch-minor, Genesis-style) layout for the
+        // dynamics buffers: element `k` of batch `b` lives at `k · nb + b`,
+        // so the flattened one-thread-per-(multibody, batch) kernels access
+        // memory coalesced across lanes. The constraint slabs keep the
+        // batch-major layout (their consumers are per-multibody workgroups
+        // with lane-contiguous accesses).
+        fn interleave<T: Copy>(data: &[T], cap: u32, nb: usize) -> Vec<T> {
+            let cap = cap as usize;
+            let mut out = Vec::with_capacity(data.len());
+            for k in 0..cap {
+                for b in 0..nb {
+                    out.push(data[b * cap + k]);
+                }
+            }
+            out
+        }
+        let nb = num_batches as usize;
+        let all_infos = interleave(&all_infos, mb_cap, nb);
+        let all_statics = interleave(&all_statics, links_cap, nb);
+        let all_ws = interleave(&all_ws, links_cap, nb);
+        let all_dof_vals = interleave(&all_dof_vals, dofs_cap, nb);
+        let all_dof_vels = interleave(&all_dof_vels, dofs_cap, nb);
+        let all_dof_damping = interleave(&all_dof_damping, dofs_cap, nb);
+        let all_dof_armature = interleave(&all_dof_armature, dofs_cap, nb);
+
         Self {
             num_batches,
             multibodies_per_batch: mb_cap,

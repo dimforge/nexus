@@ -23,7 +23,7 @@ use crate::dynamics::body::{Velocity, WorldMassProperties};
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::queries::IndexedManifold;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MatSlice, lu_solve_in_place};
+use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 
 use super::types::{
@@ -69,6 +69,9 @@ fn orthonormal_vector(v: Vec2) -> Vec2 {
 fn fill_contact_jac_row(
     body_jacobians: &[f32],
     mb_jac_base: usize,
+    // Interleave parameters of `body_jacobians` (`num_batches`, `batch_id`).
+    jac_stride: u32,
+    jac_shift: u32,
     ndofs: u32,
     link_id: u32,
     unit_force: Vector,
@@ -81,7 +84,8 @@ fn fill_contact_jac_row(
     // Per-link SPATIAL_DIM × ndofs jacobian (rows 0..DIM = J_v, rows
     // DIM..SPATIAL_DIM = J_w).
     let link_jac_base = mb_jac_base + (link_id as usize) * SPATIAL_DIM * (ndofs as usize);
-    let link_j = MatSlice::dense(link_jac_base, SPATIAL_DIM as u32, ndofs);
+    let link_j =
+        MatSlice::interleaved(link_jac_base, SPATIAL_DIM as u32, ndofs, jac_stride, jac_shift);
     let (link_j_v, link_j_w) = link_j.rows_range_pair(0, DIM, DIM, ANG_DIM);
     let j = lane;
     if j < ndofs {
@@ -168,7 +172,6 @@ pub fn gpu_mb_init_contact_constraints(
     let max_corr_velocity = softness.max_corr_velocity;
     let cfm_factor = softness.cfm_factor;
 
-    let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
     let colliders_start = batch_ids.coll_start(batch_id);
@@ -178,17 +181,17 @@ pub fn gpu_mb_init_contact_constraints(
     // Per-multibody early-out: padding multibody slots have `ndofs == 0`,
     // which we use here as the sentinel (replaces the `num_multibodies`
     // storage binding the kernel used to read).
-    let mut mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mut mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     if ndofs == 0 {
         // Uniform per workgroup: every lane returns together.
         if lane == 0 {
             mb.contact_constraint_count = 0;
-            multibody_info.write(mb_start + mb_idx as usize, mb);
+            multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
         }
         return;
     }
-    let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
+    let mb_jac_base = mb.jacobian_offset as usize;
     let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
     // Each constraint slot reserves `dof_batch_capacity` floats in the
     // column buffer (matches the allocation in `from_rapier` and avoids any
@@ -337,6 +340,8 @@ pub fn gpu_mb_init_contact_constraints(
             fill_contact_jac_row(
                 body_jacobians,
                 mb_jac_base,
+                batch_ids.num_batches,
+                batch_id,
                 ndofs,
                 mb_link_id_a,
                 mb_normal,
@@ -362,6 +367,8 @@ pub fn gpu_mb_init_contact_constraints(
                 fill_contact_jac_row(
                     body_jacobians,
                     mb_jac_base,
+                    batch_ids.num_batches,
+                    batch_id,
                     ndofs,
                     mb_link_id_b,
                     lin_jac,
@@ -484,6 +491,8 @@ pub fn gpu_mb_init_contact_constraints(
                 fill_contact_jac_row(
                     body_jacobians,
                     mb_jac_base,
+                    batch_ids.num_batches,
+                    batch_id,
                     ndofs,
                     mb_link_id_a,
                     mb_tangent,
@@ -501,6 +510,8 @@ pub fn gpu_mb_init_contact_constraints(
                     fill_contact_jac_row(
                         body_jacobians,
                         mb_jac_base,
+                        batch_ids.num_batches,
+                        batch_id,
                         ndofs,
                         mb_link_id_b,
                         free_tangent,
@@ -582,7 +593,7 @@ pub fn gpu_mb_init_contact_constraints(
     // don't need to mark surplus slots inactive — they're never read.
     if lane == 0 {
         mb.contact_constraint_count = count;
-        multibody_info.write(mb_start + mb_idx as usize, mb);
+        multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
     }
 }
 
@@ -610,10 +621,9 @@ pub fn gpu_mb_stash_contacts_len(
     }
     let batch_id = invocation_id.x / num_mb;
     let mb_idx = invocation_id.x % num_mb;
-    let mb_start = batch_ids.mb_start(batch_id);
-    let mut mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mut mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     mb.batch_contacts_len = contacts_len.read(batch_id as usize);
-    multibody_info.write(mb_start + mb_idx as usize, mb);
+    multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
 }
 
 /// Zero the accumulated impulse of every contact-constraint slot for each
@@ -684,17 +694,16 @@ pub fn gpu_mb_warmstart_contact_constraints(
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
     let colliders_start = batch_ids.coll_start(batch_id);
 
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     if ndofs == 0 {
         return;
     }
-    let v_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let v_base = mb.first_dof as usize;
     let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base =
@@ -710,7 +719,7 @@ pub fn gpu_mb_warmstart_contact_constraints(
     // constraint (in constraint order — same per-DOF sum order as the old
     // serial loop, so the result is bit-identical).
     let mut v_lane = if lane < ndofs {
-        dof_state.read(v_base + lane as usize)
+        dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize))
     } else {
         0.0
     };
@@ -738,7 +747,7 @@ pub fn gpu_mb_warmstart_contact_constraints(
     }
 
     if lane < ndofs {
-        dof_state.write(v_base + lane as usize, v_lane);
+        dof_state.write(batch_ids.mbi(batch_id, v_base + lane as usize), v_lane);
     }
 }
 
@@ -774,23 +783,22 @@ pub fn gpu_mb_finalize_contact_constraints(
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
 
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     if ndofs == 0 {
         return;
     }
-    let mb_mm_base = batch_ids.mm_start(batch_id) + mb.mass_matrix_offset as usize;
-    let piv_offset = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let mb_mm_base = mb.mass_matrix_offset as usize;
+    let piv = batch_ids.ivec(batch_id, mb.first_dof as usize);
     let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base =
         col_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
 
-    let m = MatSlice::dense(mb_mm_base, ndofs, ndofs);
+    let m = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
     let count = mb.contact_constraint_count;
 
     for s in StepRng::new(lane..count, LANES) {
@@ -806,9 +814,9 @@ pub fn gpu_mb_finalize_contact_constraints(
             mass_matrices,
             m,
             lu_pivots,
-            piv_offset,
+            piv,
             contact_constraint_columns,
-            col_offset,
+            VSlice::dense(col_offset),
         );
         // 3) inv_r_mb = J · column.
         let mut inv_r_mb = 0.0f32;

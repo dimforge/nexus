@@ -10,6 +10,7 @@ use crate::Pose;
 use crate::dynamics::ConstraintSoftness;
 use crate::dynamics::body::{Velocity, WorldMassProperties};
 use crate::utils::BatchIndices;
+use crate::utils::linalg::VSlice;
 
 use super::super::lu::LANES;
 use super::super::types::{MultibodyInfo, MultibodyLinkWorkspace};
@@ -57,9 +58,9 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     let joints_start = batch_ids.mb_imp_joints_start(batch_id);
     let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
     let jac_buf_start = batch_ids.mb_imp_joint_jacobians_start(batch_id);
-    let mb_start = batch_ids.mb_start(batch_id);
-    let links_start = batch_ids.links_start(batch_id);
-    let body_jac_start = batch_ids.jac_start(batch_id);
+    // Interleaved dynamics-buffer view (multibody_info / links_workspace /
+    // body_jacobians / mass_matrices / lu_pivots / dof_state).
+    let il = VSlice::interleaved(0, batch_ids.num_batches, batch_id);
     let colliders_start = batch_ids.coll_start(batch_id);
 
     // Loop chunked across `num_threads` so a single workgroup row processes
@@ -80,11 +81,9 @@ pub fn gpu_mb_update_impulse_joint_constraints(
                 jacobians,
                 jac_buf_start,
                 multibody_info,
-                mb_start,
                 links_workspace,
-                links_start,
                 body_jacobians,
-                body_jac_start,
+                il,
                 poses,
                 colliders_start,
                 mprops,
@@ -124,9 +123,7 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
 
     let joints_start = batch_ids.mb_imp_joints_start(batch_id);
     let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
-    let mb_start = batch_ids.mb_start(batch_id);
-    let mm_start = batch_ids.mm_start(batch_id);
-    let dof_start = batch_ids.dof_start(batch_id);
+    let il = VSlice::interleaved(0, batch_ids.num_batches, batch_id);
 
     let mut i = invocation_id.x;
     while i < cap {
@@ -144,29 +141,27 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
                     // is stored on side B as a normal MB jacobian, so it's
                     // handled here too.
                     if c.side_a_kind == SIDE_KIND_MB && c.ndofs_a > 0 {
-                        let mb = multibody_info.read(mb_start + c.side_a_id as usize);
+                        let mb = multibody_info.read(il.atz(c.side_a_id as usize));
                         solve_mb_wj(
                             jacobians,
                             c.j_id_a,
                             c.ndofs_a,
                             &mb,
                             mass_matrices,
-                            mm_start,
                             lu_pivots,
-                            dof_start,
+                            il,
                         );
                     }
                     if c.side_b_kind == SIDE_KIND_MB && c.ndofs_b > 0 {
-                        let mb = multibody_info.read(mb_start + c.side_b_id as usize);
+                        let mb = multibody_info.read(il.atz(c.side_b_id as usize));
                         solve_mb_wj(
                             jacobians,
                             c.j_id_b,
                             c.ndofs_b,
                             &mb,
                             mass_matrices,
-                            mm_start,
                             lu_pivots,
-                            dof_start,
+                            il,
                         );
                     }
                     c.finalize_generic_constraint(jacobians);
@@ -210,8 +205,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
 
     let joints_start = batch_ids.mb_imp_joints_start(batch_id);
     let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
-    let mb_start = batch_ids.mb_start(batch_id);
-    let dof_start = batch_ids.dof_start(batch_id);
+    let il = VSlice::interleaved(0, batch_ids.num_batches, batch_id);
     let colliders_start = batch_ids.coll_start(batch_id);
 
     // `color_groups` is a per-batch prefix-sum over the color-sorted
@@ -240,16 +234,16 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
 
     // Per-multibody dof base: same for every axis constraint of this joint.
     let dof_base_a = if builder.side_a_kind == SIDE_KIND_MB {
-        let mb = multibody_info.at(mb_start + builder.side_a_id as usize);
-        dof_start + mb.first_dof as usize
+        let mb = multibody_info.at(il.atz(builder.side_a_id as usize));
+        VSlice::interleaved(mb.first_dof as usize, il.stride, il.shift)
     } else {
-        0
+        VSlice::dense(0)
     };
     let dof_base_b = if builder.side_b_kind == SIDE_KIND_MB {
-        let mb = multibody_info.at(mb_start + builder.side_b_id as usize);
-        dof_start + mb.first_dof as usize
+        let mb = multibody_info.at(il.atz(builder.side_b_id as usize));
+        VSlice::interleaved(mb.first_dof as usize, il.stride, il.shift)
     } else {
-        0
+        VSlice::dense(0)
     };
 
     // TODO(PERF): load jacobians into shared memory and keep the velocity deltat on shared

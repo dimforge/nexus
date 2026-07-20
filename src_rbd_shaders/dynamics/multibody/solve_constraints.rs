@@ -74,8 +74,7 @@ pub fn gpu_mb_solve_constraints(
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     // Uniform per workgroup: every lane of this group returns together.
     if ndofs == 0 {
@@ -83,7 +82,7 @@ pub fn gpu_mb_solve_constraints(
     }
     let use_bias = *use_bias != 0;
 
-    let v_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let v_base = mb.first_dof as usize;
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let colliders_start = batch_ids.coll_start(batch_id);
 
@@ -109,7 +108,7 @@ pub fn gpu_mb_solve_constraints(
     // workgroup memory. Impulses stay shared for the whole sweep so the
     // tangent clamp can read its normal's impulse without a storage fence.
     if lane < ndofs {
-        dof_v[lane as usize] = dof_state.read(v_base + lane as usize);
+        dof_v[lane as usize] = dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize));
     }
     for s in StepRng::new(lane..contact_count, LANES) {
         imp_shared[s as usize] = contact_constraints.read(ccons_base + s as usize).impulse;
@@ -249,7 +248,10 @@ pub fn gpu_mb_solve_constraints(
      * Writeback: generalized velocities and accumulated contact impulses.
      */
     if lane < ndofs {
-        dof_state.write(v_base + lane as usize, dof_v[lane as usize]);
+        dof_state.write(
+            batch_ids.mbi(batch_id, v_base + lane as usize),
+            dof_v[lane as usize],
+        );
     }
     for s in StepRng::new(lane..contact_count, LANES) {
         let mut cons = contact_constraints.read(ccons_base + s as usize);
@@ -309,8 +311,7 @@ pub fn gpu_mb_solve_joints(
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     // Uniform per workgroup: every lane of this group returns together.
     if ndofs == 0 || mb.max_constraints == 0 {
@@ -318,7 +319,7 @@ pub fn gpu_mb_solve_joints(
     }
     let use_bias = *use_bias != 0;
 
-    let v_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let v_base = mb.first_dof as usize;
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let jcons_base =
         batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
@@ -326,7 +327,7 @@ pub fn gpu_mb_solve_joints(
         + (mb.first_constraint as usize) * dofs_stride;
 
     if lane < ndofs {
-        dof_v[lane as usize] = dof_state.read(v_base + lane as usize);
+        dof_v[lane as usize] = dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize));
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -370,7 +371,10 @@ pub fn gpu_mb_solve_joints(
     }
 
     if lane < ndofs {
-        dof_state.write(v_base + lane as usize, dof_v[lane as usize]);
+        dof_state.write(
+            batch_ids.mbi(batch_id, v_base + lane as usize),
+            dof_v[lane as usize],
+        );
     }
 }
 
@@ -407,8 +411,7 @@ pub fn gpu_mb_build_contact_delassus(
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     let count = mb.contact_constraint_count;
     if ndofs == 0 || count == 0 {
@@ -497,8 +500,7 @@ pub fn gpu_mb_solve_contacts_delassus(
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     let count = mb.contact_constraint_count;
     // Uniform per workgroup: every lane of this group returns together.
@@ -507,7 +509,7 @@ pub fn gpu_mb_solve_contacts_delassus(
     }
     let use_bias = *use_bias != 0;
 
-    let v_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let v_base = mb.first_dof as usize;
     let colliders_start = batch_ids.coll_start(batch_id);
     let cons_base = batch_ids.mb_contact_constraints_start(batch_id)
         + (mb_idx as usize) * (MAXC as usize);
@@ -519,7 +521,7 @@ pub fn gpu_mb_solve_contacts_delassus(
         * (MAXC as usize);
 
     if lane < ndofs {
-        dof_v[lane as usize] = dof_state.read(v_base + lane as usize);
+        dof_v[lane as usize] = dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize));
     }
 
     // Preload the per-constraint solve scalars into shared SoA arrays. The
@@ -626,7 +628,10 @@ pub fn gpu_mb_solve_contacts_delassus(
      * Writeback: generalized velocities and accumulated contact impulses.
      */
     if lane < ndofs {
-        dof_state.write(v_base + lane as usize, dof_v[lane as usize]);
+        dof_state.write(
+            batch_ids.mbi(batch_id, v_base + lane as usize),
+            dof_v[lane as usize],
+        );
     }
     for s in StepRng::new(lane..count, LANES) {
         let mut cons = contact_constraints.read(ccons_writeback_guard(cons_base, s));

@@ -13,7 +13,7 @@ use khal_std::sync::control_barrier;
 use crate::dynamics::ConstraintSoftness;
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MatSlice, lu_solve_in_place};
+use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{DIM, MAX_FLT};
 
 use super::types::{
@@ -44,7 +44,7 @@ fn lu_solve_unit(
     buf_m: &[f32],
     m: MatSlice,
     buf_pivots: &[u32],
-    pivots_offset: usize,
+    piv: VSlice,
     dst: &mut [f32],
     dst_offset: usize,
     dof_id: u32,
@@ -54,7 +54,7 @@ fn lu_solve_unit(
     for i in 0..n {
         dst[dst_offset + i as usize] = if i == dof_id { 1.0 } else { 0.0 };
     }
-    lu_solve_in_place(buf_m, m, buf_pivots, pivots_offset, dst, dst_offset);
+    lu_solve_in_place(buf_m, m, buf_pivots, piv, dst, VSlice::dense(dst_offset));
 }
 
 /// Serial (lane-0) emission walk: writes the metadata of every active
@@ -77,10 +77,10 @@ fn emit_joint_constraints(
     let num_links = mb.num_links;
 
     let stat_slice = batch_ids
-        .mb_links_batch(batch_id, links_static)
+        .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let ws_slice = batch_ids
-        .mb_links_batch(batch_id, links_workspace)
+        .ib(batch_id, links_workspace)
         .offset(mb.first_link as usize);
 
     let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
@@ -234,7 +234,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     }
 
     let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
+        .ib(batch_id, multibody_info)
         .read(mb_idx as usize);
     if mb.ndofs == 0 || mb.max_constraints == 0 {
         return;
@@ -242,10 +242,10 @@ pub fn gpu_mb_refresh_joint_constraints(
     let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
 
     let stat_slice = batch_ids
-        .mb_links_batch(batch_id, links_static)
+        .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let ws_slice = batch_ids
-        .mb_links_batch(batch_id, links_workspace)
+        .ib(batch_id, links_workspace)
         .offset(mb.first_link as usize);
 
     let dt = softness.dt;
@@ -313,7 +313,7 @@ fn compute_constraint_column(
     mass_matrices: &[f32],
     m: MatSlice,
     lu_pivots: &[u32],
-    piv_offset: usize,
+    piv: VSlice,
 ) -> f32 {
     let _ = ndofs;
     let col_offset = col_base + (slot as usize) * dofs_stride;
@@ -321,7 +321,7 @@ fn compute_constraint_column(
         mass_matrices,
         m,
         lu_pivots,
-        piv_offset,
+        piv,
         joint_constraint_columns,
         col_offset,
         dof_id,
@@ -505,7 +505,7 @@ pub fn gpu_mb_init_joint_constraints(
     }
 
     let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
+        .ib(batch_id, multibody_info)
         .read(mb_idx as usize);
     let ndofs = mb.ndofs;
     // Uniform per workgroup: every lane of this group returns together.
@@ -513,8 +513,8 @@ pub fn gpu_mb_init_joint_constraints(
         return;
     }
 
-    let mb_mm_base = batch_ids.mm_start(batch_id) + mb.mass_matrix_offset as usize;
-    let piv_offset = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let mb_mm_base = mb.mass_matrix_offset as usize;
+    let piv = batch_ids.ivec(batch_id, mb.first_dof as usize);
     let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     // One column of M⁻¹ per constraint slot — `dof_batch_capacity` floats
     // per slot (only the first `ndofs` of each are meaningful, but we use
@@ -524,7 +524,7 @@ pub fn gpu_mb_init_joint_constraints(
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
-    let m = MatSlice::dense(mb_mm_base, ndofs, ndofs);
+    let m = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
 
     // Stage 1 — lane-parallel slot reset.
     for s in StepRng::new(lane..mb.max_constraints, LANES) {
@@ -593,7 +593,7 @@ pub fn gpu_mb_init_joint_constraints(
             mass_matrices,
             m,
             lu_pivots,
-            piv_offset,
+            piv,
         );
         let cfm_gain = lhs * cons.cfm_coeff + cons.cfm_gain;
         cons.cfm_gain = cfm_gain;

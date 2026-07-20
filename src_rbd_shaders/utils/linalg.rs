@@ -22,14 +22,22 @@ pub const MAX_MB_DOFS: usize = 64;
 /// A column-major matrix view into a flat f32 buffer.
 #[derive(Copy, Clone)]
 pub struct MatSlice {
-    /// Offset (in f32 entries) of the (0, 0) element inside the backing buffer.
+    /// Offset (in ELEMENT entries, multiplied by `stride`) of the (0, 0)
+    /// element inside the backing buffer.
     pub offset: usize,
     /// Number of rows.
     pub rows: u32,
     /// Number of columns.
     pub cols: u32,
-    /// Leading dimension — distance between columns, in f32 entries.
+    /// Leading dimension — distance between columns, in element entries.
     pub lead: u32,
+    /// Element stride: flat index = `(offset + c·lead + r) · stride + shift`.
+    /// `1` for plain dense storage; `num_batches` for the batch-interleaved
+    /// multibody dynamics buffers (with `shift = batch_id`).
+    pub stride: u32,
+    /// Additive shift applied after the stride (the batch id for
+    /// batch-interleaved buffers).
+    pub shift: u32,
 }
 
 impl MatSlice {
@@ -41,16 +49,34 @@ impl MatSlice {
             rows,
             cols,
             lead: rows,
+            stride: 1,
+            shift: 0,
+        }
+    }
+
+    /// Batch-interleaved dense view: element `k` (intra-batch offset
+    /// `offset + k`) of batch `shift` lives at `(offset + k) · stride +
+    /// shift`.
+    #[inline]
+    pub fn interleaved(offset: usize, rows: u32, cols: u32, stride: u32, shift: u32) -> Self {
+        Self {
+            offset,
+            rows,
+            cols,
+            lead: rows,
+            stride,
+            shift,
         }
     }
 
     /// Flat index of element `(r, c)`.
     #[inline]
     pub fn idx(&self, r: u32, c: u32) -> usize {
-        self.offset + (c * self.lead + r) as usize
+        (self.offset + (c * self.lead + r) as usize) * self.stride as usize + self.shift as usize
     }
 
-    /// Sub-view starting at `(r0, c0)` with shape `(nr × nc)`. Inherits `lead`.
+    /// Sub-view starting at `(r0, c0)` with shape `(nr × nc)`. Inherits
+    /// `lead`, `stride` and `shift`.
     #[inline]
     pub fn view(&self, r0: u32, c0: u32, nr: u32, nc: u32) -> Self {
         Self {
@@ -58,6 +84,8 @@ impl MatSlice {
             rows: nr,
             cols: nc,
             lead: self.lead,
+            stride: self.stride,
+            shift: self.shift,
         }
     }
 
@@ -77,6 +105,51 @@ impl MatSlice {
     #[inline]
     pub fn rows_range_pair(&self, r0a: u32, na: u32, r0b: u32, nb: u32) -> (Self, Self) {
         (self.fixed_rows(r0a, na), self.fixed_rows(r0b, nb))
+    }
+}
+
+/// Strided vector view: element `i` lives at `(offset + i) · stride + shift`.
+/// The vector counterpart of [`MatSlice`], used for the LU pivot / rhs
+/// buffers which may be batch-interleaved (`stride = num_batches`, `shift =
+/// batch_id`) or plain dense (`stride = 1, shift = 0`).
+#[derive(Copy, Clone)]
+pub struct VSlice {
+    pub offset: usize,
+    pub stride: u32,
+    pub shift: u32,
+}
+
+impl VSlice {
+    /// Plain dense view at `offset`.
+    #[inline]
+    pub fn dense(offset: usize) -> Self {
+        Self {
+            offset,
+            stride: 1,
+            shift: 0,
+        }
+    }
+
+    /// Batch-interleaved view — see [`MatSlice::interleaved`].
+    #[inline]
+    pub fn interleaved(offset: usize, stride: u32, shift: u32) -> Self {
+        Self {
+            offset,
+            stride,
+            shift,
+        }
+    }
+
+    /// Flat index of element `i`.
+    #[inline]
+    pub fn at(&self, i: u32) -> usize {
+        (self.offset + i as usize) * self.stride as usize + self.shift as usize
+    }
+
+    /// Flat index of element `i` (usize form).
+    #[inline]
+    pub fn atz(&self, i: usize) -> usize {
+        (self.offset + i) * self.stride as usize + self.shift as usize
     }
 }
 
@@ -266,7 +339,7 @@ pub fn gemv_tr_spatial<const XDIM: usize>(
 #[inline]
 pub fn gemv_tr_spatial_split(
     buf_y: &mut [f32],
-    y_offset: usize,
+    y: VSlice,
     alpha: f32,
     buf_a: &[f32],
     a: MatSlice,
@@ -281,7 +354,7 @@ pub fn gemv_tr_spatial_split(
             + buf_a.read(a.idx(3, c)) * x_ang.x
             + buf_a.read(a.idx(4, c)) * x_ang.y
             + buf_a.read(a.idx(5, c)) * x_ang.z;
-        let idx = y_offset + c as usize;
+        let idx = y.at(c);
         let cur = buf_y.read(idx);
         buf_y.write(idx, beta * cur + alpha * s);
     }
@@ -291,7 +364,7 @@ pub fn gemv_tr_spatial_split(
 #[inline]
 pub fn gemv_tr_spatial_split(
     buf_y: &mut [f32],
-    y_offset: usize,
+    y: VSlice,
     alpha: f32,
     buf_a: &[f32],
     a: MatSlice,
@@ -303,7 +376,7 @@ pub fn gemv_tr_spatial_split(
         let s = buf_a.read(a.idx(0, c)) * x_lin.x
             + buf_a.read(a.idx(1, c)) * x_lin.y
             + buf_a.read(a.idx(2, c)) * x_ang;
-        let idx = y_offset + c as usize;
+        let idx = y.at(c);
         let cur = buf_y.read(idx);
         buf_y.write(idx, beta * cur + alpha * s);
     }
@@ -622,7 +695,7 @@ pub fn gemm_tr(
 /// `pivots[k]` is the row that was swapped with row `k` during elimination step
 /// `k`. `pivots_offset` is where this multibody's pivot slot starts in `buf_pivots`.
 #[inline]
-pub fn lu_decompose(buf_m: &mut [f32], m: MatSlice, buf_pivots: &mut [u32], pivots_offset: usize) {
+pub fn lu_decompose(buf_m: &mut [f32], m: MatSlice, buf_pivots: &mut [u32], piv: VSlice) {
     let n = m.rows;
     for k in 0..n {
         // Partial pivot: find max |M[i, k]| for i in k..n.
@@ -639,7 +712,7 @@ pub fn lu_decompose(buf_m: &mut [f32], m: MatSlice, buf_pivots: &mut [u32], pivo
                 pivot_row = i;
             }
         }
-        buf_pivots.write(pivots_offset + k as usize, pivot_row);
+        buf_pivots.write(piv.at(k), pivot_row);
 
         // Row swap k ↔ pivot_row (full row since we haven't computed past col k).
         if pivot_row != k {
@@ -681,18 +754,18 @@ pub fn lu_solve_in_place(
     buf_m: &[f32],
     m: MatSlice,
     buf_pivots: &[u32],
-    pivots_offset: usize,
+    piv: VSlice,
     buf_rhs: &mut [f32],
-    rhs_offset: usize,
+    rhs: VSlice,
 ) {
     let n = m.rows;
 
     // Permute rhs in place according to the recorded pivots.
     for k in 0..n {
-        let p = buf_pivots.read(pivots_offset + k as usize);
+        let p = buf_pivots.read(piv.at(k));
         if p != k {
-            let ki = rhs_offset + k as usize;
-            let pi = rhs_offset + p as usize;
+            let ki = rhs.at(k);
+            let pi = rhs.at(p);
             let a = buf_rhs.read(ki);
             let b = buf_rhs.read(pi);
             buf_rhs.write(ki, b);
@@ -702,22 +775,22 @@ pub fn lu_solve_in_place(
 
     // Forward substitution: L · y = P · rhs (L is unit-lower — implicit diag = 1).
     for i in 0..n {
-        let mut s = buf_rhs.read(rhs_offset + i as usize);
+        let mut s = buf_rhs.read(rhs.at(i));
         for j in 0..i {
-            s -= buf_m.read(m.idx(i, j)) * buf_rhs.read(rhs_offset + j as usize);
+            s -= buf_m.read(m.idx(i, j)) * buf_rhs.read(rhs.at(j));
         }
-        buf_rhs.write(rhs_offset + i as usize, s);
+        buf_rhs.write(rhs.at(i), s);
     }
 
     // Back substitution: U · x = y (reverse iteration — equivalent to `for ii in (0..n).rev()`).
     for step in 0..n {
         let ii = n - 1 - step;
-        let mut s = buf_rhs.read(rhs_offset + ii as usize);
+        let mut s = buf_rhs.read(rhs.at(ii));
         for j in (ii + 1)..n {
-            s -= buf_m.read(m.idx(ii, j)) * buf_rhs.read(rhs_offset + j as usize);
+            s -= buf_m.read(m.idx(ii, j)) * buf_rhs.read(rhs.at(j));
         }
         let u = buf_m.read(m.idx(ii, ii));
-        buf_rhs.write(rhs_offset + ii as usize, if u != 0.0 { s / u } else { 0.0 });
+        buf_rhs.write(rhs.at(ii), if u != 0.0 { s / u } else { 0.0 });
     }
 }
 
@@ -1189,7 +1262,7 @@ pub fn gemm_omega_skew_tr_cross_buf_par(
 #[inline]
 pub fn gemv_tr_spatial_split_par(
     buf_y: &mut [f32],
-    y_offset: usize,
+    y: VSlice,
     alpha: f32,
     buf_a: &[f32],
     a: MatSlice,
@@ -1207,7 +1280,7 @@ pub fn gemv_tr_spatial_split_par(
             + buf_a.read(a.idx(3, c)) * x_ang.x
             + buf_a.read(a.idx(4, c)) * x_ang.y
             + buf_a.read(a.idx(5, c)) * x_ang.z;
-        let idx = y_offset + c as usize;
+        let idx = y.at(c);
         let cur = buf_y.read(idx);
         buf_y.write(idx, beta * cur + alpha * s);
     }
@@ -1217,7 +1290,7 @@ pub fn gemv_tr_spatial_split_par(
 #[inline]
 pub fn gemv_tr_spatial_split_par(
     buf_y: &mut [f32],
-    y_offset: usize,
+    y: VSlice,
     alpha: f32,
     buf_a: &[f32],
     a: MatSlice,
@@ -1232,7 +1305,7 @@ pub fn gemv_tr_spatial_split_par(
         let s = buf_a.read(a.idx(0, c)) * x_lin.x
             + buf_a.read(a.idx(1, c)) * x_lin.y
             + buf_a.read(a.idx(2, c)) * x_ang;
-        let idx = y_offset + c as usize;
+        let idx = y.at(c);
         let cur = buf_y.read(idx);
         buf_y.write(idx, beta * cur + alpha * s);
     }
