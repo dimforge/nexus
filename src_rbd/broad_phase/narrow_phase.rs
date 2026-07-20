@@ -51,7 +51,7 @@ impl GpuNarrowPhase {
     ) -> Result<(), GpuBackendError> {
         let num_batches = contacts_len.len() as u32;
         self.reset_narrow_phase
-            .call(pass, [1u32, num_batches, 1], contacts_len, pfm_pairs_len)?;
+            .call(pass, [num_batches, 1, 1], contacts_len, pfm_pairs_len)?;
 
         self.narrow_phase.call(
             pass,
@@ -83,8 +83,9 @@ impl GpuNarrowPhase {
             indices,
         )?;
 
+        // Single 256-lane workgroup: parallel max over the per-batch counts.
         self.init_pfm_pfm_indirect_args
-            .call(pass, 1u32, pfm_pairs_len, pfm_pairs_indirect)?;
+            .call(pass, 256u32, pfm_pairs_len, pfm_pairs_indirect)?;
         self.narrow_phase_pfm_pfm.call(
             pass,
             &*pfm_pairs_indirect,
@@ -98,8 +99,9 @@ impl GpuNarrowPhase {
             collider_parent,
             collider_materials,
         )?;
+        // Single 256-lane workgroup: parallel max over the per-batch counts.
         self.init_contacts_indirect_args
-            .call(pass, 1u32, contacts_len, contacts_indirect)?;
+            .call(pass, 256u32, contacts_len, contacts_indirect)?;
 
         Ok(())
     }

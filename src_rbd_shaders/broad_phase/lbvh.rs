@@ -54,49 +54,78 @@ pub struct LbvhNode {
     pub refit_count: u32,
 }
 
-/// Resets the collision pairs counter.
+/// Resets the collision pairs counter. One thread per batch, flattened —
+/// dispatch `[num_batches, 1, 1]`.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_reset_collision_pairs(
-    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs_len: &mut [u32],
 ) {
-    let batch_id = workgroup_id.y as usize;
-
-    // NOTE: this `for` loop is silly. It doesn’t do anything
-    //       more than a `*collision_pairs_len = 0` in a convoluted
-    //       way because otherwise rustgpu apparently does not generate
-    //       the spirv for this kernel (seems to happen if the kernel is
-    //       too trivial.
-    for k in 0..1 {
-        collision_pairs_len.write(batch_id, k);
+    let batch_id = invocation_id.x as usize;
+    if batch_id < collision_pairs_len.len() {
+        collision_pairs_len.write(batch_id, 0);
     }
 }
 
-/// Initializes indirect dispatch arguments for narrow phase.
-#[spirv_bindgen]
-#[spirv(compute(threads(1)))]
-pub fn gpu_lbvh_init_dispatch(
-    // TODO: take the batch dimension as argument (instead of relying on the len of `collision_pairs_len`)?
-    // NOTE: the `collision_pairs_len` is mutable here even though we don’t modify it. That’s
-    //       because we access it with an atomic load otherwise it would occasionally read
-    //       stale data (on Windows+Nvidia+wgpu backend). This might be caused by:
-    //       https://github.com/gfx-rs/wgpu/issues/9221
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs_len: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
+/// Number of lanes used by the per-batch-count max reductions below. Their
+/// host dispatch is a single workgroup: `.call(pass, MAX_REDUCE_LANES, ...)`.
+pub const MAX_REDUCE_LANES: u32 = 256;
+
+/// Workgroup-parallel `max` over the per-batch counts, then writes the
+/// `[ceil(max/64), num_batches, 1]` indirect grid. Replaces a single-thread
+/// kernel that looped over every batch serially — a ~1 ms stall per dispatch
+/// at 4096 batches.
+///
+/// NOTE: `lens` is mutable even though we don't modify it: the loads must be
+/// atomic or they occasionally read stale data (Windows+Nvidia+wgpu, see
+/// https://github.com/gfx-rs/wgpu/issues/9221).
+#[inline(always)]
+pub(crate) fn max_len_indirect_args(
+    lane: u32,
+    lens: &mut [u32],
+    indirect_args: &mut [u32; 3],
+    partial: &mut [u32; MAX_REDUCE_LANES as usize],
 ) {
-    // For indirect dispatch, get the largest length along all batch dimensions.
-    let num_batches = collision_pairs_len.len();
-    let mut highest_pairs_len = 0;
-    for batch_id in 0..num_batches {
-        // NOTE: atomic_load is needed for correctness on some platforms (see comment above `collision_pairs_len`).
-        highest_pairs_len =
-            highest_pairs_len.max(atomic_load_u32(collision_pairs_len.at_mut(batch_id)));
+    let num_batches = lens.len();
+
+    let mut m = 0u32;
+    for i in StepRng::new(lane..num_batches as u32, MAX_REDUCE_LANES) {
+        m = m.max(atomic_load_u32(lens.at_mut(i as usize)));
+    }
+    partial.write(lane as usize, m);
+    workgroup_memory_barrier_with_group_sync();
+
+    // Tree reduction over the 256 lanes (8 halving steps).
+    for step in 0..8u32 {
+        let stride = MAX_REDUCE_LANES >> (step + 1);
+        if lane < stride {
+            let v = partial
+                .read(lane as usize)
+                .max(partial.read((lane + stride) as usize));
+            partial.write(lane as usize, v);
+        }
+        workgroup_memory_barrier_with_group_sync();
     }
 
-    *indirect_args.at_mut(0) = highest_pairs_len.div_ceil(WORKGROUP_SIZE);
-    *indirect_args.at_mut(1) = num_batches as u32;
-    *indirect_args.at_mut(2) = 1;
+    if lane == 0 {
+        *indirect_args.at_mut(0) = partial.read(0).div_ceil(WORKGROUP_SIZE);
+        *indirect_args.at_mut(1) = num_batches as u32;
+        *indirect_args.at_mut(2) = 1;
+    }
+}
+
+/// Initializes indirect dispatch arguments for narrow phase. Dispatch one
+/// [`MAX_REDUCE_LANES`]-thread workgroup.
+#[spirv_bindgen]
+#[spirv(compute(threads(256)))]
+pub fn gpu_lbvh_init_dispatch(
+    #[spirv(local_invocation_id)] lid: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs_len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
+    #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
+) {
+    max_len_indirect_args(lid.x, collision_pairs_len, indirect_args, partial);
 }
 
 /// Runs a reduction to compute the AABB of the collider positions.

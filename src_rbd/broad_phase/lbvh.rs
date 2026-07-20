@@ -276,7 +276,7 @@ impl Lbvh {
 
         self.shaders.reset_collision_pairs.call(
             pass,
-            [1u32, num_batches, 1],
+            [num_batches, 1, 1],
             collision_pairs_len,
         )?;
         self.shaders.find_collision_pairs.call(
@@ -289,9 +289,10 @@ impl Lbvh {
             batch_indices,
             pair_filter,
         )?;
+        // Single 256-lane workgroup: parallel max over the per-batch counts.
         self.shaders.lbvh_init_indirect_args.call(
             pass,
-            1u32,
+            256u32,
             collision_pairs_len,
             collision_pairs_indirect,
         )?;
