@@ -197,6 +197,7 @@ impl GpuSolver {
             args.body_constraint_counts,
             args.body_group,
             args.mprops,
+            args.contacts_len,
             args.batch_indices,
         )?;
 
