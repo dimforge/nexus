@@ -36,7 +36,10 @@ pub struct GpuSolver {
     /// Clears solver velocities and constraint counts.
     cleanup: GpuSolverCleanup,
     /// Applies warmstart impulses from previous frame.
+    #[allow(dead_code)]
     warmstart: GpuWarmstart,
+    /// Applies warmstart impulses from previous frame, without relying on graph coloring.
+    warmstart_without_colors: GpuWarmstartWithoutColors,
     /// Gauss-Seidel iteration step (sequential per color).
     step_gauss_seidel: GpuStepGaussSeidel,
     /// Initializes solver velocity increments.
@@ -124,6 +127,12 @@ pub struct SolverArgs<'a> {
     pub num_solver_iterations: u32,
     /// Per-body graph-coloring group id (multibody-aware).
     pub body_group: &'a Tensor<u32>,
+    /// When `true` (no multibody in the scene), warmstart uses the single
+    /// gather-per-body dispatch instead of one scatter dispatch per color.
+    /// The gather variant looks bodies up by their own id, which is only
+    /// correct when `body_group` is the identity (multibody constraints are
+    /// counted on their root's slot with link-id constraint sides).
+    pub colorless_warmstart: bool,
     /// Shared per-batch capacity / section-offset uniform — see
     /// [`crate::shaders::utils::BatchIndices`]. Consumed by the (refactored)
     /// multibody kernels via `MultibodySolverArgs::batch_indices`; the RBD
@@ -318,18 +327,33 @@ impl GpuSolver {
                 args.batch_indices,
             )?;
             joint_solver.update(pass, &mut joint_args, args.solver_body_poses)?;
-            // NOTE: contact colors start at 1 (0 = unassigned).
-            for c in 1..=args.num_colors {
-                self.warmstart.call(
+            if args.colorless_warmstart {
+                // One gather dispatch over bodies instead of `num_colors`
+                // scatter dispatches (each constraint is visited once per
+                // body side, but the dispatch count drops by ~num_colors).
+                self.warmstart_without_colors.call(
                     pass,
-                    args.contacts_len_indirect,
+                    [args.num_colliders, args.num_batches, 1],
+                    args.body_constraint_counts,
+                    args.body_constraint_ids,
                     args.constraints,
                     args.solver_vels,
-                    args.color_bucket_starts,
-                    args.color_sorted_ids,
-                    &args.color_uniforms[c as usize],
                     args.batch_indices,
                 )?;
+            } else {
+                // NOTE: contact colors start at 1 (0 = unassigned).
+                for c in 1..=args.num_colors {
+                    self.warmstart.call(
+                        pass,
+                        args.contacts_len_indirect,
+                        args.constraints,
+                        args.solver_vels,
+                        args.color_bucket_starts,
+                        args.color_sorted_ids,
+                        &args.color_uniforms[c as usize],
+                        args.batch_indices,
+                    )?;
+                }
             }
 
             /*
