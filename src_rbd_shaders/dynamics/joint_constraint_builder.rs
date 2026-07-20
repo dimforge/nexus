@@ -330,7 +330,7 @@ impl JointConstraintHelper {
 
 impl JointConstraint {
     /// Solves a joint constraint.
-    pub fn solve_joint_constraint(&mut self, solver_vels: &mut SliceMut<Velocity>) {
+    pub fn solve_joint_constraint(&mut self, solver_vels: &mut SliceMut<Velocity>, use_bias: bool) {
         let mut solver_vel1 = solver_vels[self.solver_vel_a as usize];
         let mut solver_vel2 = solver_vels[self.solver_vel_b as usize];
 
@@ -340,7 +340,14 @@ impl JointConstraint {
             let dangvel = gdot(element.ang_jac_b, solver_vel2.angular)
                 - gdot(element.ang_jac_a, solver_vel1.angular);
 
-            let rhs = dlinvel + dangvel + element.rhs;
+            // The stabilization (no-bias) sweep uses the bias-free rhs; this
+            // replaces the former `gpu_remove_joint_bias` full-buffer pass.
+            let el_rhs = if use_bias {
+                element.rhs
+            } else {
+                element.rhs_wo_bias
+            };
+            let rhs = dlinvel + dangvel + el_rhs;
             let total_impulse = (element.impulse
                 + element.inv_lhs * (rhs - element.cfm_gain * element.impulse))
                 .clamp(element.impulse_bounds.x, element.impulse_bounds.y);

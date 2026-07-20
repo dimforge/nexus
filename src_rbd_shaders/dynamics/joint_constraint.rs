@@ -243,29 +243,6 @@ pub fn gpu_update_joint_constraints(
     }
 }
 
-/// Removes bias from joint constraints for the final substep.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_remove_joint_bias(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints: &mut [JointConstraint],
-    #[spirv(uniform, descriptor_set = 0, binding = 1)] batch_ids: &BatchIndices,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let mut constraints = batch_ids.impulse_joints_batch_mut(batch_id, constraints);
-
-    let len = batch_ids.impulse_joints_len;
-
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
-        let idx = i as usize;
-        for j in 0..(constraints[idx].len as usize) {
-            constraints[idx].elements.at_mut(j).rhs = constraints[idx].elements.at(j).rhs_wo_bias;
-        }
-    }
-}
-
 /// Solves joint constraints.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
@@ -277,12 +254,16 @@ pub fn gpu_solve_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] all_color_groups: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] curr_color: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    // 0 for the stabilization sweep (bias-free rhs); non-zero for the biased
+    // sweep. Replaces the former `gpu_remove_joint_bias` full-buffer pass.
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] use_bias: &u32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
 
     let mut constraints = batch_ids.impulse_joints_batch_mut(batch_id, constraints);
     let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let use_bias = *use_bias != 0;
 
     let color = *curr_color as usize;
     // Coloring is identical across batches (enforced on the host), so the
@@ -297,6 +278,6 @@ pub fn gpu_solve_joint_constraints(
     let end = color_groups[color];
 
     for i in StepRng::new(start + invocation_id.x..end, num_threads) {
-        constraints[i as usize].solve_joint_constraint(&mut solver_vels);
+        constraints[i as usize].solve_joint_constraint(&mut solver_vels, use_bias);
     }
 }

@@ -390,6 +390,10 @@ pub fn gpu_step_gauss_seidel(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_sorted_ids: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] curr_color: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    // 0 for the stabilization sweep (bias-free rhs + no CFM); non-zero for the
+    // biased sweep. Replaces the former `gpu_remove_cfm_and_bias_kernel`
+    // full-buffer read-modify-write pass.
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
@@ -399,6 +403,7 @@ pub fn gpu_step_gauss_seidel(
     let color_sorted_ids = batch_ids.contact_batch(batch_id, color_sorted_ids);
     let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
     let color = *curr_color;
+    let use_bias = *use_bias != 0;
 
     let bucket = (batch_id * stride + color) as usize;
     let start = color_starts.read(bucket);
@@ -412,8 +417,11 @@ pub fn gpu_step_gauss_seidel(
         let mut solver_vel1 = solver_vels[solver_id1];
         let mut solver_vel2 = solver_vels[solver_id2];
 
-        constraints[i as usize]
-            .solve_constraint_gauss_seidel(&mut solver_vel1, &mut solver_vel2);
+        constraints[i as usize].solve_constraint_gauss_seidel(
+            &mut solver_vel1,
+            &mut solver_vel2,
+            use_bias,
+        );
 
         solver_vels[solver_id1] = solver_vel1;
         solver_vels[solver_id2] = solver_vel2;
@@ -509,23 +517,3 @@ pub fn gpu_solver_finalize(
     }
 }
 
-/// Removes CFM and bias from constraints for the final substep iteration.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_remove_cfm_and_bias_kernel(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
-) {
-    let batch_id = invocation_id.y;
-    let i = invocation_id.x;
-
-    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
-    let len = contacts_len.read(batch_id as usize);
-
-    if i < len {
-        constraints[i as usize].remove_cfm_and_bias();
-    }
-}

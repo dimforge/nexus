@@ -11,7 +11,7 @@ use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
-    GpuRemoveCfmAndBiasKernel, GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
+    GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
     GpuSolverInitConstraints, GpuSolverSortConstraints,
     GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuWarmstart, GpuWarmstartWithoutColors,
     LocalMassProperties, RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity,
@@ -51,8 +51,6 @@ pub struct GpuSolver {
     /// Writes solver velocities and converts the COM-centered solver poses
     /// back to body-origin poses.
     finalize: GpuSolverFinalize,
-    /// Removes CFM and bias terms for velocity-only solving.
-    remove_cfm_and_bias_kernel: GpuRemoveCfmAndBiasKernel,
 }
 
 /// Arguments for constraint solver dispatch, used by [`GpuSolver::prepare`] and
@@ -351,6 +349,8 @@ impl GpuSolver {
                     args.color_sorted_ids,
                     &args.color_uniforms[c as usize],
                     args.batch_indices,
+                    // use_bias = 1 (`color_uniforms[c]` holds the constant `c`).
+                    &args.color_uniforms[1],
                 )?;
             }
 
@@ -372,13 +372,6 @@ impl GpuSolver {
              */
             mb_phase!(substep_solve_no_bias);
             joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
-            self.remove_cfm_and_bias_kernel.call(
-                pass,
-                args.contacts_len_indirect,
-                args.constraints,
-                args.contacts_len,
-                args.batch_indices,
-            )?;
             for c in 1..=args.num_colors {
                 self.step_gauss_seidel.call(
                     pass,
@@ -389,6 +382,8 @@ impl GpuSolver {
                     args.color_sorted_ids,
                     &args.color_uniforms[c as usize],
                     args.batch_indices,
+                    // use_bias = 0 (`color_uniforms[c]` holds the constant `c`).
+                    &args.color_uniforms[0],
                 )?;
             }
         }

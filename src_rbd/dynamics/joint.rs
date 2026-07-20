@@ -5,7 +5,7 @@
 
 use crate::math::Pose;
 use crate::shaders::dynamics::{
-    GpuInitJointConstraints, GpuRemoveJointBias,
+    GpuInitJointConstraints,
     GpuSolveJointConstraints, GpuUpdateJointConstraints, ImpulseJoint, JointConstraint,
     JointConstraintBuilder, LocalMassProperties, RbdSimParams, Velocity, WorldMassProperties,
 };
@@ -370,8 +370,6 @@ pub struct GpuJointSolver {
     update_joint_constraints: GpuUpdateJointConstraints,
     /// Solves joint constraints.
     solve_joint_constraints: GpuSolveJointConstraints,
-    /// Removes bias from joint constraints.
-    remove_joint_bias: GpuRemoveJointBias,
 }
 
 /// Arguments given to the joint solver.
@@ -452,14 +450,9 @@ impl GpuJointSolver {
             return Ok(());
         }
 
-        if !use_bias {
-            self.remove_joint_bias.call(
-                pass,
-                [args.joints.len, args.num_batches, 1],
-                &mut args.joints.constraints,
-                args.batch_indices,
-            )?;
-        }
+        // The bias / no-bias distinction is a per-dispatch uniform consumed by
+        // the solve kernel (`color_uniforms[c]` holds the constant `c`).
+        let use_bias_uniform = &args.color_uniforms[use_bias as usize];
 
         // One dispatch per color, sized exactly to that color's group (the
         // prefix sums are known on the host). The color index is bound as a
@@ -482,6 +475,7 @@ impl GpuJointSolver {
                 &args.joints.color_groups,
                 &args.color_uniforms[c],
                 args.batch_indices,
+                use_bias_uniform,
             )?;
         }
 

@@ -538,12 +538,15 @@ impl TwoBodyConstraint {
         &mut self,
         solver_vel1: &mut Velocity,
         solver_vel2: &mut Velocity,
+        use_bias: bool,
     ) {
         let dir_a = self.dir_a;
         let friction_coeff = self.limit;
         let im_a = self.im_a;
         let im_b = self.im_b;
-        let cfm_factor = self.cfm_factor;
+        // The stabilization (no-bias) sweep uses the bias-free rhs and no CFM.
+        // This replaces the former `remove_cfm_and_bias` full-buffer pass.
+        let cfm_factor = if use_bias { self.cfm_factor } else { 1.0 };
 
         #[cfg(feature = "dim2")]
         let tangent_a = Vec2::new(-dir_a.y, dir_a.x);
@@ -558,11 +561,12 @@ impl TwoBodyConstraint {
                 let ii_torque_dir_a = c.ii_torque_dir_a;
                 let ii_torque_dir_b = c.ii_torque_dir_b;
 
+                let rhs = if use_bias { c.rhs } else { c.rhs_wo_bias };
                 let dvel = dir_a.dot(solver_vel1.linear)
                     + gdot(c.torque_dir_a, solver_vel1.angular)
                     - dir_a.dot(solver_vel2.linear)
                     + gdot(c.torque_dir_b, solver_vel2.angular)
-                    + c.rhs;
+                    + rhs;
                 let new_impulse = cfm_factor * (c.impulse - c.r * dvel).max(0.0);
                 let delta_impulse = new_impulse - c.impulse;
 
@@ -651,24 +655,3 @@ impl TwoBodyConstraint {
     }
 }
 
-impl TwoBodyConstraint {
-    /// Removes CFM and bias from constraints for the final substep iteration.
-    #[cfg(feature = "dim2")]
-    #[inline(always)]
-    pub fn remove_cfm_and_bias(&mut self) {
-        self.elements.at_mut(0).normal_part.rhs = self.elements.at(0).normal_part.rhs_wo_bias;
-        self.elements.at_mut(1).normal_part.rhs = self.elements.at(1).normal_part.rhs_wo_bias;
-        self.cfm_factor = 1.0;
-    }
-
-    /// Removes CFM and bias from constraints for the final substep iteration.
-    #[cfg(feature = "dim3")]
-    #[inline(always)]
-    pub fn remove_cfm_and_bias(&mut self) {
-        self.elements.at_mut(0).normal_part.rhs = self.elements.at(0).normal_part.rhs_wo_bias;
-        self.elements.at_mut(1).normal_part.rhs = self.elements.at(1).normal_part.rhs_wo_bias;
-        self.elements.at_mut(2).normal_part.rhs = self.elements.at(2).normal_part.rhs_wo_bias;
-        self.elements.at_mut(3).normal_part.rhs = self.elements.at(3).normal_part.rhs_wo_bias;
-        self.cfm_factor = 1.0;
-    }
-}
