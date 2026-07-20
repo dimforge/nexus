@@ -54,3 +54,7 @@ path = "all_examples3.rs"
 #[[bin]]
 #name = "bench_joints3"
 #path = "bench_joints3.rs"
+
+[[bin]]
+name = "bench_pyramid3"
+path = "bench_pyramid3.rs"
