@@ -320,6 +320,12 @@ async fn load_scene(
     // MJCF is Z-up: gravity points along -Z (set after `finalize`, which builds
     // the rigid-body state with the default -Y gravity).
     state.set_rbd_gravity(viewer.backend(), [0.0, 0.0, -9.81]);
+    // MuJoCo-style explicit coriolis: the mass matrix / LU / gravity solve
+    // runs once per step instead of once per substep. This matches how
+    // MuJoCo integrates these models and saves ~25% of the step time.
+    if let Some(rbd) = state.rbd.as_mut() {
+        rbd.multibodies_mut().set_implicit_coriolis(false);
+    }
     Ok(state)
 }
 
