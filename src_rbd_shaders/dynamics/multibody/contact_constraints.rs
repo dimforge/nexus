@@ -60,6 +60,11 @@ fn orthonormal_vector(v: Vec2) -> Vec2 {
 /// **adding** the resulting `Jᵀ` row to `out_jacs[col_offset ..]` (so two
 /// calls accumulate — used by self-collisions, which combine the two
 /// touched links into a single net `Jᵀ` row).
+///
+/// One DOF per lane: the caller runs the (uniform) emission walk on every
+/// lane of the workgroup and each lane fills its own column element `j =
+/// lane`. The accumulate read sees the same lane's earlier write (program
+/// order), so no barrier is needed between two accumulating calls.
 #[inline]
 fn fill_contact_jac_row(
     body_jacobians: &[f32],
@@ -71,13 +76,15 @@ fn fill_contact_jac_row(
     out_jacs: &mut [f32],
     col_offset: usize,
     accumulate: bool,
+    lane: u32,
 ) {
     // Per-link SPATIAL_DIM × ndofs jacobian (rows 0..DIM = J_v, rows
     // DIM..SPATIAL_DIM = J_w).
     let link_jac_base = mb_jac_base + (link_id as usize) * SPATIAL_DIM * (ndofs as usize);
     let link_j = MatSlice::dense(link_jac_base, SPATIAL_DIM as u32, ndofs);
     let (link_j_v, link_j_w) = link_j.rows_range_pair(0, DIM, DIM, ANG_DIM);
-    for j in 0..ndofs {
+    let j = lane;
+    if j < ndofs {
         // Linear contribution: `unit_force · J_v[:, j]`.
         let dot;
         #[cfg(feature = "dim3")]
@@ -118,10 +125,17 @@ fn fill_contact_jac_row(
 /// `MultibodyContactConstraint` and writes the multibody-side `Jᵀ` row into
 /// `contact_constraint_jacs`. Multibody-multibody contacts (each side a
 /// different multibody) are not handled — such contacts are skipped.
+/// One 64-lane workgroup per (multibody, batch) — thread grid
+/// `[multibodies_per_batch · 64, num_batches, 1]`. Every lane runs the SAME
+/// (uniform) manifold scan and emission walk — all its inputs are per-
+/// multibody, so the redundant scalar math is free — and the expensive part,
+/// the per-DOF `Jᵀ`-row fills, runs one DOF per lane inside
+/// [`fill_contact_jac_row`]. Struct writes are gated on lane 0.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_contact_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     multibody_info: &mut [MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_jacobians: &[f32],
@@ -135,16 +149,16 @@ pub fn gpu_mb_init_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] contacts: &[IndexedManifold],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     // Only ACTIVE multibody slots are visited now; the `ndofs == 0` sentinel
     // below is kept for all-locked (zero-dof) multibodies. Padding slots past
     // `multibodies_len` are never read (every consumer guards on it).
     let num_mb = batch_ids.multibodies_len;
-    if invocation_id.x >= num_mb * batch_ids.num_batches {
+    let batch_id = workgroup_id.y;
+    let mb_idx = workgroup_id.x;
+    let lane = local_id.x;
+    if mb_idx >= num_mb {
         return;
     }
-    let batch_id = invocation_id.x / num_mb;
-    let mb_idx = invocation_id.x % num_mb;
     // Soft-constraint coefficients (rapier TGS-soft), precomputed on the host.
     // The old path used a rigid `erp = 1/dt` with zero CFM, which overshoots
     // penetration recovery (~14× too stiff for the defaults) and jitters.
@@ -167,8 +181,11 @@ pub fn gpu_mb_init_contact_constraints(
     let mut mb = multibody_info.read(mb_start + mb_idx as usize);
     let ndofs = mb.ndofs;
     if ndofs == 0 {
-        mb.contact_constraint_count = 0;
-        multibody_info.write(mb_start + mb_idx as usize, mb);
+        // Uniform per workgroup: every lane returns together.
+        if lane == 0 {
+            mb.contact_constraint_count = 0;
+            multibody_info.write(mb_start + mb_idx as usize, mb);
+        }
         return;
     }
     let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
@@ -306,10 +323,16 @@ pub fn gpu_mb_init_contact_constraints(
             // Warmstart: preserve the accumulated impulse from the previous
             // substep (same contact slot — within a frame the manifolds are
             // fixed). `gpu_mb_reset_contact_warmstart` zeroes these once per
-            // frame so the first substep starts cold.
-            let warmstart_normal_impulse = contact_constraints
-                .read(cons_base + normal_slot as usize)
-                .impulse;
+            // frame so the first substep starts cold. Lane 0 only: it is the
+            // sole consumer (the struct write below), and the other lanes'
+            // reads would race with that write.
+            let warmstart_normal_impulse = if lane == 0 {
+                contact_constraints
+                    .read(cons_base + normal_slot as usize)
+                    .impulse
+            } else {
+                0.0
+            };
 
             fill_contact_jac_row(
                 body_jacobians,
@@ -321,6 +344,7 @@ pub fn gpu_mb_init_contact_constraints(
                 contact_constraint_jacs,
                 normal_col_offset,
                 false,
+                lane,
             );
 
             // B-side fold-in for self-contacts, free body for the rest. The
@@ -345,6 +369,7 @@ pub fn gpu_mb_init_contact_constraints(
                     contact_constraint_jacs,
                     normal_col_offset,
                     true,
+                    lane,
                 );
                 #[cfg(feature = "dim3")]
                 {
@@ -407,7 +432,9 @@ pub fn gpu_mb_init_contact_constraints(
                 cfm_factor,
                 _unused_cfm: 0.0,
             };
-            contact_constraints.write(cons_base + normal_slot as usize, normal_cons);
+            if lane == 0 {
+                contact_constraints.write(cons_base + normal_slot as usize, normal_cons);
+            }
             count += 1;
 
             // Friction tangent constraints — same contact point, tangent
@@ -445,10 +472,14 @@ pub fn gpu_mb_init_contact_constraints(
                 let tang_slot = count;
                 let tang_col_offset = col_base + (tang_slot as usize) * dofs_stride;
                 // Warmstart: preserve the accumulated tangent impulse (see the
-                // normal slot above).
-                let warmstart_tang_impulse = contact_constraints
-                    .read(cons_base + tang_slot as usize)
-                    .impulse;
+                // normal slot above; lane 0 only).
+                let warmstart_tang_impulse = if lane == 0 {
+                    contact_constraints
+                        .read(cons_base + tang_slot as usize)
+                        .impulse
+                } else {
+                    0.0
+                };
 
                 fill_contact_jac_row(
                     body_jacobians,
@@ -460,6 +491,7 @@ pub fn gpu_mb_init_contact_constraints(
                     contact_constraint_jacs,
                     tang_col_offset,
                     false,
+                    lane,
                 );
 
                 let (ang_jac_tang, ii_ang_jac_tang) = if is_self {
@@ -476,6 +508,7 @@ pub fn gpu_mb_init_contact_constraints(
                         contact_constraint_jacs,
                         tang_col_offset,
                         true,
+                        lane,
                     );
                     #[cfg(feature = "dim3")]
                     {
@@ -537,7 +570,9 @@ pub fn gpu_mb_init_contact_constraints(
                     cfm_factor,
                     _unused_cfm: 0.0,
                 };
-                contact_constraints.write(cons_base + tang_slot as usize, tang_cons);
+                if lane == 0 {
+                    contact_constraints.write(cons_base + tang_slot as usize, tang_cons);
+                }
                 count += 1;
             }
         }
@@ -545,8 +580,10 @@ pub fn gpu_mb_init_contact_constraints(
 
     // The solve / finalize / remove-bias kernels iterate `0..count` so we
     // don't need to mark surplus slots inactive — they're never read.
-    mb.contact_constraint_count = count;
-    multibody_info.write(mb_start + mb_idx as usize, mb);
+    if lane == 0 {
+        mb.contact_constraint_count = count;
+        multibody_info.write(mb_start + mb_idx as usize, mb);
+    }
 }
 
 /// Stash `contacts_len[batch]` into each multibody's `batch_contacts_len`.

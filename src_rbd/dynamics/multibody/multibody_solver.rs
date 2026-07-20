@@ -195,7 +195,6 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = mb.flat_mb_dispatch();
 
         if mb.has_joint_constraints {
             let mut pass = encoder.begin_pass("[RBD] mbb/init-joint", timestamps.as_deref_mut());
@@ -222,12 +221,16 @@ impl GpuMultibodySolver {
         // multibody pairs only). `init` PRESERVES the accumulated impulse across
         // substeps (zeroed once per frame by `reset_contact_warmstart` in
         // `init_step`); `finalize` recomputes `inv_lhs` and the M⁻¹Jᵀ columns.
+        // One 64-lane workgroup per multibody: the uniform emission walk runs
+        // redundantly on every lane, the per-DOF `Jᵀ`-row fills one-per-lane.
         {
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/init-contact", timestamps.as_deref_mut());
+            let init_contact_dispatch =
+                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
             self.init_contact_constraints.call(
                 &mut pass,
-                dispatch,
+                init_contact_dispatch,
                 &mut mb.multibody_info,
                 &mb.body_jacobians,
                 &mb.body_to_link,
