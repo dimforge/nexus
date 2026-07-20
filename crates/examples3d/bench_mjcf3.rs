@@ -182,8 +182,23 @@ async fn run(robot: String, n_warmup: usize, n_iters: usize) -> anyhow::Result<(
     }
     backend.synchronize()?;
 
+    // `NEXUS_BENCH_PACE_MS=16` sleeps between steps to reproduce the
+    // testbed's frame pacing: at low duty cycle the GPU drops to a lower
+    // power state, so each step's wall/GPU time inflates vs back-to-back
+    // stepping. Only the stepping time itself is measured either way.
+    let pace: u64 = std::env::var("NEXUS_BENCH_PACE_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    if pace > 0 {
+        println!("pacing: sleeping {pace} ms between steps");
+    }
+
     let mut samples = Vec::with_capacity(n_iters);
     for _ in 0..n_iters {
+        if pace > 0 {
+            std::thread::sleep(Duration::from_millis(pace));
+        }
         let t0 = Instant::now();
         pipeline.simulate(&backend, &mut state, None).await?;
         backend.synchronize()?;
