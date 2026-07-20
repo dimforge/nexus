@@ -685,27 +685,27 @@ pub fn gpu_mb_finalize_contact_constraints(
 
     for s in 0..count {
         let col_offset = col_base + (s as usize) * dofs_stride;
-        // 1) Copy J^T row into the column buffer (it'll be overwritten by the
-        //    LU solve with the M⁻¹·Jᵀ result).
+        // The LU back-solve read-modify-writes the column O(n²) times (permute
+        // + forward + backward substitution). Doing that in the GLOBAL
+        // `contact_constraint_columns` buffer costs an L2 round-trip on every
+        // step of the dependence chain — GPU L1 is write-evict for global
+        // stores, so each write is not seen by the next dependent read until it
+        // reaches L2. Hold the column in a per-thread LOCAL array instead
+        // (registers / L1-backed local memory), and write it out once at the
+        // end. Same arithmetic and iteration order → bit-identical result.
+        let mut col = [0.0f32; 64];
+        // 1) J^T row into the local column.
         for i in 0..ndofs {
-            let v = contact_constraint_jacs.read(col_offset + i as usize);
-            contact_constraint_columns.write(col_offset + i as usize, v);
+            col[i as usize] = contact_constraint_jacs.read(col_offset + i as usize);
         }
-        // 2) Solve M · column = J^T  (in place).
-        lu_solve_in_place(
-            mass_matrices,
-            m,
-            lu_pivots,
-            piv_offset,
-            contact_constraint_columns,
-            col_offset,
-        );
-        // 3) inv_r_mb = J · column.
+        // 2) Solve M · column = J^T in place in the local vector.
+        lu_solve_in_place(mass_matrices, m, lu_pivots, piv_offset, &mut col, 0);
+        // 3) Write the finished column out + inv_r_mb = J · column in one pass.
         let mut inv_r_mb = 0.0f32;
         for i in 0..ndofs {
-            let j = contact_constraint_jacs.read(col_offset + i as usize);
-            let c = contact_constraint_columns.read(col_offset + i as usize);
-            inv_r_mb += j * c;
+            let c = col[i as usize];
+            contact_constraint_columns.write(col_offset + i as usize, c);
+            inv_r_mb += contact_constraint_jacs.read(col_offset + i as usize) * c;
         }
         // 4) Add free body's contribution: im (since lin_jac is unit) +
         //    ang_jac · ii_ang_jac. For self-contacts the B-side is folded into
