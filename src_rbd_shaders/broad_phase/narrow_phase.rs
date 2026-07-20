@@ -234,17 +234,16 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     //       contact is written.
     for i in StepRng::new(invocation_id.x..len, num_threads) {
         let pair = collision_pairs[i as usize];
-        let pose1 = poses[pair.colliders.x as usize];
-        let pose2 = poses[pair.colliders.y as usize];
         let shape1 = &shapes[pair.colliders.x as usize];
         let shape2 = &shapes[pair.colliders.y as usize];
         let shape_ty1 = shape1.shape_type();
         let shape_ty2 = shape2.shape_type();
-        let pose12 = pose1.inverse() * pose2;
 
         // Mirror pass 1's analytic-pair predicate (ball/cuboid) so those pairs
         // are skipped here — they were already turned into contacts. Only the
         // complex cases fall through to the PFM / trimesh / polyline handling.
+        // Checked BEFORE loading the poses / computing `pose12` so analytic
+        // pairs don't pay two pose loads + a quaternion inverse for nothing.
         let mut checked = false;
         if shape_ty1 == SHAPE_TYPE_BALL
             && (shape_ty2 == SHAPE_TYPE_BALL
@@ -267,6 +266,13 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
         if !checked && shape_ty1 == SHAPE_TYPE_CUBOID && shape_ty2 == SHAPE_TYPE_CUBOID {
             checked = true;
         }
+        if checked {
+            continue;
+        }
+
+        let pose1 = poses[pair.colliders.x as usize];
+        let pose2 = poses[pair.colliders.y as usize];
+        let pose12 = pose1.inverse() * pose2;
 
         // PFM - PFM (generic convex shapes via GJK/EPA)
         if !checked {
