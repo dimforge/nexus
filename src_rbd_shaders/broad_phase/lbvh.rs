@@ -41,7 +41,16 @@ pub struct LbvhNode {
     pub right: u32,
     /// Parent node index.
     pub parent: u32,
-    /// Counter for bottom-up refitting (0, 1, or 2).
+    /// During refit: counter for bottom-up refitting (0, 1, or 2). When a
+    /// thread arrives at a node, it atomically increments this; the second
+    /// thread continues upward (both children ready).
+    ///
+    /// AFTER refit (consumed by `gpu_lbvh_find_collision_pairs`): the maximum
+    /// SORTED leaf index contained in this node's subtree — `refit_leaves`
+    /// seeds it with the leaf's sorted index, and the refit winner overwrites
+    /// the spent counter with `max(left, right)` after merging the AABBs.
+    /// Karras subtrees cover contiguous sorted ranges, so this lets the
+    /// traversal prune whole subtrees that can only produce duplicate pairs.
     pub refit_count: u32,
 }
 
@@ -319,6 +328,12 @@ pub fn gpu_lbvh_refit_leaves(
 
         tree.at_mut(curr_leaf_id as usize).aabb = leaf_shape.compute_aabb(leaf_pose, vertices);
         tree.at_mut(curr_leaf_id as usize).left = leaf_collider;
+        // Seed the subtree-max tracking with the SORTED leaf index (see
+        // `LbvhNode::refit_count`): Karras subtrees span contiguous sorted
+        // ranges, so a max over sorted indices prunes whole subtrees, while
+        // collider ids are scattered across the tree. Leaves take no part in
+        // the refit counter protocol, so this is free.
+        tree.at_mut(curr_leaf_id as usize).refit_count = i;
     }
 }
 
@@ -385,6 +400,15 @@ pub fn gpu_lbvh_refit_internal(
                     let left = tree.at(left_idx as usize).aabb;
                     let right = tree.at(right_idx as usize).aabb;
                     tree.at_mut(curr_id as usize).aabb = left.merged(&right);
+
+                    // Both children are final, so their `refit_count` already
+                    // holds their subtree-max collider id (leaves were seeded
+                    // by `refit_leaves`). The counter of THIS node is spent
+                    // (both threads arrived), so overwrite it with the max —
+                    // same visibility guarantees as the AABB writes above.
+                    let max_l = tree.at(left_idx as usize).refit_count;
+                    let max_r = tree.at(right_idx as usize).refit_count;
+                    tree.at_mut(curr_id as usize).refit_count = max_l.max(max_r);
 
                     if curr_id == 0 {
                         // We reached the root, can't go higher.
@@ -551,8 +575,11 @@ pub fn gpu_lbvh_find_collision_pairs(
                     continue;
                 }
 
-                // NOTE: we don't have to compare i < j to avoid duplicates since that comparison already happened
-                //       alongside the AABB check.
+                // Duplicates were already pruned during the descent (sorted
+                // leaf-index comparison). Emit the pair in ascending collider
+                // order so the narrow phase / warmstart see a stable ordering
+                // regardless of the traversal's dedup basis.
+                let (ci, cj) = if i < j { (i, j) } else { (j, i) };
                 let target_pair_index =
                     atomic_add_u32(collision_pairs_len.at_mut(batch_id as usize), 1);
 
@@ -567,16 +594,20 @@ pub fn gpu_lbvh_find_collision_pairs(
                     //       intermediate pfm-pair buffer) narrow, and keeping
                     //       `collider_parent` out of the broad phase entirely.
                     collision_pairs[target_pair_index as usize] = CollisionPair {
-                        colliders: UVec2::new(i, j),
+                        colliders: UVec2::new(ci, cj),
                     };
                 }
             } else {
                 let left = node.left;
                 let right = node.right;
 
-                // Go on the child only if the AABB intersects and either the child isn't a leaf, or it is a leaf with associated collider
-                // smaller than `i` (to avoid duplicate pairs).
-                if (left < first_leaf_id || i < tree.at(left as usize).left)
+                // Descend only if the child's subtree can produce a
+                // non-duplicate pair (its max SORTED leaf index — held in
+                // `refit_count` after the refit — exceeds this thread's own
+                // sorted leaf index) and the AABBs intersect. Karras subtrees
+                // cover contiguous sorted ranges, so this prunes the entire
+                // "left of me" part of the tree, not just leaves.
+                if leaf_i < tree.at(left as usize).refit_count
                     && aabb1.intersects(&tree.at(left as usize).aabb)
                     && stack_len < 64
                 {
@@ -584,8 +615,7 @@ pub fn gpu_lbvh_find_collision_pairs(
                     stack_len += 1;
                 }
 
-                // NOTE: on leaves (including tree[right]), the collider id is stored as the left child index.
-                if (right < first_leaf_id || i < tree.at(right as usize).left)
+                if leaf_i < tree.at(right as usize).refit_count
                     && aabb1.intersects(&tree.at(right as usize).aabb)
                     && stack_len < 64
                 {
