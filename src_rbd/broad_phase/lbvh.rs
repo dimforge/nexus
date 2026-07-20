@@ -7,9 +7,9 @@ use crate::math::Pose;
 use crate::shaders::PaddedVector;
 use crate::shaders::bounding_volumes::Aabb;
 use crate::shaders::broad_phase::{
-    CollisionPair, GpuLbvhBuild, GpuLbvhComputeDomain, GpuLbvhComputeMorton,
-    GpuLbvhFindCollisionPairs, GpuLbvhInitDispatch, GpuLbvhRefitInternal, GpuLbvhRefitLeaves,
-    GpuLbvhResetCollisionPairs, LbvhNode,
+    CollisionPair, GpuBfComputeAabbs, GpuBfFindPairs, GpuLbvhBuild, GpuLbvhComputeDomain,
+    GpuLbvhComputeMorton, GpuLbvhFindCollisionPairs, GpuLbvhInitDispatch, GpuLbvhRefitInternal,
+    GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs, LbvhNode,
 };
 use crate::shaders::shapes::Shape;
 use crate::utils::{RadixSort, RadixSortWorkspace};
@@ -33,6 +33,10 @@ pub struct GpuLbvh {
     reset_collision_pairs: GpuLbvhResetCollisionPairs,
     find_collision_pairs: GpuLbvhFindCollisionPairs,
     lbvh_init_indirect_args: GpuLbvhInitDispatch,
+    /// Brute-force O(n²) path for tiny batches — see
+    /// [`Lbvh::brute_force_pairs`].
+    bf_compute_aabbs: GpuBfComputeAabbs,
+    bf_find_pairs: GpuBfFindPairs,
 }
 
 /// GPU-resident state for LBVH construction and queries.
@@ -53,6 +57,10 @@ pub struct LbvhState {
     sorted_colliders: Tensor<u32>,
     tree: Tensor<LbvhNode>,
     sort_workspace: RadixSortWorkspace,
+    /// Per-collider world AABBs, only used by the brute-force tiny-batch path
+    /// (strided by the per-batch collider capacity, like the other
+    /// per-collider buffers).
+    aabbs: Tensor<Aabb>,
 }
 
 /// High-level LBVH broad-phase interface.
@@ -79,6 +87,7 @@ impl LbvhState {
             sorted_colliders: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             tree: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             sort_workspace: RadixSortWorkspace::new(backend),
+            aabbs: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             buffer_usages: usages,
         }
     }
@@ -133,6 +142,15 @@ impl LbvhState {
             // The new buffer holds the capacity, not the active count — force the
             // next `update_tree` to upload the real per-batch live count.
             self.n_sort_active = None;
+        }
+    }
+
+    /// Sizes the brute-force path's AABB buffer (per-collider, capacity
+    /// stride). Kept separate from [`Self::resize_buffers`] so the tree
+    /// buffers aren't allocated when only the brute-force path runs.
+    fn resize_bf_buffers(&mut self, backend: &GpuBackend, colliders_len: u32) {
+        if (self.aabbs.len() as u32) < colliders_len {
+            self.aabbs = Tensor::vector_uninit(backend, colliders_len, self.buffer_usages).unwrap();
         }
     }
 }
@@ -298,4 +316,70 @@ impl Lbvh {
         )?;
         Ok(())
     }
+
+    /// Brute-force O(n²) replacement for [`Self::update_tree`] +
+    /// [`Self::find_pairs`], used when each batch holds at most
+    /// [`Self::BRUTE_FORCE_MAX_COLLIDERS`] colliders. Skips the whole
+    /// per-batch tree pipeline (Morton sort alone is ~45 dispatches) in
+    /// favor of one AABB pass and one all-pairs pass; emits the exact same
+    /// pair set into the same output buffers.
+    #[allow(clippy::too_many_arguments)]
+    pub fn brute_force_pairs(
+        &self,
+        backend: &GpuBackend,
+        pass: &mut GpuPass,
+        state: &mut LbvhState,
+        colliders_len: u32,
+        active_per_batch: u32,
+        num_batches: u32,
+        poses: &Tensor<Pose>,
+        vertex_buffers: &Tensor<PaddedVector>,
+        shapes: &Tensor<Shape>,
+        batch_indices: &Tensor<crate::shaders::utils::BatchIndices>,
+        collision_pairs: &mut Tensor<CollisionPair>,
+        collision_pairs_len: &mut Tensor<u32>,
+        collision_pairs_indirect: &mut Tensor<[u32; 3]>,
+        collision_groups: &Tensor<crate::rapier::geometry::InteractionGroups>,
+        pair_filter: &Tensor<[u32; 2]>,
+    ) -> Result<(), GpuBackendError> {
+        state.resize_bf_buffers(backend, colliders_len);
+
+        self.shaders.bf_compute_aabbs.call(
+            pass,
+            [active_per_batch * num_batches, 1, 1],
+            poses,
+            shapes,
+            &mut state.aabbs,
+            batch_indices,
+            vertex_buffers,
+        )?;
+        self.shaders.reset_collision_pairs.call(
+            pass,
+            [num_batches, 1, 1],
+            collision_pairs_len,
+        )?;
+        self.shaders.bf_find_pairs.call(
+            pass,
+            [active_per_batch * active_per_batch * num_batches, 1, 1],
+            &state.aabbs,
+            collision_pairs,
+            collision_pairs_len,
+            collision_groups,
+            batch_indices,
+            pair_filter,
+        )?;
+        // Single 256-lane workgroup: parallel max over the per-batch counts.
+        self.shaders.lbvh_init_indirect_args.call(
+            pass,
+            256u32,
+            collision_pairs_len,
+            collision_pairs_indirect,
+        )?;
+        Ok(())
+    }
 }
+
+/// Per-batch collider count at or below which the pipeline uses
+/// [`Lbvh::brute_force_pairs`] instead of building a tree.
+/// `NEXUS_DISABLE_BF=1` forces the LBVH path (A/B debugging).
+pub const BRUTE_FORCE_MAX_COLLIDERS: u32 = 64;

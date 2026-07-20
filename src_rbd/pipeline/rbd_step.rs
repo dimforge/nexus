@@ -1,6 +1,6 @@
 //! The [`RbdPipeline`] running one full simulation step on the GPU.
 
-use crate::broad_phase::{GpuNarrowPhase, Lbvh};
+use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, GpuNarrowPhase, Lbvh};
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySolver;
 use crate::dynamics::{
@@ -136,54 +136,83 @@ impl RbdPipeline {
 
             drop(pass);
 
-            // Build LBVH and find collision pairs.
-            self.lbvh.update_tree(
-                backend,
-                &mut encoder,
-                &mut state.lbvh,
-                state.collider_local_poses.len() as u32,
-                state.num_active_colliders,
-                state.num_batches,
-                &state.collider_world_poses,
-                &state.vertex_buffers,
-                &state.shapes,
-                &state.batch_indices,
-                timestamps.as_deref_mut(),
-            )?;
-
-            // Debug: validate LBVH topology after tree construction
-            if crate::VALIDATE_LBVH_TOPOLOGY {
-                backend.submit(encoder)?;
-
-                let num_colliders = state.collider_world_poses.len() as u32;
-                let tree: Vec<LbvhNode> =
-                    futures::executor::block_on(backend.slow_read_vec(state.lbvh.tree().buffer()))?;
-                let sorted_colliders: Vec<u32> = futures::executor::block_on(
-                    backend.slow_read_vec(state.lbvh.sorted_colliders().buffer()),
+            let use_bf = state.num_active_colliders <= BRUTE_FORCE_MAX_COLLIDERS
+                && std::env::var("NEXUS_DISABLE_BF").is_err();
+            if use_bf {
+                // Tiny batches: brute-force all-pairs test — no tree, no sort.
+                let mut pass =
+                    encoder.begin_pass("[RBD] bf-find-pairs", timestamps.as_deref_mut());
+                self.lbvh.brute_force_pairs(
+                    backend,
+                    &mut pass,
+                    &mut state.lbvh,
+                    state.collider_local_poses.len() as u32,
+                    state.num_active_colliders,
+                    state.num_batches,
+                    &state.collider_world_poses,
+                    &state.vertex_buffers,
+                    &state.shapes,
+                    &state.batch_indices,
+                    &mut state.collision_pairs,
+                    &mut state.collision_pairs_len,
+                    &mut state.collision_pairs_indirect,
+                    &state.collision_groups,
+                    &state.pair_filter,
                 )?;
-                validate_lbvh_topology(&tree, &sorted_colliders, num_colliders);
+                drop(pass);
+                backend.submit(encoder)?;
+            } else {
+                // Build LBVH and find collision pairs.
+                self.lbvh.update_tree(
+                    backend,
+                    &mut encoder,
+                    &mut state.lbvh,
+                    state.collider_local_poses.len() as u32,
+                    state.num_active_colliders,
+                    state.num_batches,
+                    &state.collider_world_poses,
+                    &state.vertex_buffers,
+                    &state.shapes,
+                    &state.batch_indices,
+                    timestamps.as_deref_mut(),
+                )?;
 
-                encoder = backend.begin_encoding();
-                let _pass =
-                    encoder.begin_pass("[RBD] broad-phase-find-pairs", timestamps.as_deref_mut());
+                // Debug: validate LBVH topology after tree construction
+                if crate::VALIDATE_LBVH_TOPOLOGY {
+                    backend.submit(encoder)?;
+
+                    let num_colliders = state.collider_world_poses.len() as u32;
+                    let tree: Vec<LbvhNode> = futures::executor::block_on(
+                        backend.slow_read_vec(state.lbvh.tree().buffer()),
+                    )?;
+                    let sorted_colliders: Vec<u32> = futures::executor::block_on(
+                        backend.slow_read_vec(state.lbvh.sorted_colliders().buffer()),
+                    )?;
+                    validate_lbvh_topology(&tree, &sorted_colliders, num_colliders);
+
+                    encoder = backend.begin_encoding();
+                    let _pass = encoder
+                        .begin_pass("[RBD] broad-phase-find-pairs", timestamps.as_deref_mut());
+                }
+
+                let mut pass =
+                    encoder.begin_pass("[RBD] lbvh-find-pairs", timestamps.as_deref_mut());
+                self.lbvh.find_pairs(
+                    &mut pass,
+                    &mut state.lbvh,
+                    state.num_active_colliders,
+                    state.num_batches,
+                    &state.batch_indices,
+                    &mut state.collision_pairs,
+                    &mut state.collision_pairs_len,
+                    &mut state.collision_pairs_indirect,
+                    &state.collision_groups,
+                    &state.pair_filter,
+                )?;
+
+                drop(pass);
+                backend.submit(encoder)?;
             }
-
-            let mut pass = encoder.begin_pass("[RBD] lbvh-find-pairs", timestamps.as_deref_mut());
-            self.lbvh.find_pairs(
-                &mut pass,
-                &mut state.lbvh,
-                state.num_active_colliders,
-                state.num_batches,
-                &state.batch_indices,
-                &mut state.collision_pairs,
-                &mut state.collision_pairs_len,
-                &mut state.collision_pairs_indirect,
-                &state.collision_groups,
-                &state.pair_filter,
-            )?;
-
-            drop(pass);
-            backend.submit(encoder)?;
         }
 
         // Phase 2a: Narrow phase. Split out from solver-prep + coloring

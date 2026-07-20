@@ -76,10 +76,10 @@ fn build_chain_env(state: &mut NexusState, env: usize, num_links: usize, self_co
             RigidBodyBuilder::dynamic()
                 .translation(Vec3::new(x, 0.0, 0.0))
                 .build(),
-            // Longer than the link spacing so adjacent links overlap at the
-            // joints (like real robot collision meshes) — this makes the
-            // self-contact broad-phase pairs real rather than borderline.
-            ColliderBuilder::cuboid(link_len * 0.7, rad, rad).build(),
+            // Slightly longer than the link spacing so adjacent links overlap
+            // at the joints (like real robot collision meshes) — this makes
+            // the self-contact broad-phase pairs real rather than borderline.
+            ColliderBuilder::cuboid(link_len * 0.55, rad, rad).build(),
         );
 
         let parent_anchor = if i == 0 {

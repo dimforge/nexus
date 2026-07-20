@@ -16,7 +16,7 @@ use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::{
     iter::StepRng,
-    sync::{atomic_add_u32, atomic_load_u32},
+    sync::atomic_add_u32,
 };
 
 use super::lbvh::{MAX_REDUCE_LANES, max_len_indirect_args};
@@ -55,7 +55,7 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
     max_len_indirect_args(lid.x, contacts_len, indirect_args, partial);
 }
 
-const PREDICTION: f32 = 2.0e-3; // TODO: make the prediction configurable.
+pub(crate) const PREDICTION: f32 = 2.0e-3; // TODO: make the prediction configurable.
 
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.
