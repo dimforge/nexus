@@ -25,6 +25,7 @@ mod mass_matrix;
 mod solve_constraints;
 mod types;
 mod utils;
+mod ws_soa;
 
 pub use compute_dynamics_pre::*;
 pub use contact_constraints::*;
@@ -35,3 +36,4 @@ pub use joint_constraints::*;
 pub use solve_constraints::*;
 pub use types::*;
 pub use utils::*;
+pub use ws_soa::*;

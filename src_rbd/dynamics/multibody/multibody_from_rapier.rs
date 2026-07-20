@@ -392,7 +392,6 @@ impl GpuMultibodySet {
         let nb = num_batches as usize;
         let all_infos = interleave(&all_infos, mb_cap, nb);
         let all_statics = interleave(&all_statics, links_cap, nb);
-        let all_ws = interleave(&all_ws, links_cap, nb);
         let all_dof_vals = interleave(&all_dof_vals, dofs_cap, nb);
         let all_dof_vels = interleave(&all_dof_vels, dofs_cap, nb);
         let all_dof_damping = interleave(&all_dof_damping, dofs_cap, nb);
@@ -415,7 +414,12 @@ impl GpuMultibodySet {
             links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_DST)
                 .unwrap(),
             links_static_mirror: all_statics.clone(),
-            links_workspace: Tensor::vector(backend, &all_ws, storage).unwrap(),
+            links_workspace: Tensor::vector(
+                backend,
+                &crate::shaders::dynamics::ws_soa_from_structs(&all_ws, links_cap, num_batches),
+                storage,
+            )
+            .unwrap(),
             dof_values: Tensor::vector(backend, &all_dof_vals, storage).unwrap(),
             dof_state: {
                 // Pack [velocities (N), damping (N), armature (N)] back-to-back

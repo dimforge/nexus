@@ -5,6 +5,7 @@
 //! are skipped).
 
 use khal_std::glamx::UVec3;
+use glamx::Vec4;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
@@ -19,8 +20,8 @@ use crate::{DIM, MAX_FLT};
 use super::types::{
     MB_JOINT_KIND_INACTIVE, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_LIMIT_INACTIVE,
     MB_JOINT_KIND_MOTOR, MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic,
-    MultibodyLinkWorkspace,
 };
+use super::ws_soa::{WsAddr, ws_coord};
 
 /// Compute joint motor parameters mirroring rapier's `JointMotor::motor_params`.
 #[inline]
@@ -64,7 +65,7 @@ fn lu_solve_unit(
 #[inline]
 fn emit_joint_constraints(
     links_static: &[MultibodyLinkStatic],
-    links_workspace: &[MultibodyLinkWorkspace],
+    links_workspace: &[Vec4],
     joint_constraints: &mut [MultibodyJointConstraint],
     mb: &MultibodyInfo,
     cons_base: usize,
@@ -79,16 +80,13 @@ fn emit_joint_constraints(
     let stat_slice = batch_ids
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
-    let ws_slice = batch_ids
-        .ib(batch_id, links_workspace)
-        .offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
     let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
 
     let mut slot = 0u32;
     for k in 0..num_links {
         let stat = &stat_slice[k as usize];
-        let ws = &ws_slice[k as usize];
         let locked = stat.data.locked_axes;
         let limit_axes = stat.data.limit_axes & !locked;
         let motor_axes = stat.data.motor_axes & !locked;
@@ -111,7 +109,7 @@ fn emit_joint_constraints(
                 continue;
             }
             let abs_dof = stat.assembly_id + curr_free_dof;
-            let curr_pos = ws.coords.read(axis as usize);
+            let curr_pos = ws_coord(links_workspace, wa, k, axis);
 
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
@@ -157,7 +155,7 @@ fn emit_joint_constraints(
                 continue;
             }
             let abs_dof = stat.assembly_id + curr_free_dof;
-            let curr_pos = ws.coords.read(axis as usize);
+            let curr_pos = ws_coord(links_workspace, wa, k, axis);
 
             if (limit_axes & (1 << axis)) != 0 {
                 let cons = build_limit_constraint(
@@ -218,7 +216,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &[MultibodyLinkWorkspace],
+    links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     joint_constraints: &mut [MultibodyJointConstraint],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] softness: &ConstraintSoftness,
@@ -244,9 +242,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     let stat_slice = batch_ids
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
-    let ws_slice = batch_ids
-        .ib(batch_id, links_workspace)
-        .offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
     let dt = softness.dt;
     let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
@@ -259,8 +255,7 @@ pub fn gpu_mb_refresh_joint_constraints(
         let link_id = old._kind_extra & 0xffff;
         let axis = old._kind_extra >> 16;
         let stat = &stat_slice[link_id as usize];
-        let ws = &ws_slice[link_id as usize];
-        let curr_pos = ws.coords.read(axis as usize);
+        let curr_pos = ws_coord(links_workspace, wa, link_id, axis);
 
         // Rebuild the per-substep fields with the SAME formulas as the full
         // emission, then graft the per-step constants (column-derived
@@ -483,7 +478,7 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &[MultibodyLinkWorkspace],
+    links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mass_matrices: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] lu_pivots: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]

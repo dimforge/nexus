@@ -18,9 +18,9 @@ use glamx::Vec4;
 use crate::dynamics::body::Velocity;
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::utils::linalg::{
-    MAX_MB_DOFS, MatSlice, fill_par, gemv_tr_spatial_split_par, lu_decompose, lu_solve_in_place,
+    MAX_MB_DOFS, fill_par, gemv_tr_spatial_split_par, lu_decompose, lu_solve_in_place,
 };
-use crate::utils::{BatchIndices, Slice};
+use crate::utils::BatchIndices;
 use crate::{AngVector, Vector, gcross_av};
 
 use super::lu::{
@@ -28,7 +28,11 @@ use super::lu::{
     lu_factor_in_shared_packed, lu_triangular_solve_in_place,
     lu_triangular_solve_in_place_packed, sm_idx, sm_idx_packed,
 };
-use super::types::{MultibodyInfo, MultibodyLinkStatic, MultibodyLinkWorkspace};
+use super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::ws_soa::{
+    WS_JOINT_VEL, WS_KIN_ACC, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WsAddr, ws_pose,
+    ws_set_vel, ws_vec, ws_vel, ws_vel_ang, ws_world_inertia,
+};
 
 /// Fused gravity / Coriolis-force assembly + LU factor + LU solve.
 #[spirv_bindgen]
@@ -40,7 +44,7 @@ pub fn gpu_mb_gravity_and_lu(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &mut [MultibodyLinkWorkspace],
+    links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],
@@ -78,9 +82,7 @@ pub fn gpu_mb_gravity_and_lu(
     let stat_slice = batch_ids
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
-    let mut ws_slice = batch_ids
-        .ib_mut(batch_id, links_workspace)
-        .offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
@@ -121,23 +123,24 @@ pub fn gpu_mb_gravity_and_lu(
                 _self_local_to_world,
                 self_rb_ang,
             ) = {
-                let ws = &ws_slice[k as usize];
+                let jv = ws_vel(links_workspace, wa, k, WS_JOINT_VEL);
                 (
-                    ws.joint_velocity.linear,
-                    ws.joint_velocity.angular,
-                    ws.shift02,
-                    ws.shift23,
-                    ws.local_to_world,
-                    ws.rb_vels.angular,
+                    jv.linear,
+                    jv.angular,
+                    ws_vec(links_workspace, wa, k, WS_SHIFT02),
+                    ws_vec(links_workspace, wa, k, WS_SHIFT23),
+                    ws_pose(links_workspace, wa, k, WS_LTW),
+                    ws_vel_ang(links_workspace, wa, k, WS_RB_VELS),
                 )
             };
 
             if k != 0 {
                 let stat = stat_slice[k as usize];
-                let parent_ws = &ws_slice[stat.parent_link_id as usize];
-                let parent_acc_lin = parent_ws.kinematic_acc.linear;
-                let parent_acc_ang = parent_ws.kinematic_acc.angular;
-                let parent_ang = parent_ws.rb_vels.angular;
+                let pid = stat.parent_link_id;
+                let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
+                let parent_acc_lin = parent_acc.linear;
+                let parent_acc_ang = parent_acc.angular;
+                let parent_ang = ws_vel_ang(links_workspace, wa, pid, WS_RB_VELS);
 
                 acc_lin = parent_acc_lin;
                 acc_ang = parent_acc_ang;
@@ -162,7 +165,7 @@ pub fn gpu_mb_gravity_and_lu(
             acc_lin += gcross_av(acc_ang, self_shift23);
 
             if lane == 0 {
-                ws_slice[k as usize].kinematic_acc = Velocity::new(acc_lin, acc_ang);
+                ws_set_vel(links_workspace, wa, k, WS_KIN_ACC, Velocity::new(acc_lin, acc_ang));
             }
         }
 
@@ -172,12 +175,12 @@ pub fn gpu_mb_gravity_and_lu(
 
         if active {
             #[cfg(feature = "dim3")]
-            let rb_ang = ws_slice[k as usize].rb_vels.angular;
+            let rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
             let lmp = stat_slice[k as usize].local_mprops;
             let inv_mass_x = lmp.inv_mass.x;
             if inv_mass_x != 0.0 {
                 let mass = 1.0 / inv_mass_x;
-                let rb_inertia = ws_slice[k as usize].link_world_inertia(&lmp);
+                let rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
 
                 #[cfg(feature = "dim3")]
                 let gyroscopic = {
@@ -286,7 +289,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     lid: UVec3,
     multibody_info: &[MultibodyInfo],
     links_static: &[MultibodyLinkStatic],
-    links_workspace: &mut [MultibodyLinkWorkspace],
+    links_workspace: &mut [Vec4],
     body_jacobians: &[f32],
     gen_forces: &mut [f32],
     mass_matrices: &mut [f32],
@@ -335,9 +338,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     let stat_slice = batch_ids
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
-    let mut ws_slice = batch_ids
-        .ib_mut(batch_id, links_workspace)
-        .offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
@@ -372,23 +373,24 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
                 _self_local_to_world,
                 self_rb_ang,
             ) = {
-                let ws = &ws_slice[k as usize];
+                let jv = ws_vel(links_workspace, wa, k, WS_JOINT_VEL);
                 (
-                    ws.joint_velocity.linear,
-                    ws.joint_velocity.angular,
-                    ws.shift02,
-                    ws.shift23,
-                    ws.local_to_world,
-                    ws.rb_vels.angular,
+                    jv.linear,
+                    jv.angular,
+                    ws_vec(links_workspace, wa, k, WS_SHIFT02),
+                    ws_vec(links_workspace, wa, k, WS_SHIFT23),
+                    ws_pose(links_workspace, wa, k, WS_LTW),
+                    ws_vel_ang(links_workspace, wa, k, WS_RB_VELS),
                 )
             };
 
             if k != 0 {
                 let stat = stat_slice[k as usize];
-                let parent_ws = &ws_slice[stat.parent_link_id as usize];
-                let parent_acc_lin = parent_ws.kinematic_acc.linear;
-                let parent_acc_ang = parent_ws.kinematic_acc.angular;
-                let parent_ang = parent_ws.rb_vels.angular;
+                let pid = stat.parent_link_id;
+                let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
+                let parent_acc_lin = parent_acc.linear;
+                let parent_acc_ang = parent_acc.angular;
+                let parent_ang = ws_vel_ang(links_workspace, wa, pid, WS_RB_VELS);
 
                 acc_lin = parent_acc_lin;
                 acc_ang = parent_acc_ang;
@@ -413,7 +415,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
             acc_lin += gcross_av(acc_ang, self_shift23);
 
             if lane == 0 {
-                ws_slice[k as usize].kinematic_acc = Velocity::new(acc_lin, acc_ang);
+                ws_set_vel(links_workspace, wa, k, WS_KIN_ACC, Velocity::new(acc_lin, acc_ang));
             }
         }
 
@@ -423,12 +425,12 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
 
         if active {
             #[cfg(feature = "dim3")]
-            let rb_ang = ws_slice[k as usize].rb_vels.angular;
+            let rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
             let lmp = stat_slice[k as usize].local_mprops;
             let inv_mass_x = lmp.inv_mass.x;
             if inv_mass_x != 0.0 {
                 let mass = 1.0 / inv_mass_x;
-                let rb_inertia = ws_slice[k as usize].link_world_inertia(&lmp);
+                let rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
 
                 #[cfg(feature = "dim3")]
                 let gyroscopic = {
@@ -553,7 +555,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &mut [MultibodyLinkWorkspace],
+    links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],
@@ -585,9 +587,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
     let stat_slice = batch_ids
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
-    let mut ws_slice = batch_ids
-        .ib_mut(batch_id, links_workspace)
-        .offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
@@ -614,22 +614,23 @@ pub fn gpu_mb_gravity_and_lu_t1(
         let mut acc_ang: AngVector = 0.0;
 
         let (self_joint_vel_lin, self_joint_vel_ang, self_shift02, self_shift23, self_rb_ang) = {
-            let ws = &ws_slice[k as usize];
+            let jv = ws_vel(links_workspace, wa, k, WS_JOINT_VEL);
             (
-                ws.joint_velocity.linear,
-                ws.joint_velocity.angular,
-                ws.shift02,
-                ws.shift23,
-                ws.rb_vels.angular,
+                jv.linear,
+                jv.angular,
+                ws_vec(links_workspace, wa, k, WS_SHIFT02),
+                ws_vec(links_workspace, wa, k, WS_SHIFT23),
+                ws_vel_ang(links_workspace, wa, k, WS_RB_VELS),
             )
         };
 
         if k != 0 {
             let stat = stat_slice[k as usize];
-            let parent_ws = &ws_slice[stat.parent_link_id as usize];
-            let parent_acc_lin = parent_ws.kinematic_acc.linear;
-            let parent_acc_ang = parent_ws.kinematic_acc.angular;
-            let parent_ang = parent_ws.rb_vels.angular;
+            let pid = stat.parent_link_id;
+            let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
+            let parent_acc_lin = parent_acc.linear;
+            let parent_acc_ang = parent_acc.angular;
+            let parent_ang = ws_vel_ang(links_workspace, wa, pid, WS_RB_VELS);
 
             acc_lin = parent_acc_lin;
             acc_ang = parent_acc_ang;
@@ -653,13 +654,13 @@ pub fn gpu_mb_gravity_and_lu_t1(
         acc_lin += gcross_av(rb_ang, gcross_av(rb_ang, self_shift23));
         acc_lin += gcross_av(acc_ang, self_shift23);
 
-        ws_slice[k as usize].kinematic_acc = Velocity::new(acc_lin, acc_ang);
+        ws_set_vel(links_workspace, wa, k, WS_KIN_ACC, Velocity::new(acc_lin, acc_ang));
 
         let lmp = stat_slice[k as usize].local_mprops;
         let inv_mass_x = lmp.inv_mass.x;
         if inv_mass_x != 0.0 {
             let mass = 1.0 / inv_mass_x;
-            let rb_inertia = ws_slice[k as usize].link_world_inertia(&lmp);
+            let rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
 
             #[cfg(feature = "dim3")]
             let gyroscopic = {
@@ -732,7 +733,7 @@ macro_rules! gravity_and_lu_packed_entry {
             #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
             links_static: &[MultibodyLinkStatic],
             #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-            links_workspace: &mut [MultibodyLinkWorkspace],
+            links_workspace: &mut [Vec4],
             #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
             #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
             #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],

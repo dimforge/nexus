@@ -5,6 +5,7 @@
 //! refresh link poses.
 
 use khal_std::glamx::UVec3;
+use glamx::Vec4;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 
@@ -17,7 +18,8 @@ use crate::{Vector, rotation_from_scaled_axis, rotation_renormalize_fast};
 #[cfg(feature = "dim3")]
 use parry::math::VectorExt;
 
-use super::types::{MultibodyInfo, MultibodyLinkStatic, MultibodyLinkWorkspace};
+use super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::ws_soa::{WS_JOINT_ROT, WsAddr, ws_coord, ws_rot, ws_set_coord, ws_set_rot};
 
 /// Update generalized velocities: `v += a · dt`.
 ///
@@ -67,8 +69,7 @@ pub fn gpu_mb_integrate(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &mut [MultibodyLinkWorkspace],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_values: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dof_state: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] dt_uniform: &f32,
@@ -91,9 +92,7 @@ pub fn gpu_mb_integrate(
     let stat_slice = batch_ids
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
-    let mut ws_slice = batch_ids
-        .ib_mut(batch_id, links_workspace)
-        .offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let dof_val = batch_ids
         .ib_mut(batch_id, dof_values)
         .offset(mb.first_dof as usize);
@@ -107,18 +106,17 @@ pub fn gpu_mb_integrate(
     // in place through `&mut ws_slice[k]` so SPIR-V emits field-targeted stores
     // instead of a whole `MultibodyLinkWorkspace` round-trip (~240 B in 3D).
     for k in 0..num_links {
-        let k_usize = k as usize;
-        let stat = stat_slice[k_usize];
+        let stat = stat_slice[k as usize];
         let locked = stat.data.locked_axes;
         let aid = stat.assembly_id as usize;
-        let ws = &mut ws_slice[k_usize];
 
         // Free linear DOFs first, in axis order.
         let mut curr_free = 0u32;
         for i in 0..DIM {
             if (locked & (1 << i)) == 0 {
                 let v = dof_vel[aid + curr_free as usize];
-                *ws.coords.at_mut(i as usize) += v * dt;
+                let cur = ws_coord(links_workspace, wa, k, i);
+                ws_set_coord(links_workspace, wa, k, i, cur + v * dt);
                 curr_free += 1;
             }
         }
@@ -132,16 +130,22 @@ pub fn gpu_mb_integrate(
                 let dof_id = (!ang_locked & 0x7).trailing_zeros();
                 let v = dof_vel[aid + curr_free as usize];
                 let idx = 3 + dof_id;
-                let new = ws.coords.read(idx as usize) + v * dt;
-                ws.coords.write(idx as usize, new);
-                ws.joint_rot = rotation_from_scaled_axis(Vector::ith(dof_id as usize, new));
+                let new = ws_coord(links_workspace, wa, k, idx) + v * dt;
+                ws_set_coord(links_workspace, wa, k, idx, new);
+                ws_set_rot(
+                    links_workspace,
+                    wa,
+                    k,
+                    WS_JOINT_ROT,
+                    rotation_from_scaled_axis(Vector::ith(dof_id as usize, new)),
+                );
             }
             #[cfg(feature = "dim2")]
             {
                 let v = dof_vel[aid + curr_free as usize];
-                let new = ws.coords.read(DIM as usize) + v * dt;
-                ws.coords.write(DIM as usize, new);
-                ws.joint_rot = rotation_from_angle(new);
+                let new = ws_coord(links_workspace, wa, k, DIM) + v * dt;
+                ws_set_coord(links_workspace, wa, k, DIM, new);
+                ws_set_rot(links_workspace, wa, k, WS_JOINT_ROT, rotation_from_angle(new));
             }
         } else if num_ang == 3 {
             #[cfg(feature = "dim3")]
@@ -151,10 +155,20 @@ pub fn gpu_mb_integrate(
                 let vz = dof_vel[aid + (curr_free + 2) as usize];
                 let ang = Vector::new(vx, vy, vz);
                 let disp = rotation_from_scaled_axis(ang * dt);
-                ws.joint_rot = rotation_renormalize_fast(disp * ws.joint_rot);
-                *ws.coords.at_mut(3) += vx * dt;
-                *ws.coords.at_mut(4) += vy * dt;
-                *ws.coords.at_mut(5) += vz * dt;
+                let jr = ws_rot(links_workspace, wa, k, WS_JOINT_ROT);
+                ws_set_rot(
+                    links_workspace,
+                    wa,
+                    k,
+                    WS_JOINT_ROT,
+                    rotation_renormalize_fast(disp * jr),
+                );
+                let c3 = ws_coord(links_workspace, wa, k, 3);
+                ws_set_coord(links_workspace, wa, k, 3, c3 + vx * dt);
+                let c4 = ws_coord(links_workspace, wa, k, 4);
+                ws_set_coord(links_workspace, wa, k, 4, c4 + vy * dt);
+                let c5 = ws_coord(links_workspace, wa, k, 5);
+                ws_set_coord(links_workspace, wa, k, 5, c5 + vz * dt);
             }
         }
         // num_ang == 0: no-op.

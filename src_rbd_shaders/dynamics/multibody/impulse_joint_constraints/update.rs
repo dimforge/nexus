@@ -1,6 +1,7 @@
 //! Per-joint (re)build of all axis constraints (`update_one_joint`) and the
 //! multibody-side `M⁻¹·Jᵀ` back-solve used by the finalize pass.
 
+use glamx::Vec4;
 use khal_std::index::MaybeIndexUnchecked;
 
 use crate::dynamics::body::WorldMassProperties;
@@ -8,7 +9,8 @@ use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK, SPATIAL_DIM};
 use crate::utils::linalg::{MatSlice, lu_solve_in_place, VSlice};
 use crate::{DIM, Pose};
 
-use super::super::types::{MultibodyInfo, MultibodyLinkWorkspace};
+use super::super::types::MultibodyInfo;
+use super::super::ws_soa::{WS_LTW, WsAddr, ws_pose};
 use super::helper::*;
 use super::jacobians::*;
 use super::types::*;
@@ -56,7 +58,7 @@ impl MbImpulseJointBuilder {
         jacobians: &mut [f32],
         jac_buf_start: usize,
         multibody_info: &[MultibodyInfo],
-        links_workspace: &[MultibodyLinkWorkspace],
+        links_workspace: &[Vec4],
         body_jacobians: &[f32],
         // Interleaved dynamics-buffer view (`stride = num_batches`, `shift =
         // batch_id`).
@@ -386,7 +388,7 @@ pub(super) fn side_world_pose(
     side_id: u32,
     side_link: u32,
     mb: &MultibodyInfo,
-    links_workspace: &[MultibodyLinkWorkspace],
+    links_workspace: &[Vec4],
     il: VSlice,
     poses: &[Pose],
     colliders_start: usize,
@@ -397,6 +399,6 @@ pub(super) fn side_world_pose(
     if side_kind == SIDE_KIND_BODY {
         return poses.read(colliders_start + side_id as usize);
     }
-    let link_global = il.atz(mb.first_link as usize + side_link as usize);
-    links_workspace.read(link_global).local_to_world
+    let wa = WsAddr::new(mb.first_link as usize, il.stride, il.shift);
+    ws_pose(links_workspace, wa, side_link, WS_LTW)
 }

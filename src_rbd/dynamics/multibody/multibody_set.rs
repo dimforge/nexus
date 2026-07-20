@@ -61,8 +61,9 @@ pub struct GpuMultibodySet {
     /// CPU-side mirror of [`Self::links_static`] used to support runtime
     /// mutations like motor changes without round-tripping through a GPU read.
     pub(super) links_static_mirror: Vec<MultibodyLinkStatic>,
-    /// Per-batch per-step link workspace.
-    pub(super) links_workspace: Tensor<MultibodyLinkWorkspace>,
+    /// Per-batch per-step link workspace, SoA quad layout — see
+    /// `crate::shaders::dynamics::ws_soa`.
+    pub(super) links_workspace: Tensor<glamx::Vec4>,
     /// Generalized coordinates (flat).
     pub(super) dof_values: Tensor<f32>,
     /// Packed buffer holding generalized velocities (offset 0) and per-DOF
@@ -185,12 +186,12 @@ impl GpuMultibodySet {
     /// beats lane-parallelism — whose ~60-barrier dependency chain caps how
     /// fast one multibody can finish — but ONLY once there are enough
     /// multibodies for the thread count to hide the long serial chain's
-    /// latency (measured crossover between 1024 and 4096 on Apple M-series;
-    /// below that, spreading each robot across 8 lanes wins despite the
-    /// barriers).
+    /// latency (measured crossover ≈1024 on Apple M-series with the SoA
+    /// workspace; below that, spreading each robot across 8 lanes wins
+    /// despite the barriers).
     pub(crate) fn pack_lanes(&self) -> u32 {
         let total_mb = self.num_active_multibodies * self.num_batches;
-        if self.max_ndofs <= 8 && total_mb >= 2048 {
+        if self.max_ndofs <= 8 && total_mb >= 1024 {
             1
         } else {
             self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)
