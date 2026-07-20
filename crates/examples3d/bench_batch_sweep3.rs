@@ -11,8 +11,9 @@
 //!     --bin bench_batch_sweep3 -- [scene] [size] [max_batches] [num_warmup] [num_iters]
 //! ```
 //!
-//! - `scene`: `boxes` (ground + size×size box pile per env, contact path) or
-//!   `chain` (size-link revolute multibody pendulum per env, robot path).
+//! - `scene`: `boxes` (ground + size×size box pile per env, contact path),
+//!   `chain` (size-link revolute multibody pendulum per env, robot path), or
+//!   `chain-nsc` (same with multibody self-contacts disabled, as MJCF robots).
 //! - Defaults: boxes, size 3, max_batches 1024, 20 warmup, 100 timed steps.
 //! - `BACKEND=cpu|webgpu|metal` selects the backend (default: metal).
 //!
@@ -57,7 +58,7 @@ fn build_boxes_env(state: &mut NexusState, env: usize, size: usize) {
     }
 }
 
-fn build_chain_env(state: &mut NexusState, env: usize, num_links: usize) {
+fn build_chain_env(state: &mut NexusState, env: usize, num_links: usize, self_contacts: bool) {
     let rad = 0.4;
     let link_len = 2.0;
 
@@ -67,6 +68,7 @@ fn build_chain_env(state: &mut NexusState, env: usize, num_links: usize) {
         ColliderBuilder::cuboid(rad, rad, rad).build(),
     );
 
+    let mut first_joint = None;
     for i in 0..num_links {
         let x = (i as f32 + 1.0) * link_len;
         let handle = state.insert_rigid_body_in(
@@ -74,7 +76,10 @@ fn build_chain_env(state: &mut NexusState, env: usize, num_links: usize) {
             RigidBodyBuilder::dynamic()
                 .translation(Vec3::new(x, 0.0, 0.0))
                 .build(),
-            ColliderBuilder::cuboid(link_len * 0.5, rad, rad).build(),
+            // Longer than the link spacing so adjacent links overlap at the
+            // joints (like real robot collision meshes) — this makes the
+            // self-contact broad-phase pairs real rather than borderline.
+            ColliderBuilder::cuboid(link_len * 0.7, rad, rad).build(),
         );
 
         let parent_anchor = if i == 0 {
@@ -86,10 +91,23 @@ fn build_chain_env(state: &mut NexusState, env: usize, num_links: usize) {
             .local_anchor1(parent_anchor)
             .local_anchor2(Vec3::new(-link_len * 0.8, 0.0, 0.0))
             .build();
-        state
+        let jh = state
             .insert_multibody_joint_in(env, parent, handle, joint)
             .expect("invalid multibody chain");
+        first_joint.get_or_insert(jh);
         parent = handle;
+    }
+
+    // `chain-nsc`: robot-style setup (MJCF `DISABLE_SELF_CONTACTS`) — links of
+    // the same multibody never collide with each other.
+    if !self_contacts {
+        let jh = first_joint.expect("chain has at least one joint");
+        let world = state.rbd_world_mut(env);
+        let (mb, _) = world
+            .multibody_joints
+            .get_mut(jh)
+            .expect("chain multibody missing");
+        mb.set_self_contacts_enabled(false);
     }
 }
 
@@ -102,7 +120,8 @@ fn build_state(scene: &str, size: usize, num_batches: usize) -> NexusState {
     for b in 0..num_batches {
         let env = if b == 0 { 0 } else { state.add_environment() };
         match scene {
-            "chain" => build_chain_env(&mut state, env, size),
+            "chain" => build_chain_env(&mut state, env, size, true),
+            "chain-nsc" => build_chain_env(&mut state, env, size, false),
             _ => build_boxes_env(&mut state, env, size),
         }
     }
@@ -237,7 +256,8 @@ async fn bench_point(
     }
     println!(
         "  sanity at {num_batches} batches: non-finite {nan}, max |pos| {max_pos:.3}, \
-         checksum {sum:.6}"
+         checksum {sum:.6}, max pairs/env {}",
+        state.counts().collision_pairs
     );
     if nan > 0 || max_pos > 1.0e4 {
         anyhow::bail!("simulation diverged (nan={nan}, max|pos|={max_pos:.2})");

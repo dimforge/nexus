@@ -179,6 +179,7 @@ impl RbdPipeline {
                 &mut state.collision_pairs_len,
                 &mut state.collision_pairs_indirect,
                 &state.collision_groups,
+                &state.pair_filter,
             )?;
 
             drop(pass);

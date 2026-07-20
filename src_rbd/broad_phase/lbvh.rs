@@ -269,6 +269,7 @@ impl Lbvh {
         collision_pairs_len: &mut Tensor<u32>,
         collision_pairs_indirect: &mut Tensor<[u32; 3]>,
         collision_groups: &Tensor<crate::rapier::geometry::InteractionGroups>,
+        pair_filter: &Tensor<[u32; 2]>,
     ) -> Result<(), GpuBackendError> {
         // One thread per live collider (leaf); padding slots aren't in the tree.
         let colliders_per_batch = active_per_batch;
@@ -286,6 +287,7 @@ impl Lbvh {
             collision_pairs_len,
             collision_groups,
             batch_indices,
+            pair_filter,
         )?;
         self.shaders.lbvh_init_indirect_args.call(
             pass,

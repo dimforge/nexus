@@ -526,6 +526,7 @@ pub fn gpu_lbvh_find_collision_pairs(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     collision_groups: &[InteractionGroups],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pair_filter: &[[u32; 2]],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
@@ -536,10 +537,12 @@ pub fn gpu_lbvh_find_collision_pairs(
     let mut collision_pairs = batch_ids.collision_pairs_batch_mut(batch_id, collision_pairs);
     let tree = Slice(tree, root_id(colliders_start) as usize);
     let collision_groups = batch_ids.coll_batch(batch_id, collision_groups);
+    let pair_filter = batch_ids.coll_batch(batch_id, pair_filter);
 
     for leaf_i in StepRng::new(invocation_id.x..num_bodies, num_threads) {
         let i = tree.at((first_leaf_id + leaf_i) as usize).left;
         let groups_i = collision_groups[i as usize];
+        let filter_i = pair_filter[i as usize];
         let mut aabb1 = tree.at((first_leaf_id + leaf_i) as usize).aabb;
         let prediction = 2.0e-3; // TODO: should be configurable.
         let dilation = Vector::splat(prediction);
@@ -568,10 +571,17 @@ pub fn gpu_lbvh_find_collision_pairs(
                 let groups_j = collision_groups[j as usize];
 
                 // Skip pairs whose collision groups don't authorize an interaction.
-                // NOTE: same-body collider pairs are *not* filtered here — that
-                //       skip is deferred to the narrow-phase so the broad phase
-                //       never has to touch `collider_parent`.
                 if !groups_i.test(groups_j) {
+                    continue;
+                }
+
+                // Built-in filters (mirrors rapier's narrow-phase rules, moved
+                // up here so filtered pairs never pay for manifold
+                // computation): two colliders of the same body never collide,
+                // nor do two links of a multibody with self-contacts disabled
+                // (equal nonzero multibody key). See `RbdState::pair_filter`.
+                let filter_j = pair_filter[j as usize];
+                if filter_i[0] == filter_j[0] || (filter_i[1] != 0 && filter_i[1] == filter_j[1]) {
                     continue;
                 }
 

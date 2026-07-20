@@ -141,6 +141,7 @@ impl RbdState {
         // Bodies and colliders share the `max_colliders` per-batch stride but
         // form distinct index spaces — a body may own several colliders.
         let mut all_collider_parent: Vec<u32> = Vec::new();
+        let mut all_pair_filter: Vec<[u32; 2]> = Vec::new();
         // Per-environment count of *active* rigid bodies (distinct collider
         // parents + one synthetic body per parentless collider). Used to assert
         // the equal-topology invariant and to set `BatchIndices::bodies_len`.
@@ -229,6 +230,22 @@ impl RbdState {
                     }
                 };
 
+            // Bodies whose multibody disables self-contacts (MJCF
+            // `DISABLE_SELF_CONTACTS`): handle → multibody ordinal + 1. Used
+            // for the broad-phase `pair_filter` key below.
+            #[cfg(feature = "dim3")]
+            let no_self_collide: HashMap<crate::rapier::dynamics::RigidBodyHandle, u32> = {
+                let mut map = HashMap::new();
+                for (mb_ord, mb) in multibody_joints.multibodies().enumerate() {
+                    if !mb.self_contacts_enabled() {
+                        for link in mb.links() {
+                            map.insert(link.rigid_body_handle(), mb_ord as u32 + 1);
+                        }
+                    }
+                }
+                map
+            };
+
             for (_, co) in colliders.iter() {
                 // Resolve (allocating if needed) the parent body's env-local slot.
                 //
@@ -281,6 +298,16 @@ impl RbdState {
                 all_collider_materials.push(collider_material_from_rapier(co));
                 // Env-local body slot; the kernels apply the per-batch stride.
                 all_collider_parent.push(body_local);
+
+                // Broad-phase pair-filter key — see `RbdState::pair_filter`.
+                #[cfg(feature = "dim3")]
+                let mb_key = co
+                    .parent()
+                    .and_then(|h| no_self_collide.get(&h).copied())
+                    .unwrap_or(0);
+                #[cfg(feature = "dim2")]
+                let mb_key = 0u32;
+                all_pair_filter.push([body_local, mb_key]);
             }
 
             // Give every multibody link a body slot too, even collider-less ones
@@ -327,6 +354,9 @@ impl RbdState {
                 all_collider_materials.push(GpuColliderMaterial::default());
                 // Padding colliders are inert; parent body 0 is a safe placeholder.
                 all_collider_parent.push(0);
+                // `u32::MAX` parent: padding never aliases a real body's key
+                // (their NONE collision groups already exclude them anyway).
+                all_pair_filter.push([u32::MAX, 0]);
             }
 
             // Pad bodies to the shared per-batch stride (`max_colliders` =
@@ -539,6 +569,7 @@ impl RbdState {
             Tensor::vector(backend, &all_collider_local_poses, storage).unwrap();
         let collider_parent = Tensor::vector(backend, &all_collider_parent, storage).unwrap();
         let collision_groups = Tensor::vector(backend, &all_collision_groups, storage).unwrap();
+        let pair_filter = Tensor::vector(backend, &all_pair_filter, storage).unwrap();
         let collider_materials = Tensor::vector(backend, &all_collider_materials, storage).unwrap();
 
         let collision_pairs = Tensor::vector_uninit(
@@ -758,6 +789,7 @@ impl RbdState {
             collider_local_poses,
             collider_parent,
             collision_groups,
+            pair_filter,
             collider_materials,
             collision_pairs,
             collision_pairs_len,

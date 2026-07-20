@@ -151,6 +151,16 @@ pub struct RbdState {
     pub(super) collider_world_poses: Tensor<Pose>,
     /// Per-collider [`crate::rapier::geometry::InteractionGroups`].
     pub(super) collision_groups: Tensor<crate::rapier::geometry::InteractionGroups>,
+    /// Per-collider broad-phase pair-filter key, mirroring rapier's built-in
+    /// narrow-phase filters at pair-emission time so filtered pairs never
+    /// reach the (much more expensive) narrow phase:
+    /// - `[0]`: env-local parent body slot — two colliders of the same body
+    ///   never collide;
+    /// - `[1]`: multibody ordinal + 1 when the parent belongs to a multibody
+    ///   with self-contacts disabled (rapier's
+    ///   `Multibody::self_contacts_enabled`, MJCF `DISABLE_SELF_CONTACTS`),
+    ///   `0` otherwise — equal nonzero keys never collide.
+    pub(super) pair_filter: Tensor<[u32; 2]>,
     /// Per-collider friction / restitution coefficients (+ combine rules),
     pub(super) collider_materials: Tensor<GpuColliderMaterial>,
     pub(super) collision_pairs: Tensor<CollisionPair>,

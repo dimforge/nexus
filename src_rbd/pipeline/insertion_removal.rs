@@ -77,9 +77,12 @@ impl RbdState {
         // collider_parent: identity within each batch initially (no body is
         // active yet). `append_bodies` overwrites the active prefix.
         let mut all_collider_parent = Vec::with_capacity(num_bodies_total);
+        let mut all_pair_filter = Vec::with_capacity(num_bodies_total);
         for _ in 0..num_batches {
             for c in 0..capacity_per_batch {
                 all_collider_parent.push(c);
+                // Identity parent, no multibody key — see `RbdState::pair_filter`.
+                all_pair_filter.push([c, 0u32]);
             }
         }
 
@@ -123,6 +126,7 @@ impl RbdState {
         let collider_local_poses = Tensor::vector(backend, &all_collider_local_poses, rw).unwrap();
         let collider_parent = Tensor::vector(backend, &all_collider_parent, rw).unwrap();
         let collision_groups = Tensor::vector(backend, &all_collision_groups, rw).unwrap();
+        let pair_filter = Tensor::vector(backend, &all_pair_filter, rw).unwrap();
         // Padding colliders are inert; default material keeps the buffer sized.
         let all_collider_materials = vec![GpuColliderMaterial::default(); num_bodies_total];
         let collider_materials = Tensor::vector(backend, &all_collider_materials, rw).unwrap();
@@ -262,6 +266,7 @@ impl RbdState {
             collider_local_poses,
             collider_parent,
             collision_groups,
+            pair_filter,
             collider_materials,
             collision_pairs,
             collision_pairs_len,
@@ -427,6 +432,9 @@ impl RbdState {
         // body's collider slot equals its body slot: `collider_parent` is the
         // identity over the appended (env-local) range.
         let parents: Vec<u32> = (active as u32..(active + bodies.len()) as u32).collect();
+        // Appended bodies are free bodies (never multibody links): identity
+        // parent key, no multibody key — see `RbdState::pair_filter`.
+        let pair_filters: Vec<[u32; 2]> = parents.iter().map(|&p| [p, 0u32]).collect();
 
         // Write the same body data into every batch's slot range so all
         // environments share the same topology.
@@ -441,6 +449,7 @@ impl RbdState {
                 &collider_local_poses,
             )?;
             backend.write_buffer(self.collider_parent.buffer_mut(), base, &parents)?;
+            backend.write_buffer(self.pair_filter.buffer_mut(), base, &pair_filters)?;
             backend.write_buffer(self.local_mprops.buffer_mut(), base, &local_mprops)?;
             backend.write_buffer(self.mprops.buffer_mut(), base, &mprops)?;
             backend.write_buffer(self.shapes.buffer_mut(), base, &shapes)?;
@@ -591,6 +600,7 @@ impl RbdState {
         // `collider_parent` is the identity mapping on the incremental (one
         // collider per body) path and stays identity under swap-remove, so it
         // needs no relocation; only the active body count tracks the colliders.
+        // The same holds for `pair_filter` (`[identity, 0]` on this path).
         self.num_active_bodies = self.num_active_colliders;
         self.rebuild_batch_indices(backend);
         Ok(remaps)
