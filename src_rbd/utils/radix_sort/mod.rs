@@ -38,6 +38,11 @@ pub struct RadixSort {
 /// intermediate buffers as needed.
 pub struct RadixSortWorkspace {
     pass_uniforms: Vec<Tensor<SortUniforms>>,
+    /// Configuration `(mode, sorting_bits, max_keys, num_batches)` the cached
+    /// `pass_uniforms` / `n_sort_flat` were built for. The uniforms only
+    /// depend on this key, so steady-state sorts skip re-creating the 8-11
+    /// tiny GPU buffers every call.
+    uniforms_key: (u32, u32, u32, u32),
     reduced_buf: Tensor<u32>, // Tensor of size BLOCK_SIZE
     count_buf: Tensor<u32>,
     num_wgs: Tensor<[u32; 3]>,
@@ -57,6 +62,7 @@ impl RadixSortWorkspace {
         let zeros = vec![0u32; BLOCK_SIZE as usize];
         Self {
             pass_uniforms: vec![],
+            uniforms_key: (u32::MAX, 0, 0, 0),
             reduced_buf: Tensor::vector(backend, &zeros, BufferUsages::STORAGE).unwrap(),
             count_buf: Tensor::vector_uninit(backend, 0, BufferUsages::STORAGE).unwrap(),
             num_wgs: Tensor::scalar(
@@ -254,18 +260,22 @@ impl RadixSort {
 
         let num_passes = sorting_bits.div_ceil(4);
 
-        // Create uniforms (has_aux=0 for single batch).
-        workspace.pass_uniforms.clear();
-        for pass_id in 0..num_passes {
-            workspace.pass_uniforms.push(Tensor::scalar(
-                backend,
-                SortUniforms {
-                    shift: pass_id * 4,
-                    max_keys_per_batch: per_batch_max,
-                    has_aux: 0,
-                },
-                BufferUsages::STORAGE | BufferUsages::UNIFORM,
-            )?);
+        // Create uniforms (has_aux=0 for single batch), cached across calls.
+        let uniforms_key = (0, sorting_bits, per_batch_max, 1);
+        if workspace.uniforms_key != uniforms_key {
+            workspace.pass_uniforms.clear();
+            for pass_id in 0..num_passes {
+                workspace.pass_uniforms.push(Tensor::scalar(
+                    backend,
+                    SortUniforms {
+                        shift: pass_id * 4,
+                        max_keys_per_batch: per_batch_max,
+                        has_aux: 0,
+                    },
+                    BufferUsages::STORAGE | BufferUsages::UNIFORM,
+                )?);
+            }
+            workspace.uniforms_key = uniforms_key;
         }
 
         let mut output_keys = output_keys;
@@ -402,40 +412,46 @@ impl RadixSort {
                 Tensor::vector_uninit(backend, total_n, BufferUsages::STORAGE)?;
         }
 
-        // n_sort_flat = [total_n] for the flattened single-batch view.
-        workspace.n_sort_flat = Tensor::scalar(backend, total_n, BufferUsages::STORAGE)?;
+        // The pass uniforms and the flattened count only depend on
+        // `(sorting_bits, total_n, num_batches)` — cache them across calls.
+        let init_uniform_idx = total_passes as usize;
+        let uniforms_key = (1, sorting_bits, total_n, num_batches);
+        if workspace.uniforms_key != uniforms_key {
+            // n_sort_flat = [total_n] for the flattened single-batch view.
+            workspace.n_sort_flat = Tensor::scalar(backend, total_n, BufferUsages::STORAGE)?;
 
-        // Create uniforms for all passes.
-        workspace.pass_uniforms.clear();
-        for pass_id in 0..total_passes {
-            let shift = if pass_id < key_passes {
-                pass_id * 4
-            } else {
-                (pass_id - key_passes) * 4
-            };
+            // Create uniforms for all passes.
+            workspace.pass_uniforms.clear();
+            for pass_id in 0..total_passes {
+                let shift = if pass_id < key_passes {
+                    pass_id * 4
+                } else {
+                    (pass_id - key_passes) * 4
+                };
+                workspace.pass_uniforms.push(Tensor::scalar(
+                    backend,
+                    SortUniforms {
+                        shift,
+                        max_keys_per_batch: total_n,
+                        has_aux: 1,
+                    },
+                    BufferUsages::STORAGE | BufferUsages::UNIFORM,
+                )?);
+            }
+
+            // Extra uniform for init_batched (max_keys_per_batch = per_batch, not total_n).
+            // shift is repurposed to carry num_batches for this kernel.
             workspace.pass_uniforms.push(Tensor::scalar(
                 backend,
                 SortUniforms {
-                    shift,
-                    max_keys_per_batch: total_n,
-                    has_aux: 1,
+                    shift: num_batches,
+                    max_keys_per_batch: per_batch,
+                    has_aux: 0,
                 },
                 BufferUsages::STORAGE | BufferUsages::UNIFORM,
             )?);
+            workspace.uniforms_key = uniforms_key;
         }
-
-        // Extra uniform for init_batched (max_keys_per_batch = per_batch, not total_n).
-        // shift is repurposed to carry num_batches for this kernel.
-        let init_uniform_idx = total_passes as usize;
-        workspace.pass_uniforms.push(Tensor::scalar(
-            backend,
-            SortUniforms {
-                shift: num_batches,
-                max_keys_per_batch: per_batch,
-                has_aux: 0,
-            },
-            BufferUsages::STORAGE | BufferUsages::UNIFORM,
-        )?);
 
         // Init writes to output buffers. After even total_passes, data stays in output.
         // NOTE: call() takes a thread count, not workgroup count (khal resolves internally).
