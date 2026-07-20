@@ -199,9 +199,13 @@ impl GpuMultibodySolver {
 
         if mb.has_joint_constraints {
             let mut pass = encoder.begin_pass("[RBD] mbb/init-joint", timestamps.as_deref_mut());
+            // One 64-lane workgroup per multibody: lane 0 emits the constraint
+            // metadata serially (cheap), then the per-constraint M⁻¹-column LU
+            // back-solves run one-per-lane instead of sequentially.
+            let init_joint_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
             self.init_joint_with_bias.call(
                 &mut pass,
-                dispatch,
+                init_joint_dispatch,
                 &mb.multibody_info,
                 &mb.links_static,
                 &mb.links_workspace,
