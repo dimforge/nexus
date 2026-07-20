@@ -153,6 +153,30 @@ impl GpuMultibodySet {
         self.multibodies_per_batch
     }
 
+    /// Thread-count grid for the per-multibody kernels, with `(multibody,
+    /// batch)` flattened into X. A 2D `[per_batch, num_batches]` grid gives
+    /// every batch its own workgroup — mostly idle lanes when each
+    /// environment holds a single robot. The kernels decode
+    /// `batch_id = x / multibodies_len`, `mb_idx = x % multibodies_len`.
+    pub(crate) fn flat_mb_dispatch(&self) -> [u32; 3] {
+        [self.num_active_multibodies * self.num_batches, 1, 1]
+    }
+
+    /// Lanes per multibody for the packed per-multibody workgroup kernels —
+    /// mirrored into `BatchIndices::mb_pack_lanes`.
+    pub(crate) fn pack_lanes(&self) -> u32 {
+        self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)
+    }
+
+    /// Thread-count grid for the packed per-multibody WORKGROUP kernels
+    /// (`compute_dynamics_pre`, `gravity_and_lu`): `64 / pack_lanes`
+    /// multibodies per 64-lane workgroup, flattened `(multibody, batch)`.
+    pub(crate) fn packed_wg_dispatch(&self) -> [u32; 3] {
+        let slots = MB_LU_LANES / self.pack_lanes();
+        let total = self.num_active_multibodies * self.num_batches;
+        [total.div_ceil(slots) * MB_LU_LANES, 1, 1]
+    }
+
     /// True if the set contains no multibodies in any batch.
     ///
     /// Uses the *active* count: the per-batch capacity is padded to >= 1 to
@@ -308,6 +332,7 @@ impl GpuMultibodySet {
         dst.mb_imp_joint_color_groups_batch_capacity = self.mb_imp_joint_num_colors.max(1);
         dst.mb_max_ndofs = self.max_ndofs;
         dst.mb_max_links = self.max_links;
+        dst.mb_pack_lanes = self.pack_lanes();
         dst.coriolis_w_section_offset = self.coriolis_entries_per_batch * self.num_batches;
         dst.i_coriolis_dt_section_offset = 2 * self.coriolis_entries_per_batch * self.num_batches;
         dst.dof_damping_section_offset = self.dofs_per_batch * self.num_batches;

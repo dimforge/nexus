@@ -25,7 +25,7 @@ use super::types::{MultibodyInfo, MultibodyLinkStatic, MultibodyLinkWorkspace};
 /// constraints can run in between (rapier's order: velocity update → constraint
 /// solver → position update).
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_integrate_velocities(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -34,12 +34,13 @@ pub fn gpu_mb_integrate_velocities(
     #[spirv(uniform, descriptor_set = 0, binding = 3)] dt_uniform: &f32,
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
     let dt = *dt_uniform;
 
     let mb = batch_ids
@@ -57,7 +58,7 @@ pub fn gpu_mb_integrate_velocities(
 }
 
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_integrate(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -70,12 +71,13 @@ pub fn gpu_mb_integrate(
     #[spirv(uniform, descriptor_set = 0, binding = 5)] dt_uniform: &f32,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
     let dt = *dt_uniform;
 
     let mb = batch_ids

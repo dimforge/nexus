@@ -27,7 +27,28 @@ use crate::utils::{BatchIndices, Slice, SliceMut};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross_av};
 use parry::math::VectorExt;
 
-const LANES: u32 = 64;
+/// Packed slot decode shared by the two `pre` kernels: `64 / mb_pack_lanes`
+/// multibodies per 64-lane workgroup, `(multibody, batch)` flattened into the
+/// workgroup X dimension. Returns `(t, lane, batch_id, mb_idx, active_slot)`;
+/// inactive slots get clamped indices (their loops all no-op on the zeroed
+/// dummy `MultibodyInfo` the caller substitutes). `mb_pack_lanes` is
+/// uniform-sourced so the decode keeps uniform control flow for barriers.
+#[inline(always)]
+fn packed_decode(wg_id: UVec3, lid: UVec3, batch_ids: &BatchIndices) -> (u32, u32, u32, u32, bool) {
+    let t = batch_ids.mb_pack_lanes;
+    let slot = lid.x / t;
+    let lane = lid.x % t;
+    let slots = 64 / t;
+
+    let num_mb = batch_ids.multibodies_len;
+    let total_mb = num_mb * batch_ids.num_batches;
+    let global_mb = wg_id.x * slots + slot;
+    let active_slot = global_mb < total_mb;
+    let clamped_mb = if active_slot { global_mb } else { total_mb - 1 };
+    let batch_id = clamped_mb / num_mb;
+    let mb_idx = clamped_mb % num_mb;
+    (t, lane, batch_id, mb_idx, active_slot)
+}
 
 // TODO: refactor into multiple functions (but single kernel) to share between the coriolis and non-coriolis versions.
 /// Fused FK + body-jacobians + velocity propagation + CRBA-with-Coriolis.
@@ -49,21 +70,23 @@ pub fn gpu_mb_compute_dynamics_pre(
     #[spirv(uniform, descriptor_set = 0, binding = 8)] dt_uniform: &f32,
     #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = wg_id.y;
-    let mb_idx = wg_id.x;
-    let lane = lid.x;
-    // Padding multibody slots have `num_links == 0` and `ndofs == 0` so all
-    // per-link / per-DOF loops below iterate zero times. No early-return —
-    // WGSL's naga frontend can't prove a storage-loaded comparison is
+    // Packed layout — see `packed_decode`. No early-return for inactive
+    // slots — WGSL's naga frontend can't prove a storage-loaded comparison is
     // uniform across the workgroup, so any subsequent `workgroupBarrier()`
-    // would be flagged "called from non-uniform control flow". See
-    // `gpu_mb_lu_decompose` for the rationale.
+    // would be flagged "called from non-uniform control flow"; inactive slots
+    // instead run every loop with a zeroed dummy `MultibodyInfo` (zero links /
+    // DOFs ⇒ zero iterations, no stores).
+    let (t, lane, batch_id, mb_idx, active_slot) = packed_decode(wg_id, lid, batch_ids);
 
     let dt = *dt_uniform;
 
-    let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
-        .read(mb_idx as usize);
+    let mb = if active_slot {
+        batch_ids
+            .mb_batch(batch_id, multibody_info)
+            .read(mb_idx as usize)
+    } else {
+        MultibodyInfo::default()
+    };
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
     let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
@@ -96,7 +119,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     let vel_slice = Slice(dof_state, vel_base);
 
     // 1) Forward Kinematics (single-threaded)
-    if lane == 0 {
+    if active_slot && num_links > 0 && lane == 0 {
         forward_kinematics(&mb, &stat_slice, &mut poses_slice, &mut ws_slice, num_links);
     }
     workgroup_memory_barrier_with_group_sync();
@@ -104,6 +127,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     // 2) Update body jacobians
     update_body_jacobians(
         lane,
+        t,
         mb_jac_base,
         ndofs,
         num_links,
@@ -114,14 +138,14 @@ pub fn gpu_mb_compute_dynamics_pre(
     );
 
     // 3) Propagate velocities (single-threaded)
-    if lane == 0 {
+    if active_slot && num_links > 0 && lane == 0 {
         propagate_velocities(num_links, &stat_slice, &vel_slice, &mut ws_slice);
     }
     workgroup_memory_barrier_with_group_sync();
 
     // 3) Mass matrix (with semi-implicit coriolis handling).
     let acc_augmented_mass = MatSlice::dense(mb_mm_base, ndofs, ndofs);
-    fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, LANES);
+    fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
 
     let i_coriolis_dt_view = MatSlice::dense(mb_icdt_base, SPATIAL_DIM as u32, ndofs);
     let i_coriolis_dt_v = i_coriolis_dt_view.fixed_rows(0, DIM);
@@ -146,7 +170,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                     DIM,
                     ndofs,
                 );
-                fill_par(coriolis_packed, coriolis_block, 0.0, lane, LANES);
+                fill_par(coriolis_packed, coriolis_block, 0.0, lane, t);
                 fill_par(
                     coriolis_packed,
                     MatSlice::dense(
@@ -156,7 +180,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                     ),
                     0.0,
                     lane,
-                    LANES,
+                    t,
                 );
             }
         }
@@ -211,7 +235,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                 body_jacobian,
                 1.0,
                 lane,
-                LANES,
+                t,
             );
 
             if k != 0 {
@@ -241,14 +265,14 @@ pub fn gpu_mb_compute_dynamics_pre(
                     coriolis_v_i,
                     parent_coriolis_v,
                     lane,
-                    LANES,
+                    t,
                 );
                 copy_from_par(
                     coriolis_packed,
                     coriolis_w_i,
                     parent_coriolis_w,
                     lane,
-                    LANES,
+                    t,
                 );
 
                 gemm_skew_tr_lhs_par(
@@ -259,7 +283,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                     parent_coriolis_w,
                     1.0,
                     lane,
-                    LANES,
+                    t,
                 );
 
                 let dvel = crate::gcross_av(ws.rb_vels.angular, ws.shift02)
@@ -273,7 +297,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                     parent_j_w,
                     1.0,
                     lane,
-                    LANES,
+                    t,
                 );
 
                 gemm_skew_tr_lhs_cross_buf_par(
@@ -285,7 +309,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                     parent_j_w,
                     1.0,
                     lane,
-                    LANES,
+                    t,
                 );
 
                 gemm_omega_skew_tr_cross_buf_par(
@@ -298,7 +322,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                     parent_j_w,
                     1.0,
                     lane,
-                    LANES,
+                    t,
                 );
 
                 #[cfg(feature = "dim3")]
@@ -312,7 +336,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                         parent_j_w,
                         1.0,
                         lane,
-                        LANES,
+                        t,
                     );
                 }
             }
@@ -371,8 +395,8 @@ pub fn gpu_mb_compute_dynamics_pre(
                     }
                 }
             } else {
-                fill_par(coriolis_packed, coriolis_v_i, 0.0, lane, LANES);
-                fill_par(coriolis_packed, coriolis_w_i, 0.0, lane, LANES);
+                fill_par(coriolis_packed, coriolis_v_i, 0.0, lane, t);
+                fill_par(coriolis_packed, coriolis_w_i, 0.0, lane, t);
             }
         }
 
@@ -388,7 +412,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                 coriolis_w_i,
                 1.0,
                 lane,
-                LANES,
+                t,
             );
 
             let dvel_23 = crate::gcross_av(ws.rb_vels.angular, ws.shift23);
@@ -401,7 +425,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                 rb_j_w,
                 1.0,
                 lane,
-                LANES,
+                t,
             );
 
             gemm_omega_skew_tr_cross_buf_par(
@@ -414,7 +438,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                 rb_j_w,
                 1.0,
                 lane,
-                LANES,
+                t,
             );
         }
 
@@ -440,7 +464,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                 coriolis_w_i,
                 0.0,
                 lane,
-                LANES,
+                t,
             );
         }
 
@@ -457,7 +481,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                 i_coriolis_dt_view,
                 1.0,
                 lane,
-                LANES,
+                t,
             );
         }
 
@@ -495,18 +519,19 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
     #[spirv(uniform, descriptor_set = 0, binding = 7)] dt_uniform: &f32,
     #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = wg_id.y;
-    let mb_idx = wg_id.x;
-    let lane = lid.x;
-    // No early-return on out-of-range `mb_idx` — see `gpu_mb_lu_decompose`
-    // for the WGSL uniformity rationale. Dummy multibody slots have zero
-    // links / DOFs, so all per-link loops below iterate zero times.
+    // Packed layout — see `packed_decode` and the uniformity note on
+    // `gpu_mb_compute_dynamics_pre`.
+    let (t, lane, batch_id, mb_idx, active_slot) = packed_decode(wg_id, lid, batch_ids);
 
     let dt = *dt_uniform;
 
-    let mb = batch_ids
-        .mb_batch(batch_id, multibody_info)
-        .read(mb_idx as usize);
+    let mb = if active_slot {
+        batch_ids
+            .mb_batch(batch_id, multibody_info)
+            .read(mb_idx as usize)
+    } else {
+        MultibodyInfo::default()
+    };
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
     let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
@@ -534,7 +559,7 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
     let vel_slice = Slice(dof_state, vel_base);
 
     // 1) Forward Kinematics (single-threaded)
-    if lane == 0 {
+    if active_slot && num_links > 0 && lane == 0 {
         forward_kinematics(&mb, &stat_slice, &mut poses_slice, &mut ws_slice, num_links);
     }
     workgroup_memory_barrier_with_group_sync();
@@ -542,6 +567,7 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
     // 2) Update body jacobians
     update_body_jacobians(
         lane,
+        t,
         mb_jac_base,
         ndofs,
         num_links,
@@ -552,14 +578,14 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
     );
 
     // 3) Velocities propagation (single-threaded)
-    if lane == 0 {
+    if active_slot && num_links > 0 && lane == 0 {
         propagate_velocities(num_links, &stat_slice, &vel_slice, &mut ws_slice);
     }
     workgroup_memory_barrier_with_group_sync();
 
     // 4) Mass matrix (without coriolis).
     let acc_augmented_mass = MatSlice::dense(mb_mm_base, ndofs, ndofs);
-    fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, LANES);
+    fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
     workgroup_memory_barrier_with_group_sync();
 
     // NOTE: uniform trip count (from the `BatchIndices` uniform).
@@ -594,7 +620,7 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
                 body_jacobian,
                 1.0,
                 lane,
-                LANES,
+                t,
             );
         }
 
@@ -718,6 +744,8 @@ fn forward_kinematics(
 
 fn update_body_jacobians(
     lane: u32,
+    // Lanes owned by this multibody's slot (`BatchIndices::mb_pack_lanes`).
+    lanes: u32,
     mb_jac_base: usize,
     ndofs: u32,
     num_links: u32,
@@ -753,7 +781,7 @@ fn update_body_jacobians(
                 let parent_link = &ws_slice[link_infos.parent_link_id as usize];
                 parent_to_world = parent_link.local_to_world;
 
-                copy_from_par(body_jacobians, link_j, parent_j, lane, LANES);
+                copy_from_par(body_jacobians, link_j, parent_j, lane, lanes);
                 let link_j_v = link_j.fixed_rows(0, DIM);
                 let parent_j_w = parent_j.fixed_rows(DIM, ANG_DIM);
                 gemm_skew_tr_lhs_par(
@@ -764,10 +792,10 @@ fn update_body_jacobians(
                     parent_j_w,
                     1.0,
                     lane,
-                    LANES,
+                    lanes,
                 );
             } else {
-                fill_par(body_jacobians, link_j, 0.0, lane, LANES);
+                fill_par(body_jacobians, link_j, 0.0, lane, lanes);
             }
         }
 
@@ -781,7 +809,7 @@ fn update_body_jacobians(
                 body_jacobians,
                 link_j_part,
                 lane,
-                LANES,
+                lanes,
             );
         }
 
@@ -798,7 +826,7 @@ fn update_body_jacobians(
                 link_j_w,
                 1.0,
                 lane,
-                LANES,
+                lanes,
             );
         }
 

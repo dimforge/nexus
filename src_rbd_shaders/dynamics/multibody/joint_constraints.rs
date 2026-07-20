@@ -515,7 +515,7 @@ fn emit_motor_constraint(
 /// Must run after `gpu_mb_lu_decompose` — the LU factors of `M` are used to compute
 /// the per-constraint M⁻¹ column and effective inverse mass.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_joint_constraints(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -532,12 +532,13 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 7)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
     init_joint_constraints_body(
         multibody_info,
         links_static,
@@ -559,7 +560,7 @@ pub fn gpu_mb_init_joint_constraints(
 /// updates `dof_velocities` in place. Mirrors rapier's `JointConstraint::solve_generic`
 /// for a 1-DOF jacobian.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_solve_joint_constraints(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -570,12 +571,13 @@ pub fn gpu_mb_solve_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_state: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
     solve_joint_constraints_body(
         multibody_info,
         joint_constraints,
@@ -589,9 +591,9 @@ pub fn gpu_mb_solve_joint_constraints(
 
 /// Fused `remove_bias + solve_without_bias` for joint constraints — runs once
 /// per substep at the end of the substep, after position integration. Drops
-/// one threads(1) dispatch per substep.
+/// one per-multibody dispatch per substep.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_remove_solve_joint_no_bias(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -601,12 +603,13 @@ pub fn gpu_mb_remove_solve_joint_no_bias(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_state: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
 
     let mb = batch_ids
         .mb_batch(batch_id, multibody_info)

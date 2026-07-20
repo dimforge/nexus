@@ -254,6 +254,7 @@ impl RbdState {
     pub(super) fn rebuild_batch_indices(&mut self, backend: &GpuBackend) {
         #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
         let mut bi = BatchIndices {
+            num_batches: self.num_batches,
             colliders_batch_capacity: self.num_colliders_per_batch,
             colliders_len: self.num_active_colliders,
             bodies_len: self.num_active_bodies,

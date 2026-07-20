@@ -119,7 +119,7 @@ fn fill_contact_jac_row(
 /// `contact_constraint_jacs`. Multibody-multibody contacts (each side a
 /// different multibody) are not handled — such contacts are skipped.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_contact_constraints(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
@@ -135,8 +135,16 @@ pub fn gpu_mb_init_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] contacts: &[IndexedManifold],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
+    // Only ACTIVE multibody slots are visited now; the `ndofs == 0` sentinel
+    // below is kept for all-locked (zero-dof) multibodies. Padding slots past
+    // `multibodies_len` are never read (every consumer guards on it).
+    let num_mb = batch_ids.multibodies_len;
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
+        return;
+    }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
     // Soft-constraint coefficients (rapier TGS-soft), precomputed on the host.
     // The old path used a rigid `erp = 1/dt` with zero CFM, which overshoots
     // penetration recovery (~14× too stiff for the defaults) and jitters.
@@ -546,7 +554,7 @@ pub fn gpu_mb_init_contact_constraints(
 /// `gpu_mb_init_contact_constraints` preserves the impulse across substeps and
 /// `gpu_mb_warmstart_contact_constraints` re-applies it each substep.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_reset_contact_warmstart(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -554,12 +562,13 @@ pub fn gpu_mb_reset_contact_warmstart(
     contact_constraints: &mut [MultibodyContactConstraint],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
     let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let mb = multibody_info.read(mb_start + mb_idx as usize);
@@ -581,7 +590,7 @@ pub fn gpu_mb_reset_contact_warmstart(
 /// solver velocities. Applies the FULL accumulated impulse (no `rhs` term, no
 /// clamping).
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_warmstart_contact_constraints(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -592,12 +601,13 @@ pub fn gpu_mb_warmstart_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
 
     let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
@@ -735,7 +745,7 @@ pub fn gpu_mb_finalize_contact_constraints(
 /// One PGS sweep over the multibody's active contact constraints. Updates
 /// the multibody's `dof_velocities` and the free body's `solver_vels`.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_solve_contact_constraints(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
@@ -747,12 +757,13 @@ pub fn gpu_mb_solve_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
 
     let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
@@ -844,7 +855,7 @@ pub fn gpu_mb_solve_contact_constraints(
 /// Strip the positional bias from each active contact constraint's `rhs`,
 /// matching `gpu_mb_remove_joint_constraint_bias`.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_remove_contact_constraint_bias(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
@@ -852,12 +863,13 @@ pub fn gpu_mb_remove_contact_constraint_bias(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] multibody_info: &[MultibodyInfo],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // Flattened (multibody, batch) grid — see `BatchIndices::num_batches`.
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
         return;
     }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
 
     let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);

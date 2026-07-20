@@ -693,6 +693,7 @@ impl RbdState {
         let collision_pairs_per_batch_cpu = capacities.collisions_capacity;
         #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
         let mut bi = BatchIndices {
+            num_batches,
             colliders_batch_capacity: num_colliders_per_batch as u32,
             colliders_len: num_colliders as u32,
             bodies_len: num_bodies as u32,

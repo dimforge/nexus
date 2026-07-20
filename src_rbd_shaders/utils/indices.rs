@@ -9,6 +9,13 @@ use crate::utils::{Slice, SliceMut};
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 pub struct BatchIndices {
+    /// Total number of simulation batches (environments). Used as the upper
+    /// bound by kernels that flatten `(item, batch)` into the X dispatch
+    /// dimension — with one robot (or a handful of items) per batch, a 2D
+    /// `[items_per_batch, num_batches]` grid would give every batch its own
+    /// mostly-idle workgroup.
+    pub num_batches: u32,
+
     /*
      * RBD / collision-detection capacities.
      */
@@ -60,6 +67,12 @@ pub struct BatchIndices {
     /// Max link count across every multibody in every batch (same purpose as
     /// [`Self::mb_max_ndofs`] for per-link loops).
     pub mb_max_links: u32,
+    /// Lanes per multibody for the packed per-multibody workgroup kernels:
+    /// `next_power_of_two(mb_max_ndofs).clamp(8, 64)`. Each 64-lane workgroup
+    /// processes `64 / mb_pack_lanes` multibodies side by side, so small
+    /// robots no longer waste 56+ lanes per workgroup. Uniform-sourced, so
+    /// slot decoding stays uniform control flow.
+    pub mb_pack_lanes: u32,
     /// Per-batch stride of the contact-solver color-bucket buffers
     /// (`color_counts` / `color_starts` / `color_cursors`), = `max_colors + 3`
     /// so that `starts[c + 1]` is in bounds for every swept color.
