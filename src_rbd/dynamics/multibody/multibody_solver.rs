@@ -223,10 +223,64 @@ impl GpuMultibodySolver {
             )?;
         }
 
-        // Build + finalize contact constraints (normal-only, free body ×
-        // multibody pairs only). `init` PRESERVES the accumulated impulse across
-        // substeps (zeroed once per frame by `reset_contact_warmstart` in
-        // `init_step`); `finalize` recomputes `inv_lhs` and the M⁻¹Jᵀ columns.
+        // With implicit coriolis, the mass matrix / LU / body jacobians are
+        // recomputed every substep, so the contact constraints (whose M⁻¹Jᵀ
+        // columns depend on them) must be rebuilt every substep too. In the
+        // explicit mode every input is a per-step constant, so the pipeline
+        // builds them ONCE per step instead (see `build_contact_constraints`).
+        if mb.implicit_coriolis {
+            self.build_contact_constraints(encoder, timestamps.as_deref_mut(), mb, args)?;
+        }
+
+        // Warmstart: re-apply the accumulated contact impulse to dof_state (and
+        // the free-body solver velocities) so the contact starts "warm" each
+        // substep — mirrors rapier's per-substep `contact_constraints.warmstart`
+        // and matches what the rigid-body solver does for free contacts. On the
+        // first substep the impulse was just reset to 0, so this is a no-op.
+        // One 64-lane workgroup per multibody (one DOF per lane).
+        {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
+            let warmstart_dispatch =
+                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            self.warmstart_contact_constraints.call(
+                &mut pass,
+                warmstart_dispatch,
+                &mb.multibody_info,
+                &mb.contact_constraints,
+                &mb.contact_constraint_columns,
+                &mut mb.dof_state,
+                args.solver_vels,
+                args.batch_indices,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Build + finalize the contact constraints (normal + friction slots,
+    /// free-body × multibody and self-contact pairs). `init` PRESERVES the
+    /// accumulated impulse across substeps (zeroed once per frame by
+    /// `reset_contact_warmstart` in `init_step`); `finalize` computes
+    /// `inv_lhs` and the M⁻¹Jᵀ columns.
+    ///
+    /// Inputs are the narrow-phase manifolds, the collider world poses, the
+    /// body jacobians and the mass-matrix LU. The first two only change once
+    /// per step; the last two change per substep ONLY with implicit coriolis.
+    /// So this runs once per step (from `solve_tgs`'s init pass, after the
+    /// narrow phase) in the explicit mode, and once per substep otherwise.
+    pub fn build_contact_constraints(
+        &self,
+        encoder: &mut khal::backend::GpuEncoder,
+        mut timestamps: Option<&mut khal::backend::GpuTimestamps>,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
+        use khal::backend::Encoder;
+        if mb.is_empty() {
+            return Ok(());
+        }
+
         // One 64-lane workgroup per multibody: the uniform emission walk runs
         // redundantly on every lane, the per-DOF `Jᵀ`-row fills one-per-lane.
         {
@@ -266,29 +320,6 @@ impl GpuMultibodySolver {
                 &mut mb.contact_constraints,
                 &mb.contact_constraint_jacs,
                 &mut mb.contact_constraint_columns,
-                args.batch_indices,
-            )?;
-        }
-
-        // Warmstart: re-apply the accumulated contact impulse to dof_state (and
-        // the free-body solver velocities) so the contact starts "warm" each
-        // substep — mirrors rapier's per-substep `contact_constraints.warmstart`
-        // and matches what the rigid-body solver does for free contacts. On the
-        // first substep the impulse was just reset to 0, so this is a no-op.
-        // One 64-lane workgroup per multibody (one DOF per lane).
-        {
-            let mut pass =
-                encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
-            let warmstart_dispatch =
-                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-            self.warmstart_contact_constraints.call(
-                &mut pass,
-                warmstart_dispatch,
-                &mb.multibody_info,
-                &mb.contact_constraints,
-                &mb.contact_constraint_columns,
-                &mut mb.dof_state,
-                args.solver_vels,
                 args.batch_indices,
             )?;
         }
