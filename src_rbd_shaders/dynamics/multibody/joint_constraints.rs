@@ -17,7 +17,9 @@ use crate::utils::linalg::{MatSlice, lu_solve_in_place};
 use crate::{DIM, MAX_FLT};
 
 use super::types::{
-    MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace,
+    MB_JOINT_KIND_INACTIVE, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_LIMIT_INACTIVE,
+    MB_JOINT_KIND_MOTOR, MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic,
+    MultibodyLinkWorkspace,
 };
 
 /// Compute joint motor parameters mirroring rapier's `JointMotor::motor_params`.
@@ -115,11 +117,10 @@ fn emit_joint_constraints(
                 let has_limits = (limit_axes & (1 << axis)) != 0;
                 let limit_min = stat.data.limits[axis as usize].min;
                 let limit_max = stat.data.limits[axis as usize].max;
-                emit_motor_constraint(
-                    joint_constraints,
-                    cons_base,
-                    slot,
+                let cons = build_motor_constraint(
                     abs_dof,
+                    k,
+                    axis,
                     curr_pos,
                     inv_dt,
                     dt,
@@ -128,14 +129,14 @@ fn emit_joint_constraints(
                     limit_min,
                     limit_max,
                 );
+                joint_constraints.write(cons_base + slot as usize, cons);
                 slot += 1;
             }
             if (limit_axes & (1 << axis)) != 0 {
-                emit_limit_constraint(
-                    joint_constraints,
-                    cons_base,
-                    slot,
+                let cons = build_limit_constraint(
                     abs_dof,
+                    k,
+                    axis,
                     curr_pos,
                     [
                         stat.data.limits[axis as usize].min,
@@ -144,6 +145,7 @@ fn emit_joint_constraints(
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
+                joint_constraints.write(cons_base + slot as usize, cons);
                 slot += 1;
             }
             curr_free_dof += 1;
@@ -158,11 +160,10 @@ fn emit_joint_constraints(
             let curr_pos = ws.coords.read(axis as usize);
 
             if (limit_axes & (1 << axis)) != 0 {
-                emit_limit_constraint(
-                    joint_constraints,
-                    cons_base,
-                    slot,
+                let cons = build_limit_constraint(
                     abs_dof,
+                    k,
+                    axis,
                     curr_pos,
                     [
                         stat.data.limits[axis as usize].min,
@@ -171,17 +172,17 @@ fn emit_joint_constraints(
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
+                joint_constraints.write(cons_base + slot as usize, cons);
                 slot += 1;
             }
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
                 let limit_min = stat.data.limits[axis as usize].min;
                 let limit_max = stat.data.limits[axis as usize].max;
-                emit_motor_constraint(
-                    joint_constraints,
-                    cons_base,
-                    slot,
+                let cons = build_motor_constraint(
                     abs_dof,
+                    k,
+                    axis,
                     curr_pos,
                     inv_dt,
                     dt,
@@ -190,10 +191,112 @@ fn emit_joint_constraints(
                     limit_min,
                     limit_max,
                 );
+                joint_constraints.write(cons_base + slot as usize, cons);
                 slot += 1;
             }
             curr_free_dof += 1;
         }
+    }
+}
+
+/// Per-substep joint-constraint refresh — the explicit-coriolis fast path.
+///
+/// With explicit coriolis the mass-matrix LU (and therefore every slot's M⁻¹
+/// column, `inv_lhs` and folded `cfm_gain`) is a per-step constant: only the
+/// rhs (from the integrated joint positions), the limit activity and the
+/// accumulated impulse change per substep. This kernel recomputes exactly
+/// those from the slot's stashed (link, axis) — the full emission walk and
+/// the back-solves run once per step instead of once per substep.
+///
+/// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_refresh_joint_constraints(
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    links_workspace: &[MultibodyLinkWorkspace],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
+    joint_constraints: &mut [MultibodyJointConstraint],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] softness: &ConstraintSoftness,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+) {
+    const LANES: u32 = 64;
+    let batch_id = workgroup_id.y;
+    let mb_idx = workgroup_id.x;
+    let lane = local_id.x;
+    let num_mb = batch_ids.multibodies_len;
+    if mb_idx >= num_mb {
+        return;
+    }
+
+    let mb = batch_ids
+        .mb_batch(batch_id, multibody_info)
+        .read(mb_idx as usize);
+    if mb.ndofs == 0 || mb.max_constraints == 0 {
+        return;
+    }
+    let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
+
+    let stat_slice = batch_ids
+        .mb_links_batch(batch_id, links_static)
+        .offset(mb.first_link as usize);
+    let ws_slice = batch_ids
+        .mb_links_batch(batch_id, links_workspace)
+        .offset(mb.first_link as usize);
+
+    let dt = softness.dt;
+    let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
+
+    for s in StepRng::new(lane..mb.max_constraints, LANES) {
+        let old = joint_constraints.read(cons_base + s as usize);
+        if old.kind == MB_JOINT_KIND_INACTIVE {
+            continue;
+        }
+        let link_id = old._kind_extra & 0xffff;
+        let axis = old._kind_extra >> 16;
+        let stat = &stat_slice[link_id as usize];
+        let ws = &ws_slice[link_id as usize];
+        let curr_pos = ws.coords.read(axis as usize);
+
+        // Rebuild the per-substep fields with the SAME formulas as the full
+        // emission, then graft the per-step constants (column-derived
+        // `inv_lhs` and folded `cfm_gain`) from the existing slot.
+        let mut fresh = if old.kind == MB_JOINT_KIND_MOTOR {
+            let locked = stat.data.locked_axes;
+            let has_limits = (stat.data.limit_axes & !locked & (1 << axis)) != 0;
+            build_motor_constraint(
+                old.dof_id,
+                link_id,
+                axis,
+                curr_pos,
+                inv_dt,
+                dt,
+                &stat.data.motors[axis as usize],
+                has_limits,
+                stat.data.limits[axis as usize].min,
+                stat.data.limits[axis as usize].max,
+            )
+        } else {
+            build_limit_constraint(
+                old.dof_id,
+                link_id,
+                axis,
+                curr_pos,
+                [
+                    stat.data.limits[axis as usize].min,
+                    stat.data.limits[axis as usize].max,
+                ],
+                softness.joint_erp_inv_dt,
+                softness.joint_cfm_coeff,
+            )
+        };
+        fresh.inv_lhs = old.inv_lhs;
+        fresh.cfm_gain = old.cfm_gain;
+        joint_constraints.write(cons_base + s as usize, fresh);
     }
 }
 
@@ -239,27 +342,27 @@ fn inv(x: f32) -> f32 {
 /// pre-fold gain (0 for limits); the lane-parallel finalize stage of
 /// `gpu_mb_init_joint_constraints` back-solves the M⁻¹ column and applies
 /// rapier's `finalize_generic_constraints` fold.
+///
+/// Inactive limits are emitted too (with `MB_JOINT_KIND_LIMIT_INACTIVE`, and
+/// the link/axis packed into `_kind_extra`) so their columns exist when a
+/// later substep's refresh activates them.
 #[inline]
-fn emit_limit_constraint(
-    joint_constraints: &mut [MultibodyJointConstraint],
-    cons_base: usize,
-    slot: u32,
+#[allow(clippy::too_many_arguments)]
+fn build_limit_constraint(
     dof_id: u32,
+    link_id: u32,
+    axis: u32,
     curr_pos: f32,
     limits: [f32; 2],
     erp_inv_dt: f32,
     cfm_coeff: f32,
-) {
+) -> MultibodyJointConstraint {
     // rapier (`limit_*` builder): erp_inv_dt = joint.softness.erp_inv_dt(dt),
     // cfm_coeff = joint.softness.cfm_coeff(dt), cfm_gain = 0 — configurable via
     // `joint_natural_frequency` / `joint_damping_ratio` (defaults make this
     // near-rigid, matching the old hardcoded `1/dt`).
     let min_enabled = curr_pos < limits[0];
     let max_enabled = limits[1] < curr_pos;
-    // No limit is active, skip the constraint for the current substep.
-    if !min_enabled && !max_enabled {
-        return;
-    }
     let lo_excess = (limits[0] - curr_pos).max(0.0);
     let hi_excess = (curr_pos - limits[1]).max(0.0);
     let rhs_bias = (hi_excess - lo_excess) * erp_inv_dt;
@@ -268,10 +371,18 @@ fn emit_limit_constraint(
     let max_neg_impulse = if min_enabled { -MAX_FLT } else { 0.0 };
     let max_pos_impulse = if max_enabled { MAX_FLT } else { 0.0 };
 
-    let cons = MultibodyJointConstraint {
+    let kind = if min_enabled || max_enabled {
+        MB_JOINT_KIND_LIMIT
+    } else {
+        // Inactive this substep: the solve skips it, the finalize stage still
+        // back-solves its column for later refreshes.
+        MB_JOINT_KIND_LIMIT_INACTIVE
+    };
+
+    MultibodyJointConstraint {
         dof_id,
-        kind: 1,
-        _kind_extra: 0,
+        kind,
+        _kind_extra: link_id | (axis << 16),
         _pad0: 0,
         rhs: rhs_wo_bias + rhs_bias,
         rhs_wo_bias,
@@ -283,8 +394,7 @@ fn emit_limit_constraint(
         // Pre-fold gain (`cfm_gain_init`); the finalize stage replaces this
         // with `lhs·cfm_coeff + cfm_gain_init`.
         cfm_gain: 0.0,
-    };
-    joint_constraints.write(cons_base + slot as usize, cons);
+    }
 }
 
 /// Initialize a single motor constraint slot. Mirrors rapier's
@@ -297,11 +407,11 @@ fn emit_limit_constraint(
 /// `gpu_mb_init_joint_constraints` back-solves the M⁻¹ column and applies
 /// rapier's `finalize_generic_constraints` fold.
 #[inline]
-fn emit_motor_constraint(
-    joint_constraints: &mut [MultibodyJointConstraint],
-    cons_base: usize,
-    slot: u32,
+#[allow(clippy::too_many_arguments)]
+fn build_motor_constraint(
     dof_id: u32,
+    link_id: u32,
+    axis: u32,
     curr_pos: f32,
     inv_dt: f32,
     dt: f32,
@@ -309,7 +419,7 @@ fn emit_motor_constraint(
     has_limits: bool,
     limit_min: f32,
     limit_max: f32,
-) {
+) -> MultibodyJointConstraint {
     let (erp_inv_dt, cfm_coeff, cfm_gain, _, max_impulse) = motor_params(motor, dt);
 
     let mut rhs_wo_bias = 0.0f32;
@@ -330,10 +440,10 @@ fn emit_motor_constraint(
     }
     rhs_wo_bias += -target_vel;
 
-    let cons = MultibodyJointConstraint {
+    MultibodyJointConstraint {
         dof_id,
-        kind: 2,
-        _kind_extra: 0,
+        kind: MB_JOINT_KIND_MOTOR,
+        _kind_extra: link_id | (axis << 16),
         _pad0: 0,
         rhs: rhs_wo_bias,
         rhs_wo_bias,
@@ -345,8 +455,7 @@ fn emit_motor_constraint(
         // Pre-fold gain (`cfm_gain_init`); the finalize stage replaces this
         // with `lhs·cfm_coeff + cfm_gain_init`.
         cfm_gain,
-    };
-    joint_constraints.write(cons_base + slot as usize, cons);
+    }
 }
 
 /// Initialize the multibody's joint-limit / joint-motor unit constraints.

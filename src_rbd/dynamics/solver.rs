@@ -427,6 +427,7 @@ impl GpuSolver {
                         timestamps.as_deref_mut(),
                         state,
                         &mut mb_args,
+                        substep_id == 0,
                     )?;
                 }
             }

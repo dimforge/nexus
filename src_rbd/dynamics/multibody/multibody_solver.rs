@@ -9,7 +9,7 @@ use crate::shaders::dynamics::{
     GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT8,
     GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
-    GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
     GpuMbResetContactWarmstart, GpuMbStashContactsLen, GpuMbWarmstartContactConstraints,
     GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
     GpuMbSolveJoints,
@@ -35,6 +35,10 @@ pub struct GpuMultibodySolver {
     compute_dynamics_pre: GpuMbComputeDynamicsPre,
     compute_dynamics_without_coriolis_pre: GpuMbComputeDynamicsWithoutCoriolisPre,
     init_joint_with_bias: GpuMbInitJointConstraints,
+    /// Explicit-coriolis fast path: per-substep refresh of the joint rhs /
+    /// limit activity (the columns and `inv_lhs` are per-step constants
+    /// there, so the full build + back-solves run once per step).
+    refresh_joint_constraints: GpuMbRefreshJointConstraints,
     init_contact_constraints: GpuMbInitContactConstraints,
     finalize_contact_constraints: GpuMbFinalizeContactConstraints,
     /// Fused joint+contact PGS sweep (one workgroup per multibody, shared-
@@ -208,40 +212,38 @@ impl GpuMultibodySolver {
         mut timestamps: Option<&mut khal::backend::GpuTimestamps>,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
+        first_substep: bool,
     ) -> Result<(), GpuBackendError> {
         use khal::backend::Encoder;
         if mb.is_empty() {
             return Ok(());
         }
 
-        if mb.has_joint_constraints {
-            let mut pass = encoder.begin_pass("[RBD] mbb/init-joint", timestamps.as_deref_mut());
-            // One 64-lane workgroup per multibody: lane 0 emits the constraint
-            // metadata serially (cheap), then the per-constraint M⁻¹-column LU
-            // back-solves run one-per-lane instead of sequentially.
-            let init_joint_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-            self.init_joint_with_bias.call(
+        // With implicit coriolis, the mass matrix / LU / body jacobians are
+        // recomputed every substep, so the joint + contact constraints (whose
+        // M⁻¹Jᵀ columns depend on them) must be rebuilt every substep too. In
+        // the explicit mode every column-derived quantity is a per-step
+        // constant: the full build runs ONCE per step (see
+        // `build_contact_constraints`) and each substep only refreshes the
+        // joint rhs / limit activity / accumulated impulse from the
+        // integrated joint positions (a no-op on the first substep — the
+        // once-per-step build just wrote those exact values).
+        if mb.implicit_coriolis {
+            self.build_contact_constraints(encoder, timestamps.as_deref_mut(), mb, args)?;
+        } else if mb.has_joint_constraints && !first_substep {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
+            let dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            self.refresh_joint_constraints.call(
                 &mut pass,
-                init_joint_dispatch,
+                dispatch,
                 &mb.multibody_info,
                 &mb.links_static,
                 &mb.links_workspace,
-                &mb.mass_matrices,
-                &mb.lu_pivots,
                 &mut mb.joint_constraints,
-                &mut mb.joint_constraint_columns,
                 &mb.constraint_softness,
                 args.batch_indices,
             )?;
-        }
-
-        // With implicit coriolis, the mass matrix / LU / body jacobians are
-        // recomputed every substep, so the contact constraints (whose M⁻¹Jᵀ
-        // columns depend on them) must be rebuilt every substep too. In the
-        // explicit mode every input is a per-step constant, so the pipeline
-        // builds them ONCE per step instead (see `build_contact_constraints`).
-        if mb.implicit_coriolis {
-            self.build_contact_constraints(encoder, timestamps.as_deref_mut(), mb, args)?;
         }
 
         // Warmstart: re-apply the accumulated contact impulse to dof_state (and
@@ -291,6 +293,27 @@ impl GpuMultibodySolver {
         use khal::backend::Encoder;
         if mb.is_empty() {
             return Ok(());
+        }
+
+        // Joint limit/motor constraints: one 64-lane workgroup per multibody
+        // (lane 0 emits the metadata serially — cheap; the per-constraint
+        // M⁻¹-column LU back-solves run one-per-lane).
+        if mb.has_joint_constraints {
+            let mut pass = encoder.begin_pass("[RBD] mbb/init-joint", timestamps.as_deref_mut());
+            let init_joint_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            self.init_joint_with_bias.call(
+                &mut pass,
+                init_joint_dispatch,
+                &mb.multibody_info,
+                &mb.links_static,
+                &mb.links_workspace,
+                &mb.mass_matrices,
+                &mb.lu_pivots,
+                &mut mb.joint_constraints,
+                &mut mb.joint_constraint_columns,
+                &mb.constraint_softness,
+                args.batch_indices,
+            )?;
         }
 
         // One 64-lane workgroup per multibody: the uniform emission walk runs
