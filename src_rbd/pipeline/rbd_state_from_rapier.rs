@@ -720,7 +720,6 @@ impl RbdState {
             sim_params: Tensor::vector(backend, &all_sim_params, BufferUsages::STORAGE).unwrap(),
             vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
             solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
-            solver_vels_out: Tensor::vector(backend, &all_vels, storage).unwrap(),
             solver_vels_inc: Tensor::vector(backend, &all_vels, storage).unwrap(),
             joints,
             #[cfg(feature = "dim3")]

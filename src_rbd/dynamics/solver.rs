@@ -92,8 +92,6 @@ pub struct SolverArgs<'a> {
     pub vels: &'a mut Tensor<Velocity>,
     /// Solver working velocities.
     pub solver_vels: &'a mut Tensor<Velocity>,
-    /// Solver output velocities (currently unused).
-    pub solver_vels_out: &'a Tensor<Velocity>,
     /// Accumulated velocity increments during substeps.
     pub solver_vels_inc: &'a mut Tensor<Velocity>,
     /// World-space mass properties.

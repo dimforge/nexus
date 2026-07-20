@@ -245,7 +245,6 @@ impl RbdState {
             sim_params: Tensor::vector(backend, &all_sim_params, BufferUsages::STORAGE).unwrap(),
             vels: Tensor::vector(backend, &all_vels, rw).unwrap(),
             solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
-            solver_vels_out: Tensor::vector(backend, &all_vels, storage).unwrap(),
             solver_vels_inc: Tensor::vector(backend, &all_vels, storage).unwrap(),
             joints,
             #[cfg(feature = "dim3")]
@@ -483,6 +482,31 @@ impl RbdState {
             crate::rapier::geometry::InteractionTestMode::And,
         );
 
+        // All relocations for all removed slots and batches are recorded into a
+        // SINGLE encoder (copies execute in recorded order, so reusing one
+        // 1-element staging buffer per element type is race-free), and the
+        // padding-slot neutralisation writes are deferred until after the one
+        // submit — each iteration's `last` slot strictly decreases, so a later
+        // relocation never reads a slot an earlier iteration neutralised. The
+        // previous version created a staging buffer + encoder + submit per
+        // field per slot per batch (10·k·b submits).
+        let staging_usages =
+            BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST;
+        let mut enc = backend.begin_encoding();
+        let mut any_copy = false;
+        let mut staging_pose = backend.uninit_buffer::<Pose>(1, staging_usages)?;
+        let mut staging_local_mprops =
+            backend.uninit_buffer::<GpuLocalMassProperties>(1, staging_usages)?;
+        let mut staging_mprops = backend.uninit_buffer::<GpuWorldMassProperties>(1, staging_usages)?;
+        let mut staging_vels = backend.uninit_buffer::<GpuVelocity>(1, staging_usages)?;
+        let mut staging_shapes = backend.uninit_buffer::<Shape>(1, staging_usages)?;
+        let mut staging_groups = backend
+            .uninit_buffer::<crate::rapier::geometry::InteractionGroups>(1, staging_usages)?;
+        let mut staging_materials =
+            backend.uninit_buffer::<GpuColliderMaterial>(1, staging_usages)?;
+        // Deferred `(buffer-kind, slot)` neutralisation writes.
+        let mut neutralize: Vec<usize> = Vec::new();
+
         for local in locals {
             let active = self.num_active_colliders as usize;
             if active == 0 || local >= active {
@@ -498,67 +522,69 @@ impl RbdState {
                     // Relocate the last active body into the freed slot. A staging
                     // buffer is used to avoid same-buffer overlapping copies.
                     macro_rules! relocate {
-                        ($t:expr) => {{
-                            let mut staging = backend.uninit_buffer(
-                                1,
-                                BufferUsages::STORAGE
-                                    | BufferUsages::COPY_SRC
-                                    | BufferUsages::COPY_DST,
-                            )?;
-                            let mut enc = backend.begin_encoding();
+                        ($t:expr, $staging:expr) => {{
                             enc.copy_buffer_to_buffer(
                                 $t.buffer(),
                                 last_global,
-                                &mut staging,
+                                &mut $staging,
                                 0,
                                 1,
                             )?;
                             enc.copy_buffer_to_buffer(
-                                &staging,
+                                &$staging,
                                 0,
                                 $t.buffer_mut(),
                                 hole_global,
                                 1,
                             )?;
-                            backend.submit(enc)?;
+                            any_copy = true;
                         }};
                     }
-                    relocate!(self.body_poses);
-                    relocate!(self.solver_body_poses);
-                    relocate!(self.collider_world_poses);
-                    relocate!(self.collider_local_poses);
-                    relocate!(self.local_mprops);
-                    relocate!(self.mprops);
-                    relocate!(self.vels);
-                    relocate!(self.shapes);
-                    relocate!(self.collision_groups);
-                    relocate!(self.collider_materials);
+                    relocate!(self.body_poses, staging_pose);
+                    relocate!(self.solver_body_poses, staging_pose);
+                    relocate!(self.collider_world_poses, staging_pose);
+                    relocate!(self.collider_local_poses, staging_pose);
+                    relocate!(self.local_mprops, staging_local_mprops);
+                    relocate!(self.mprops, staging_mprops);
+                    relocate!(self.vels, staging_vels);
+                    relocate!(self.shapes, staging_shapes);
+                    relocate!(self.collision_groups, staging_groups);
+                    relocate!(self.collider_materials, staging_materials);
                 }
 
-                // The now-topmost slot becomes inactive padding: neutralize it so
-                // it never participates in collisions even if a kernel scans up
-                // to the per-batch capacity.
-                backend.write_buffer(
-                    self.collision_groups.buffer_mut(),
-                    last_global as u64,
-                    &[none_groups],
-                )?;
-                backend.write_buffer(
-                    self.local_mprops.buffer_mut(),
-                    last_global as u64,
-                    &[GpuLocalMassProperties::default()],
-                )?;
-                backend.write_buffer(
-                    self.mprops.buffer_mut(),
-                    last_global as u64,
-                    &[GpuWorldMassProperties::default()],
-                )?;
+                neutralize.push(last_global);
             }
 
             if local != last {
                 remaps.push((last as u32, local as u32));
             }
             self.num_active_colliders = (active - 1) as u32;
+        }
+
+        if any_copy {
+            backend.submit(enc)?;
+        }
+
+        // The now-topmost slots become inactive padding: neutralize them so
+        // they never participate in collisions even if a kernel scans up to
+        // the per-batch capacity. Done after the relocation submit so the
+        // copies read the pre-neutralisation data.
+        for last_global in neutralize {
+            backend.write_buffer(
+                self.collision_groups.buffer_mut(),
+                last_global as u64,
+                &[none_groups],
+            )?;
+            backend.write_buffer(
+                self.local_mprops.buffer_mut(),
+                last_global as u64,
+                &[GpuLocalMassProperties::default()],
+            )?;
+            backend.write_buffer(
+                self.mprops.buffer_mut(),
+                last_global as u64,
+                &[GpuWorldMassProperties::default()],
+            )?;
         }
 
         // `collider_parent` is the identity mapping on the incremental (one
