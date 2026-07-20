@@ -9,10 +9,10 @@ use crate::shaders::dynamics::{
     GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT8,
     GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
-    GpuMbRemoveContactConstraintBias, GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbRemoveImpulseJointConstraintBias,
     GpuMbResetContactWarmstart, GpuMbStashContactsLen, GpuMbWarmstartContactConstraints,
-    GpuMbRemoveSolveJointNoBias, GpuMbSolveContactConstraints, GpuMbSolveImpulseJointConstraints,
-    GpuMbFinalizeImpulseJointConstraints, GpuMbSolveJointConstraints,
+    GpuMbSolveConstraints, GpuMbSolveImpulseJointConstraints,
+    GpuMbFinalizeImpulseJointConstraints,
     GpuMbUpdateImpulseJointConstraints, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
@@ -33,13 +33,13 @@ pub struct GpuMultibodySolver {
     gravity_and_lu_t32: GpuMbGravityAndLuT32,
     compute_dynamics_pre: GpuMbComputeDynamicsPre,
     compute_dynamics_without_coriolis_pre: GpuMbComputeDynamicsWithoutCoriolisPre,
-    solve_joint_with_bias: GpuMbSolveJointConstraints,
     init_joint_with_bias: GpuMbInitJointConstraints,
-    /// Fused remove-bias + solve-without-bias for the stabilization sweep.
-    remove_solve_joint_no_bias: GpuMbRemoveSolveJointNoBias,
     init_contact_constraints: GpuMbInitContactConstraints,
     finalize_contact_constraints: GpuMbFinalizeContactConstraints,
-    solve_contact_constraints: GpuMbSolveContactConstraints,
+    /// Fused joint+contact PGS sweep (one workgroup per multibody, shared-
+    /// memory dof velocities). `use_bias = 0` runs the stabilization form,
+    /// replacing the former separate remove-bias dispatches.
+    solve_constraints: GpuMbSolveConstraints,
     /// Zero the accumulated contact impulses once per frame (warmstart reset).
     reset_contact_warmstart: GpuMbResetContactWarmstart,
     /// Copy `contacts_len[batch]` into each `MultibodyInfo` once per step so
@@ -48,7 +48,6 @@ pub struct GpuMultibodySolver {
     stash_contacts_len: GpuMbStashContactsLen,
     /// Re-apply the accumulated contact impulse each substep (warmstart).
     warmstart_contact_constraints: GpuMbWarmstartContactConstraints,
-    remove_contact_constraint_bias: GpuMbRemoveContactConstraintBias,
     update_impulse_joint_constraints: GpuMbUpdateImpulseJointConstraints,
     /// Finalize pass for the impulse-joint build (LU back-solve + `inv_lhs`),
     /// split out so the build pass fits 8 storage buffers.
@@ -118,9 +117,10 @@ impl GpuMultibodySolver {
         }
         // Zero the accumulated contact impulses so the first substep's warmstart
         // starts cold (within a frame they are then preserved across substeps).
+        // One 64-lane workgroup per multibody (lanes stride the slots).
         self.reset_contact_warmstart.call(
             pass,
-            mb.flat_mb_dispatch(),
+            [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1],
             &mb.multibody_info,
             &mut mb.contact_constraints,
             args.batch_indices,
@@ -266,12 +266,15 @@ impl GpuMultibodySolver {
         // substep — mirrors rapier's per-substep `contact_constraints.warmstart`
         // and matches what the rigid-body solver does for free contacts. On the
         // first substep the impulse was just reset to 0, so this is a no-op.
+        // One 64-lane workgroup per multibody (one DOF per lane).
         {
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
+            let warmstart_dispatch =
+                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
             self.warmstart_contact_constraints.call(
                 &mut pass,
-                dispatch,
+                warmstart_dispatch,
                 &mb.multibody_info,
                 &mb.contact_constraints,
                 &mb.contact_constraint_columns,
@@ -295,30 +298,24 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = mb.flat_mb_dispatch();
 
-        if mb.has_joint_constraints {
-            self.solve_joint_with_bias.call(
-                pass,
-                dispatch,
-                &mb.multibody_info,
-                &mut mb.joint_constraints,
-                &mut mb.joint_constraint_columns,
-                &mut mb.dof_state,
-                args.batch_indices,
-            )?;
-        }
-
-        self.solve_contact_constraints.call(
+        // Fused joint+contact sweep: one 64-lane workgroup per multibody with
+        // the generalized velocities held in workgroup memory
+        // (`color_uniforms[1]` holds the constant 1 = use_bias).
+        let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+        self.solve_constraints.call(
             pass,
-            dispatch,
+            solve_dispatch,
             &mb.multibody_info,
+            &mut mb.joint_constraints,
+            &mb.joint_constraint_columns,
             &mut mb.contact_constraints,
             &mb.contact_constraint_jacs,
             &mb.contact_constraint_columns,
+            &args.color_uniforms[1],
+            args.batch_indices,
             &mut mb.dof_state,
             args.solver_vels,
-            args.batch_indices,
         )?;
 
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
@@ -438,25 +435,26 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = mb.flat_mb_dispatch();
 
-        if mb.has_joint_constraints {
-            self.remove_solve_joint_no_bias.call(
-                pass,
-                dispatch,
-                &mb.multibody_info,
-                &mut mb.joint_constraints,
-                &mb.joint_constraint_columns,
-                &mut mb.dof_state,
-                args.batch_indices,
-            )?;
-        }
-        self.remove_contact_constraint_bias.call(
+        // Fused joint+contact stabilization sweep: `use_bias = 0`
+        // (`color_uniforms[0]`) makes the kernel read `rhs_wo_bias` directly,
+        // which replaces the former remove-bias read-modify-write dispatches
+        // (every constraint is re-initialized next substep, so the persistent
+        // `rhs` rewrite was never needed).
+        let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+        self.solve_constraints.call(
             pass,
-            dispatch,
-            &mut mb.contact_constraints,
+            solve_dispatch,
             &mb.multibody_info,
+            &mut mb.joint_constraints,
+            &mb.joint_constraint_columns,
+            &mut mb.contact_constraints,
+            &mb.contact_constraint_jacs,
+            &mb.contact_constraint_columns,
+            &args.color_uniforms[0],
             args.batch_indices,
+            &mut mb.dof_state,
+            args.solver_vels,
         )?;
         if mb.mb_imp_joints_per_batch > 0 {
             let imp_dispatch = [mb.mb_imp_joints_per_batch, mb.num_batches, 1];
@@ -468,21 +466,6 @@ impl GpuMultibodySolver {
                 &mb.mb_imp_joint_count,
                 args.batch_indices,
             )?;
-        }
-
-        // (joint sweep WITHOUT bias was fused into `remove_solve_joint_no_bias` above.)
-        self.solve_contact_constraints.call(
-            pass,
-            dispatch,
-            &mb.multibody_info,
-            &mut mb.contact_constraints,
-            &mb.contact_constraint_jacs,
-            &mb.contact_constraint_columns,
-            &mut mb.dof_state,
-            args.solver_vels,
-            args.batch_indices,
-        )?;
-        if mb.mb_imp_joints_per_batch > 0 {
             // Final stabilization sweep WITHOUT bias — colored, one
             // dispatch per color (see the with-bias sweep above).
             for c in 0..mb.mb_imp_joint_num_colors as usize {
