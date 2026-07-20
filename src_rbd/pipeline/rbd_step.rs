@@ -244,7 +244,8 @@ impl RbdPipeline {
                 local_mprops: &state.local_mprops,
                 body_constraint_counts: &mut state.new_constraints_counts,
                 body_constraint_ids: &mut state.new_body_constraint_ids,
-                constraints_colors: &state.constraints_colors,
+                color_bucket_starts: &state.color_bucket_starts,
+                color_sorted_ids: &state.color_sorted_ids,
                 color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
                 num_colors: 0,
@@ -295,6 +296,25 @@ impl RbdPipeline {
             self.coloring
                 .dispatch_topo_gc_bounded(&mut pass, coloring_args, state.max_colors)?;
 
+            // Bucket-sort the constraint ids by color so each colored solver
+            // sweep only touches its own constraints.
+            let bucket_args = crate::dynamics::ColorBucketsArgs {
+                contacts_len_indirect: &state.contacts_indirect,
+                constraints_colors: &state.constraints_colors,
+                contacts_len: &state.contacts_len,
+                color_bucket_counts: &mut state.color_bucket_counts,
+                color_bucket_starts: &mut state.color_bucket_starts,
+                color_bucket_cursors: &mut state.color_bucket_cursors,
+                color_sorted_ids: &mut state.color_sorted_ids,
+                batch_indices: &state.batch_indices,
+            };
+            self.coloring.dispatch_build_color_buckets(
+                &mut pass,
+                bucket_args,
+                state.max_colors + 3,
+                state.num_batches,
+            )?;
+
             // `+1` because solver iterates 1..=max_colors (color 0 is unassigned).
             let num_colors = state.max_colors + 1;
             stats.num_colors = num_colors;
@@ -325,7 +345,8 @@ impl RbdPipeline {
             local_mprops: &state.local_mprops,
             body_constraint_counts: &mut state.new_constraints_counts,
             body_constraint_ids: &mut state.new_body_constraint_ids,
-            constraints_colors: &state.constraints_colors,
+            color_bucket_starts: &state.color_bucket_starts,
+            color_sorted_ids: &state.color_sorted_ids,
             color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
             num_colors,
@@ -422,6 +443,19 @@ impl RbdPipeline {
                 && coloring_converged == 0
             {
                 state.max_colors += 5;
+
+                // The color-bucket buffers are strided by `max_colors + 3` —
+                // regrow them and refresh the stride in `BatchIndices`.
+                let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
+                let stride = state.max_colors + 3;
+                let nb = state.num_batches;
+                state.color_bucket_counts =
+                    Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_bucket_starts =
+                    Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_bucket_cursors =
+                    Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.rebuild_batch_indices(backend);
             }
 
             // Lazy resize based on the *previous* frame's max pair count.
@@ -466,6 +500,8 @@ impl RbdPipeline {
                     Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
                 state.colored = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
                 state.constraints_rands =
+                    Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                state.color_sorted_ids =
                     Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
 
                 state.collision_pairs_per_batch_cpu = new_capacity;

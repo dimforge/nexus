@@ -112,8 +112,11 @@ pub struct SolverArgs<'a> {
     /// All constraints of all the bodies part of the same multibody are in the same list associated
     /// to the multibody’s root.
     pub body_constraint_ids: &'a mut Tensor<u32>,
-    /// Color assigned to each constraint by graph coloring.
-    pub constraints_colors: &'a Tensor<u32>,
+    /// Per-batch per-color exclusive prefix sums over the color-bucketed
+    /// constraint ids (stride `BatchIndices::solver_color_buckets_stride`).
+    pub color_bucket_starts: &'a Tensor<u32>,
+    /// Constraint ids bucket-sorted by color (contacts layout).
+    pub color_sorted_ids: &'a Tensor<u32>,
     /// Per-color-index uniform tensors: `color_uniforms[c]` holds the constant
     /// `c`. Bound (instead of a GPU-incremented cursor) by each color-sweep
     /// dispatch, which removes the 1-thread `reset_color`/`inc_color`
@@ -326,8 +329,8 @@ impl GpuSolver {
                     args.contacts_len_indirect,
                     args.constraints,
                     args.solver_vels,
-                    args.constraints_colors,
-                    args.contacts_len,
+                    args.color_bucket_starts,
+                    args.color_sorted_ids,
                     &args.color_uniforms[c as usize],
                     args.batch_indices,
                 )?;
@@ -344,8 +347,8 @@ impl GpuSolver {
                     args.contacts_len_indirect,
                     args.constraints,
                     args.solver_vels,
-                    args.constraints_colors,
-                    args.contacts_len,
+                    args.color_bucket_starts,
+                    args.color_sorted_ids,
                     &args.color_uniforms[c as usize],
                     args.batch_indices,
                 )?;
@@ -382,8 +385,8 @@ impl GpuSolver {
                     args.contacts_len_indirect,
                     args.constraints,
                     args.solver_vels,
-                    args.constraints_colors,
-                    args.contacts_len,
+                    args.color_bucket_starts,
+                    args.color_sorted_ids,
                     &args.color_uniforms[c as usize],
                     args.batch_indices,
                 )?;

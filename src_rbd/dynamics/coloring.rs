@@ -10,6 +10,7 @@
 use crate::pipeline::RunStats;
 use crate::shaders::dynamics::TwoBodyConstraint;
 use crate::shaders::dynamics::{
+    GpuColorBucketsCount, GpuColorBucketsReset, GpuColorBucketsScan, GpuColorBucketsScatter,
     GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc,
     GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
 };
@@ -33,6 +34,34 @@ pub struct GpuColoring {
     /// Detects and fixes conflicts in TOPO-GC coloring.
     fix_conflicts_topo_gc_kernel: GpuFixConflictsTopoGc,
     reset_completion_flag_topo_gc: GpuResetCompletionFlagTopoGc,
+    /// Bucket-sort of constraint ids by color (reset / count / scan / scatter),
+    /// run once per step after coloring so each colored solver sweep touches
+    /// only its own constraints.
+    color_buckets_reset: GpuColorBucketsReset,
+    color_buckets_count: GpuColorBucketsCount,
+    color_buckets_scan: GpuColorBucketsScan,
+    color_buckets_scatter: GpuColorBucketsScatter,
+}
+
+/// Buffers for the per-color constraint bucket sort — see the
+/// `gpu_color_buckets_*` kernels.
+pub struct ColorBucketsArgs<'a> {
+    /// Indirect dispatch arguments based on contact count.
+    pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
+    /// Color assigned to each constraint by graph coloring.
+    pub constraints_colors: &'a Tensor<u32>,
+    /// Number of contacts per batch.
+    pub contacts_len: &'a Tensor<u32>,
+    /// Per-batch per-color counts (stride `solver_color_buckets_stride`).
+    pub color_bucket_counts: &'a mut Tensor<u32>,
+    /// Per-batch per-color exclusive prefix sums.
+    pub color_bucket_starts: &'a mut Tensor<u32>,
+    /// Scatter cursors (seeded from the starts).
+    pub color_bucket_cursors: &'a mut Tensor<u32>,
+    /// Constraint ids bucket-sorted by color (contacts layout).
+    pub color_sorted_ids: &'a mut Tensor<u32>,
+    /// Shared per-batch capacity / section-offset uniform.
+    pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
 }
 
 /// Arguments for graph coloring dispatch.
@@ -219,6 +248,50 @@ impl GpuColoring {
 
         stats.num_colors = num_colors;
         num_colors
+    }
+
+    /// Bucket-sorts the constraint ids by color. Must run after the coloring
+    /// converged; the colored solver sweeps consume `color_bucket_starts` +
+    /// `color_sorted_ids`.
+    pub fn dispatch_build_color_buckets(
+        &self,
+        pass: &mut GpuPass,
+        args: ColorBucketsArgs<'_>,
+        color_buckets_stride: u32,
+        num_batches: u32,
+    ) -> Result<(), GpuBackendError> {
+        self.color_buckets_reset.call(
+            pass,
+            [color_buckets_stride, num_batches, 1],
+            args.color_bucket_counts,
+            args.batch_indices,
+        )?;
+        self.color_buckets_count.call(
+            pass,
+            args.contacts_len_indirect,
+            args.constraints_colors,
+            args.contacts_len,
+            args.color_bucket_counts,
+            args.batch_indices,
+        )?;
+        self.color_buckets_scan.call(
+            pass,
+            [1, num_batches, 1],
+            args.color_bucket_counts,
+            args.color_bucket_starts,
+            args.color_bucket_cursors,
+            args.batch_indices,
+        )?;
+        self.color_buckets_scatter.call(
+            pass,
+            args.contacts_len_indirect,
+            args.constraints_colors,
+            args.contacts_len,
+            args.color_bucket_cursors,
+            args.color_sorted_ids,
+            args.batch_indices,
+        )?;
+        Ok(())
     }
 
     /// Runs a fixed number of iterations of the topo-gc coloring.

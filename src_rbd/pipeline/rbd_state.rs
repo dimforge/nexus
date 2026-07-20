@@ -198,6 +198,16 @@ pub struct RbdState {
     pub(super) constraints_colors: Tensor<u32>,
     pub(super) colored: Tensor<u32>,
     pub(super) constraints_rands: Tensor<u32>,
+    /// Per-batch per-color constraint counts (stride `max_colors + 3`), see
+    /// the `gpu_color_buckets_*` kernels.
+    pub(super) color_bucket_counts: Tensor<u32>,
+    /// Per-batch per-color exclusive prefix sums over the counts: color `c`
+    /// owns `color_sorted_ids[starts[c]..starts[c + 1]]`.
+    pub(super) color_bucket_starts: Tensor<u32>,
+    /// Scatter cursors (seeded from the starts each step).
+    pub(super) color_bucket_cursors: Tensor<u32>,
+    /// Constraint indices bucket-sorted by color (contacts layout).
+    pub(super) color_sorted_ids: Tensor<u32>,
     pub(super) curr_color: Tensor<u32>,
     /// Pre-built per-color-index uniforms: `color_uniforms[c]` holds the
     /// constant `c`. Bound by every colored sweep (contacts, impulse joints,
@@ -248,6 +258,7 @@ impl RbdState {
             contacts_batch_capacity: self.contacts_per_batch_cpu,
             impulse_joints_batch_capacity: self.joints.joints_per_batch(),
             impulse_joints_len: self.joints.num_active_joints(),
+            solver_color_buckets_stride: self.max_colors + 3,
             ..Default::default()
         };
         #[cfg(feature = "dim3")]
