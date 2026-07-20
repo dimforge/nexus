@@ -325,6 +325,9 @@ impl RbdState {
             prefix_sum_workspace: PrefixSumWorkspace::default(),
             lbvh: LbvhState::with_usages(backend, lbvh_usages),
             max_colors: capacities.solver_colors,
+            // Conservative: an empty state built incrementally runs the full
+            // pipeline; only `from_rapier` proves inertness.
+            rb_contacts_inert: false,
             num_active_colliders: 0,
             num_active_bodies: 0,
         }
@@ -370,6 +373,12 @@ impl RbdState {
             let body_pose = *rb.position();
             let collider_local_pose = co.position_wrt_parent().copied().unwrap_or(Pose::IDENTITY);
             let is_dynamic = rb.is_dynamic();
+            if is_dynamic {
+                // A free dynamic body: its contacts need the rigid-body
+                // constraint pipeline. Never set back on removal — a stale
+                // `false` only costs performance.
+                self.rb_contacts_inert = false;
+            }
             let (local, world) = if is_dynamic {
                 // A standalone rigid-body carries no collider mass: rapier only
                 // folds a collider's mass into the body once the collider is

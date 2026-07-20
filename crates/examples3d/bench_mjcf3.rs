@@ -171,9 +171,10 @@ async fn run(robot: String, n_warmup: usize, n_iters: usize) -> anyhow::Result<(
     {
         let rbd = state.rbd.as_ref().expect("rbd state missing");
         println!(
-            "solver: {} substeps, max_colors {}",
+            "solver: {} substeps, max_colors {}, rb contacts inert: {}",
             rbd.num_solver_iterations(),
             rbd.max_colors(),
+            rbd.rb_contacts_inert(),
         );
     }
 

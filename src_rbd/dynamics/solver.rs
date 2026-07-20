@@ -148,6 +148,12 @@ pub struct SolverArgs<'a> {
     /// where the per-color dispatches and their empty buckets dominate.
     /// Correct for any size — this is a performance gate only.
     pub fused_color_sweeps: bool,
+    /// `true` when every rigid-body contact constraint is provably a no-op
+    /// (no body has a nonzero rb-side inverse mass — robot-only scenes; see
+    /// `RbdState::rb_contacts_inert`). Skips the contact-constraint build,
+    /// coloring inputs, warmstart, colored sweeps and integration; the joint
+    /// solver and the multibody solver are unaffected.
+    pub rb_contacts_inert: bool,
     /// Shared per-batch capacity / section-offset uniform — see
     /// [`crate::shaders::utils::BatchIndices`]. Consumed by the (refactored)
     /// multibody kernels via `MultibodySolverArgs::batch_indices`; the RBD
@@ -188,6 +194,15 @@ impl GpuSolver {
             args.solver_body_poses,
             args.batch_indices,
         )?;
+
+        // Robot-only scenes: every rigid-body contact constraint is a no-op
+        // (see `SolverArgs::rb_contacts_inert`) — skip the build/count/sort
+        // chain entirely. `cleanup` and `init_solver_bodies` above still run
+        // (the multibody phases rely on zeroed solver velocities and seeded
+        // solver poses).
+        if args.rb_contacts_inert {
+            return Ok(());
+        }
 
         self.init_constraints.call(
             pass,
@@ -260,20 +275,29 @@ impl GpuSolver {
             Some((s, st)) => (Some(s), Some(st)),
             None => (None, None),
         };
+        // Robot-only scenes: every rigid-body CONTACT constraint is a no-op
+        // (see `SolverArgs::rb_contacts_inert`) — the gravity increments,
+        // contact warmstart/sweeps and free-body integration below all read
+        // or write only zero-inv-mass bodies, so they are skipped. The joint
+        // solver stays (it no-ops on an empty set anyway).
+        let skip_rb = args.rb_contacts_inert;
+        let joints_empty = joint_args.joints.is_empty();
 
         /*
          * Init solver vel increments.
          */
         {
             let mut pass = encoder.begin_pass("[RBD] slv/init", timestamps.as_deref_mut());
-            self.init_solver_vels_inc.call(
-                &mut pass,
-                [args.num_colliders, args.num_batches, 1],
-                args.solver_vels_inc,
-                args.mprops,
-                args.sim_params,
-                args.batch_indices,
-            )?;
+            if !skip_rb {
+                self.init_solver_vels_inc.call(
+                    &mut pass,
+                    [args.num_colliders, args.num_batches, 1],
+                    args.solver_vels_inc,
+                    args.mprops,
+                    args.sim_params,
+                    args.batch_indices,
+                )?;
+            }
 
             joint_solver.init(&mut pass, &mut joint_args)?;
 
@@ -370,7 +394,7 @@ impl GpuSolver {
              * P1/F1 — integrate velocities (apply `a · dt'` / gravity increment).
              */
             mb_phase!("[RBD] slv/mb-integrate-vels", substep_integrate_velocities);
-            {
+            if !skip_rb {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-apply-inc", timestamps.as_deref_mut());
                 self.apply_solver_vels_inc.call(
@@ -406,22 +430,27 @@ impl GpuSolver {
                     )?;
                 }
             }
-            {
+            if !skip_rb || !joints_empty {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-build-warmstart", timestamps.as_deref_mut());
                 let pass = &mut pass;
-                self.update_constraints.call(
-                    pass,
-                    args.contacts_len_indirect,
-                    args.constraints,
-                    args.constraint_builders,
-                    args.contacts_len,
-                    args.solver_body_poses,
-                    args.sim_params,
-                    args.batch_indices,
-                )?;
+                if !skip_rb {
+                    self.update_constraints.call(
+                        pass,
+                        args.contacts_len_indirect,
+                        args.constraints,
+                        args.constraint_builders,
+                        args.contacts_len,
+                        args.solver_body_poses,
+                        args.sim_params,
+                        args.batch_indices,
+                    )?;
+                }
                 joint_solver.update(pass, &mut joint_args, args.solver_body_poses)?;
-                if args.colorless_warmstart {
+                if skip_rb {
+                    // Contact warmstart skipped: no rigid-body contact
+                    // constraint can carry an impulse here.
+                } else if args.colorless_warmstart {
                     // One gather dispatch over bodies instead of `num_colors`
                     // scatter dispatches (each constraint is visited once per
                     // body side, but the dispatch count drops by ~num_colors).
@@ -469,12 +498,14 @@ impl GpuSolver {
              * P3/F3 — solve ALL joints + contacts WITH bias.
              */
             mb_phase!("[RBD] slv/mb-solve-bias", substep_solve_with_bias);
-            {
+            if !skip_rb || !joints_empty {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-solve-bias", timestamps.as_deref_mut());
                 let pass = &mut pass;
                 joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
-                if args.fused_color_sweeps {
+                if skip_rb {
+                    // Contact sweeps skipped (inert constraints).
+                } else if args.fused_color_sweeps {
                     self.step_gauss_seidel_fused.call(
                         pass,
                         [64, args.num_batches, 1],
@@ -513,7 +544,7 @@ impl GpuSolver {
                 substep_integrate_positions,
                 is_last_substep
             );
-            {
+            if !skip_rb {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-integrate", timestamps.as_deref_mut());
                 self.integrate_linearized.call(
@@ -530,12 +561,14 @@ impl GpuSolver {
              * P5/F5 — solve ALL joints + contacts WITHOUT bias (stabilization).
              */
             mb_phase!("[RBD] slv/mb-solve-nobias", substep_solve_no_bias);
-            {
+            if !skip_rb || !joints_empty {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-solve-nobias", timestamps.as_deref_mut());
                 let pass = &mut pass;
                 joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
-                if args.fused_color_sweeps {
+                if skip_rb {
+                    // Contact sweeps skipped (inert constraints).
+                } else if args.fused_color_sweeps {
                     self.step_gauss_seidel_fused.call(
                         pass,
                         [64, args.num_batches, 1],

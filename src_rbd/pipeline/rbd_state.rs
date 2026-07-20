@@ -243,6 +243,18 @@ pub struct RbdState {
     pub(super) prefix_sum_workspace: PrefixSumWorkspace,
     /// Maximum number of constraint colors the solver will iterate.
     pub(super) max_colors: u32,
+    /// `true` when every body is either non-dynamic or multibody-controlled
+    /// (its rb-side `inv_mass` is zero) — i.e. every rigid-body CONTACT
+    /// constraint is provably a no-op, so the contact-constraint pipeline
+    /// (build, coloring, warmstart, colored sweeps, integration) is skipped
+    /// entirely. Multibody contacts are unaffected (they are solved by the
+    /// multibody solver, which reads the manifolds directly), and so are
+    /// impulse joints (the joint solver runs regardless).
+    ///
+    /// Computed by `from_rapier`; conservatively cleared whenever
+    /// [`Self::append_bodies`] appends a dynamic body (never set back by
+    /// removals — stale `false` only costs performance, never correctness).
+    pub(super) rb_contacts_inert: bool,
     /// CPU-side mirror of the number of *active* colliders per batch. Identical
     /// across all batches by the equal-topology invariant; slots in
     /// `[num_active_colliders .. num_colliders_per_batch)` are reserved padding.
@@ -309,6 +321,12 @@ impl RbdState {
     /// Returns the configured max color count.
     pub fn max_colors(&self) -> u32 {
         self.max_colors
+    }
+
+    /// `true` when every rigid-body contact constraint is provably a no-op
+    /// (robot-only scenes) — see the field docs.
+    pub fn rb_contacts_inert(&self) -> bool {
+        self.rb_contacts_inert
     }
 }
 

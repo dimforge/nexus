@@ -519,6 +519,22 @@ impl RbdState {
             }
         }
 
+        // Every rigid-body contact constraint is a no-op when no REAL body has
+        // a nonzero rb-side inverse mass (checked AFTER the link zeroing
+        // above: multibody links don't count — their contacts are solved by
+        // the multibody solver). Padding slots are excluded: they carry the
+        // default `inv_mass = ONE` but never collide (NONE collision groups).
+        // See `RbdState::rb_contacts_inert`.
+        let rb_contacts_inert = all_env_body_counts
+            .iter()
+            .enumerate()
+            .all(|(batch, &count)| {
+                let start = batch * max_colliders;
+                all_local_mprops[start..start + count]
+                    .iter()
+                    .all(|m| m.inv_mass == Vector::ZERO)
+            });
+
         // Build the per-body "graph group" lookup. Free bodies map to themselves
         // (one body = one graph node). Bodies belonging to a multibody all map
         // to a single shared group id (= the body id of the multibody's root
@@ -848,6 +864,7 @@ impl RbdState {
             prefix_sum_workspace: PrefixSumWorkspace::default(),
             lbvh: LbvhState::with_usages(backend, lbvh_usages),
             max_colors: capacities.solver_colors,
+            rb_contacts_inert,
             num_active_colliders: num_colliders as u32,
             num_active_bodies: num_bodies as u32,
         }
