@@ -19,7 +19,7 @@ use crate::dynamics::joint::SPATIAL_DIM;
 #[cfg(feature = "dim3")]
 use crate::utils::linalg::gemm_skew_lhs_cross_buf_par;
 use crate::utils::linalg::{
-    MAX_MB_DOFS, MatSlice, copy_from_par, fill_par, gemm_inertia_lhs_par,
+    MatSlice, copy_from_par, fill_par, gemm_inertia_lhs_par,
     gemm_omega_skew_tr_cross_buf_par, gemm_skew_tr_lhs_cross_buf_par, gemm_skew_tr_lhs_par,
     gemm_tr_par, quadform_spatial_par,
 };
