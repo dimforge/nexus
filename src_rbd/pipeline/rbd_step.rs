@@ -247,6 +247,23 @@ impl RbdPipeline {
             backend.submit(encoder)?;
         }
 
+        // Colored-sweep strategy: with few constraints per batch, the
+        // `num_colors` dispatches per sweep (and their empty buckets) dominate
+        // — run each sweep as one dispatch with one workgroup per batch
+        // looping the colors internally. The gate is perf-only (the fused
+        // kernel is correct for any size, just serialized past ~64 lanes):
+        // use the lagging pair-count readback when auto-resize keeps it fresh,
+        // else the fixed capacity.
+        let readback_enabled = state.capacities.solver_colors_resize_policy
+            != RbdResizePolicy::Fixed
+            || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
+        let est_pairs = if readback_enabled {
+            state.collision_pairs_len_cpu
+        } else {
+            state.collision_pairs_per_batch_cpu
+        };
+        let fused_color_sweeps = est_pairs <= 128;
+
         // Phase 2b: solver-prep + warmstart + bounded coloring. Separate
         // submit from narrow-phase to enable CPU/GPU overlap with the
         // upcoming Phase 3 solver substep loop.
@@ -284,6 +301,7 @@ impl RbdPipeline {
                 body_group: &state.body_group,
                 batch_indices: &state.batch_indices,
                 colorless_warmstart: false,
+                fused_color_sweeps,
             };
             self.solver.prepare(
                 backend,
@@ -424,6 +442,7 @@ impl RbdPipeline {
             colorless_warmstart: state.multibodies.is_empty(),
             #[cfg(not(feature = "dim3"))]
             colorless_warmstart: true,
+            fused_color_sweeps,
         };
 
         // Phase 3: Solve constraints

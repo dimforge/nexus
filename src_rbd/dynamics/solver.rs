@@ -13,7 +13,8 @@ use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
     GpuSolverInitConstraints, GpuSolverSortConstraints,
-    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuWarmstart, GpuWarmstartWithoutColors,
+    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused, GpuWarmstart,
+    GpuWarmstartFused, GpuWarmstartWithoutColors,
     LocalMassProperties, RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity,
     WorldMassProperties,
 };
@@ -42,6 +43,12 @@ pub struct GpuSolver {
     warmstart_without_colors: GpuWarmstartWithoutColors,
     /// Gauss-Seidel iteration step (sequential per color).
     step_gauss_seidel: GpuStepGaussSeidel,
+    /// Fused variant of the colored warmstart sweep: one workgroup per batch
+    /// loops every color internally (barrier between colors). Used when
+    /// per-batch constraint counts are small — see `SolverArgs::fused_color_sweeps`.
+    warmstart_fused: GpuWarmstartFused,
+    /// Fused variant of the colored Gauss-Seidel sweep (same rationale).
+    step_gauss_seidel_fused: GpuStepGaussSeidelFused,
     /// Initializes solver velocity increments.
     init_solver_vels_inc: GpuInitSolverVelsInc,
     /// Seeds the COM-centered solver poses from the body world poses
@@ -133,6 +140,14 @@ pub struct SolverArgs<'a> {
     /// correct when `body_group` is the identity (multibody constraints are
     /// counted on their root's slot with link-id constraint sides).
     pub colorless_warmstart: bool,
+    /// When `true`, each colored sweep (warmstart / Gauss-Seidel) runs as ONE
+    /// dispatch with one workgroup per batch looping the colors internally,
+    /// instead of `num_colors` dispatches. A single 64-lane workgroup
+    /// serializes large buckets, so the caller enables this only when the
+    /// per-batch constraint count is small (tiny environments / single robot),
+    /// where the per-color dispatches and their empty buckets dominate.
+    /// Correct for any size — this is a performance gate only.
+    pub fused_color_sweeps: bool,
     /// Shared per-batch capacity / section-offset uniform — see
     /// [`crate::shaders::utils::BatchIndices`]. Consumed by the (refactored)
     /// multibody kernels via `MultibodySolverArgs::batch_indices`; the RBD
@@ -391,6 +406,20 @@ impl GpuSolver {
                         args.solver_vels,
                         args.batch_indices,
                     )?;
+                } else if args.fused_color_sweeps {
+                    // One dispatch, one workgroup per batch, colors looped
+                    // internally. `color_uniforms[num_colors]` holds the
+                    // constant `num_colors`.
+                    self.warmstart_fused.call(
+                        pass,
+                        [64, args.num_batches, 1],
+                        args.constraints,
+                        args.solver_vels,
+                        args.color_bucket_starts,
+                        args.color_sorted_ids,
+                        &args.color_uniforms[args.num_colors as usize],
+                        args.batch_indices,
+                    )?;
                 } else {
                     // NOTE: contact colors start at 1 (0 = unassigned).
                     for c in 1..=args.num_colors {
@@ -417,19 +446,34 @@ impl GpuSolver {
                     encoder.begin_pass("[RBD] slv/rb-solve-bias", timestamps.as_deref_mut());
                 let pass = &mut pass;
                 joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
-                for c in 1..=args.num_colors {
-                    self.step_gauss_seidel.call(
+                if args.fused_color_sweeps {
+                    self.step_gauss_seidel_fused.call(
                         pass,
-                        args.contacts_len_indirect,
+                        [64, args.num_batches, 1],
                         args.constraints,
                         args.solver_vels,
                         args.color_bucket_starts,
                         args.color_sorted_ids,
-                        &args.color_uniforms[c as usize],
+                        &args.color_uniforms[args.num_colors as usize],
                         args.batch_indices,
                         // use_bias = 1 (`color_uniforms[c]` holds the constant `c`).
                         &args.color_uniforms[1],
                     )?;
+                } else {
+                    for c in 1..=args.num_colors {
+                        self.step_gauss_seidel.call(
+                            pass,
+                            args.contacts_len_indirect,
+                            args.constraints,
+                            args.solver_vels,
+                            args.color_bucket_starts,
+                            args.color_sorted_ids,
+                            &args.color_uniforms[c as usize],
+                            args.batch_indices,
+                            // use_bias = 1 (`color_uniforms[c]` holds the constant `c`).
+                            &args.color_uniforms[1],
+                        )?;
+                    }
                 }
             }
 
@@ -463,19 +507,34 @@ impl GpuSolver {
                     encoder.begin_pass("[RBD] slv/rb-solve-nobias", timestamps.as_deref_mut());
                 let pass = &mut pass;
                 joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
-                for c in 1..=args.num_colors {
-                    self.step_gauss_seidel.call(
+                if args.fused_color_sweeps {
+                    self.step_gauss_seidel_fused.call(
                         pass,
-                        args.contacts_len_indirect,
+                        [64, args.num_batches, 1],
                         args.constraints,
                         args.solver_vels,
                         args.color_bucket_starts,
                         args.color_sorted_ids,
-                        &args.color_uniforms[c as usize],
+                        &args.color_uniforms[args.num_colors as usize],
                         args.batch_indices,
                         // use_bias = 0 (`color_uniforms[c]` holds the constant `c`).
                         &args.color_uniforms[0],
                     )?;
+                } else {
+                    for c in 1..=args.num_colors {
+                        self.step_gauss_seidel.call(
+                            pass,
+                            args.contacts_len_indirect,
+                            args.constraints,
+                            args.solver_vels,
+                            args.color_bucket_starts,
+                            args.color_sorted_ids,
+                            &args.color_uniforms[c as usize],
+                            args.batch_indices,
+                            // use_bias = 0 (`color_uniforms[c]` holds the constant `c`).
+                            &args.color_uniforms[0],
+                        )?;
+                    }
                 }
             }
         }
