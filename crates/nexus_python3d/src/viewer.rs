@@ -10,7 +10,7 @@ use crate::nexus::{GpuTimestamps, NexusState};
 use crate::rbd::{RigidBodyHandle, SharedShape};
 use khal::backend::GpuBackend;
 use nexus_viewer3d::NexusViewer as RViewer;
-use numpy::{IntoPyArray, PyArray3, PyArrayMethods};
+use numpy::{IntoPyArray, PyArray2, PyArray3, PyArrayMethods};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -280,6 +280,54 @@ impl NexusViewer {
         let ts = timestamps.as_deref_mut().map(|t| &mut t.0);
         pollster::block_on(self.inner_mut().sync(&mut state.0, ts))
             .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
+    }
+
+    /// Reads back environment `env`'s multibody link states from the GPU in one
+    /// readback. Returns five float32 numpy arrays, one row per link (in the
+    /// GPU build's traversal order — multibodies, then links, parent before
+    /// child; the same order `NexusState.apply_actuator_controls` drives):
+    ///
+    /// - `coords (n, 6)` — generalized joint coordinates (only the joint's DOF
+    ///   count is meaningful; a revolute joint's angle is `coords[5]`),
+    /// - `positions (n, 3)` / `quats (n, 4)` — link world pose (`w, x, y, z`),
+    /// - `linvels (n, 3)` / `angvels (n, 3)` — world-space velocities (valid
+    ///   after the first simulated step).
+    #[pyo3(signature = (state, env=0))]
+    #[allow(clippy::type_complexity)]
+    fn read_multibody_links<'py>(
+        &mut self,
+        py: Python<'py>,
+        state: PyRef<NexusState>,
+        env: u32,
+    ) -> (
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+    ) {
+        let links = pollster::block_on(self.inner_mut().read_multibody_links(&state.0, env));
+        let mut coords = Vec::with_capacity(links.len());
+        let mut positions = Vec::with_capacity(links.len());
+        let mut quats = Vec::with_capacity(links.len());
+        let mut linvels = Vec::with_capacity(links.len());
+        let mut angvels = Vec::with_capacity(links.len());
+        for ws in &links {
+            coords.push(ws.coords.to_vec());
+            let (t, q) = (ws.local_to_world.translation, ws.local_to_world.rotation);
+            positions.push(vec![t.x, t.y, t.z]);
+            quats.push(vec![q.w, q.x, q.y, q.z]);
+            let (l, a) = (ws.rb_vels.linear, ws.rb_vels.angular);
+            linvels.push(vec![l.x, l.y, l.z]);
+            angvels.push(vec![a.x, a.y, a.z]);
+        }
+        (
+            PyArray2::from_vec2(py, &coords).unwrap(),
+            PyArray2::from_vec2(py, &positions).unwrap(),
+            PyArray2::from_vec2(py, &quats).unwrap(),
+            PyArray2::from_vec2(py, &linvels).unwrap(),
+            PyArray2::from_vec2(py, &angvels).unwrap(),
+        )
     }
 
     // --- misc -------------------------------------------------------------

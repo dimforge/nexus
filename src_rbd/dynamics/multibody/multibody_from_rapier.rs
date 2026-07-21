@@ -385,7 +385,10 @@ impl GpuMultibodySet {
             links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_DST)
                 .unwrap(),
             links_static_mirror: all_statics.clone(),
-            links_workspace: Tensor::vector(backend, &all_ws, storage).unwrap(),
+            // COPY_SRC so hosts can read joint/link state back (observation
+            // pipelines); see `GpuMultibodySet::links_workspace`.
+            links_workspace: Tensor::vector(backend, &all_ws, storage | BufferUsages::COPY_SRC)
+                .unwrap(),
             dof_values: Tensor::vector(backend, &all_dof_vals, storage).unwrap(),
             dof_state: {
                 // Pack [velocities (N), damping (N), armature (N)] back-to-back

@@ -85,6 +85,12 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [patch.crates-io]
+# naga 29 MSL backend miscompiles rust-gpu `while` loops on Metal: the hoisted
+# continuing block re-evaluates the `break_if` condition after the loop phis
+# were already advanced, dropping the final body iteration (multibody solve
+# produced zero impulses -> free fall on macOS). Fixed fork; see
+# zealot/docs/metal-contact-bug-proposal.md.
+naga = { git = "https://github.com/haixuanTao/naga-fixed", rev = "7c56094" }
 ## Local glam clone with SPIR-V vector-arithmetic intrinsics (Vec3 add/sub/mul/scale).
 #glam = { path = "../glam-rs" }
 # 30% faster for loop in P2G
