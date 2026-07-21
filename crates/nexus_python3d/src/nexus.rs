@@ -282,6 +282,13 @@ impl NexusState {
         self.0.set_rbd_steps_per_frame(steps);
     }
 
+    /// Overrides the per-environment collision-pair capacity (default 4096)
+    /// used when the GPU state is allocated at `finalize`. Lower it for many
+    /// small batched envs; pair-keyed buffers scale as capacity × envs.
+    fn set_rbd_collisions_capacity(&mut self, capacity: u32) {
+        self.0.set_rbd_collisions_capacity(capacity);
+    }
+
     fn set_rbd_gravity(&mut self, viewer: PyRef<NexusViewer>, gravity: Vec3) {
         self.0
             .set_rbd_gravity(viewer.backend(), [gravity.0.x, gravity.0.y, gravity.0.z]);
