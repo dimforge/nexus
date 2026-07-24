@@ -51,11 +51,7 @@ pub fn gpu_solver_init_constraints(
     let solver_body_poses = batch_ids.coll_batch(batch_id, solver_body_poses);
     let vels = batch_ids.coll_batch(batch_id, vels);
     let mprops = batch_ids.coll_batch(batch_id, mprops);
-    // Iterating to `cap` (instead of `contacts_len[batch]`) lets us drop the
-    // `contacts_len` storage binding. Empty / unused contact slots have
-    // `contact.len == 0` and are skipped — narrow-phase zero-initialises the
-    // buffer so the sentinel is reliable.
-    let cap = batch_ids.contacts_batch_capacity;
+    let cap = batch_ids.contacts_batch_capacity.min(num_threads);
 
     for i in StepRng::new(invocation_id.x..cap, num_threads) {
         let im = &contacts[i as usize];
@@ -94,7 +90,9 @@ pub fn gpu_solver_count_constraints(
     let mut body_constraint_counts = batch_ids.coll_batch_mut(batch_id, body_constraint_counts);
     let body_group = batch_ids.coll_batch(batch_id, body_group);
     let mprops = batch_ids.coll_batch(batch_id, mprops);
-    let cap = batch_ids.contacts_batch_capacity;
+    // See `gpu_solver_init_constraints` — the indirect grid bounds the active
+    // range much tighter than the capacity.
+    let cap = batch_ids.contacts_batch_capacity.min(num_threads);
 
     for i in StepRng::new(invocation_id.x..cap, num_threads) {
         let im = &contacts[i as usize];
