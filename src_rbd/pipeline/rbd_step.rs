@@ -68,6 +68,18 @@ impl RbdPipeline {
     ) -> Result<RunStats, GpuBackendError> {
         let mut stats = RunStats::default();
 
+        // Make sure the color index uniforms are up-to-date.
+        // This is the maximum over the colors needed for contacts, joints, and multibodies.
+        {
+            let mut needed = state.max_colors + 2;
+            needed = needed.max(state.joints.num_colors() + 1);
+            #[cfg(feature = "dim3")]
+            {
+                needed = needed.max(state.multibodies.mb_imp_joint_num_colors() + 1);
+            }
+            state.ensure_color_uniforms(backend, needed);
+        }
+
         // Phase 0: Multibody once-per-visible-step setup (3D only for now).
         #[cfg(feature = "dim3")]
         {
@@ -83,6 +95,7 @@ impl RbdPipeline {
                     contacts_len: &state.contacts_len,
                     solver_vels: &mut state.solver_vels,
                     batch_indices: &state.batch_indices,
+                color_uniforms: &state.color_uniforms,
                 };
                 self.multibody_solver
                     .init_step(&mut pass, &mut state.multibodies, &mut args)?;
@@ -231,7 +244,7 @@ impl RbdPipeline {
                 body_constraint_counts: &mut state.new_constraints_counts,
                 body_constraint_ids: &mut state.new_body_constraint_ids,
                 constraints_colors: &state.constraints_colors,
-                curr_color: &mut state.curr_color,
+                color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
                 num_colors: 0,
                 num_batches: state.num_batches,
@@ -312,7 +325,7 @@ impl RbdPipeline {
             body_constraint_counts: &mut state.new_constraints_counts,
             body_constraint_ids: &mut state.new_body_constraint_ids,
             constraints_colors: &state.constraints_colors,
-            curr_color: &mut state.curr_color,
+            color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
             num_colors,
             num_batches: state.num_batches,
@@ -330,6 +343,7 @@ impl RbdPipeline {
             local_mprops: &state.local_mprops,
             joints: &mut state.joints,
             batch_indices: &state.batch_indices,
+            color_uniforms: &state.color_uniforms,
         };
 
         {

@@ -771,6 +771,7 @@ impl RbdState {
                     | BufferUsages::COPY_SRC,
             )
             .unwrap(),
+            color_uniforms: Vec::new(),
             uncolored: Tensor::scalar(
                 backend,
                 0,

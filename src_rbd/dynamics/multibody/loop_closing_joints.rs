@@ -303,7 +303,6 @@ impl GpuMultibodySet {
         }
         self.mb_imp_joint_color_groups =
             Tensor::vector(backend, &all_color_groups, storage).unwrap();
-        self.mb_imp_joint_curr_color = Tensor::scalar(backend, 0u32, usage_u).unwrap();
         self.mb_imp_joint_num_colors = global_num_colors;
         self.mb_imp_joint_max_color_group_len = global_max_color_group_len;
     }

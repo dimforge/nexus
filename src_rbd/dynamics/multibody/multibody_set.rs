@@ -112,10 +112,9 @@ pub struct GpuMultibodySet {
     /// Per-batch prefix-sum over the color-sorted `mb_imp_joint_builders`.
     /// Built at init time by `set_impulse_joints` (greedy graph coloring).
     pub(super) mb_imp_joint_color_groups: Tensor<u32>,
-    /// Scalar color cursor incremented by the host color loop.
-    pub(super) mb_imp_joint_curr_color: Tensor<u32>,
-    /// Number of colors (host color-loop trip count). CPU mirror.
-    pub(super) mb_imp_joint_num_colors: u32,
+    /// Number of colors (per-batch stride of `mb_imp_joint_color_groups`,
+    /// and the host color-loop trip count). CPU mirror.
+    pub(crate) mb_imp_joint_num_colors: u32,
     /// Largest color group across batches — the per-color dispatch width.
     pub(super) mb_imp_joint_max_color_group_len: u32,
     /// Per-batch capacities of the joint / contact constraint slabs (CPU-side
@@ -151,6 +150,11 @@ impl GpuMultibodySet {
     /// True if the set contains no multibodies in any batch.
     pub fn is_empty(&self) -> bool {
         self.multibodies_per_batch == 0 || self.links_per_batch == 0
+    }
+
+    /// Number of colors used by the colored multibody impulse-joint sweeps.
+    pub fn mb_imp_joint_num_colors(&self) -> u32 {
+        self.mb_imp_joint_num_colors
     }
 
     /// GPU buffer holding generalized velocities followed by per-DOF damping.
