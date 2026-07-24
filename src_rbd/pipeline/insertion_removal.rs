@@ -178,6 +178,12 @@ impl RbdState {
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
         let constraints_colors =
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
+        let old_constraints_colors = Tensor::vector(
+            backend,
+            &vec![0u32; (collisions_capacity * num_batches) as usize],
+            storage,
+        )
+        .unwrap();
         let colored =
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
         let constraints_rands =
@@ -279,6 +285,7 @@ impl RbdState {
             new_constraint_builders,
             new_constraints_counts,
             constraints_colors,
+            old_constraints_colors,
             colored,
             constraints_rands,
             color_bucket_counts,
