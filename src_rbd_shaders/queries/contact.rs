@@ -226,17 +226,17 @@ pub fn cuboid_cuboid(
      */
     let sep1 = sat::cuboid_cuboid_find_local_separating_normal_oneway(cuboid1, cuboid2, pose12);
 
-    // TODO PERF: support the prediction early-exit.
-    // if sep1.separation > prediction {
-    //     return ContactManifold::default();
-    // }
+    // Early-exit: any contact point's distance is >= the separation along a
+    // separating axis, so the caller would drop the manifold anyway.
+    if sep1.separation > prediction {
+        return ContactManifold::default();
+    }
 
     let sep2 = sat::cuboid_cuboid_find_local_separating_normal_oneway(cuboid2, cuboid1, pose21);
 
-    // TODO PERF: support the prediction early-exit.
-    // if sep2.separation > prediction {
-    //     return ContactManifold::default();
-    // }
+    if sep2.separation > prediction {
+        return ContactManifold::default();
+    }
 
     /*
      *
@@ -248,10 +248,9 @@ pub fn cuboid_cuboid(
     #[cfg(feature = "dim3")]
     let sep3 = sat::cuboid_cuboid_find_local_separating_edge_twoway(cuboid1, cuboid2, pose12);
 
-    // TODO PERF: support the prediction early-exit.
-    // if sep3.separation > prediction {
-    //     return ContactManifold::default();
-    // }
+    if sep3.separation > prediction {
+        return ContactManifold::default();
+    }
 
     /*
      *
