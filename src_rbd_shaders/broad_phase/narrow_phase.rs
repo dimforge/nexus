@@ -171,8 +171,7 @@ pub fn gpu_narrow_phase_shape_shape(
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed the contacts allocation size, just skip
-            //       the contact. It’s up to the caller to resize the buffer
-            //       and re-run the narrow-phase.
+            //       the contact.
             if target_contact_index < contacts_batch_capacity {
                 let mat1 = collider_materials[pair.colliders.x as usize];
                 let mat2 = collider_materials[pair.colliders.y as usize];
@@ -283,7 +282,10 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                     colliders: pair.colliders,
                 };
                 let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
-                pfm_pairs.write(pfm_index as usize, pfm_pair);
+                // NOTE: if we exceed capacity, just skip the pair.
+                if (pfm_index as usize) < contacts_batch_capacity {
+                    pfm_pairs.write(pfm_index as usize, pfm_pair);
+                }
 
                 // The actual calculations are deferred to another kernel.
                 continue;
@@ -302,6 +304,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 pair.colliders,
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -319,6 +322,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 UVec2::new(pair.colliders.y, pair.colliders.x),
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -337,6 +341,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 pair.colliders,
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -354,6 +359,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 UVec2::new(pair.colliders.y, pair.colliders.x),
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -370,6 +376,7 @@ fn trimesh_convex(
     colliders: UVec2,
     pfm_pairs: &mut SliceMut<NarrowPhasePfmPair>,
     pfm_pairs_len: &mut u32,
+    pfm_pairs_capacity: usize,
     vertices: &[PaddedVector],
     indices: &[u32],
 ) {
@@ -413,7 +420,10 @@ fn trimesh_convex(
                 colliders,
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
-            pfm_pairs.write(pfm_index as usize, pfm_pair);
+            // Skip (don’t write) on overflow; the caller resizes and re-runs.
+            if (pfm_index as usize) < pfm_pairs_capacity {
+                pfm_pairs.write(pfm_index as usize, pfm_pair);
+            }
 
             // Continue traversal.
             curr = idx.exit_index;
@@ -436,6 +446,7 @@ fn polyline_convex(
     colliders: UVec2,
     pfm_pairs: &mut SliceMut<NarrowPhasePfmPair>,
     pfm_pairs_len: &mut u32,
+    pfm_pairs_capacity: usize,
     vertices: &[PaddedVector],
     indices: &[u32],
 ) {
@@ -482,7 +493,10 @@ fn polyline_convex(
                 colliders,
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
-            pfm_pairs.write(pfm_index as usize, pfm_pair);
+            // Skip (don’t write) on overflow; the caller resizes and re-runs.
+            if (pfm_index as usize) < pfm_pairs_capacity {
+                pfm_pairs.write(pfm_index as usize, pfm_pair);
+            }
 
             // Continue traversal.
             curr = idx.exit_index;
@@ -564,7 +578,11 @@ pub fn gpu_narrow_phase_pfm_pfm(
     let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
     let pfm_pairs = batch_ids.contact_batch(batch_id, pfm_pairs);
     let contacts_len = contacts_len.at_mut(batch_id as usize);
-    let pfm_pairs_len = pfm_pairs_len.read(batch_id as usize);
+    // The producer counter can exceed the allocation on overflow (writes are
+    // skipped past capacity); clamp so we never read uninitialized slots.
+    let pfm_pairs_len = pfm_pairs_len
+        .read(batch_id as usize)
+        .min(contacts_batch_capacity as u32);
 
     for i in StepRng::new(invocation_id.x..pfm_pairs_len, num_threads) {
         let pair = pfm_pairs[i as usize];
@@ -592,9 +610,7 @@ pub fn gpu_narrow_phase_pfm_pfm(
         if manifold.len > 0 && manifold.points_a.at(0).dist < PREDICTION {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
-            // NOTE: if we exceed the contacts allocation size, just skip
-            //       the contact. It’s up to the caller to resize the buffer
-            //       and re-run the narrow-phase.
+            // NOTE: if we exceed capacity, just skip the pair.
             if target_contact_index < contacts_batch_capacity {
                 let mat1 = collider_materials[pair.colliders.x as usize];
                 let mat2 = collider_materials[pair.colliders.y as usize];
