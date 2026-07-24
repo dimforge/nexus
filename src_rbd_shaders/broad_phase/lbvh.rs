@@ -518,7 +518,13 @@ pub fn gpu_lbvh_find_collision_pairs(
         let mut stack_len = 1u32;
         stack.write(0, 0);
 
-        while stack_len != 0 {
+        // NOTE: we use a fixed-size for loop to avoid miscompilation issues of
+        //       while loops on MacOs. Each tree node is pushed at most once per
+        //       traversal, so `2 * num_bodies` (≥ node count) bounds the loop.
+        for _ in 0..2 * num_bodies {
+            if stack_len == 0 {
+                break;
+            }
             stack_len -= 1;
             let curr_id = stack.read(stack_len as usize);
             let node = tree.at(curr_id as usize);
