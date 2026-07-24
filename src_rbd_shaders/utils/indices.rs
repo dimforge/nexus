@@ -53,6 +53,10 @@ pub struct BatchIndices {
     /// contrast, are stored single-batch (identical coloring across batches)
     /// and read at offset 0.
     pub mb_imp_joint_color_groups_batch_capacity: u32,
+    /// Per-batch stride of the contact-solver color-bucket buffers
+    /// (`color_counts` / `color_starts` / `color_cursors`), = `max_colors + 3`
+    /// so that `starts[c + 1]` is in bounds for every swept color.
+    pub solver_color_buckets_stride: u32,
 
     /*
      * Intra-batch offsets for multi-purpose buffers.

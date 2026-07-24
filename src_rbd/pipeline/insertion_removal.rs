@@ -182,6 +182,15 @@ impl RbdState {
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
         let constraints_rands =
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
+        let color_buckets_stride = capacities.solver_colors + 3;
+        let color_bucket_counts =
+            Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
+        let color_bucket_starts =
+            Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
+        let color_bucket_cursors =
+            Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
+        let color_sorted_ids =
+            Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
         let old_constraints_counts =
             Tensor::vector_uninit(backend, num_colliders_per_batch * num_batches, storage).unwrap();
         let new_constraints_counts =
@@ -209,6 +218,7 @@ impl RbdState {
             contacts_batch_capacity: contacts_per_batch_cpu,
             impulse_joints_batch_capacity: joints.joints_per_batch(),
             impulse_joints_len: joints.num_active_joints(),
+            solver_color_buckets_stride: color_buckets_stride,
             ..Default::default()
         };
         #[cfg(feature = "dim3")]
@@ -271,6 +281,10 @@ impl RbdState {
             constraints_colors,
             colored,
             constraints_rands,
+            color_bucket_counts,
+            color_bucket_starts,
+            color_bucket_cursors,
+            color_sorted_ids,
             curr_color: Tensor::scalar(
                 backend,
                 0u32,
