@@ -154,8 +154,12 @@ impl GpuMultibodySet {
     }
 
     /// True if the set contains no multibodies in any batch.
+    ///
+    /// Uses the *active* count: the per-batch capacity is padded to >= 1 to
+    /// avoid zero-sized buffers, so testing it would run the whole multibody
+    /// kernel chain every step for scenes without any multibody.
     pub fn is_empty(&self) -> bool {
-        self.multibodies_per_batch == 0 || self.links_per_batch == 0
+        self.num_active_multibodies == 0 || self.links_per_batch == 0
     }
 
     /// Number of colors used by the colored multibody impulse-joint sweeps.

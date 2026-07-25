@@ -137,7 +137,6 @@ pub struct RbdState {
     pub(super) mprops: Tensor<GpuWorldMassProperties>,
     pub(super) vels: Tensor<GpuVelocity>,
     pub(super) solver_vels: Tensor<GpuVelocity>,
-    pub(super) solver_vels_out: Tensor<GpuVelocity>,
     pub(super) solver_vels_inc: Tensor<GpuVelocity>,
     pub(super) vertex_buffers: Tensor<PaddedVector>,
     pub(super) index_buffers: Tensor<u32>,
@@ -261,12 +260,9 @@ impl RbdState {
         };
         #[cfg(feature = "dim3")]
         self.multibodies.fill_batch_indices(&mut bi);
-        self.batch_indices = Tensor::scalar(
-            backend,
-            bi,
-            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        )
-        .unwrap();
+        backend
+            .write_buffer(self.batch_indices.buffer_mut(), 0, &[bi])
+            .unwrap();
     }
 
     /// Shared per-batch index uniform — see `Self::rebuild_batch_indices`.
