@@ -41,8 +41,12 @@ pub struct LbvhNode {
     pub right: u32,
     /// Parent node index.
     pub parent: u32,
-    /// Counter for bottom-up refitting (0, 1, or 2).
-    pub refit_count: u32,
+    /// During refit: bottom-up arrival counter; each thread atomically
+    /// increments it and only the second one continues upward (both children
+    /// ready). After refit, `refit_leaves` sets it to the maximum sorted leaf
+    /// index in this node’s subtree, which the pair traversal uses to prune
+    /// subtrees that can only produce duplicate pairs.
+    pub refit_count_or_max_subtree_index: u32,
 }
 
 /// Resets the collision pairs counter.
@@ -319,6 +323,9 @@ pub fn gpu_lbvh_refit_leaves(
 
         tree.at_mut(curr_leaf_id as usize).aabb = leaf_shape.compute_aabb(leaf_pose, vertices);
         tree.at_mut(curr_leaf_id as usize).left = leaf_collider;
+        // For leaves, we can set their index here. They don’t use the `refit_count`
+        // mechanism which is for internal nodes only.
+        tree.at_mut(curr_leaf_id as usize).refit_count_or_max_subtree_index = i;
     }
 }
 
@@ -379,6 +386,11 @@ pub fn gpu_lbvh_refit_internal(
                     let left = tree.at(left_idx as usize).aabb;
                     let right = tree.at(right_idx as usize).aabb;
                     tree.at_mut(curr_id as usize).aabb = left.merged(&right);
+
+                    // Set `refit_count_or_max_subtree_index` to the max subtree leaf index.
+                    let max_l = tree.at(left_idx as usize).refit_count_or_max_subtree_index;
+                    let max_r = tree.at(right_idx as usize).refit_count_or_max_subtree_index;
+                    tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index = max_l.max(max_r);
 
                     if curr_id == 0 {
                         // We reached the root, can't go higher.
@@ -539,8 +551,11 @@ pub fn gpu_lbvh_find_collision_pairs(
                     continue;
                 }
 
-                // NOTE: we don't have to compare i < j to avoid duplicates since that comparison already happened
-                //       alongside the AABB check.
+                // Duplicates were already pruned during the descent (sorted
+                // leaf-index comparison). Emit the pair in ascending collider
+                // order so the narrow phase / warmstart see a stable ordering
+                // regardless of the traversal's dedup basis.
+                let (ci, cj) = if i < j { (i, j) } else { (j, i) };
                 let target_pair_index =
                     atomic_add_u32(collision_pairs_len.at_mut(batch_id as usize), 1);
 
@@ -555,16 +570,17 @@ pub fn gpu_lbvh_find_collision_pairs(
                     //       intermediate pfm-pair buffer) narrow, and keeping
                     //       `collider_parent` out of the broad phase entirely.
                     collision_pairs[target_pair_index as usize] = CollisionPair {
-                        colliders: UVec2::new(i, j),
+                        colliders: UVec2::new(ci, cj),
                     };
                 }
             } else {
                 let left = node.left;
                 let right = node.right;
 
-                // Go on the child only if the AABB intersects and either the child isn't a leaf, or it is a leaf with associated collider
-                // smaller than `i` (to avoid duplicate pairs).
-                if (left < first_leaf_id || i < tree.at(left as usize).left)
+                // Descend only if the subtree contains leaf id smaller than
+                // `leaf_i`. That way we prune the part of the tree that’s
+                // on the "left" of `leaf_i`, avoiding duplicate pairs/traversals.
+                if leaf_i < tree.at(left as usize).refit_count_or_max_subtree_index
                     && aabb1.intersects(&tree.at(left as usize).aabb)
                     && stack_len < 64
                 {
@@ -572,8 +588,7 @@ pub fn gpu_lbvh_find_collision_pairs(
                     stack_len += 1;
                 }
 
-                // NOTE: on leaves (including tree[right]), the collider id is stored as the left child index.
-                if (right < first_leaf_id || i < tree.at(right as usize).left)
+                if leaf_i < tree.at(right as usize).refit_count_or_max_subtree_index
                     && aabb1.intersects(&tree.at(right as usize).aabb)
                     && stack_len < 64
                 {
