@@ -342,12 +342,7 @@ pub fn gpu_lbvh_refit_internal(
     let first_leaf_id = num_bodies - 1;
 
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
-
-    // All threads must execute the same number of outer loop iterations for uniform control flow.
-    // NOTE: we calculate the interation count based on `colliders_batch_capacity` instead of
-    //       `num_bodies` since the latter is non-uniform because it originates from a storage
-    //       buffer.
-    let num_iterations = batch_ids.colliders_batch_capacity.div_ceil(num_threads);
+    let num_iterations = num_bodies.div_ceil(num_threads);
 
     // NOTE: using unchecked indexing (via MaybeIndexUnchecked) because otherwise the bounds
     //        checking inserted by rustgpu breaks the shader when targeting some NVidia graphics
@@ -449,8 +444,10 @@ pub fn gpu_lbvh_refit(
         // Propagate to ancestors.
         let mut curr_id = tree.at(curr_leaf_id as usize).parent;
 
-        loop {
-            let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count, 1);
+        // NOTE: bounded `for` (tree depth <= 32 in practice) instead of `loop`
+        //       to avoid the MacOS miscompilation bug.
+        for _ in 0..32u32 {
+            let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index, 1);
 
             if refit_count == 0 {
                 // If `refit_count` was 0 then the other thread hasn't reached this node
