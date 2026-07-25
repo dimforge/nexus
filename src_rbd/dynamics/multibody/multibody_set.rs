@@ -115,6 +115,12 @@ pub struct GpuMultibodySet {
     /// Number of colors (per-batch stride of `mb_imp_joint_color_groups`,
     /// and the host color-loop trip count). CPU mirror.
     pub(crate) mb_imp_joint_num_colors: u32,
+    /// Max `ndofs` across every multibody in every batch (CPU mirror of
+    /// `BatchIndices::mb_max_ndofs`).
+    pub(super) max_ndofs: u32,
+    /// Max link count across every multibody in every batch (CPU mirror of
+    /// `BatchIndices::mb_max_links`).
+    pub(super) max_links: u32,
     /// Largest color group across batches — the per-color dispatch width.
     pub(super) mb_imp_joint_max_color_group_len: u32,
     /// Per-batch capacities of the joint / contact constraint slabs (CPU-side
@@ -296,6 +302,8 @@ impl GpuMultibodySet {
         dst.mb_imp_joint_constraints_batch_capacity = self.mb_imp_joint_constraints_per_batch;
         dst.mb_imp_joint_jacobians_batch_capacity = self.mb_imp_joint_jacobians_per_batch;
         dst.mb_imp_joint_color_groups_batch_capacity = self.mb_imp_joint_num_colors.max(1);
+        dst.mb_max_ndofs = self.max_ndofs;
+        dst.mb_max_links = self.max_links;
         dst.coriolis_w_section_offset = self.coriolis_entries_per_batch * self.num_batches;
         dst.i_coriolis_dt_section_offset = 2 * self.coriolis_entries_per_batch * self.num_batches;
         dst.dof_damping_section_offset = self.dofs_per_batch * self.num_batches;
