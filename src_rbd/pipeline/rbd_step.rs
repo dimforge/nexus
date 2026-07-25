@@ -252,6 +252,7 @@ impl RbdPipeline {
                 num_solver_iterations: state.num_solver_iterations,
                 body_group: &state.body_group,
                 batch_indices: &state.batch_indices,
+                colorless_warmstart: false,
             };
             self.solver.prepare(
                 backend,
@@ -386,6 +387,12 @@ impl RbdPipeline {
             num_solver_iterations: state.num_solver_iterations,
             body_group: &state.body_group,
             batch_indices: &state.batch_indices,
+            // The gather warmstart is only valid without multibody grouping —
+            // see `SolverArgs::colorless_warmstart`.
+            #[cfg(feature = "dim3")]
+            colorless_warmstart: state.multibodies.is_empty(),
+            #[cfg(not(feature = "dim3"))]
+            colorless_warmstart: true,
         };
 
         // Phase 3: Solve constraints
