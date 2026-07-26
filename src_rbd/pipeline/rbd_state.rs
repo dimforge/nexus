@@ -151,6 +151,11 @@ pub struct RbdState {
     pub(super) collider_world_poses: Tensor<Pose>,
     /// Per-collider [`crate::rapier::geometry::InteractionGroups`].
     pub(super) collision_groups: Tensor<crate::rapier::geometry::InteractionGroups>,
+    /// Per-collider broad-phase pair-filter key:
+    /// - `[0]`: to prevent colliders of the same body from colliding.
+    /// - `[1]`: to prevent colliders of adjacent links from a multibody from coliding.
+    /// Nonzero keys that are equal never collide.
+    pub(super) pair_filter: Tensor<[u32; 2]>,
     /// Per-collider friction / restitution coefficients (+ combine rules),
     pub(super) collider_materials: Tensor<GpuColliderMaterial>,
     pub(super) collision_pairs: Tensor<CollisionPair>,
