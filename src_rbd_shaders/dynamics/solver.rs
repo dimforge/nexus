@@ -81,7 +81,8 @@ pub fn gpu_solver_count_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_group: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mprops: &[WorldMassProperties],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contacts_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
@@ -90,16 +91,10 @@ pub fn gpu_solver_count_constraints(
     let mut body_constraint_counts = batch_ids.coll_batch_mut(batch_id, body_constraint_counts);
     let body_group = batch_ids.coll_batch(batch_id, body_group);
     let mprops = batch_ids.coll_batch(batch_id, mprops);
-    // See `gpu_solver_init_constraints` — the indirect grid bounds the active
-    // range much tighter than the capacity.
-    let cap = batch_ids.contacts_batch_capacity.min(num_threads);
+    let len = contacts_len.read(batch_id as usize);
 
-    for i in StepRng::new(invocation_id.x..cap, num_threads) {
+    for i in StepRng::new(invocation_id.x..len, num_threads) {
         let im = &contacts[i as usize];
-        if im.contact.len == 0 {
-            continue;
-        }
-
         let body1 = im.bodies.x;
         let body2 = im.bodies.y;
         let group1 = body_group[body1 as usize];
