@@ -6,7 +6,11 @@ use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use crate::{AngVector, Pose, Vector};
-use khal_std::{index::MaybeIndexUnchecked, iter::StepRng, sync::atomic_add_u32};
+use khal_std::{
+    index::MaybeIndexUnchecked,
+    iter::StepRng,
+    sync::{atomic_add_u32, control_barrier},
+};
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
 use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
@@ -407,6 +411,141 @@ pub fn gpu_step_gauss_seidel(
 
         solver_vels[solver_id1] = solver_vel1;
         solver_vels[solver_id2] = solver_vel2;
+    }
+}
+
+/// Fused colored warmstart: only one 64-lane workgroup per batch walks every color
+/// bucket.
+///
+/// Used for small scenes where the contact count is small wrt. the environment count.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_warmstart_fused(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] color_starts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_sorted_ids: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+) {
+    let lane = invocation_id.x;
+    let batch_id = invocation_id.y;
+    let stride = batch_ids.solver_color_buckets_stride;
+
+    let constraints = batch_ids.contact_batch(batch_id, constraints);
+    let color_sorted_ids = batch_ids.contact_batch(batch_id, color_sorted_ids);
+    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let num_colors = *num_colors;
+
+    let base = (batch_id * stride) as usize;
+    if color_starts.read(base + 1) == color_starts.read(base + num_colors as usize + 1) {
+        // Every color bucket is empty.
+        return;
+    }
+
+    for color in 1..=num_colors {
+        let bucket = base + color as usize;
+        let start = color_starts.read(bucket);
+        let end = color_starts.read(bucket + 1);
+        if start == end {
+            // Empty color.
+            continue;
+        }
+
+        for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
+            let i = color_sorted_ids[k as usize];
+            let constraint = &constraints[i as usize];
+            let solver_id1 = constraint.solver_body_a as usize;
+            let solver_id2 = constraint.solver_body_b as usize;
+
+            let mut solver_vel1 = solver_vels[solver_id1];
+            let mut solver_vel2 = solver_vels[solver_id2];
+
+            constraint.warmstart_constraint(&mut solver_vel1, &mut solver_vel2);
+
+            solver_vels[solver_id1] = solver_vel1;
+            solver_vels[solver_id2] = solver_vel2;
+        }
+
+        control_barrier::<
+            { khal_std::memory::Scope::Workgroup as u32 },
+            { khal_std::memory::Scope::QueueFamily as u32 },
+            {
+                khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
+                    | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
+            },
+        >();
+    }
+}
+
+/// Fused colored Gauss-Seidel sweep: only one 64-lane workgroup per batch walks
+/// every color bucket with a storage barrier between colors.
+///
+/// Used for small scenes where the contact count is small wrt. the environment count.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_step_gauss_seidel_fused(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    constraints: &mut [TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] color_starts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_sorted_ids: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
+) {
+    let lane = invocation_id.x;
+    let batch_id = invocation_id.y;
+    let stride = batch_ids.solver_color_buckets_stride;
+
+    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
+    let color_sorted_ids = batch_ids.contact_batch(batch_id, color_sorted_ids);
+    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let num_colors = *num_colors;
+    let use_bias = *use_bias != 0;
+
+    // Early-out / empty-color skip: see `gpu_warmstart_fused`.
+    let base = (batch_id * stride) as usize;
+    if color_starts.read(base + 1) == color_starts.read(base + num_colors as usize + 1) {
+        return;
+    }
+
+    for color in 1..=num_colors {
+        let bucket = base + color as usize;
+        let start = color_starts.read(bucket);
+        let end = color_starts.read(bucket + 1);
+        if start == end {
+            continue;
+        }
+
+        for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
+            let i = color_sorted_ids[k as usize];
+            let solver_id1 = constraints[i as usize].solver_body_a as usize;
+            let solver_id2 = constraints[i as usize].solver_body_b as usize;
+
+            let mut solver_vel1 = solver_vels[solver_id1];
+            let mut solver_vel2 = solver_vels[solver_id2];
+
+            constraints[i as usize].solve_constraint_gauss_seidel(
+                &mut solver_vel1,
+                &mut solver_vel2,
+                use_bias,
+            );
+
+            solver_vels[solver_id1] = solver_vel1;
+            solver_vels[solver_id2] = solver_vel2;
+        }
+
+        control_barrier::<
+            { khal_std::memory::Scope::Workgroup as u32 },
+            { khal_std::memory::Scope::QueueFamily as u32 },
+            {
+                khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
+                    | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
+            },
+        >();
     }
 }
 
