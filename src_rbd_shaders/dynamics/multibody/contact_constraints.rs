@@ -181,10 +181,7 @@ pub fn gpu_mb_init_contact_constraints(
         col_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
 
     let contacts_slice = batch_ids.contact_batch(batch_id, contacts);
-    // Iterate to capacity (instead of reading a `contacts_len` storage buffer):
-    // empty slots have `contact.len == 0` and are skipped. Drops one binding to
-    // fit the 8-storage-buffer WebGPU limit; matches `gpu_solver_init_constraints`.
-    let n_contacts = batch_ids.contacts_batch_capacity;
+    let n_contacts = mb.batch_contacts_len.min(batch_ids.contacts_batch_capacity);
     let mut count = 0u32;
 
     for ci in 0..n_contacts {
@@ -545,6 +542,31 @@ pub fn gpu_mb_init_contact_constraints(
     // The solve / finalize / remove-bias kernels iterate `0..count` so we
     // don't need to mark surplus slots inactive — they're never read.
     mb.contact_constraint_count = count;
+    multibody_info.write(mb_start + mb_idx as usize, mb);
+}
+
+/// HACK: stash `contacts_len[batch]` into each multibody's `batch_contacts_len`.
+///
+/// This exists only to work around the web 8-storage-bindings limit for kernels
+/// that bind multibodies but don’t have any room left to bind `contacts_len`.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_stash_contacts_len(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    multibody_info: &mut [MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+) {
+    let num_mb = batch_ids.multibodies_len;
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
+        return;
+    }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
+    let mb_start = batch_ids.mb_start(batch_id);
+    let mut mb = multibody_info.read(mb_start + mb_idx as usize);
+    mb.batch_contacts_len = contacts_len.read(batch_id as usize);
     multibody_info.write(mb_start + mb_idx as usize, mb);
 }
 
