@@ -9,6 +9,9 @@ use crate::utils::{Slice, SliceMut};
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 pub struct BatchIndices {
+    /// Total number of simulation batches (environments).
+    pub num_batches: u32,
+
     /*
      * RBD / collision-detection capacities.
      */
@@ -58,6 +61,9 @@ pub struct BatchIndices {
     pub mb_max_ndofs: u32,
     /// Actual max link count across every multibody in every batch.
     pub mb_max_links: u32,
+    /// Lanes per multibody for the packed per-multibody workgroup kernels:
+    /// `next_power_of_two(mb_max_ndofs).clamp(8, 64)`.
+    pub mb_pack_lanes: u32,
     /// Per-batch stride of the contact-solver color-bucket buffers
     /// (`color_counts` / `color_starts` / `color_cursors`), = `max_colors + 3`
     /// so that `starts[c + 1]` is in bounds for every swept color.

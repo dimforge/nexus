@@ -6,7 +6,8 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuMbComputeDynamicsPre,
     GpuMbComputeDynamicsWithoutCoriolisPre,
-    GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbInitContactConstraints,
+    GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT8,
+    GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
     GpuMbRemoveContactConstraintBias, GpuMbRemoveImpulseJointConstraintBias,
     GpuMbResetContactWarmstart, GpuMbWarmstartContactConstraints,
@@ -23,6 +24,13 @@ use vortx::tensor::Tensor;
 #[derive(Shader)]
 pub struct GpuMultibodySolver {
     gravity_and_lu: GpuMbGravityAndLu,
+    /// Packed tiers of `gravity_and_lu` — `64/T` multibodies per workgroup
+    /// with a `T×T` shared tile each, selected by `max_ndofs`. The fallback
+    /// `gravity_and_lu` (one multibody per workgroup, 64×64 tile) only runs
+    /// for `max_ndofs > 32`.
+    gravity_and_lu_t8: GpuMbGravityAndLuT8,
+    gravity_and_lu_t16: GpuMbGravityAndLuT16,
+    gravity_and_lu_t32: GpuMbGravityAndLuT32,
     compute_dynamics_pre: GpuMbComputeDynamicsPre,
     compute_dynamics_without_coriolis_pre: GpuMbComputeDynamicsWithoutCoriolisPre,
     solve_joint_with_bias: GpuMbSolveJointConstraints,
@@ -83,67 +91,11 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: MultibodySolverArgs<'_>,
     ) -> Result<(), GpuBackendError> {
+        let mut args = args;
         if mb.is_empty() {
             return Ok(());
         }
-        // Fused FK + body-jacobians + velocity propagation + CRBA-with-Coriolis
-        // mass-matrix assembly (4 dispatches → 1) — see
-        // `gpu_mb_compute_dynamics_pre`. Only the implicit-Coriolis path is
-        // wired through the fused kernel; the explicit-Coriolis fallback keeps
-        // the legacy split path.
-        let pre_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        if mb.implicit_coriolis {
-            self.compute_dynamics_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mut mb.coriolis_packed,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        } else {
-            self.compute_dynamics_without_coriolis_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        }
-
-        // Fused: gravity / Coriolis force assembly + LU factor + LU solve in
-        // a single dispatch. Replaces the previous 2-dispatch chain
-        // (apply_gravity_with_coriolis → lu_factor_and_solve) — drops one
-        // WebGPU dispatch per `compute_dynamics` call.
-        let grav_lu_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.gravity_and_lu.call(
-            pass,
-            grav_lu_dispatch,
-            &mb.multibody_info,
-            &mb.links_static,
-            &mut mb.links_workspace,
-            &mb.body_jacobians,
-            &mut mb.gen_forces,
-            &mut mb.mass_matrices,
-            &mut mb.lu_pivots,
-            &mb.dof_state,
-            &mb.gravity,
-            args.batch_indices,
-        )?;
-
-        Ok(())
+        self.compute_dynamics(pass, mb, &mut args)
     }
 
     /// Once-per-visible-step setup. After this call, `gen_forces` holds the
@@ -163,7 +115,7 @@ impl GpuMultibodySolver {
         // starts cold (within a frame they are then preserved across substeps).
         self.reset_contact_warmstart.call(
             pass,
-            [mb.multibodies_per_batch, mb.num_batches, 1],
+            mb.flat_mb_dispatch(),
             &mb.multibody_info,
             &mut mb.contact_constraints,
             args.batch_indices,
@@ -186,7 +138,7 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
+        let dispatch = mb.flat_mb_dispatch();
         self.integrate_velocities.call(
             pass,
             dispatch,
@@ -209,7 +161,7 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
+        let dispatch = mb.flat_mb_dispatch();
 
         if mb.has_joint_constraints {
             // TODO(PERF): joints init could parallelized. We either need to rework
@@ -299,7 +251,7 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
+        let dispatch = mb.flat_mb_dispatch();
 
         if mb.has_joint_constraints {
             self.solve_joint_with_bias.call(
@@ -400,7 +352,7 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
+        let dispatch = mb.flat_mb_dispatch();
 
         self.integrate.call(
             pass,
@@ -441,7 +393,7 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
+        let dispatch = mb.flat_mb_dispatch();
 
         if mb.has_joint_constraints {
             self.remove_solve_joint_no_bias.call(
@@ -523,8 +475,10 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
     ) -> Result<(), GpuBackendError> {
-        // Fused FK + body-jacobians + velocity propagation + Mass-matrix assembly
-        let pre_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+        // Fused FK + body-jacobians + velocity propagation + Mass-matrix
+        // assembly. Packed: `64 / mb_pack_lanes` multibodies per workgroup,
+        // flattened (multibody, batch) grid.
+        let pre_dispatch = mb.packed_wg_dispatch();
         if mb.implicit_coriolis {
             self.compute_dynamics_pre.call(
                 pass,
@@ -556,22 +510,49 @@ impl GpuMultibodySolver {
             )?;
         }
 
-        // Fused gravity + LU factor + LU solve.
-        let grav_lu_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.gravity_and_lu.call(
-            pass,
-            grav_lu_dispatch,
-            &mb.multibody_info,
-            &mb.links_static,
-            &mut mb.links_workspace,
-            &mb.body_jacobians,
-            &mut mb.gen_forces,
-            &mut mb.mass_matrices,
-            &mut mb.lu_pivots,
-            &mb.dof_state,
-            &mb.gravity,
-            args.batch_indices,
-        )?;
+        // Fused gravity + LU factor + LU solve. Select an implementation based on how many
+        // environments we can pack on the same workgroup (depending on its dofs).
+        macro_rules! grav_lu {
+            ($kernel:ident) => {
+                self.$kernel.call(
+                    pass,
+                    mb.packed_wg_dispatch(),
+                    &mb.multibody_info,
+                    &mb.links_static,
+                    &mut mb.links_workspace,
+                    &mb.body_jacobians,
+                    &mut mb.gen_forces,
+                    &mut mb.mass_matrices,
+                    &mut mb.lu_pivots,
+                    &mb.dof_state,
+                    &mb.gravity,
+                    args.batch_indices,
+                )?
+            };
+        }
+        match mb.pack_lanes() {
+            8 => grav_lu!(gravity_and_lu_t8),
+            16 => grav_lu!(gravity_and_lu_t16),
+            32 => grav_lu!(gravity_and_lu_t32),
+            _ => {
+                let grav_lu_dispatch =
+                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+                self.gravity_and_lu.call(
+                    pass,
+                    grav_lu_dispatch,
+                    &mb.multibody_info,
+                    &mb.links_static,
+                    &mut mb.links_workspace,
+                    &mb.body_jacobians,
+                    &mut mb.gen_forces,
+                    &mut mb.mass_matrices,
+                    &mut mb.lu_pivots,
+                    &mb.dof_state,
+                    &mb.gravity,
+                    args.batch_indices,
+                )?;
+            }
+        }
 
         Ok(())
     }
