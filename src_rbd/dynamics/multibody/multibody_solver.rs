@@ -251,6 +251,8 @@ impl GpuMultibodySolver {
             args.mprops,
             args.collider_world_poses,
             args.contacts,
+            &mb.links_static,
+            &mb.links_workspace,
         )?;
 
         self.finalize_contact_constraints.call(
