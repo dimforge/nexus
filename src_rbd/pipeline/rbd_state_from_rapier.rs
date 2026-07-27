@@ -437,6 +437,8 @@ impl RbdState {
                 [0.0, -9.81, 0.0],
                 max_colliders as u32,
             );
+            // Must be set before `set_visible_dt` derives the substep dt.
+            mb.set_num_solver_iterations(num_solver_iterations);
             mb.set_visible_dt(backend, multibody_dt);
             // Soft contact coefficients (rapier TGS-soft) from the substep sim
             // params, so multibody-vs-floor contacts use the same soft ERP + CFM
