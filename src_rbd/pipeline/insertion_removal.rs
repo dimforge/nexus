@@ -144,6 +144,12 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::UNIFORM,
         )
         .unwrap();
+        let prediction = Tensor::scalar(
+            backend,
+            all_sim_params[0].prediction_distance(),
+            BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        )
+        .unwrap();
         // Two-element readback: the (max) collision-pair count and the uncolored count.
         let resize_readback = GpuReadback::new(backend, 2).unwrap();
         let collision_pairs_indirect =
@@ -250,6 +256,7 @@ impl RbdState {
             collision_pairs_len,
             collision_pairs_len_max,
             num_batches_uniform,
+            prediction,
             resize_readback,
             collision_pairs_indirect,
             contacts_per_batch_cpu,
