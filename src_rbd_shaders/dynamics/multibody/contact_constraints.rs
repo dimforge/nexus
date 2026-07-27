@@ -784,10 +784,16 @@ pub fn gpu_mb_solve_contact_constraints(
         }
 
         let rhs_total = j_dot_v + cons.rhs;
-        // CFM-factor form (rapier's `*ContactConstraintNormalPart::generic_solve`):
-        // `new = cfm_factor · (impulse − r · Δvel)`. `cfm_factor < 1` provides the
-        // soft-constraint compliance that keeps resting contacts from jittering.
-        let raw_imp = cons.cfm_factor * (cons.impulse - cons.inv_lhs * rhs_total);
+        // CFM-factor form (rapier's `ContactConstraintNormalPart::generic_solve`):
+        // `new = cfm_factor · (impulse − r · Δvel)`. Normal rows ONLY — rapier's
+        // `TangentPart::solve` takes no cfm_factor; softening friction scales the
+        // effective μ by cfm_factor.
+        let unsoft_imp = cons.impulse - cons.inv_lhs * rhs_total;
+        let raw_imp = if cons.kind == MB_CONTACT_KIND_TANGENT {
+            unsoft_imp
+        } else {
+            cons.cfm_factor * unsoft_imp
+        };
 
         // Normal: clamp to ≥ 0 (no separation impulse). Friction tangent:
         // clamp to `±μ · normal_impulse` — looks up the paired normal slot
