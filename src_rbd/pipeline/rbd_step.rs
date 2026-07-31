@@ -301,6 +301,7 @@ impl RbdPipeline {
                 batch_indices: &state.batch_indices,
                 colorless_warmstart: false,
                 fused_color_sweeps,
+                rb_contacts_inert: state.rb_contacts_inert,
             };
             self.solver.prepare(
                 backend,
@@ -308,6 +309,12 @@ impl RbdPipeline {
                 prepare_args,
                 &mut state.prefix_sum_workspace,
             )?;
+
+            if state.rb_contacts_inert {
+                stats.num_colors = state.max_colors + 1;
+                drop(pass);
+                backend.submit(encoder)?;
+            } else {
 
             // Warmstart
             let warmstart_args = WarmstartArgs {
@@ -402,6 +409,7 @@ impl RbdPipeline {
 
             drop(pass);
             backend.submit(encoder)?;
+            }
         }
 
         let num_colors = stats.num_colors;
@@ -442,6 +450,7 @@ impl RbdPipeline {
             #[cfg(not(feature = "dim3"))]
             colorless_warmstart: true,
             fused_color_sweeps,
+            rb_contacts_inert: state.rb_contacts_inert,
         };
 
         // Phase 3: Solve constraints
@@ -531,6 +540,7 @@ impl RbdPipeline {
             //       count earlier, before it gets a chance to fail.
             if state.capacities.solver_colors_resize_policy != RbdResizePolicy::Fixed
                 && coloring_converged == 0
+                && !state.rb_contacts_inert
             {
                 state.max_colors += 5;
 
