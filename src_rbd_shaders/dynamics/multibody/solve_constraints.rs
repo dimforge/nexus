@@ -43,6 +43,7 @@ pub fn gpu_mb_solve_constraints(
     #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
     #[spirv(workgroup)] scratch: &mut [f32; LANES as usize],
     #[spirv(workgroup)] imp_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
+    #[spirv(workgroup)] delta_shared: &mut f32,
 ) {
     let batch_id = workgroup_id.y;
     let mb_idx = workgroup_id.x;
@@ -186,7 +187,7 @@ pub fn gpu_mb_solve_constraints(
             };
             let delta = new_imp - impulse;
             imp_shared[s as usize] = new_imp;
-            scratch[0] = delta;
+            *delta_shared = delta;
 
             if delta != 0.0 && !is_self {
                 let mut new_free = free;
@@ -197,12 +198,12 @@ pub fn gpu_mb_solve_constraints(
         }
         workgroup_memory_barrier_with_group_sync();
 
-        let delta = scratch[0];
+        // Per-lane `dof_v[lane]` update.
+        let delta = *delta_shared;
         if delta != 0.0 && lane < ndofs {
             let col = contact_constraint_columns.read(col_offset + lane as usize);
             dof_v[lane as usize] += delta * col;
         }
-        workgroup_memory_barrier_with_group_sync();
     }
 
     // Writeback
