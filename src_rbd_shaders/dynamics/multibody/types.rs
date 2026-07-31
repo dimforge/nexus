@@ -47,6 +47,18 @@ pub const MB_CONTACT_KIND_NORMAL: u32 = 1;
 /// `normal_constraint_slot` (relative to the multibody's `cons_base`).
 pub const MB_CONTACT_KIND_TANGENT: u32 = 2;
 
+/// Joint-constraint `kind`: unused slot.
+pub const MB_JOINT_KIND_INACTIVE: u32 = 0;
+/// Joint-constraint `kind`: active limit.
+pub const MB_JOINT_KIND_LIMIT: u32 = 1;
+/// Joint-constraint `kind`: active motor.
+pub const MB_JOINT_KIND_MOTOR: u32 = 2;
+/// Joint-constraint `kind`: limit slot that is INACTIVE this substep. The
+/// solve skips it, but the slot keeps a valid M⁻¹ column / `inv_lhs` /
+/// `cfm_gain` so the per-substep refresh can flip it active without a
+/// back-solve (see `gpu_mb_refresh_joint_constraints`).
+pub const MB_JOINT_KIND_LIMIT_INACTIVE: u32 = 3;
+
 /// Sentinel marking a link with no parent (the root).
 pub const MULTIBODY_ROOT: u32 = u32::MAX;
 

@@ -13,8 +13,8 @@ use crate::utils::BatchIndices;
 use crate::utils::linalg::MAX_MB_DOFS;
 
 use super::types::{
-    MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_TANGENT, MultibodyContactConstraint,
-    MultibodyInfo, MultibodyJointConstraint,
+    MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_TANGENT, MB_JOINT_KIND_LIMIT,
+    MB_JOINT_KIND_MOTOR, MultibodyContactConstraint, MultibodyInfo, MultibodyJointConstraint,
 };
 
 const LANES: u32 = 64;
@@ -96,8 +96,9 @@ pub fn gpu_mb_solve_constraints(
     // Joint limits/motors
     for s in 0..mb.max_constraints {
         let cons = joint_constraints.read(jcons_base + s as usize);
-        if cons.kind == 0 {
-            // Uniform skip: all lanes take it together (barrier-safe).
+        if cons.kind != MB_JOINT_KIND_LIMIT && cons.kind != MB_JOINT_KIND_MOTOR {
+            // Unused slot or inactive limit. Uniform skip: all lanes take it
+            // together (barrier-safe).
             continue;
         }
 
@@ -265,8 +266,9 @@ pub fn gpu_mb_solve_joints(
 
     for s in 0..mb.max_constraints {
         let cons = joint_constraints.read(jcons_base + s as usize);
-        if cons.kind == 0 {
-            // Uniform skip: all lanes take it together (barrier-safe).
+        if cons.kind != MB_JOINT_KIND_LIMIT && cons.kind != MB_JOINT_KIND_MOTOR {
+            // Unused slot or inactive limit. Uniform skip: all lanes take it
+            // together (barrier-safe).
             continue;
         }
 
