@@ -80,11 +80,12 @@ impl RbdPipeline {
             state.ensure_color_uniforms(backend, needed);
         }
 
+        let mut encoder = backend.begin_encoding();
+
         // Phase 0: Multibody once-per-visible-step setup (3D only for now).
         #[cfg(feature = "dim3")]
         {
             if !state.multibodies.is_empty() {
-                let mut encoder = backend.begin_encoding();
                 let mut args = crate::dynamics::MultibodySolverArgs {
                     poses: &mut state.body_poses,
                     collider_world_poses: &state.collider_world_poses,
@@ -101,13 +102,11 @@ impl RbdPipeline {
                     &mut state.multibodies,
                     &mut args,
                 )?;
-                backend.submit(encoder)?;
             }
         }
 
         // Phase 1: Update mass properties, build LBVH, and find collision pairs.
         {
-            let mut encoder = backend.begin_encoding();
             let mut pass = encoder.begin_pass("[RBD] update-mprops", timestamps.as_deref_mut());
 
             // Update mass properties — uses body world poses to compute the
@@ -214,11 +213,28 @@ impl RbdPipeline {
             }
         }
 
+        let readback_enabled = state.capacities.solver_colors_resize_policy
+            != RbdResizePolicy::Fixed
+            || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
+        let est_pairs = if readback_enabled {
+            state.collision_pairs_len_cpu
+        } else {
+            state.collision_pairs_per_batch_cpu
+        };
+
+        // Choose the kernel depending on the expected pairs count.
+        // Small pairs with many environment benefit from the fused kernels.
+        let fused_color_sweeps = est_pairs <= 128;
+
+        // In small scenes, submit less frequently. In big scenes submit more
+        // to overlap compute and encoding.
+        let merge_submits = fused_color_sweeps && state.num_batches <= 64;
+
         // Phase 2a: Narrow phase. Split out from solver-prep + coloring
         // so its CPU encoding overlaps with Phase 1's GPU work and its
         // own GPU work overlaps with Phase 2b's CPU encoding.
+        let mut encoder = backend.begin_encoding();
         {
-            let mut encoder = backend.begin_encoding();
             let mut pass = encoder.begin_pass("[RBD] narrow-phase", timestamps.as_deref_mut());
 
             self.narrow_phase.dispatch(
@@ -243,31 +259,16 @@ impl RbdPipeline {
             )?;
 
             drop(pass);
-            backend.submit(encoder)?;
+            if !merge_submits {
+                backend.submit(encoder)?;
+                encoder = backend.begin_encoding();
+            }
         }
-
-        // Colored-sweep strategy: with few constraints per batch, the
-        // `num_colors` dispatches per sweep (and their empty buckets) dominate
-        // — run each sweep as one dispatch with one workgroup per batch
-        // looping the colors internally. The gate is perf-only (the fused
-        // kernel is correct for any size, just serialized past ~64 lanes):
-        // use the lagging pair-count readback when auto-resize keeps it fresh,
-        // else the fixed capacity.
-        let readback_enabled = state.capacities.solver_colors_resize_policy
-            != RbdResizePolicy::Fixed
-            || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
-        let est_pairs = if readback_enabled {
-            state.collision_pairs_len_cpu
-        } else {
-            state.collision_pairs_per_batch_cpu
-        };
-        let fused_color_sweeps = est_pairs <= 128;
 
         // Phase 2b: solver-prep + warmstart + bounded coloring. Separate
         // submit from narrow-phase to enable CPU/GPU overlap with the
         // upcoming Phase 3 solver substep loop.
         {
-            let mut encoder = backend.begin_encoding();
             let mut pass = encoder.begin_pass("[RBD] solver-prep", timestamps.as_deref_mut());
 
             // Solver preparation - create args here to avoid borrow conflicts
@@ -313,7 +314,6 @@ impl RbdPipeline {
             if state.rb_contacts_inert {
                 stats.num_colors = state.max_colors + 1;
                 drop(pass);
-                backend.submit(encoder)?;
             } else {
 
             // Warmstart
@@ -408,7 +408,10 @@ impl RbdPipeline {
             stats.num_colors = num_colors;
 
             drop(pass);
-            backend.submit(encoder)?;
+            }
+            if !merge_submits {
+                backend.submit(encoder)?;
+                encoder = backend.begin_encoding();
             }
         }
 
@@ -465,7 +468,6 @@ impl RbdPipeline {
         };
 
         {
-            let mut encoder = backend.begin_encoding();
             #[cfg(feature = "dim3")]
             let mb = if state.multibodies.is_empty() {
                 None
