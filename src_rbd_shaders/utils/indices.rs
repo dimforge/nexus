@@ -1,4 +1,5 @@
-use crate::utils::{Slice, SliceMut};
+use crate::utils::linalg::{MatSlice, VSlice};
+use crate::utils::{ISlice, ISliceMut, Slice, SliceMut};
 
 /// Per-batch capacities and packed-buffer section offsets, shared by every
 /// kernel that needs to slice a flat tensor into its batch's slot.
@@ -91,6 +92,47 @@ impl BatchIndices {
         batch_id as usize * self.colliders_batch_capacity as usize
     }
 
+    /// Interleaved flat index for the multibody dynamics buffers.
+    #[inline]
+    pub fn mbi(&self, batch_id: u32, intra: usize) -> usize {
+        intra * self.num_batches as usize + batch_id as usize
+    }
+
+    /// Interleaved view of a multibody dynamics buffer for batch `batch_id`
+    /// (use `.offset(...)` for the intra-batch element offset).
+    #[inline]
+    pub fn ib<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> ISlice<'s, T> {
+        ISlice {
+            buf: slice,
+            base: 0,
+            stride: self.num_batches,
+            shift: batch_id,
+        }
+    }
+
+    /// Mutable interleaved view.
+    #[inline]
+    pub fn ib_mut<'s, T>(&self, batch_id: u32, slice: &'s mut [T]) -> ISliceMut<'s, T> {
+        ISliceMut {
+            buf: slice,
+            base: 0,
+            stride: self.num_batches,
+            shift: batch_id,
+        }
+    }
+
+    /// Interleaved dense matrix view at intra-batch element offset `offset`.
+    #[inline]
+    pub fn imat(&self, batch_id: u32, offset: usize, rows: u32, cols: u32) -> MatSlice {
+        MatSlice::interleaved(offset, rows, cols, self.num_batches, batch_id)
+    }
+
+    /// Interleaved vector view at intra-batch element offset `offset`.
+    #[inline]
+    pub fn ivec(&self, batch_id: u32, offset: usize) -> VSlice {
+        VSlice::interleaved(offset, self.num_batches, batch_id)
+    }
+
     #[inline]
     pub fn collision_pairs_start(&self, batch_id: u32) -> usize {
         batch_id as usize * self.collision_pairs_batch_capacity as usize
@@ -104,41 +146,6 @@ impl BatchIndices {
     #[inline]
     pub fn impulse_joints_start(&self, batch_id: u32) -> usize {
         batch_id as usize * self.impulse_joints_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn mb_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.multibodies_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn links_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.links_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn jac_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.jacobians_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn mm_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.mass_matrix_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn cor_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.coriolis_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn icdt_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.i_coriolis_dt_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn dof_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.dof_batch_capacity as usize
     }
 
     #[inline]
@@ -231,36 +238,6 @@ impl BatchIndices {
         slice: &'s mut [T],
     ) -> SliceMut<'s, T> {
         SliceMut(slice, self.impulse_joints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.mb_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_batch_mut<'s, T>(&self, batch_id: u32, slice: &'s mut [T]) -> SliceMut<'s, T> {
-        SliceMut(slice, self.mb_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_links_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.links_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_links_batch_mut<'s, T>(&self, batch_id: u32, slice: &'s mut [T]) -> SliceMut<'s, T> {
-        SliceMut(slice, self.links_start(batch_id))
-    }
-
-    #[inline]
-    pub fn dof_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.dof_start(batch_id))
-    }
-
-    #[inline]
-    pub fn dof_batch_mut<'s, T>(&self, batch_id: u32, slice: &'s mut [T]) -> SliceMut<'s, T> {
-        SliceMut(slice, self.dof_start(batch_id))
     }
 
     #[inline]

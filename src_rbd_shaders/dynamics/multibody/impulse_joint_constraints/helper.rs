@@ -12,6 +12,7 @@ use crate::{AngVector, MAX_FLT, Pose, Vector, rotation_to_matrix};
 
 use super::super::types::MultibodyInfo;
 use super::jacobians::*;
+use crate::utils::linalg::VSlice;
 use super::types::*;
 
 /// `JointConstraintHelper`-equivalent: precomputed per-joint quantities used
@@ -176,7 +177,7 @@ pub(super) fn lock_jacobians_generic(
     ang_jac1: AngVector,
     ang_jac2: AngVector,
     body_jacobians: &[f32],
-    jac_start: usize,
+    il: VSlice,
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
@@ -213,7 +214,7 @@ pub(super) fn lock_jacobians_generic(
                 lin_jac,
                 ang_jac2,
                 body_jacobians,
-                jac_start,
+                il,
             );
 
             out.kind = 1;
@@ -253,7 +254,7 @@ pub(super) fn lock_jacobians_generic(
             lin_jac,
             ang_jac1,
             body_jacobians,
-            jac_start,
+            il,
         );
     }
 
@@ -281,7 +282,7 @@ pub(super) fn lock_jacobians_generic(
             lin_jac,
             ang_jac2,
             body_jacobians,
-            jac_start,
+            il,
         );
     }
 
@@ -381,7 +382,7 @@ pub(super) fn lock_linear_generic(
     j_id_a: u32,
     j_id_b: u32,
     body_jacobians: &[f32],
-    jac_start: usize,
+    il: VSlice,
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
@@ -406,7 +407,7 @@ pub(super) fn lock_linear_generic(
         ang_jac1,
         ang_jac2,
         body_jacobians,
-        jac_start,
+        il,
         mprops,
         colliders_start,
     );
@@ -434,7 +435,7 @@ pub(super) fn lock_angular_generic(
     j_id_a: u32,
     j_id_b: u32,
     body_jacobians: &[f32],
-    jac_start: usize,
+    il: VSlice,
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
@@ -450,7 +451,7 @@ pub(super) fn lock_angular_generic(
         ang_jac,
         ang_jac,
         body_jacobians,
-        jac_start,
+        il,
         mprops,
         colliders_start,
     );
@@ -479,7 +480,7 @@ pub(super) fn limit_linear_generic(
     j_id_a: u32,
     j_id_b: u32,
     body_jacobians: &[f32],
-    jac_start: usize,
+    il: VSlice,
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
@@ -504,7 +505,7 @@ pub(super) fn limit_linear_generic(
         ang_jac1,
         ang_jac2,
         body_jacobians,
-        jac_start,
+        il,
         mprops,
         colliders_start,
     );
@@ -539,7 +540,7 @@ pub(super) fn limit_angular_generic(
     j_id_a: u32,
     j_id_b: u32,
     body_jacobians: &[f32],
-    jac_start: usize,
+    il: VSlice,
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
@@ -555,7 +556,7 @@ pub(super) fn limit_angular_generic(
         ang_jac,
         ang_jac,
         body_jacobians,
-        jac_start,
+        il,
         mprops,
         colliders_start,
     );
@@ -591,7 +592,7 @@ pub(super) fn motor_linear_generic(
     j_id_a: u32,
     j_id_b: u32,
     body_jacobians: &[f32],
-    jac_start: usize,
+    il: VSlice,
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
@@ -617,7 +618,7 @@ pub(super) fn motor_linear_generic(
         ang_jac1,
         ang_jac2,
         body_jacobians,
-        jac_start,
+        il,
         mprops,
         colliders_start,
     );
@@ -655,7 +656,7 @@ pub(super) fn motor_angular_generic(
     j_id_a: u32,
     j_id_b: u32,
     body_jacobians: &[f32],
-    jac_start: usize,
+    il: VSlice,
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
@@ -672,7 +673,7 @@ pub(super) fn motor_angular_generic(
         ang_jac,
         ang_jac,
         body_jacobians,
-        jac_start,
+        il,
         mprops,
         colliders_start,
     );
