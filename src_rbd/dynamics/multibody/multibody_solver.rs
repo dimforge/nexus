@@ -94,6 +94,9 @@ pub struct MultibodySolverArgs<'a> {
     /// Per-color-index uniform tensors (`color_uniforms[c]` holds `c`),
     /// shared with the contact/joint solvers.
     pub color_uniforms: &'a [Tensor<u32>],
+    /// GPU-written workgroup grid for the per-multibody contact-constraint
+    /// dispatches: `[multibodies_batch_capacity, num_batches, 1]`.
+    pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
 }
 
 impl GpuMultibodySolver {
@@ -130,13 +133,15 @@ impl GpuMultibodySolver {
         }
         // Zero the accumulated contact impulses so the first substep's warmstart
         // starts cold (within a frame they are then preserved across substeps).
-        // One 64-lane workgroup per multibody (lanes stride the slots).
+        // Flat (slot, multibody, batch) grid (impulse-field-only stores).
         {
             let mut pass = encoder.begin_pass("[RBD] mbi/reset", timestamps.as_deref_mut());
+            let total_slots = mb.num_active_multibodies
+                * mb.num_batches
+                * crate::shaders::dynamics::MAX_MB_CONTACT_CONSTRAINTS_PER_MB;
             self.reset_contact_warmstart.call(
                 &mut pass,
-                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1],
-                &mb.multibody_info,
+                [total_slots, 1, 1],
                 &mut mb.contact_constraints,
                 args.batch_indices,
             )?;
@@ -244,11 +249,11 @@ impl GpuMultibodySolver {
         if !first_substep {
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
-            let warmstart_dispatch =
-                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            // Contact-only work: indirect grid collapses to zero workgroups
+            // when no batch has any contact this step.
             self.warmstart_contact_constraints.call(
                 &mut pass,
-                warmstart_dispatch,
+                args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mb.contact_constraints,
                 &mb.contact_constraint_columns,
@@ -326,16 +331,13 @@ impl GpuMultibodySolver {
             )?;
         }
 
-        // One 64-lane workgroup per multibody: the per-constraint LU
-        // back-solves are independent, so they run one-per-lane instead of
-        // sequentially on a single thread.
+        // One 64-lane workgroup per multibody.
         {
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/finalize-contact", timestamps.as_deref_mut());
-            let finalize_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
             self.finalize_contact_constraints.call(
                 &mut pass,
-                finalize_dispatch,
+                args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mb.mass_matrices,
                 &mb.lu_pivots,
@@ -351,10 +353,9 @@ impl GpuMultibodySolver {
         if let Some(delassus) = &mut mb.contact_delassus {
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/build-delassus", timestamps.as_deref_mut());
-            let dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
             self.build_contact_delassus.call(
                 &mut pass,
-                dispatch,
+                args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mb.contact_constraints,
                 &mb.contact_constraint_jacs,
@@ -393,9 +394,11 @@ impl GpuMultibodySolver {
                     args.batch_indices,
                 )?;
             }
+            // Contact-only work: indirect grid collapses to zero workgroups
+            // on contact-free steps.
             self.solve_contacts_delassus.call(
                 pass,
-                solve_dispatch,
+                args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mut mb.contact_constraints,
                 &mb.contact_constraint_jacs,
@@ -406,10 +409,28 @@ impl GpuMultibodySolver {
                 &mut mb.dof_state,
                 args.solver_vels,
             )?;
-        } else {
+        } else if mb.has_joint_constraints {
             self.solve_constraints.call(
                 pass,
                 solve_dispatch,
+                &mb.multibody_info,
+                &mut mb.joint_constraints,
+                &mb.joint_constraint_columns,
+                &mut mb.contact_constraints,
+                &mb.contact_constraint_jacs,
+                &mb.contact_constraint_columns,
+                use_bias,
+                args.batch_indices,
+                &mut mb.dof_state,
+                args.solver_vels,
+            )?;
+        } else {
+            // No joint limits/motors anywhere: the fused sweep is contact-only
+            // work, so the indirect grid (zero workgroups on contact-free
+            // steps) replaces the full per-(multibody, batch) launch.
+            self.solve_constraints.call(
+                pass,
+                args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mut mb.joint_constraints,
                 &mb.joint_constraint_columns,

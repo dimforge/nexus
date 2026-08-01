@@ -618,6 +618,8 @@ impl RbdState {
         .unwrap();
         let contacts_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
+        let mb_sweep_indirect =
+            Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let pfm_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let pfm_pairs = Tensor::vector_uninit(
@@ -808,6 +810,7 @@ impl RbdState {
             contacts,
             contacts_len,
             contacts_indirect,
+            mb_sweep_indirect,
             pfm_pairs,
             pfm_pairs_len,
             pfm_pairs_indirect,
