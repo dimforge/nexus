@@ -27,12 +27,14 @@ use crate::utils::{BatchIndices, Slice, SliceMut};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross_av};
 use parry::math::VectorExt;
 
-/// Packed slot decode shared by the two `pre` kernels: `64 / mb_pack_lanes`
-/// multibodies per 64-lane workgroup, `(multibody, batch)` flattened into the
-/// workgroup X dimension. Returns `(t, lane, batch_id, mb_idx, active_slot)`;
-/// inactive slots get clamped indices (their loops all no-op on the zeroed
-/// dummy `MultibodyInfo` the caller substitutes). `mb_pack_lanes` is
-/// uniform-sourced so the decode keeps uniform control flow for barriers.
+#[inline(always)]
+fn sync_slots(t: u32) {
+    if t > 1 {
+        workgroup_memory_barrier_with_group_sync();
+    }
+}
+
+/// Returns `(t, lane, batch_id, mb_idx, active_slot)`.
 #[inline(always)]
 fn packed_decode(wg_id: UVec3, lid: UVec3, batch_ids: &BatchIndices) -> (u32, u32, u32, u32, bool) {
     let t = batch_ids.mb_pack_lanes;
@@ -116,7 +118,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     if active_slot && num_links > 0 && lane == 0 {
         forward_kinematics(&mb, &stat_slice, &mut poses_slice, &mut ws_slice, num_links);
     }
-    workgroup_memory_barrier_with_group_sync();
+    sync_slots(t);
 
     // 2) Update body jacobians
     update_body_jacobians(
@@ -135,7 +137,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     if active_slot && num_links > 0 && lane == 0 {
         propagate_velocities(num_links, &stat_slice, &vel_slice, &mut ws_slice);
     }
-    workgroup_memory_barrier_with_group_sync();
+    sync_slots(t);
 
     // 3) Mass matrix (with semi-implicit coriolis handling).
     let acc_augmented_mass = MatSlice::dense(mb_mm_base, ndofs, ndofs);
@@ -145,7 +147,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     let i_coriolis_dt_v = i_coriolis_dt_view.fixed_rows(0, DIM);
     let i_coriolis_dt_w = i_coriolis_dt_view.fixed_rows(DIM, ANG_DIM);
 
-    workgroup_memory_barrier_with_group_sync();
+    sync_slots(t);
 
     for k in 0..batch_ids.mb_max_links {
         let loop_is_active = k < num_links;
@@ -179,7 +181,7 @@ pub fn gpu_mb_compute_dynamics_pre(
         }
         // Uniform barrier so subsequent parent-coriolis reads see consistent
         // state — WebGPU forbids a barrier inside divergent control flow.
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(t);
 
         let loop_is_active = k < num_links && inv_mass_x != 0.0;
         let coriolis_v_i = MatSlice::dense(
@@ -335,7 +337,7 @@ pub fn gpu_mb_compute_dynamics_pre(
             }
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(t);
 
         if loop_is_active {
             if k != 0 {
@@ -393,7 +395,7 @@ pub fn gpu_mb_compute_dynamics_pre(
             }
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(t);
 
         if loop_is_active {
             let ws = &ws_slice[k as usize];
@@ -435,7 +437,7 @@ pub fn gpu_mb_compute_dynamics_pre(
             );
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(t);
 
         if loop_is_active {
             // i_coriolis_dt assembly: dt · (mass·coriolis_v, I·coriolis_w).
@@ -461,7 +463,7 @@ pub fn gpu_mb_compute_dynamics_pre(
             );
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(t);
 
         if loop_is_active {
             gemm_tr_par(
@@ -478,7 +480,7 @@ pub fn gpu_mb_compute_dynamics_pre(
             );
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(t);
     }
 
     // Diagonal: M[i, i] += damping[i] * dt + armature[i] — parallel.
@@ -555,7 +557,7 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
     if active_slot && num_links > 0 && lane == 0 {
         forward_kinematics(&mb, &stat_slice, &mut poses_slice, &mut ws_slice, num_links);
     }
-    workgroup_memory_barrier_with_group_sync();
+    sync_slots(t);
 
     // 2) Update body jacobians
     update_body_jacobians(
@@ -574,12 +576,12 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
     if active_slot && num_links > 0 && lane == 0 {
         propagate_velocities(num_links, &stat_slice, &vel_slice, &mut ws_slice);
     }
-    workgroup_memory_barrier_with_group_sync();
+    sync_slots(t);
 
     // 4) Mass matrix (without coriolis).
     let acc_augmented_mass = MatSlice::dense(mb_mm_base, ndofs, ndofs);
     fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
-    workgroup_memory_barrier_with_group_sync();
+    sync_slots(t);
 
     // NOTE: uniform trip count (from the `BatchIndices` uniform).
     for k in 0..batch_ids.mb_max_links {
@@ -617,7 +619,7 @@ pub fn gpu_mb_compute_dynamics_without_coriolis_pre(
             );
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(t);
     }
 
     // Diagonal: M[i, i] += damping[i] * dt + armature[i] — parallel.
@@ -791,7 +793,7 @@ fn update_body_jacobians(
             }
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(lanes);
 
         if k < num_links {
             let link_infos = &stat_slice[k as usize];
@@ -805,7 +807,7 @@ fn update_body_jacobians(
             );
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(lanes);
 
         if k < num_links {
             let link = &ws_slice[k as usize];
@@ -822,7 +824,7 @@ fn update_body_jacobians(
             );
         }
 
-        workgroup_memory_barrier_with_group_sync();
+        sync_slots(lanes);
     }
 }
 
