@@ -60,8 +60,8 @@ pub struct GpuMultibodySet {
     /// CPU-side mirror of [`Self::links_static`] used to support runtime
     /// mutations like motor changes without round-tripping through a GPU read.
     pub(super) links_static_mirror: Vec<MultibodyLinkStatic>,
-    /// Per-batch per-step link workspace.
-    pub(super) links_workspace: Tensor<MultibodyLinkWorkspace>,
+    /// Per-batch per-step link workspace, SoA quad layout.
+    pub(super) links_workspace: Tensor<glamx::Vec4>,
     /// Generalized coordinates (flat).
     pub(super) dof_values: Tensor<f32>,
     /// Packed buffer holding generalized velocities (offset 0) and per-DOF
@@ -171,21 +171,10 @@ impl GpuMultibodySet {
     }
 
     /// Lanes per multibody for the packed per-multibody dynamics kernels
-    /// (`compute_dynamics_pre`, `gravity_and_lu`) — mirrored into
-    /// `BatchIndices::mb_pack_lanes`.
-    ///
-    /// `1` selects the SERIAL tier: one thread runs its
-    /// multibody's whole FK/CRBA/LU chain with no barriers at all, 64
-    /// multibodies per workgroup with every lane busy. For small robots this
-    /// beats lane-parallelism — whose ~60-barrier dependency chain caps how
-    /// fast one multibody can finish — but ONLY once there are enough
-    /// multibodies for the thread count to hide the long serial chain's
-    /// latency (measured crossover between 1024 and 4096 on Apple M-series;
-    /// below that, spreading each robot across 8 lanes wins despite the
-    /// barriers).
+    /// (`compute_dynamics_pre`, `gravity_and_lu`).
     pub(crate) fn pack_lanes(&self) -> u32 {
         let total_mb = self.num_active_multibodies * self.num_batches;
-        if self.max_ndofs <= 8 && total_mb >= 2048 {
+        if self.max_ndofs <= 8 && total_mb >= 1024 {
             1
         } else {
             self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)

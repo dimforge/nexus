@@ -2,6 +2,7 @@
 //! (update / finalize / solve / remove-bias).
 
 use khal_std::glamx::UVec3;
+use glamx::Vec4;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
@@ -13,7 +14,7 @@ use crate::utils::BatchIndices;
 use crate::utils::linalg::VSlice;
 
 use super::super::lu::LANES;
-use super::super::types::{MultibodyInfo, MultibodyLinkWorkspace};
+use super::super::types::MultibodyInfo;
 
 use super::jacobians::*;
 use super::types::*;
@@ -36,7 +37,7 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 3)] softness: &ConstraintSoftness,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)]
-    links_workspace: &[MultibodyLinkWorkspace],
+    links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 4)] mprops: &[WorldMassProperties],
