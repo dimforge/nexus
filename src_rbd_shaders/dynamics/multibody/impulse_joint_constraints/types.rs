@@ -69,7 +69,6 @@ pub struct MbImpulseJointBuilder {
     pub jacobian_offset: u32,
     /// Total floats reserved for this joint's jacobian block.
     pub jacobian_capacity: u32,
-    /// Pad to GenericJoint's alignment (16 bytes in 3D — see ImpulseJoint).
     #[cfg(feature = "dim3")]
     pub _pad0: [u32; 2],
 }

@@ -135,7 +135,7 @@ pub(super) fn lu_triangular_solve_in_place(
 
     for step in 0..max_n {
         let active = step < n;
-        // For dummy iterations (step >= n), `i` is not meaningful — guard
+        // For dummy iterations (step >= n), `i` is not meaningful; guard
         // every use of it behind `active`.
         let i = if active { n - 1 - step } else { 0 };
         let s = if active && lane > i && lane < n {

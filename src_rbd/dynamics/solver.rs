@@ -245,9 +245,7 @@ impl GpuSolver {
     /// Solves constraints using the TGS (Total Gauss-Seidel) algorithm.
     ///
     /// When `multibody` is `Some`, multibody substep work is interleaved with
-    /// the rigid-body substep work — one `multibody.apply_substep` call inside
-    /// each iteration of the substep loop, just like rapier's
-    /// `velocity_solver::solve_constraints`.
+    /// the rigid-body substep work.
     pub fn solve_tgs<'a>(
         &self,
         encoder: &mut GpuEncoder,
@@ -305,22 +303,9 @@ impl GpuSolver {
         }
 
         // Per substep, the multibody work is split into five phases that are
-        // INTERLEAVED with the matching rigid-body phases, mirroring rapier's
-        // `velocity_solver::solve_constraints` order:
-        //   P1/F1  integrate all velocities
-        //   P2/F2  build + warmstart all constraints
-        //   P3/F3  one PGS sweep over ALL joints + contacts WITH bias
-        //   P4/F4  integrate ALL positions ONCE
-        //   P5/F5  one PGS sweep over ALL joints + contacts WITHOUT bias
-        // (Previously the entire multibody solve — including its own position
-        // integration — ran as a monolithic block BEFORE the rigid-body solve,
-        // which de-synchronised mb↔free contact coupling.)
-        //
+        // interleaved with the matching rigid-body phases.
         // Each `mb_phase!($method $(, $extra)*)` invocation runs one multibody
-        // phase. It is `#[cfg(feature = "dim3")]`-gated (the multibody solver
-        // only exists in 3D) and reconstructs `mb_args` each time — the borrow
-        // of `args.solver_vels` / `args.solver_body_poses` must be released
-        // before the interleaved rigid-body call that touches the same buffers.
+        // phase.
         macro_rules! mb_phase {
             ($label:expr, $method:ident $(, $extra:expr)*) => {{
                 #[cfg(feature = "dim3")]
@@ -349,7 +334,7 @@ impl GpuSolver {
             let _ = is_last_substep;
 
             /*
-             * P1/F1 — integrate velocities (apply `a · dt'` / gravity increment).
+             * Integrate velocities (apply `a · dt'` / gravity increment).
              */
             mb_phase!("[RBD] slv/mb-integrate-vels", substep_integrate_velocities);
             if !skip_rb {
@@ -365,7 +350,7 @@ impl GpuSolver {
             }
 
             /*
-             * P2/F2 — build + warmstart constraints.
+             * Build + warmstart constraints.
              */
             {
                 #[cfg(feature = "dim3")]

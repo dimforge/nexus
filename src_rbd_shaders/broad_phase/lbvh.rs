@@ -307,7 +307,7 @@ pub fn gpu_lbvh_build(
 
         tree.at_mut(node_id as usize).left = left as u32;
         tree.at_mut(node_id as usize).right = right as u32;
-        tree.at_mut(node_id as usize).refit_count = 0; // Might as well reset the refit count here.
+        tree.at_mut(node_id as usize).refit_count_or_max_subtree_index = 0; // Might as well reset the refit count here.
         tree.at_mut(left as usize).parent = node_id;
         tree.at_mut(right as usize).parent = node_id;
     }
@@ -393,7 +393,7 @@ pub fn gpu_lbvh_refit_internal(
         // Maximum tree depth is log2(num_colliders), but we use 32 as a safe upper bound.
         for _level in 0..32u32 {
             if thread_is_active {
-                let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count, 1);
+                let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index, 1);
 
                 if refit_count == 0 {
                     // If `refit_count` was 0 then the other thread hasn't reached this node
@@ -595,6 +595,7 @@ pub fn gpu_lbvh_find_collision_pairs(
                     //       by the solver — keeping this hot buffer (and the
                     //       intermediate pfm-pair buffer) narrow, and keeping
                     //       `collider_parent` out of the broad phase entirely.
+                    let (ci, cj) = if i < j { (i, j) } else { (j, i) };
                     collision_pairs[target_pair_index as usize] = CollisionPair {
                         colliders: UVec2::new(ci, cj),
                     };

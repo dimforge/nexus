@@ -269,17 +269,7 @@ pub fn gpu_mb_init_contact_constraints(
         };
 
         // Multibody-link origins come from the collider poses buffer instead
-        // of `links_workspace` (which we no longer bind in this kernel — see
-        // binding-count cap discussion). This uses the contacting collider's
-        // world translation as a proxy for its link's world origin. It is exact
-        // when the collider sits at the link origin (the historical one-collider
-        // case); for a link carrying a collider offset from its origin the
-        // angular lever arm `pt_world - link_origin_a` is off by that offset.
-        // Binding `body_poses` here to use the true link origin would exceed the
-        // 10-storage-buffer cap — left as a follow-up. `mb_link_id_a` always
-        // corresponds to side `id1`/`b1` when `mb_on_1 || is_self`, and to
-        // `id2`/`b2` otherwise. `mb_link_id_b` is only used in the self-contact
-        // case where it corresponds to `id2`.
+        // of `links_workspace`.
         let link_origin_a = if is_self || mb_on_1 {
             pose1.translation
         } else {

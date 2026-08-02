@@ -123,15 +123,10 @@ pub struct RbdState {
     pub(super) num_colliders_per_batch: u32,
     pub(super) num_solver_iterations: u32,
     pub(super) sim_params: Tensor<RbdSimParams>,
-    /// Per-body world-origin pose (matches rapier's `RigidBody::position`). This
-    /// is the canonical pose stored between steps and the input to per-step
-    /// mass-properties update and multibody FK. The substep loop does NOT
-    /// touch this — see [`Self::solver_body_poses`].
+    /// Per-body world-origin pose (matches rapier's `RigidBody::position`).
     pub(super) body_poses: Tensor<Pose>,
-    /// Per-body COM-centered pose (rapier's `SolverPose`). Equals
-    /// `body_poses[i].prepend_translation(local_mprops[i].com)`. Seeded from
-    /// `body_poses` at step start, mutated by the solver substep loop, and
-    /// converted back to `body_poses` by `finalize` at step end.
+    /// Per-body COM-centered pose (rapier's `SolverPose`) used temporarily by
+    /// the solver (and then written back to `body_poses` after un-centering).
     pub(super) solver_body_poses: Tensor<Pose>,
     pub(super) local_mprops: Tensor<GpuLocalMassProperties>,
     pub(super) mprops: Tensor<GpuWorldMassProperties>,
@@ -277,7 +272,7 @@ impl RbdState {
             .unwrap();
     }
 
-    /// Shared per-batch index uniform — see `Self::rebuild_batch_indices`.
+    /// Shared per-batch index uniform.
     pub fn batch_indices(&self) -> &Tensor<BatchIndices> {
         &self.batch_indices
     }

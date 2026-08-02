@@ -347,10 +347,7 @@ impl RbdState {
                     crate::rapier::geometry::Group::NONE,
                     crate::rapier::geometry::InteractionTestMode::And,
                 ));
-                // Padding colliders are inert; material is irrelevant but must
-                // exist to keep the per-collider buffers the same length.
                 all_collider_materials.push(GpuColliderMaterial::default());
-                // Padding colliders are inert; parent body 0 is a safe placeholder.
                 all_collider_parent.push(0);
                 all_pair_filter.push([u32::MAX, 0]);
             }

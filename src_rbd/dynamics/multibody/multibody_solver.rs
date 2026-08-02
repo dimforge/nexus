@@ -23,6 +23,9 @@ use vortx::tensor::Tensor;
 /// GPU shader bundle for multibody dynamics.
 #[derive(Shader)]
 pub struct GpuMultibodySolver {
+    // Five variants of the same function, selected by the per-batch DOF
+    // count, mainly to optimize small robots simulated across thousands
+    // of batches.
     gravity_and_lu: GpuMbGravityAndLu,
     gravity_and_lu_t1: GpuMbGravityAndLuT1,
     gravity_and_lu_t8: GpuMbGravityAndLuT8,
@@ -408,7 +411,7 @@ impl GpuMultibodySolver {
         Ok(())
     }
 
-    /// P3: one PGS sweep WITH bias over the joint, contact, and multibody-
+    /// P3: one PGS sweep with bias over the joint, contact, and multibody-
     /// touching impulse-joint constraints.
     pub fn substep_solve_with_bias(
         &self,
@@ -428,8 +431,7 @@ impl GpuMultibodySolver {
         self.dispatch_solve(pass, mb, args, solve_dispatch, 1)?;
 
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
-        // constraints. Mirrors rapier's `JointGenericExternalConstraintBuilder::update`
-        // plus a PGS sweep WITH bias.
+        // constraints.
         if mb.mb_imp_joints_per_batch > 0 {
             let imp_dispatch = [mb.mb_imp_joints_per_batch, mb.num_batches, 1];
             self.update_impulse_joint_constraints.call(

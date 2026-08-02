@@ -409,10 +409,6 @@ pub(super) fn convert_generic_joint(j: crate::rapier::dynamics::GenericJoint) ->
     }
 }
 
-//
-// Zero-initialised workspaces would leave `joint_rot` as the all-zero quaternion, which
-// is not a valid rotation — seed it with the identity instead.
-//
 pub(super) fn make_workspace_init() -> MultibodyLinkWorkspace {
     let mut w: MultibodyLinkWorkspace = bytemuck::Zeroable::zeroed();
     w.joint_rot = glamx::Quat::IDENTITY;
