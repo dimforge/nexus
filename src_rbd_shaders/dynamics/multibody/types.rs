@@ -53,11 +53,16 @@ pub const MB_JOINT_KIND_INACTIVE: u32 = 0;
 pub const MB_JOINT_KIND_LIMIT: u32 = 1;
 /// Joint-constraint `kind`: active motor.
 pub const MB_JOINT_KIND_MOTOR: u32 = 2;
-/// Joint-constraint `kind`: limit slot that is INACTIVE this substep. The
-/// solve skips it, but the slot keeps a valid M⁻¹ column / `inv_lhs` /
-/// `cfm_gain` so the per-substep refresh can flip it active without a
-/// back-solve (see `gpu_mb_refresh_joint_constraints`).
+/// Joint-constraint `kind`: limit slot that is inactive this substep (its
+/// joint coordinate is inside the limits). The solve skips it; the slot
+/// still gets a valid M⁻¹ column / `inv_lhs` / `cfm_gain` in case it needs
+/// to be enabled at a next substep.
 pub const MB_JOINT_KIND_LIMIT_INACTIVE: u32 = 3;
+/// Joint-constraint `kind`: holonomic DoF coupling `q2 = coeff·q1 + offset`
+/// (rapier's `MultibodyDofCoupling`): one bilateral constraint with jacobian
+/// `J = e_{dof_id} − coeff·e_{dof2_id}` and a bias pulling the position drift
+/// back to zero.
+pub const MB_JOINT_KIND_COUPLING: u32 = 4;
 
 /// Sentinel marking a link with no parent (the root).
 pub const MULTIBODY_ROOT: u32 = u32::MAX;
@@ -176,11 +181,17 @@ pub struct MultibodyJointConstraint {
     // TODO: rename to MultibodyUnitJointConstraint?
     /// Index of the constrained DOF, relative to the multibody's `first_dof`.
     pub dof_id: u32,
-    /// 0 = inactive (skipped by the solver), 1 = limit, 2 = motor.
+    /// See `MB_JOINT_KIND_*`: 0 = inactive (skipped by the solver), 1 = limit,
+    /// 2 = motor, 3 = inactive limit, 4 = DoF coupling.
     pub kind: u32,
-    /// Constraint kind extras (for future extensions). Currently, always 0.
+    /// Packed `(link_id | axis << 16)` of the constrained DOF, used by the
+    /// per-substep refresh to re-read the joint coordinate.
     pub _kind_extra: u32,
-    pub _pad0: u32,
+    /// Second constrained DOF for coupling rows (`J = e_{dof_id} −
+    /// coupling_coeff·e_{dof2_id}`). Zero (together with `coupling_coeff = 0`)
+    /// for limits / motors, making the solve's generalized `J·v` collapse to
+    /// the plain single-DOF form.
+    pub dof2_id: u32,
 
     /// `J·v` reference + bias velocity (rapier's `rhs`, includes positional bias).
     pub rhs: f32,
@@ -200,6 +211,16 @@ pub struct MultibodyJointConstraint {
     /// Matches rapier's `cfm_coeff` / `cfm_gain` fields.
     pub cfm_coeff: f32,
     pub cfm_gain: f32,
+
+    /// Coupling coefficient (`q2 − coeff·q1 − offset = 0`); zero for
+    /// limit / motor rows.
+    pub coupling_coeff: f32,
+    /// Coupling constant offset; zero for limit / motor rows.
+    pub coupling_offset: f32,
+    /// Packed `(link_id | axis << 16)` of the coupling's first joint
+    /// coordinate (`q1`), for the per-substep drift refresh.
+    pub _kind_extra2: u32,
+    pub _pad1: u32,
 }
 
 /// One normal-direction contact constraint between a free rigid body and a
@@ -366,4 +387,31 @@ pub struct MultibodyInfo {
     /// Per-step copy of `contacts_len[batch]` (to work around the web 8 storage
     /// bindings count limit).
     pub batch_contacts_len: u32,
+    /// First entry of this multibody's DoF couplings in the `dof_couplings`
+    /// buffer (relative to the batch's coupling slice).
+    pub first_coupling: u32,
+    /// Number of DoF couplings on this multibody.
+    pub num_couplings: u32,
+}
+
+/// One holonomic coupling `q2 = coeff·q1 + offset` between two generalized
+/// coordinates of the same multibody (rapier's `MultibodyDofCoupling`),
+/// converted to the GPU's re-numbered assembly ids at build time.
+#[derive(Clone, Copy, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct MbDofCoupling {
+    /// Absolute DOF index of `q1` (relative to the multibody's `first_dof`).
+    pub dof1: u32,
+    /// Absolute DOF index of `q2`.
+    pub dof2: u32,
+    /// Packed `(link_id | axis << 16)` locating `q1`'s joint coordinate.
+    pub link_axis1: u32,
+    /// Packed `(link_id | axis << 16)` locating `q2`'s joint coordinate.
+    pub link_axis2: u32,
+    /// Linear coupling coefficient.
+    pub coeff: f32,
+    /// Constant offset.
+    pub offset: f32,
+    pub _pad: [u32; 2],
 }

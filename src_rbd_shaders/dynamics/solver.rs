@@ -153,6 +153,40 @@ pub fn gpu_solver_update_constraints(
     }
 }
 
+/// Relax-pass refresh: recomputes the unbiased normal rhs of every contact
+/// constraint from the current (post-integration) solver poses.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_solver_refresh_rhs_wo_bias(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    constraints: &mut [TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    constraint_builders: &[TwoBodyConstraintBuilder],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] all_params: &[RbdSimParams],
+    #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let batch_id = invocation_id.y;
+    let params = all_params.at(batch_id as usize);
+
+    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
+    let constraint_builders = batch_ids.contact_batch(batch_id, constraint_builders);
+    let solver_body_poses = batch_ids.coll_batch(batch_id, solver_body_poses);
+    let len = contacts_len.read(batch_id as usize);
+
+    for i in StepRng::new(invocation_id.x..len, num_threads) {
+        constraints[i as usize].refresh_rhs_wo_bias(
+            &constraint_builders[i as usize],
+            &solver_body_poses,
+            params,
+        );
+    }
+}
+
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solver_sort_constraints(
@@ -555,7 +589,7 @@ pub fn gpu_step_gauss_seidel_fused(
 pub fn gpu_integrate_linearized(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] poses: &mut [Pose],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &[Velocity],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] all_params: &[RbdSimParams],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
@@ -565,11 +599,32 @@ pub fn gpu_integrate_linearized(
 
     let num_bodies = batch_ids.bodies_len;
     let mut poses = batch_ids.coll_batch_mut(batch_id, poses);
-    let solver_vels = batch_ids.coll_batch(batch_id, solver_vels);
+    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
 
     if i < num_bodies {
         let idx = i as usize;
-        let vels = &solver_vels[idx];
+        let mut vels = solver_vels[idx];
+
+        let max_lin = params.max_linear_velocity();
+        let lin_norm = vels.linear.length();
+        if lin_norm > max_lin {
+            vels.linear *= max_lin / lin_norm;
+        }
+
+        let max_ang = params.max_angular_velocity();
+        #[cfg(feature = "dim2")]
+        if vels.angular.abs() > max_ang {
+            vels.angular = vels.angular.signum() * max_ang;
+        }
+        #[cfg(feature = "dim3")]
+        {
+            let ang_norm = vels.angular.length();
+            if ang_norm > max_ang {
+                vels.angular *= max_ang / ang_norm;
+            }
+        }
+
+        solver_vels[idx] = vels;
         let pose = &mut poses[idx];
         vels.integrate_linearized(params.dt, &mut pose.translation, &mut pose.rotation);
     }

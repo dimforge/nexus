@@ -13,8 +13,9 @@ use crate::utils::BatchIndices;
 use crate::utils::linalg::MAX_MB_DOFS;
 
 use super::types::{
-    MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_TANGENT, MB_JOINT_KIND_LIMIT,
-    MB_JOINT_KIND_MOTOR, MultibodyContactConstraint, MultibodyInfo, MultibodyJointConstraint,
+    MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_TANGENT, MB_JOINT_KIND_COUPLING,
+    MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_MOTOR, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint,
 };
 
 const LANES: u32 = 64;
@@ -95,14 +96,20 @@ pub fn gpu_mb_solve_constraints(
     // Joint limits/motors
     for s in 0..mb.max_constraints {
         let cons = joint_constraints.read(jcons_base + s as usize);
-        if cons.kind != MB_JOINT_KIND_LIMIT && cons.kind != MB_JOINT_KIND_MOTOR {
-            // Unused slot or inactive limit. Uniform skip: all lanes take it
-            // together (barrier-safe).
+        if cons.kind != MB_JOINT_KIND_LIMIT
+            && cons.kind != MB_JOINT_KIND_MOTOR
+            && cons.kind != MB_JOINT_KIND_COUPLING
+        {
+            // Unused slot or inactive limit.
             continue;
         }
 
         let rhs = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
-        let v_d = dof_v[cons.dof_id as usize];
+        // Generalized `J·v` for `J = e_{dof_id} - coupling_coeff*e_{dof2_id}`
+        // (coupling rows); collapses to `v[dof_id]` for limit / motor rows
+        // (their `coupling_coeff` is 0).
+        let v_d = dof_v[cons.dof_id as usize]
+            - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
         let rhs_total = v_d + rhs;
         let raw_imp = cons.impulse + cons.inv_lhs * (rhs_total - cons.cfm_gain * cons.impulse);
         let mut new_imp = raw_imp;
@@ -134,6 +141,10 @@ pub fn gpu_mb_solve_constraints(
     // Contacts.
     for s in 0..contact_count {
         let cons = contact_constraints.read(ccons_base + s as usize);
+        // Friction is only solved during the relaxation phase.
+        if use_bias && cons.kind == MB_CONTACT_KIND_TANGENT {
+            continue;
+        }
         let col_offset = ccol_base + (s as usize) * dofs_stride;
         let is_self = cons.free_body_id == u32::MAX;
 
@@ -164,8 +175,8 @@ pub fn gpu_mb_solve_constraints(
             let rhs = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
             let impulse = imp_shared[s as usize];
             let rhs_total = j_dot_v + rhs;
-            // CFM-factor form (rapier's `*ContactConstraintNormalPart::generic_solve`).
-            let raw_imp = cons.cfm_factor * (impulse - cons.inv_lhs * rhs_total);
+            let cfm_factor = if use_bias { cons.cfm_factor } else { 1.0 };
+            let raw_imp = cfm_factor * (impulse - cons.inv_lhs * rhs_total);
 
             // Normal: clamp to ≥ 0. Friction tangent: clamp to
             // `±μ · normal_impulse` (box friction), reading the paired normal
@@ -267,14 +278,20 @@ pub fn gpu_mb_solve_joints(
 
     for s in 0..mb.max_constraints {
         let cons = joint_constraints.read(jcons_base + s as usize);
-        if cons.kind != MB_JOINT_KIND_LIMIT && cons.kind != MB_JOINT_KIND_MOTOR {
-            // Unused slot or inactive limit. Uniform skip: all lanes take it
-            // together (barrier-safe).
+        if cons.kind != MB_JOINT_KIND_LIMIT
+            && cons.kind != MB_JOINT_KIND_MOTOR
+            && cons.kind != MB_JOINT_KIND_COUPLING
+        {
+            // Unused slot or inactive limit.
             continue;
         }
 
         let rhs = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
-        let v_d = dof_v[cons.dof_id as usize];
+        // Generalized `J·v` for `J = e_{dof_id} - coupling_coeff*e_{dof2_id}`
+        // (coupling rows); collapses to `v[dof_id]` for limit / motor rows
+        // (their `coupling_coeff` is 0).
+        let v_d = dof_v[cons.dof_id as usize]
+            - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
         let rhs_total = v_d + rhs;
         let raw_imp = cons.impulse + cons.inv_lhs * (rhs_total - cons.cfm_gain * cons.impulse);
         let mut new_imp = raw_imp;
@@ -455,7 +472,7 @@ pub fn gpu_mb_solve_contacts_delassus(
         imp_shared[s as usize] = cons.impulse;
         rhs_shared[s as usize] = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
         inv_lhs_shared[s as usize] = cons.inv_lhs;
-        cfm_shared[s as usize] = cons.cfm_factor;
+        cfm_shared[s as usize] = if use_bias { cons.cfm_factor } else { 1.0 };
         friction_shared[s as usize] = cons.friction_coeff;
         let is_self = cons.free_body_id == u32::MAX;
         let free_active = !is_self
@@ -488,6 +505,11 @@ pub fn gpu_mb_solve_contacts_delassus(
         let kind = meta & 0xff;
         let normal_slot = (meta >> 8) & 0xffff;
         let free_active = (meta >> 24) != 0;
+
+        if use_bias && kind == MB_CONTACT_KIND_TANGENT {
+            // Friction is only solved during the stabilization sweep.
+            continue;
+        }
 
         let impulse = imp_shared[s as usize];
         let rhs_total = a_shared[s as usize] + rhs_shared[s as usize];

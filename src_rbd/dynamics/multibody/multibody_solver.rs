@@ -5,11 +5,10 @@ use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
-    GpuMbComputeDynamicsWithoutCoriolisPre,
     GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
     GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
-    GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbRemoveImpulseJointConstraintBias,
     GpuMbResetContactWarmstart, GpuMbStashContactsLen, GpuMbWarmstartContactConstraints,
     GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
     GpuMbSolveJoints,
@@ -30,12 +29,7 @@ pub struct GpuMultibodySolver {
     gravity_and_lu_t16: GpuMbGravityAndLuT16,
     gravity_and_lu_t32: GpuMbGravityAndLuT32,
     compute_dynamics_pre: GpuMbComputeDynamicsPre,
-    compute_dynamics_without_coriolis_pre: GpuMbComputeDynamicsWithoutCoriolisPre,
     init_joint_with_bias: GpuMbInitJointConstraints,
-    /// Explicit-coriolis fast path: per-substep refresh of the joint rhs /
-    /// limit activity (the columns and `inv_lhs` are per-step constants
-    /// there, so the full build + back-solves run once per step).
-    refresh_joint_constraints: GpuMbRefreshJointConstraints,
     init_contact_constraints: GpuMbInitContactConstraints,
     finalize_contact_constraints: GpuMbFinalizeContactConstraints,
     /// Fused joint+contact PGS sweep (one workgroup per multibody, shared-
@@ -215,32 +209,8 @@ impl GpuMultibodySolver {
             return Ok(());
         }
 
-        // With implicit coriolis, the mass matrix / LU / body jacobians are
-        // recomputed every substep, so the joint + contact constraints (whose
-        // M⁻¹Jᵀ columns depend on them) must be rebuilt every substep too. In
-        // the explicit mode every column-derived quantity is a per-step
-        // constant: the full build runs ONCE per step (see
-        // `build_contact_constraints`) and each substep only refreshes the
-        // joint rhs / limit activity / accumulated impulse from the
-        // integrated joint positions (a no-op on the first substep — the
-        // once-per-step build just wrote those exact values).
-        if mb.implicit_coriolis {
-            self.build_contact_constraints(encoder, timestamps.as_deref_mut(), mb, args)?;
-        } else if mb.has_joint_constraints && !first_substep {
-            let mut pass =
-                encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
-            let dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-            self.refresh_joint_constraints.call(
-                &mut pass,
-                dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mb.links_workspace,
-                &mut mb.joint_constraints,
-                &mb.constraint_softness,
-                args.batch_indices,
-            )?;
-        }
+        // Full rebuild of the joint + contact constraints every substep.
+        self.build_contact_constraints(encoder, timestamps.as_deref_mut(), mb, args)?;
 
         // Warmstart: re-apply the accumulated contact impulse to dof_state (and
         // the free-body solver velocities) so the contact starts "warm" each
@@ -267,16 +237,7 @@ impl GpuMultibodySolver {
     }
 
     /// Build + finalize the contact constraints (normal + friction slots,
-    /// free-body × multibody and self-contact pairs). `init` PRESERVES the
-    /// accumulated impulse across substeps (zeroed once per frame by
-    /// `reset_contact_warmstart` in `init_step`); `finalize` computes
-    /// `inv_lhs` and the M⁻¹Jᵀ columns.
-    ///
-    /// Inputs are the narrow-phase manifolds, the collider world poses, the
-    /// body jacobians and the mass-matrix LU. The first two only change once
-    /// per step; the last two change per substep ONLY with implicit coriolis.
-    /// So this runs once per step (from `solve_tgs`'s init pass, after the
-    /// narrow phase) in the explicit mode, and once per substep otherwise.
+    /// free-body × multibody and self-contact pairs).
     pub fn build_contact_constraints(
         &self,
         encoder: &mut khal::backend::GpuEncoder,
@@ -304,6 +265,7 @@ impl GpuMultibodySolver {
                 &mb.lu_pivots,
                 &mut mb.joint_constraints,
                 &mut mb.joint_constraint_columns,
+                &mb.dof_couplings,
                 &mb.constraint_softness,
                 args.batch_indices,
             )?;
@@ -554,14 +516,9 @@ impl GpuMultibodySolver {
             args.batch_indices,
         )?;
 
-        // Recompute `a` for the next substep — orientations / positions just
-        // changed so M and τ are stale. Skipped on the last substep (rapier
-        // skips it too: `if !is_last_substep`).
-        // NOTE: we also only update the mass matrix a single time if running without
-        //       `implicit_coriolis`. This further improves performances as that’s the main
-        //       purpose of disabling the implicit handling of coriolis forces (and makes it
-        //       closer to Mujoco/Genesis).
-        if !is_last_substep && mb.implicit_coriolis {
+        // Recompute the dynamics (FK, mass matrices, LU, accelerations) for
+        // the next substep.
+        if !is_last_substep {
             self.compute_dynamics(pass, mb, args)?;
         }
 
@@ -636,36 +593,20 @@ impl GpuMultibodySolver {
         // assembly. Packed: `64 / mb_pack_lanes` multibodies per workgroup,
         // flattened (multibody, batch) grid.
         let pre_dispatch = mb.packed_wg_dispatch();
-        if mb.implicit_coriolis {
-            self.compute_dynamics_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mut mb.coriolis_packed,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        } else {
-            self.compute_dynamics_without_coriolis_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        }
+        self.compute_dynamics_pre.call(
+            pass,
+            pre_dispatch,
+            &mb.multibody_info,
+            &mb.links_static,
+            &mut mb.links_workspace,
+            args.poses,
+            &mut mb.body_jacobians,
+            &mut mb.mass_matrices,
+            &mut mb.coriolis_packed,
+            &mb.dof_state,
+            &mb.dt,
+            args.batch_indices,
+        )?;
 
         // Fused gravity + LU factor + LU solve. Select an implementation based on how many
         // environments we can pack on the same workgroup (depending on its dofs).
@@ -684,6 +625,7 @@ impl GpuMultibodySolver {
                     &mb.dof_state,
                     &mb.gravity,
                     args.batch_indices,
+                    &mb.dt,
                 )?
             };
         }
@@ -708,6 +650,7 @@ impl GpuMultibodySolver {
                     &mb.dof_state,
                     &mb.gravity,
                     args.batch_indices,
+                    &mb.dt,
                 )?;
             }
         }

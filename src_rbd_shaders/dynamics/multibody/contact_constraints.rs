@@ -155,14 +155,9 @@ pub fn gpu_mb_init_contact_constraints(
     if mb_idx >= num_mb {
         return;
     }
-    // Soft-constraint coefficients (rapier TGS-soft), precomputed on the host.
-    // The old path used a rigid `erp = 1/dt` with zero CFM, which overshoots
-    // penetration recovery (~14× too stiff for the defaults) and jitters.
+
     let inv_dt = softness.inv_dt;
-    let erp_inv_dt = softness.erp_inv_dt;
-    let allowed_lin_err = softness.allowed_lin_err;
     let max_corr_velocity = softness.max_corr_velocity;
-    let cfm_factor = softness.cfm_factor;
 
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
@@ -261,6 +256,18 @@ pub fn gpu_mb_init_contact_constraints(
         };
         let free_im = if is_self { 0.0 } else { free_mp.inv_mass.x };
 
+        let contact_is_static = !is_self && free_mp.inv_mass == Vector::ZERO;
+        let erp_inv_dt = if contact_is_static {
+            softness.static_erp_inv_dt
+        } else {
+            softness.erp_inv_dt
+        };
+        let cfm_factor = if contact_is_static {
+            softness.static_cfm_factor
+        } else {
+            softness.cfm_factor
+        };
+
         // Multibody-link origins come from the collider poses buffer instead
         // of `links_workspace` (which we no longer bind in this kernel — see
         // binding-count cap discussion). This uses the contacting collider's
@@ -306,7 +313,7 @@ pub fn gpu_mb_init_contact_constraints(
             #[cfg(feature = "dim3")]
             let torque_a_t1 = gcross(shift_a, mb_tangent1);
 
-            let rhs_bias = (erp_inv_dt * (dist + allowed_lin_err)).clamp(-max_corr_velocity, 0.0);
+            let rhs_bias = (erp_inv_dt * dist).clamp(-max_corr_velocity, 0.0);
             let rhs_wo_bias = if dist > 0.0 { dist * inv_dt } else { 0.0 };
 
             let normal_slot = count;

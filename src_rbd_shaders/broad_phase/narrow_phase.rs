@@ -70,7 +70,7 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
     }
 }
 
-pub(crate) const PREDICTION: f32 = 2.0e-3; // TODO: make the prediction configurable.
+pub(crate) const PREDICTION: f32 = 2.0e-2; // TODO: make the prediction configurable.
 
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.

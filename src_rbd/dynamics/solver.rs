@@ -12,7 +12,7 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
-    GpuSolverInitConstraints, GpuSolverSortConstraints,
+    GpuSolverInitConstraints, GpuSolverRefreshRhsWoBias, GpuSolverSortConstraints,
     GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused, GpuWarmstart,
     GpuWarmstartFused, GpuWarmstartWithoutColors,
     LocalMassProperties, RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity,
@@ -34,6 +34,9 @@ pub struct GpuSolver {
     count_constraints: GpuSolverCountConstraints,
     /// Updates nonlinear constraint terms during substeps.
     update_constraints: GpuSolverUpdateConstraints,
+    /// Refreshes the unbiased normal rhs from the post-integration poses,
+    /// between the position integration and the no-bias sweeps of each substep.
+    refresh_rhs_wo_bias: GpuSolverRefreshRhsWoBias,
     /// Clears solver velocities and constraint counts.
     cleanup: GpuSolverCleanup,
     /// Applies warmstart impulses from previous frame.
@@ -301,35 +304,6 @@ impl GpuSolver {
             }
         }
 
-        // Explicit-coriolis mode: the multibody contact constraints only
-        // depend on per-step constants (manifolds, collider world poses, the
-        // once-per-step body jacobians and mass-matrix LU), so build them ONCE
-        // here instead of once per substep. The accumulated impulses still
-        // persist in the constraint slots across substeps, exactly as with
-        // the per-substep rebuild (which preserved them explicitly).
-        #[cfg(feature = "dim3")]
-        if let (Some(solver), Some(state)) = (mb_solver, mb_state.as_deref_mut()) {
-            if !state.implicit_coriolis() {
-                let mut mb_args = MultibodySolverArgs {
-                    poses: &mut *args.solver_body_poses,
-                    collider_world_poses: args.collider_world_poses,
-                    mprops: args.mprops,
-                    contacts: args.contacts,
-                    contacts_len: args.contacts_len,
-                    solver_vels: &mut *args.solver_vels,
-                    batch_indices: args.batch_indices,
-                    color_uniforms: args.color_uniforms,
-                    mb_sweep_indirect: args.mb_sweep_indirect,
-                };
-                solver.build_contact_constraints(
-                    encoder,
-                    timestamps.as_deref_mut(),
-                    state,
-                    &mut mb_args,
-                )?;
-            }
-        }
-
         // Per substep, the multibody work is split into five phases that are
         // INTERLEAVED with the matching rigid-body phases, mirroring rapier's
         // `velocity_solver::solve_constraints` order:
@@ -541,13 +515,25 @@ impl GpuSolver {
             }
 
             /*
-             * P5/F5 — solve ALL joints + contacts WITHOUT bias (stabilization).
+             * Solve all joints + contacts without bias (stabilization).
              */
             mb_phase!("[RBD] slv/mb-solve-nobias", substep_solve_no_bias);
             if !skip_rb || !joints_empty {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-solve-nobias", timestamps.as_deref_mut());
                 let pass = &mut pass;
+                if !skip_rb {
+                    self.refresh_rhs_wo_bias.call(
+                        pass,
+                        args.contacts_len_indirect,
+                        args.constraints,
+                        args.constraint_builders,
+                        args.contacts_len,
+                        args.solver_body_poses,
+                        args.sim_params,
+                        args.batch_indices,
+                    )?;
+                }
                 joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
                 if skip_rb {
                     // Contact sweeps skipped (inert constraints).

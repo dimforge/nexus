@@ -18,8 +18,9 @@ use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{DIM, MAX_FLT};
 
 use super::types::{
-    MB_JOINT_KIND_INACTIVE, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_LIMIT_INACTIVE,
-    MB_JOINT_KIND_MOTOR, MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic,
+    MB_JOINT_KIND_COUPLING, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_LIMIT_INACTIVE,
+    MB_JOINT_KIND_MOTOR, MbDofCoupling, MultibodyInfo, MultibodyJointConstraint,
+    MultibodyLinkStatic,
 };
 use super::ws_soa::{WsAddr, ws_coord};
 
@@ -38,9 +39,11 @@ fn motor_params(motor: &crate::dynamics::joint::JointMotor, dt: f32) -> (f32, f3
     )
 }
 
-/// Solve `M · x = e_d` in place (writes `x` into `dst[0..n]`). Uses the same
-/// LU factor + pivots produced by `gpu_mb_lu_decompose`.
+/// Solve `M · x = J` in place (writes `x` into `dst[0..n]`) where `J =
+/// e_{dof_id} − coeff·e_{dof2_id}` (a plain unit rhs when `coeff == 0`).
+/// Uses the same LU factor + pivots produced by `gpu_mb_lu_decompose`.
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn lu_solve_unit(
     buf_m: &[f32],
     m: MatSlice,
@@ -49,20 +52,29 @@ fn lu_solve_unit(
     dst: &mut [f32],
     dst_offset: usize,
     dof_id: u32,
+    dof2_id: u32,
+    coeff: f32,
 ) {
     let n = m.rows;
-    // dst[0..n] := e_{dof_id}  (then permuted by lu_solve_in_place).
+    // dst[0..n] := e_{dof_id} − coeff·e_{dof2_id} (then permuted by
+    // lu_solve_in_place).
     for i in 0..n {
-        dst[dst_offset + i as usize] = if i == dof_id { 1.0 } else { 0.0 };
+        let mut v = if i == dof_id { 1.0 } else { 0.0 };
+        if i == dof2_id {
+            v -= coeff;
+        }
+        dst[dst_offset + i as usize] = v;
     }
     lu_solve_in_place(buf_m, m, buf_pivots, piv, dst, VSlice::dense(dst_offset));
 }
 
 /// Serially writes the metadata of every active limit/motor constraint slot.
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn emit_joint_constraints(
     links_static: &[MultibodyLinkStatic],
     links_workspace: &[Vec4],
+    dof_couplings: &[MbDofCoupling],
     joint_constraints: &mut [MultibodyJointConstraint],
     mb: &MultibodyInfo,
     cons_base: usize,
@@ -192,109 +204,35 @@ fn emit_joint_constraints(
             curr_free_dof += 1;
         }
     }
-}
 
-/// Per-substep joint-constraint refresh — the explicit-coriolis fast path.
-///
-/// With explicit coriolis the mass-matrix LU (and therefore every slot's M⁻¹
-/// column, `inv_lhs` and folded `cfm_gain`) is a per-step constant: only the
-/// rhs (from the integrated joint positions), the limit activity and the
-/// accumulated impulse change per substep. This kernel recomputes exactly
-/// those from the slot's stashed (link, axis) — the full emission walk and
-/// the back-solves run once per step instead of once per substep.
-///
-/// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_mb_refresh_joint_constraints(
-    #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(local_invocation_id)] local_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &[Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
-    joint_constraints: &mut [MultibodyJointConstraint],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] softness: &ConstraintSoftness,
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
-) {
-    const LANES: u32 = 64;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
-    let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
-        return;
-    }
-
-    let mb = batch_ids
-        .ib(batch_id, multibody_info)
-        .read(mb_idx as usize);
-    if mb.ndofs == 0 || mb.max_constraints == 0 {
-        return;
-    }
-    let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
-
-    let stat_slice = batch_ids
-        .ib(batch_id, links_static)
-        .offset(mb.first_link as usize);
-    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
-
-    let dt = softness.dt;
-    let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
-
-    for s in StepRng::new(lane..mb.max_constraints, LANES) {
-        let old = joint_constraints.read(cons_base + s as usize);
-        if old.kind == MB_JOINT_KIND_INACTIVE {
-            continue;
-        }
-        let link_id = old._kind_extra & 0xffff;
-        let axis = old._kind_extra >> 16;
-        let stat = &stat_slice[link_id as usize];
-        let curr_pos = ws_coord(links_workspace, wa, link_id, axis);
-
-        // Rebuild the per-substep fields with the SAME formulas as the full
-        // emission, then graft the per-step constants (column-derived
-        // `inv_lhs` and folded `cfm_gain`) from the existing slot.
-        let mut fresh = if old.kind == MB_JOINT_KIND_MOTOR {
-            let locked = stat.data.locked_axes;
-            let has_limits = (stat.data.limit_axes & !locked & (1 << axis)) != 0;
-            build_motor_constraint(
-                old.dof_id,
-                link_id,
-                axis,
-                curr_pos,
-                inv_dt,
-                dt,
-                &stat.data.motors[axis as usize],
-                has_limits,
-                stat.data.limits[axis as usize].min,
-                stat.data.limits[axis as usize].max,
-            )
-        } else {
-            build_limit_constraint(
-                old.dof_id,
-                link_id,
-                axis,
-                curr_pos,
-                [
-                    stat.data.limits[axis as usize].min,
-                    stat.data.limits[axis as usize].max,
-                ],
-                softness.joint_erp_inv_dt,
-                softness.joint_cfm_coeff,
-            )
-        };
-        fresh.inv_lhs = old.inv_lhs;
-        fresh.cfm_gain = old.cfm_gain;
-        joint_constraints.write(cons_base + s as usize, fresh);
+    // DoF couplings: one bilateral row per coupling, solved among the joint
+    // constraints (rapier's `coupling_velocity_constraints`).
+    let coupling_base = batch_ids.mb_dof_couplings_start(batch_id) + mb.first_coupling as usize;
+    for c in 0..mb.num_couplings {
+        let coupling = dof_couplings.read(coupling_base + c as usize);
+        let q1 = ws_coord(
+            links_workspace,
+            wa,
+            coupling.link_axis1 & 0xffff,
+            coupling.link_axis1 >> 16,
+        );
+        let q2 = ws_coord(
+            links_workspace,
+            wa,
+            coupling.link_axis2 & 0xffff,
+            coupling.link_axis2 >> 16,
+        );
+        let cons = build_coupling_constraint(&coupling, q1, q2, joint_erp_inv_dt);
+        joint_constraints.write(cons_base + slot as usize, cons);
+        slot += 1;
     }
 }
 
-/// Solve `M · column = e_{dof_id}` (writes the M⁻¹ column) and return the raw
-/// `lhs = column[dof_id]` for J = e_{dof_id}.
+/// Solve `M · column = J` (writes the `M⁻¹·J` column) and return the raw
+/// `lhs = J·M⁻¹·J`, for `J = e_{dof_id} − coeff·e_{dof2_id}` (`coeff == 0`
+/// for limit / motor rows).
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn compute_constraint_column(
     joint_constraint_columns: &mut [f32],
     col_base: usize,
@@ -302,6 +240,8 @@ fn compute_constraint_column(
     dofs_stride: usize,
     ndofs: u32,
     dof_id: u32,
+    dof2_id: u32,
+    coeff: f32,
     mass_matrices: &[f32],
     m: MatSlice,
     lu_pivots: &[u32],
@@ -317,8 +257,11 @@ fn compute_constraint_column(
         joint_constraint_columns,
         col_offset,
         dof_id,
+        dof2_id,
+        coeff,
     );
     joint_constraint_columns.read(col_offset + dof_id as usize)
+        - coeff * joint_constraint_columns.read(col_offset + dof2_id as usize)
 }
 
 /// `1 / x`, or 0 when `x == 0` — matches rapier's `crate::utils::inv`.
@@ -365,7 +308,7 @@ fn build_limit_constraint(
         dof_id,
         kind,
         _kind_extra: link_id | (axis << 16),
-        _pad0: 0,
+        dof2_id: 0,
         rhs: rhs_wo_bias + rhs_bias,
         rhs_wo_bias,
         inv_lhs: 0.0,
@@ -375,6 +318,43 @@ fn build_limit_constraint(
         cfm_coeff,
         // This will be calculated in the finalize (orthogonalization) step.
         cfm_gain: 0.0,
+        coupling_coeff: 0.0,
+        coupling_offset: 0.0,
+        _kind_extra2: 0,
+        _pad1: 0,
+    }
+}
+
+/// Initialize a single DoF-coupling constraint slot. Mirrors rapier's
+/// `Multibody::coupling_velocity_constraints`: the coupling `q2 = coeff·q1 +
+/// offset` is one bilateral constraint with jacobian `J = e_{g2} −
+/// coeff·e_{g1}` and a rhs pulling the position drift back to zero.
+#[inline]
+fn build_coupling_constraint(
+    coupling: &MbDofCoupling,
+    q1: f32,
+    q2: f32,
+    erp_inv_dt: f32,
+) -> MultibodyJointConstraint {
+    let drift = q2 - coupling.coeff * q1 - coupling.offset;
+
+    MultibodyJointConstraint {
+        dof_id: coupling.dof2,
+        kind: MB_JOINT_KIND_COUPLING,
+        _kind_extra: coupling.link_axis2,
+        dof2_id: coupling.dof1,
+        rhs: drift * erp_inv_dt,
+        rhs_wo_bias: 0.0,
+        inv_lhs: 0.0,
+        impulse: 0.0,
+        impulse_lo: -MAX_FLT,
+        impulse_hi: MAX_FLT,
+        cfm_coeff: 0.0,
+        cfm_gain: 0.0,
+        coupling_coeff: coupling.coeff,
+        coupling_offset: coupling.offset,
+        _kind_extra2: coupling.link_axis1,
+        _pad1: 0,
     }
 }
 
@@ -417,7 +397,7 @@ fn build_motor_constraint(
         dof_id,
         kind: MB_JOINT_KIND_MOTOR,
         _kind_extra: link_id | (axis << 16),
-        _pad0: 0,
+        dof2_id: 0,
         rhs: rhs_wo_bias,
         rhs_wo_bias,
         inv_lhs: 0.0,
@@ -426,6 +406,10 @@ fn build_motor_constraint(
         impulse_hi: max_impulse,
         cfm_coeff,
         cfm_gain,
+        coupling_coeff: 0.0,
+        coupling_offset: 0.0,
+        _kind_extra2: 0,
+        _pad1: 0,
     }
 }
 
@@ -459,8 +443,10 @@ pub fn gpu_mb_init_joint_constraints(
     joint_constraints: &mut [MultibodyJointConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
     joint_constraint_columns: &mut [f32],
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] softness: &ConstraintSoftness,
-    #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
+    dof_couplings: &[MbDofCoupling],
+    #[spirv(uniform, descriptor_set = 0, binding = 8)] softness: &ConstraintSoftness,
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
 ) {
     const LANES: u32 = 64;
 
@@ -513,6 +499,7 @@ pub fn gpu_mb_init_joint_constraints(
         emit_joint_constraints(
             links_static,
             links_workspace,
+            dof_couplings,
             joint_constraints,
             &mb,
             cons_base,
@@ -546,6 +533,8 @@ pub fn gpu_mb_init_joint_constraints(
             dofs_stride,
             ndofs,
             cons.dof_id,
+            cons.dof2_id,
+            cons.coupling_coeff,
             mass_matrices,
             m,
             lu_pivots,

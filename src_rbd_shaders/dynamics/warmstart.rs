@@ -223,8 +223,6 @@ pub fn transfer_warmstart_impulses(
                         // Contact point match found! Transfer the accumulated impulse.
                         // The impulse field contains the last substep's impulse, which serves
                         // as the warmstart value for this frame.
-                        // NOTE: we sum the impulse + impulse_accumulator since the accumulator contains the
-                        //       accumulated impulse for all the substeps except the last one.
                         // TODO: what if we have multiple matches? (currently uses first match)
                         new_constraints[i]
                             .elements
@@ -235,15 +233,42 @@ pub fn transfer_warmstart_impulses(
                             .at(k_old)
                             .normal_part
                             .impulse;
-                        new_constraints[i]
-                            .elements
-                            .at_mut(k_new)
-                            .tangent_part
-                            .impulse = old_constraints[cid_old]
-                            .elements
-                            .at(k_old)
-                            .tangent_part
-                            .impulse;
+
+                        // 2D: the tangent is derived deterministically from the
+                        // normal, so the scalar component carries over as-is.
+                        #[cfg(feature = "dim2")]
+                        {
+                            new_constraints[i]
+                                .elements
+                                .at_mut(k_new)
+                                .tangent_part
+                                .impulse = old_constraints[cid_old]
+                                .elements
+                                .at(k_old)
+                                .tangent_part
+                                .impulse;
+                        }
+
+                        // 3D: reproject the friction impulse through world space
+                        // onto the new constraint's tangent basis.
+                        #[cfg(feature = "dim3")]
+                        {
+                            let old_c = &old_constraints[cid_old];
+                            let old_t0 = old_c.tangent_a;
+                            let old_t1 = old_c.dir_a.cross(old_t0);
+                            let old_impulse =
+                                old_c.elements.at(k_old).tangent_part.impulse;
+                            let world = old_t0 * old_impulse.x + old_t1 * old_impulse.y;
+
+                            let new_t0 = new_constraints[i].tangent_a;
+                            let new_t1 = new_constraints[i].dir_a.cross(new_t0);
+                            new_constraints[i]
+                                .elements
+                                .at_mut(k_new)
+                                .tangent_part
+                                .impulse =
+                                khal_std::glamx::Vec2::new(world.dot(new_t0), world.dot(new_t1));
+                        }
                     }
                 }
             }

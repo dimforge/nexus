@@ -209,8 +209,31 @@ pub fn gemm_mat3_lhs(buf: &mut [f32], c: MatSlice, alpha: f32, a: Mat3, b: MatSl
     }
 }
 
-/// `dst += alpha * src`. `src` lives in a separate buffer (stack scratch or another tensor).
+/// Lane-parallel `dst += alpha * src` over two disjoint views of the same
+/// buffer: each lane owns the columns `lane, lane + lanes, …`.
 #[inline]
+pub fn axpy_mat_par(
+    buf: &mut [f32],
+    dst: MatSlice,
+    alpha: f32,
+    src: MatSlice,
+    lane: u32,
+    lanes: u32,
+) {
+    let mut c = lane;
+    // NOTE: `for`-style loop (rust-gpu miscompiles `while`).
+    for _ in 0..dst.cols.div_ceil(lanes) {
+        if c < dst.cols {
+            for r in 0..dst.rows {
+                let cur = buf.read(dst.idx(r, c));
+                let s = buf.read(src.idx(r, c));
+                buf.write(dst.idx(r, c), cur + alpha * s);
+            }
+        }
+        c += lanes;
+    }
+}
+
 pub fn axpy_mat(buf_dst: &mut [f32], dst: MatSlice, alpha: f32, buf_src: &[f32], src: MatSlice) {
     for c in 0..dst.cols {
         for r in 0..dst.rows {

@@ -20,7 +20,7 @@ use crate::dynamics::joint::SPATIAL_DIM;
 use crate::utils::linalg::{
     MAX_MB_DOFS, fill_par, gemv_tr_spatial_split_par, lu_decompose, lu_solve_in_place,
 };
-use crate::utils::BatchIndices;
+use crate::utils::{BatchIndices, ISlice};
 use crate::{AngVector, Vector, gcross_av};
 
 use super::lu::{
@@ -30,9 +30,54 @@ use super::lu::{
 };
 use super::types::{MultibodyInfo, MultibodyLinkStatic};
 use super::ws_soa::{
-    WS_JOINT_VEL, WS_KIN_ACC, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WsAddr, ws_pose,
-    ws_set_vel, ws_vec, ws_vel, ws_vel_ang, ws_world_inertia,
+    WS_JOINT_VEL, WS_KIN_ACC, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WsAddr, ws_coord,
+    ws_pose, ws_set_vel, ws_vec, ws_vel, ws_vel_ang, ws_world_inertia,
 };
+
+/// Adds the per-DoF joint-spring generalized forces (rapier's
+/// `update_acceleration` spring loop): backward Euler needs both the
+/// `-k·(q − rest)` and `-k·dt·v` terms here, the `v⁺` part being implicit via
+/// the `dt²·k` mass-matrix diagonal added by the `pre` kernel. Serial (call
+/// from one lane): one cheap update per sprung axis, and springs are rare.
+#[allow(clippy::too_many_arguments)]
+#[inline]
+fn apply_spring_forces(
+    gen_forces: &mut [f32],
+    batch_ids: &BatchIndices,
+    batch_id: u32,
+    gen_base: usize,
+    stat_slice: &ISlice<MultibodyLinkStatic>,
+    links_workspace: &[Vec4],
+    wa: WsAddr,
+    num_links: u32,
+    stiffness_slice: &ISlice<f32>,
+    spring_ref_slice: &ISlice<f32>,
+    vel_slice: &ISlice<f32>,
+    dt: f32,
+) {
+    for k in 0..num_links {
+        let stat = stat_slice[k as usize];
+        let locked = stat.data.locked_axes;
+        let mut curr_free = 0u32;
+        // Free axes in `0..SPATIAL_DIM` order = linear DOFs then angular
+        // DOFs, matching the generalized-coordinate layout.
+        for axis in 0..(SPATIAL_DIM as u32) {
+            if (locked & (1 << axis)) != 0 {
+                continue;
+            }
+            let dof = (stat.assembly_id + curr_free) as usize;
+            let k_s = stiffness_slice[dof];
+            if k_s != 0.0 {
+                let q = ws_coord(links_workspace, wa, k, axis);
+                let rest = spring_ref_slice[dof];
+                let idx = batch_ids.mbi(batch_id, gen_base + dof);
+                let cur = gen_forces.read(idx);
+                gen_forces.write(idx, cur - k_s * (q - rest) - k_s * dt * vel_slice[dof]);
+            }
+            curr_free += 1;
+        }
+    }
+}
 
 /// Fused gravity / Coriolis-force assembly + LU factor + LU solve.
 #[spirv_bindgen]
@@ -52,6 +97,7 @@ pub fn gpu_mb_gravity_and_lu(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_state: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 8)] gravity: &Vec4,
     #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 10)] dt_uniform: &f32,
     // Mass-matrix tile in shared memory.
     #[spirv(workgroup)] mat: &mut [f32; MAX_MB_DOFS * MAX_MB_DOFS],
     // RHS / solution vector.
@@ -86,6 +132,15 @@ pub fn gpu_mb_gravity_and_lu(
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + gen_base);
+    let stiffness_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(3 * batch_ids.dof_batch_capacity as usize + gen_base);
+    let spring_ref_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(4 * batch_ids.dof_batch_capacity as usize + gen_base);
+    let kin_mask_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(5 * batch_ids.dof_batch_capacity as usize + gen_base);
 
     // ---- Phase 1: zero the generalized-force vector (parallel across DOFs). ----
     let accelerations = batch_ids.imat(batch_id, gen_base, ndofs, 1);
@@ -95,8 +150,6 @@ pub fn gpu_mb_gravity_and_lu(
     //             in global memory whereas it could be done in shared memory instead.
     fill_par(gen_forces, accelerations, 0.0, lane, LANES);
     workgroup_memory_barrier_with_group_sync();
-
-    let _ = stat_slice;
 
     #[cfg(feature = "dim3")]
     let g = Vec3::new(gravity.x, gravity.y, gravity.z);
@@ -219,10 +272,10 @@ pub fn gpu_mb_gravity_and_lu(
     }
 
     // Damping subtraction is handled at solve time via the LU rhs (we still
-    // need the read-modify-write done by lane d): we don't have `dt` here, so
-    // damping is applied identically to the original kernel: rhs -=
-    // damping[d] * v[d] regardless of `dt` (matches rapier's `cmpy(-1.0,
-    // damping, velocities, 1.0)` form, which does not include `dt`).
+    // need the read-modify-write done by lane d): rhs -= damping[d] * v[d]
+    // (matches rapier's `cmpy(-1.0, damping, velocities, 1.0)` form, which
+    // does not include `dt`; the implicit `dt·damping` part sits on the
+    // mass-matrix diagonal).
     workgroup_memory_barrier_with_group_sync();
     let i = lane;
     if i < ndofs {
@@ -232,11 +285,45 @@ pub fn gpu_mb_gravity_and_lu(
     }
     workgroup_memory_barrier_with_group_sync();
 
-    // ---- Phase 3: load M into shared memory, factor in place. ----
+    // Per-DoF joint springs (serial: one cheap update per sprung axis).
+    if lane == 0 {
+        apply_spring_forces(
+            gen_forces,
+            batch_ids,
+            batch_id,
+            gen_base,
+            &stat_slice,
+            links_workspace,
+            wa,
+            num_links,
+            &stiffness_slice,
+            &spring_ref_slice,
+            &vel_slice,
+            *dt_uniform,
+        );
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    // Kinematic DOFs get zero acceleration: their mass-matrix rows are
+    // identity (see the `pre` kernel), so the solve passes the rhs through:
+    // zeroing it here pins their velocities to the user-driven values.
+    if i < ndofs && kin_mask_slice[i as usize] != 0.0 {
+        gen_forces.write(batch_ids.mbi(batch_id, gen_base + i as usize), 0.0);
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    // ---- Phase 3: factor the acceleration matrix, solve M·x = τ. ----
     let m_view = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
+    let acc_section = batch_ids.mass_matrix_acc_section_offset as usize;
+    let split = acc_section != 0;
+    let m_acc_view = if split {
+        batch_ids.imat(batch_id, acc_section + mb_mm_base, ndofs, ndofs)
+    } else {
+        m_view
+    };
     if lane < ndofs {
         for r in 0..ndofs {
-            mat.write(sm_idx(r, lane), mass_matrices.read(m_view.idx(r, lane)));
+            mat.write(sm_idx(r, lane), mass_matrices.read(m_acc_view.idx(r, lane)));
         }
         x.write(
             lane as usize,
@@ -256,9 +343,9 @@ pub fn gpu_mb_gravity_and_lu(
         inv_akk_shared,
     );
 
-    // Persist LU factors to global memory (joint / contact constraint init
-    // reuses them for unit-RHS solves).
-    if lane < ndofs {
+    // Legacy mode only: this factor doubles as the constraints' LU; persist
+    // it (joint / contact constraint init reuses it for unit-RHS solves).
+    if !split && lane < ndofs {
         for r in 0..ndofs {
             mass_matrices.write(m_view.idx(r, lane), mat.read(sm_idx(r, lane)));
         }
@@ -270,6 +357,33 @@ pub fn gpu_mb_gravity_and_lu(
 
     if lane < ndofs {
         gen_forces.write(batch_ids.mbi(batch_id, gen_base + lane as usize), x.read(lane as usize));
+    }
+
+    // ---- Phase 5 (split mode only): factor the plain matrix and persist its
+    // LU + pivots for the joint / contact / impulse-joint constraint columns.
+    if split {
+        workgroup_memory_barrier_with_group_sync();
+        if lane < ndofs {
+            for r in 0..ndofs {
+                mat.write(sm_idx(r, lane), mass_matrices.read(m_view.idx(r, lane)));
+            }
+        }
+        workgroup_memory_barrier_with_group_sync();
+        lu_factor_in_shared(
+            ndofs,
+            max_ndofs,
+            lane,
+            mat,
+            lu_pivots,
+            piv,
+            pivot_row_shared,
+            inv_akk_shared,
+        );
+        if lane < ndofs {
+            for r in 0..ndofs {
+                mass_matrices.write(m_view.idx(r, lane), mat.read(sm_idx(r, lane)));
+            }
+        }
     }
 }
 
@@ -290,6 +404,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     dof_state: &[f32],
     gravity: &Vec4,
     batch_ids: &BatchIndices,
+    dt_uniform: &f32,
     mat: &mut [f32; MATN],
     x: &mut [f32; 64],
     partial: &mut [f32; 64],
@@ -334,6 +449,15 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + gen_base);
+    let stiffness_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(3 * batch_ids.dof_batch_capacity as usize + gen_base);
+    let spring_ref_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(4 * batch_ids.dof_batch_capacity as usize + gen_base);
+    let kin_mask_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(5 * batch_ids.dof_batch_capacity as usize + gen_base);
 
     // ---- Phase 1: zero the generalized-force vector (parallel across DOFs). ----
     let accelerations = batch_ids.imat(batch_id, gen_base, ndofs, 1);
@@ -467,13 +591,45 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     }
     workgroup_memory_barrier_with_group_sync();
 
-    // ---- Phase 3: load M into this slot's shared tile, factor in place. ----
+    // Per-DoF joint springs (serial per slot: one cheap update per sprung axis).
+    if lane == 0 && active_slot {
+        apply_spring_forces(
+            gen_forces,
+            batch_ids,
+            batch_id,
+            gen_base,
+            &stat_slice,
+            links_workspace,
+            wa,
+            num_links,
+            &stiffness_slice,
+            &spring_ref_slice,
+            &vel_slice,
+            *dt_uniform,
+        );
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    // Kinematic DOFs get zero acceleration.
+    if i < ndofs && kin_mask_slice[i as usize] != 0.0 {
+        gen_forces.write(batch_ids.mbi(batch_id, gen_base + i as usize), 0.0);
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    // ---- Phase 3: factor the acceleration matrix, solve M·x = τ. ----
     let m_view = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
+    let acc_section = batch_ids.mass_matrix_acc_section_offset as usize;
+    let split = acc_section != 0;
+    let m_acc_view = if split {
+        batch_ids.imat(batch_id, acc_section + mb_mm_base, ndofs, ndofs)
+    } else {
+        m_view
+    };
     if lane < ndofs {
         for r in 0..ndofs {
             mat.write(
                 sm_idx_packed::<T>(slot, r, lane),
-                mass_matrices.read(m_view.idx(r, lane)),
+                mass_matrices.read(m_acc_view.idx(r, lane)),
             );
         }
         x.write(
@@ -496,9 +652,9 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
         inv_akk_shared,
     );
 
-    // Persist LU factors to global memory (joint / contact constraint init
-    // reuses them for unit-RHS solves).
-    if lane < ndofs {
+    // Legacy mode only: this factor doubles as the constraints' LU; persist
+    // it (joint / contact constraint init reuses it for unit-RHS solves).
+    if !split && lane < ndofs {
         for r in 0..ndofs {
             mass_matrices.write(m_view.idx(r, lane), mat.read(sm_idx_packed::<T>(slot, r, lane)));
         }
@@ -523,6 +679,39 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
             x.read(seg + lane as usize),
         );
     }
+
+    // ---- Phase 5 (split mode only): factor the plain matrix and persist its
+    // LU + pivots for the constraint columns.
+    if split {
+        workgroup_memory_barrier_with_group_sync();
+        if lane < ndofs {
+            for r in 0..ndofs {
+                mat.write(
+                    sm_idx_packed::<T>(slot, r, lane),
+                    mass_matrices.read(m_view.idx(r, lane)),
+                );
+            }
+        }
+        workgroup_memory_barrier_with_group_sync();
+        lu_factor_in_shared_packed::<T, MATN, SLOTS>(
+            ndofs,
+            max_ndofs,
+            slot,
+            lane,
+            active_slot,
+            mat,
+            lu_pivots,
+            piv,
+            pivot_row_shared,
+            inv_akk_shared,
+        );
+        if lane < ndofs {
+            for r in 0..ndofs {
+                mass_matrices
+                    .write(m_view.idx(r, lane), mat.read(sm_idx_packed::<T>(slot, r, lane)));
+            }
+        }
+    }
 }
 
 /// Serial version of the fused gravity + LU kernel.
@@ -542,6 +731,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_state: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 8)] gravity: &Vec4,
     #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 10)] dt_uniform: &f32,
 ) {
     let num_mb = batch_ids.multibodies_len;
     if invocation_id.x >= num_mb * batch_ids.num_batches {
@@ -571,6 +761,15 @@ pub fn gpu_mb_gravity_and_lu_t1(
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + gen_base);
+    let stiffness_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(3 * batch_ids.dof_batch_capacity as usize + gen_base);
+    let spring_ref_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(4 * batch_ids.dof_batch_capacity as usize + gen_base);
+    let kin_mask_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(5 * batch_ids.dof_batch_capacity as usize + gen_base);
 
     // ---- Phase 1: zero the generalized-force vector. ----
     for d in 0..ndofs {
@@ -683,18 +882,53 @@ pub fn gpu_mb_gravity_and_lu_t1(
         gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
     }
 
-    // ---- Phase 3 + 4: factor M in place in global memory, then solve
-    // M·x = τ in place on the gravity rhs. ----
+    // Per-DoF joint springs.
+    apply_spring_forces(
+        gen_forces,
+        batch_ids,
+        batch_id,
+        gen_base,
+        &stat_slice,
+        links_workspace,
+        wa,
+        num_links,
+        &stiffness_slice,
+        &spring_ref_slice,
+        &vel_slice,
+        *dt_uniform,
+    );
+
+    // Kinematic DOFs get zero acceleration.
+    for i in 0..ndofs {
+        if kin_mask_slice[i as usize] != 0.0 {
+            gen_forces.write(batch_ids.mbi(batch_id, gen_base + i as usize), 0.0);
+        }
+    }
+
+    // ---- Phase 3 + 4: factor the acceleration matrix in place in global
+    // memory, solve M·x = τ in place on the gravity rhs; in split mode
+    // (see `gpu_mb_gravity_and_lu`), then factor the plain matrix in place;
+    // its LU + pivots are what the constraint columns consume. ----
     let m_view = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
-    lu_decompose(mass_matrices, m_view, lu_pivots, piv);
+    let acc_section = batch_ids.mass_matrix_acc_section_offset as usize;
+    let split = acc_section != 0;
+    let m_acc_view = if split {
+        batch_ids.imat(batch_id, acc_section + mb_mm_base, ndofs, ndofs)
+    } else {
+        m_view
+    };
+    lu_decompose(mass_matrices, m_acc_view, lu_pivots, piv);
     lu_solve_in_place(
         mass_matrices,
-        m_view,
+        m_acc_view,
         lu_pivots,
         piv,
         gen_forces,
         batch_ids.ivec(batch_id, gen_base),
     );
+    if split {
+        lu_decompose(mass_matrices, m_view, lu_pivots, piv);
+    }
 }
 
 /// Stamps one packed-tier entry point of the fused gravity + LU kernel.
@@ -720,6 +954,7 @@ macro_rules! gravity_and_lu_packed_entry {
             #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_state: &[f32],
             #[spirv(uniform, descriptor_set = 0, binding = 8)] gravity: &Vec4,
             #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+            #[spirv(uniform, descriptor_set = 0, binding = 10)] dt_uniform: &f32,
             #[spirv(workgroup)] mat: &mut [f32; $matn],
             #[spirv(workgroup)] x: &mut [f32; 64],
             #[spirv(workgroup)] partial: &mut [f32; 64],
@@ -739,6 +974,7 @@ macro_rules! gravity_and_lu_packed_entry {
                 dof_state,
                 gravity,
                 batch_ids,
+                dt_uniform,
                 mat,
                 x,
                 partial,

@@ -78,6 +78,14 @@ pub struct BatchIndices {
     pub coriolis_w_section_offset: u32,
     pub i_coriolis_dt_section_offset: u32,
     pub dof_damping_section_offset: u32,
+    /// Offset (in f32 entries, within a batch's `mass_matrices` view) of the
+    /// section holding the coriolis-aware "acceleration" mass matrix
+    /// (rapier's `acc_augmented_mass`).
+    /// Non-zero = split-matrix.
+    /// Zero = single melded matrix for both (not recommended).
+    pub mass_matrix_acc_section_offset: u32,
+    /// Per-batch stride (capacity) of the multibody DoF-coupling buffer.
+    pub mb_dof_couplings_batch_capacity: u32,
 }
 
 impl BatchIndices {
@@ -166,6 +174,11 @@ impl BatchIndices {
     #[inline]
     pub fn mb_contact_constraint_columns_start(&self, batch_id: u32) -> usize {
         batch_id as usize * self.mb_contact_constraint_columns_batch_capacity as usize
+    }
+
+    #[inline]
+    pub fn mb_dof_couplings_start(&self, batch_id: u32) -> usize {
+        batch_id as usize * self.mb_dof_couplings_batch_capacity as usize
     }
 
     #[inline]

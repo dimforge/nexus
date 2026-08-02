@@ -3,9 +3,9 @@
 
 use crate::math::Pose;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, LocalMassProperties, MbImpulseJointBuilder, MbImpulseJointConstraint,
-    MultibodyContactConstraint, MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic,
-    MultibodyLinkWorkspace, RbdSimParams,
+    ConstraintSoftness, LocalMassProperties, MbDofCoupling, MbImpulseJointBuilder,
+    MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::BatchIndices;
 use glamx::Vec4;
@@ -45,9 +45,6 @@ pub struct GpuMultibodySet {
     pub(super) mass_matrix_entries_per_batch: u32,
     pub(super) coriolis_entries_per_batch: u32,
     pub(super) i_coriolis_dt_entries_per_batch: u32,
-    /// When `true`, the Coriolis / gyroscopic terms are folded into the mass
-    /// matrix (implicit integration). When `false`, they are applied explicitly
-    /// as part of the RHS.
     pub(super) implicit_coriolis: bool,
     /// When `false` (no joint limits / motors anywhere), the joint constraint
     /// kernel chain is skipped on the host side.
@@ -84,6 +81,12 @@ pub struct GpuMultibodySet {
     pub(super) joint_constraints: Tensor<MultibodyJointConstraint>,
     /// Per-constraint columns of `M⁻¹` (length `ndofs` each, contiguous per multibody).
     pub(super) joint_constraint_columns: Tensor<f32>,
+    /// Per-batch slab of DoF couplings (rapier's `MultibodyDofCoupling`),
+    /// batch-major; each multibody's slice is
+    /// `[first_coupling, first_coupling + num_couplings)`.
+    pub(super) dof_couplings: Tensor<MbDofCoupling>,
+    /// Per-batch capacity (stride) of [`Self::dof_couplings`].
+    pub(super) couplings_per_batch: u32,
 
     /// Per-body lookup `[multibody_idx, link_idx]` (`u32::MAX` sentinel for
     /// free / non-multibody bodies). Indexed by the per-batch local body id.
@@ -200,10 +203,11 @@ impl GpuMultibodySet {
         self.mb_imp_joint_num_colors
     }
 
-    /// GPU buffer holding generalized velocities followed by per-DOF damping.
-    /// The velocity section is `[0, dof_batch_capacity * num_batches)`; the
-    /// damping section follows. Callers reading velocities should use only the
-    /// first half.
+    /// GPU buffer holding six back-to-back per-DOF sections of
+    /// `dof_batch_capacity * num_batches` floats each: generalized
+    /// velocities, damping, armature, spring stiffness, spring rest position,
+    /// and the kinematic-DOF mask. Callers reading velocities should use only
+    /// the first section.
     pub fn dof_state(&self) -> &Tensor<f32> {
         &self.dof_state
     }
@@ -219,9 +223,7 @@ impl GpuMultibodySet {
         &self.gen_forces
     }
 
-    /// Enable implicit integration of the Coriolis / gyroscopic terms. Implicit
-    /// treatment stabilizes the integrator at large time-steps; the explicit
-    /// form is slightly cheaper but can become unstable for fast rotations.
+    /// Indicates if the implicit treatment of coriolis forces is enabled.
     pub fn set_implicit_coriolis(&mut self, enabled: bool) {
         self.implicit_coriolis = enabled;
     }
@@ -346,6 +348,12 @@ impl GpuMultibodySet {
         dst.coriolis_w_section_offset = self.coriolis_entries_per_batch * self.num_batches;
         dst.i_coriolis_dt_section_offset = 2 * self.coriolis_entries_per_batch * self.num_batches;
         dst.dof_damping_section_offset = self.dofs_per_batch * self.num_batches;
+        dst.mass_matrix_acc_section_offset = if self.implicit_coriolis {
+            0
+        } else {
+            self.mass_matrix_entries_per_batch
+        };
+        dst.mb_dof_couplings_batch_capacity = self.couplings_per_batch;
     }
 
     /// Upload a new integration timestep.
