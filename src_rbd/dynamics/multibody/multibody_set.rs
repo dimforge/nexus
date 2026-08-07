@@ -224,6 +224,12 @@ impl GpuMultibodySet {
     }
 
     /// GPU buffer for generalized coordinates.
+    /// Per-batch stride of the DoF buffers (the length of each section of
+    /// [`Self::dof_state`]).
+    pub fn dofs_per_batch(&self) -> u32 {
+        self.dofs_per_batch
+    }
+
     pub fn dof_values(&self) -> &Tensor<f32> {
         &self.dof_values
     }
@@ -292,6 +298,99 @@ impl GpuMultibodySet {
             BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         )
         .unwrap();
+    }
+
+    /// Overwrites one joint motor of a multibody link and uploads the changed
+    /// link to the GPU, enabling the axis so the solver drives it.
+    ///
+    /// `link_id` is the global link id within the batch (it matches the body
+    /// index given to [`from_rapier`](Self::from_rapier)) and `axis` indexes the
+    /// 6-DoF spatial layout (`0..DIM` linear, `DIM..` angular). Motors are baked
+    /// into the GPU state at finalization, so per-step actuation has to come
+    /// through here.
+    pub fn set_motor(
+        &mut self,
+        backend: &GpuBackend,
+        batch: u32,
+        link_id: u32,
+        axis: usize,
+        motor: JointMotor,
+    ) -> Result<(), GpuBackendError> {
+        if axis >= 6 {
+            return Ok(());
+        }
+        let global_idx = (link_id * self.num_batches + batch) as usize;
+        let entry = match self.links_static_mirror.get_mut(global_idx) {
+            Some(e) => e,
+            None => return Ok(()),
+        };
+        // `impulse` is solver state, not configuration: keep the accumulated
+        // value so retargeting a servo does not drop its warmstart.
+        let impulse = entry.data.motors[axis].impulse;
+        entry.data.motors[axis] = motor;
+        entry.data.motors[axis].impulse = impulse;
+        entry.data.motor_axes |= 1u32 << axis;
+        let snapshot = *entry;
+        backend.write_buffer(
+            self.links_static.buffer_mut(),
+            global_idx as u64,
+            std::slice::from_ref(&snapshot),
+        )
+    }
+
+    /// The motor currently configured on `axis` of multibody link `link_id`,
+    /// as last uploaded. Use it to adjust one field of a live motor without
+    /// rebuilding the rest.
+    pub fn motor(&self, batch: u32, link_id: u32, axis: usize) -> Option<JointMotor> {
+        if axis >= 6 {
+            return None;
+        }
+        let global_idx = (link_id * self.num_batches + batch) as usize;
+        self.links_static_mirror
+            .get(global_idx)
+            .map(|e| e.data.motors[axis])
+    }
+
+    /// Batched [`Self::set_motor`]: applies every `(link_id, axis, motor)` and
+    /// uploads each touched link once, rather than once per axis.
+    ///
+    /// This is the entry point for per-step actuation (a position-servo robot
+    /// re-targets several axes of many links every frame), so it is worth
+    /// keeping the upload count down to one per link.
+    pub fn set_motors(
+        &mut self,
+        backend: &GpuBackend,
+        batch: u32,
+        updates: &[(u32, usize, JointMotor)],
+    ) -> Result<(), GpuBackendError> {
+        let mut touched: Vec<usize> = Vec::with_capacity(updates.len());
+        for &(link_id, axis, motor) in updates {
+            if axis >= 6 {
+                continue;
+            }
+            let global_idx = (link_id * self.num_batches + batch) as usize;
+            let Some(entry) = self.links_static_mirror.get_mut(global_idx) else {
+                continue;
+            };
+            // `impulse` is solver state, not configuration: keep the accumulated
+            // value so retargeting a servo does not drop its warmstart.
+            let impulse = entry.data.motors[axis].impulse;
+            entry.data.motors[axis] = motor;
+            entry.data.motors[axis].impulse = impulse;
+            entry.data.motor_axes |= 1u32 << axis;
+            touched.push(global_idx);
+        }
+        touched.sort_unstable();
+        touched.dedup();
+        for global_idx in touched {
+            let snapshot = self.links_static_mirror[global_idx];
+            backend.write_buffer(
+                self.links_static.buffer_mut(),
+                global_idx as u64,
+                std::slice::from_ref(&snapshot),
+            )?;
+        }
+        Ok(())
     }
 
     /// Sets a motor's target velocity on a multibody joint and uploads the
@@ -417,6 +516,79 @@ impl GpuMultibodySet {
             )?;
         }
         Ok(())
+    }
+
+    /// Per-multibody descriptors (contact counts, dof offsets, ...).
+    pub fn multibody_info(&self) -> &Tensor<MultibodyInfo> {
+        &self.multibody_info
+    }
+
+    /// The per-multibody contact-constraint slabs.
+    pub fn contact_constraints(&self) -> &Tensor<MultibodyContactConstraint> {
+        &self.contact_constraints
+    }
+
+    /// Coefficient applied to a contact impulse before it is re-used as the
+    /// next substep's or next frame's initial guess. Zero disables warmstarting.
+    pub fn warmstart_coefficient(&self) -> f32 {
+        self.warmstart_coefficient
+    }
+
+    /// Per-batch stride of [`Self::contact_constraints`].
+    pub fn contact_constraints_per_batch(&self) -> u32 {
+        self.contact_constraints_per_batch
+    }
+
+    /// Per-constraint `Jᵀ` rows of the contact constraints (`ndofs` floats each,
+    /// laid out like [`Self::contact_constraints`]).
+    pub fn contact_constraint_jacs(&self) -> &Tensor<f32> {
+        &self.contact_constraint_jacs
+    }
+
+    /// Per-constraint `M⁻¹·Jᵀ` columns of the contact constraints, laid out
+    /// like [`Self::contact_constraint_jacs`].
+    pub fn contact_constraint_columns(&self) -> &Tensor<f32> {
+        &self.contact_constraint_columns
+    }
+
+    /// Per-link `SPATIAL_DIM × ndofs` column-major body jacobians, indexed from
+    /// each multibody's [`MultibodyInfo::jacobian_offset`].
+    pub fn body_jacobians(&self) -> &Tensor<f32> {
+        &self.body_jacobians
+    }
+
+    /// Per-multibody `ndofs × ndofs` mass matrices, indexed from each
+    /// multibody's [`MultibodyInfo::mass_matrix_offset`]. Doubles as the LU work
+    /// buffer, so after a step this holds the factorization, not `M` itself.
+    pub fn mass_matrices(&self) -> &Tensor<f32> {
+        &self.mass_matrices
+    }
+
+    /// Reads back the generalized coordinate of every DoF of batch `batch_id`,
+    /// in assembly order (the same order as [`Self::dof_state`]'s velocity
+    /// section). The coordinates live in the link workspace, so this unpacks the
+    /// SoA layout for callers.
+    pub async fn read_dof_coords(
+        &self,
+        backend: &GpuBackend,
+        batch_id: u32,
+    ) -> Result<Vec<f32>, khal::backend::GpuBackendError> {
+        use crate::shaders::dynamics::{WsAddr, ws_coord};
+
+        let ws: Vec<glamx::Vec4> = backend.slow_read_vec(self.links_workspace.buffer()).await?;
+        let a = WsAddr::new(0, self.num_batches, batch_id);
+        let mut out = Vec::new();
+        for k in 0..self.links_per_batch {
+            let stat = &self.links_static_mirror
+                [(batch_id * self.links_per_batch + k) as usize];
+            let locked = stat.data.locked_axes;
+            for axis in 0..6u32 {
+                if locked & (1 << axis) == 0 {
+                    out.push(ws_coord(&ws, a, k, axis));
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// Upload a new integration timestep.

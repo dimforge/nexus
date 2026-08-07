@@ -234,6 +234,20 @@ impl NexusState {
         &mut self.rbd_envs[env]
     }
 
+    /// Mutable access to environment `env`'s rapier world that does **not** mark
+    /// the rbd state dirty, for use after [`Self::finalize`].
+    ///
+    /// Nothing written here reaches the GPU on its own: the rapier sets are the
+    /// build-time source the GPU buffers were baked from, and marking them dirty
+    /// would rebuild those buffers and snap the simulation back to the authored
+    /// state. Use this to run rapier-side helpers whose output you then push
+    /// through a runtime setter — e.g. driving an MJCF actuator model and
+    /// forwarding the resulting motors with
+    /// [`GpuMultibodySet::set_motors`](crate::rbd::dynamics::GpuMultibodySet::set_motors).
+    pub fn rbd_world_mut_untracked(&mut self, env: usize) -> &mut PhysicsWorld {
+        &mut self.rbd_envs[env]
+    }
+
     pub fn insert_rigid_body(&mut self, body: RigidBody, collider: Collider) -> RigidBodyHandle {
         self.insert_rigid_body_in(0, body, collider)
     }

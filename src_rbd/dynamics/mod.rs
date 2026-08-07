@@ -2,7 +2,7 @@
 
 pub use crate::shaders::dynamics::RbdSimParams;
 pub use coloring::{ColorBucketsArgs, ColoringArgs, GpuColoring};
-pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs};
+pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs, convert_joint_motor};
 pub use mprops_update::{GpuMpropsUpdate, GpuSyncColliderPosesShader};
 #[cfg(feature = "dim3")]
 pub use multibody::{GpuMultibodySet, GpuMultibodySolver, MultibodySolverArgs};
