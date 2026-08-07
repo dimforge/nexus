@@ -192,7 +192,6 @@ pub fn gpu_mb_init_contact_constraints(
             continue;
         }
         let id1 = im.colliders.x;
-        let id2 = im.colliders.y;
         let b1 = im.bodies.x;
         let b2 = im.bodies.y;
 
@@ -317,8 +316,8 @@ pub fn gpu_mb_init_contact_constraints(
             // contacts they collapse to zero because both sides are folded
             // into `J_mb` already.
             let (ang_jac_normal, ii_ang_jac_normal) = if is_self {
-                // Self-contact: B-side link is the collider at `id2`; its
-                // lever arm is taken about the link world COM from the
+                // Self-contact: B-side link is the pair's second collider;
+                // its lever arm is taken about the link world COM from the
                 // workspace.
                 let link_origin_b = ws_slice[mb_link_id_b as usize].local_to_world
                     * stat_slice[mb_link_id_b as usize].local_mprops.com;
