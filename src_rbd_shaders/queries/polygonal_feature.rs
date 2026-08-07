@@ -579,63 +579,79 @@ mod dim3 {
         result
     }
 
+    /// Reduces the candidate set to at most `MAX_MANIFOLD_POINTS` solver
+    /// contacts. Mirrors `reduce_manifold_naive`: pick the deepest point, then
+    /// the one furthest from it, then the two extremes along the tangent of
+    /// that segment, considering only points within `prediction`.
     pub fn manifold_reduction(
         candidates: &[ContactPoint; MAX_CANDIDATE_POINTS],
         num_candidates: u32,
         normal: Vector,
+        prediction: f32,
     ) -> ContactManifold {
         let mut result = ContactManifold::default();
         let num = num_candidates as usize;
 
         if num <= MAX_MANIFOLD_POINTS {
-            result.points_a.write(0, candidates.read(0));
-            result.points_a.write(1, candidates.read(1));
-            result.points_a.write(2, candidates.read(2));
-            result.points_a.write(3, candidates.read(3));
+            for i in 0..num {
+                result.points_a.write(i, candidates.read(i));
+            }
             result.len = num_candidates;
             return result;
         }
 
-        // Run contact reduction so we only have up to four solver contacts.
-        // 1. Find the deepest contact.
-        let mut deepest_dist = candidates.at(0).dist;
-        let mut selected = [
-            0usize,
-            MAX_CANDIDATE_POINTS,
-            MAX_CANDIDATE_POINTS,
-            MAX_CANDIDATE_POINTS,
-        ];
+        const NONE: usize = MAX_CANDIDATE_POINTS;
 
-        for i in 1..num {
+        // 1. Find the deepest contact.
+        let mut selected = [NONE, NONE, NONE, NONE];
+        let mut deepest_dist = MAX_FLT;
+        for i in 0..num {
             if candidates.at(i).dist < deepest_dist {
                 deepest_dist = candidates.at(i).dist;
                 selected.write(0, i);
             }
         }
 
+        if selected.read(0) == NONE {
+            return result;
+        }
+
         // 2. Find the point that is the furthest from the deepest one.
         let selected_a = candidates.at(selected.read(0)).pt;
         let mut furthest_dist = -MAX_FLT;
-
         for i in 0..num {
-            let pt_sel = selected_a - candidates.at(i).pt;
-            let dist = pt_sel.dot(pt_sel);
-            if i != selected.read(0) && dist > furthest_dist {
+            let d = candidates.at(i).pt - selected_a;
+            let dist = d.dot(d);
+            if i != selected.read(0)
+                && candidates.at(i).dist <= prediction
+                && dist > furthest_dist
+            {
                 furthest_dist = dist;
                 selected.write(1, i);
             }
         }
 
-        // 3. Now find the two points furthest from the segment we built so far.
-        let selected_b = candidates.at(selected.read(1)).pt;
-        let selected_ab = selected_b - selected_a;
-        let tangent = selected_ab.cross(normal);
+        result.points_a.write(0, candidates.read(selected.read(0)));
+        result.len = 1;
+        if selected.read(1) == NONE {
+            return result;
+        }
 
+        // 3. Now find the two points furthest from the segment we built so far.
+        // A zero-length segment has no tangent, so it stays a single contact.
+        let selected_b = candidates.at(selected.read(1)).pt;
+        if selected_a == selected_b {
+            return result;
+        }
+
+        let tangent = (selected_b - selected_a).cross(normal);
         let mut min_dot = MAX_FLT;
         let mut max_dot = -MAX_FLT;
-
         for i in 0..num {
-            if i == selected.read(0) || i == selected.read(1) {
+            if i == selected.read(0)
+                || i == selected.read(1)
+                || candidates.at(i).dist > prediction
+            {
                 continue;
             }
 
@@ -644,32 +660,28 @@ mod dim3 {
                 min_dot = d;
                 selected.write(2, i);
             }
-
             if d > max_dot {
                 max_dot = d;
                 selected.write(3, i);
             }
         }
 
-        if selected.read(2) == MAX_CANDIDATE_POINTS {
-            selected.write(2, selected.read(3));
-            selected.write(3, MAX_CANDIDATE_POINTS);
-        }
-
-        result.points_a.write(0, candidates.read(selected.read(0)));
         result.points_a.write(1, candidates.read(selected.read(1)));
         result.len = 2;
-
-        if selected.read(2) != MAX_CANDIDATE_POINTS {
-            result.points_a.write(2, candidates.read(selected.read(2)));
-            result.len = 3;
-
-            if selected.read(3) != MAX_CANDIDATE_POINTS {
-                result.points_a.write(3, candidates.read(selected.read(3)));
-                result.len = 4;
-            }
+        if selected.read(2) == NONE {
+            return result;
         }
 
+        result.points_a.write(2, candidates.read(selected.read(2)));
+        result.len = 3;
+        // The min and max extremes come from one pass, so a single remaining
+        // candidate is picked for both; keeping it once leaves three contacts.
+        if selected.read(2) == selected.read(3) {
+            return result;
+        }
+
+        result.points_a.write(3, candidates.read(selected.read(3)));
+        result.len = 4;
         result
     }
 
@@ -783,7 +795,7 @@ mod dim3 {
                 }
 
                 if !any_point_is_outside {
-                    return manifold_reduction(&candidates, num_candidates, sep_axis1);
+                    return manifold_reduction(&candidates, num_candidates, sep_axis1, prediction);
                 }
             }
         }
@@ -841,7 +853,7 @@ mod dim3 {
                 }
 
                 if !any_point_is_outside {
-                    return manifold_reduction(&candidates, num_candidates, sep_axis1);
+                    return manifold_reduction(&candidates, num_candidates, sep_axis1, prediction);
                 }
             }
         }
@@ -877,13 +889,13 @@ mod dim3 {
                     }
 
                     if num_candidates as usize == MAX_CANDIDATE_POINTS {
-                        return manifold_reduction(&candidates, num_candidates, sep_axis1);
+                        return manifold_reduction(&candidates, num_candidates, sep_axis1, prediction);
                     }
                 }
             }
         }
 
-        manifold_reduction(&candidates, num_candidates, sep_axis1)
+        manifold_reduction(&candidates, num_candidates, sep_axis1, prediction)
     }
 }
 

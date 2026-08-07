@@ -401,6 +401,12 @@ impl RbdState {
     }
 
     /// The contact manifold buffer (post narrow-phase + body resolution).
+    /// Per-batch number of manifolds currently in [`Self::contacts`].
+    pub fn contacts_len(&self) -> &Tensor<u32> {
+        &self.contacts_len
+    }
+
+    /// GPU buffer holding the contact manifolds.
     pub fn contacts(&self) -> &Tensor<GpuIndexedContact> {
         &self.contacts
     }
