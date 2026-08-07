@@ -28,6 +28,7 @@ use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 use super::types::{
     CONTACT_CONSTRAINTS_PER_POINT, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MAX_MB_CONTACTS_PER_MB,
     MB_CONTACT_KIND_NORMAL, MB_CONTACT_KIND_TANGENT, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyLinkStatic, MultibodyLinkWorkspace,
 };
 
 #[cfg(feature = "dim2")]
@@ -132,6 +133,10 @@ pub fn gpu_mb_init_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] mprops: &[WorldMassProperties],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] contacts: &[IndexedManifold],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)]
+    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 4)]
+    links_workspace: &[MultibodyLinkWorkspace],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
     let batch_id = invocation_id.y;
@@ -187,7 +192,6 @@ pub fn gpu_mb_init_contact_constraints(
             continue;
         }
         let id1 = im.colliders.x;
-        let id2 = im.colliders.y;
         let b1 = im.bodies.x;
         let b2 = im.bodies.y;
 
@@ -227,7 +231,6 @@ pub fn gpu_mb_init_contact_constraints(
         }
 
         let pose1 = poses.read(colliders_start + id1 as usize);
-        let pose2 = poses.read(colliders_start + id2 as usize);
         let world_normal = pose1.rotation * im.contact.normal_a;
         let lin_jac = if is_self || mb_on_1 {
             world_normal
@@ -243,23 +246,18 @@ pub fn gpu_mb_init_contact_constraints(
         };
         let free_im = if is_self { 0.0 } else { free_mp.inv_mass.x };
 
-        // Multibody-link origins come from the collider poses buffer instead
-        // of `links_workspace` (which we no longer bind in this kernel — see
-        // binding-count cap discussion). This uses the contacting collider's
-        // world translation as a proxy for its link's world origin. It is exact
-        // when the collider sits at the link origin (the historical one-collider
-        // case); for a link carrying a collider offset from its origin the
-        // angular lever arm `pt_world - link_origin_a` is off by that offset.
-        // Binding `body_poses` here to use the true link origin would exceed the
-        // 10-storage-buffer cap — left as a follow-up. `mb_link_id_a` always
-        // corresponds to side `id1`/`b1` when `mb_on_1 || is_self`, and to
-        // `id2`/`b2` otherwise. `mb_link_id_b` is only used in the self-contact
-        // case where it corresponds to `id2`.
-        let link_origin_a = if is_self || mb_on_1 {
-            pose1.translation
-        } else {
-            pose2.translation
-        };
+        // Angular lever arms must be taken about the link's WORLD COM — the
+        // reference point of the body jacobians (rapier: "the lever arms must
+        // be taken relative to the world com"). The previous collider-pose
+        // proxy was off by the collider's offset from the COM.
+        let stat_slice = batch_ids
+            .mb_links_batch(batch_id, links_static)
+            .offset(mb.first_link as usize);
+        let ws_slice = batch_ids
+            .mb_links_batch(batch_id, links_workspace)
+            .offset(mb.first_link as usize);
+        let link_origin_a = ws_slice[mb_link_id_a as usize].local_to_world
+            * stat_slice[mb_link_id_a as usize].local_mprops.com;
         let link_origin_b_default = link_origin_a;
 
         for k in 0..im.contact.len {
@@ -318,10 +316,11 @@ pub fn gpu_mb_init_contact_constraints(
             // contacts they collapse to zero because both sides are folded
             // into `J_mb` already.
             let (ang_jac_normal, ii_ang_jac_normal) = if is_self {
-                // Self-contact: B-side link is the collider at `id2`, so its
-                // world pose is `pose2` (already loaded). Avoids a
-                // `links_workspace` binding.
-                let link_origin_b = pose2.translation;
+                // Self-contact: B-side link is the pair's second collider;
+                // its lever arm is taken about the link world COM from the
+                // workspace.
+                let link_origin_b = ws_slice[mb_link_id_b as usize].local_to_world
+                    * stat_slice[mb_link_id_b as usize].local_mprops.com;
                 let _ = link_origin_b_default;
                 let shift_b = pt_world - link_origin_b;
                 let torque_b_normal = gcross(shift_b, lin_jac);
@@ -453,7 +452,8 @@ pub fn gpu_mb_init_contact_constraints(
                 );
 
                 let (ang_jac_tang, ii_ang_jac_tang) = if is_self {
-                    let link_origin_b = pose2.translation;
+                    let link_origin_b = ws_slice[mb_link_id_b as usize].local_to_world
+                        * stat_slice[mb_link_id_b as usize].local_mprops.com;
                     let shift_b = pt_world - link_origin_b;
                     let torque_b_tang = gcross(shift_b, free_tangent);
                     fill_contact_jac_row(
