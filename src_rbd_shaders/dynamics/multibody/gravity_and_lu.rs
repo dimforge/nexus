@@ -31,7 +31,7 @@ use super::lu::{
 use super::types::{MultibodyInfo, MultibodyLinkStatic};
 use super::ws_soa::{
     WS_JOINT_VEL, WS_KIN_ACC, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WsAddr, ws_coord,
-    ws_pose, ws_set_vel, ws_vec, ws_vel, ws_vel_ang, ws_world_inertia,
+    ws_ext_wrench, ws_pose, ws_set_vel, ws_vec, ws_vel, ws_vel_ang, ws_world_inertia,
 };
 
 /// Adds the per-DoF joint-spring generalized forces (rapier's
@@ -242,12 +242,11 @@ pub fn gpu_mb_gravity_and_lu(
                 let gyroscopic: AngVector = 0.0;
 
                 let i_acc_ang = rb_inertia * acc_ang;
+                let (ext_force, ext_torque, gravity_scale) =
+                    ws_ext_wrench(links_workspace, wa, k);
 
-                #[cfg(feature = "dim3")]
-                let f_lin = (g - acc_lin) * mass;
-                #[cfg(feature = "dim2")]
-                let f_lin = (g - acc_lin) * mass;
-                let f_ang = -gyroscopic - i_acc_ang;
+                let f_lin = g * (mass * gravity_scale) + ext_force - acc_lin * mass;
+                let f_ang = ext_torque - gyroscopic - i_acc_ang;
 
                 let body_jacobian = batch_ids.imat(batch_id, 
                     mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
@@ -343,8 +342,6 @@ pub fn gpu_mb_gravity_and_lu(
         inv_akk_shared,
     );
 
-    // Legacy mode only: this factor doubles as the constraints' LU; persist
-    // it (joint / contact constraint init reuses it for unit-RHS solves).
     if !split && lane < ndofs {
         for r in 0..ndofs {
             mass_matrices.write(m_view.idx(r, lane), mat.read(sm_idx(r, lane)));
@@ -555,9 +552,11 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
                 let gyroscopic: AngVector = 0.0;
 
                 let i_acc_ang = rb_inertia * acc_ang;
+                let (ext_force, ext_torque, gravity_scale) =
+                    ws_ext_wrench(links_workspace, wa, k);
 
-                let f_lin = (g - acc_lin) * mass;
-                let f_ang = -gyroscopic - i_acc_ang;
+                let f_lin = g * (mass * gravity_scale) + ext_force - acc_lin * mass;
+                let f_ang = ext_torque - gyroscopic - i_acc_ang;
 
                 let body_jacobian = batch_ids.imat(batch_id, 
                     mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
@@ -652,8 +651,6 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
         inv_akk_shared,
     );
 
-    // Legacy mode only: this factor doubles as the constraints' LU; persist
-    // it (joint / contact constraint init reuses it for unit-RHS solves).
     if !split && lane < ndofs {
         for r in 0..ndofs {
             mass_matrices.write(m_view.idx(r, lane), mat.read(sm_idx_packed::<T>(slot, r, lane)));
@@ -849,9 +846,10 @@ pub fn gpu_mb_gravity_and_lu_t1(
             let gyroscopic: AngVector = 0.0;
 
             let i_acc_ang = rb_inertia * acc_ang;
+            let (ext_force, ext_torque, gravity_scale) = ws_ext_wrench(links_workspace, wa, k);
 
-            let f_lin = (g - acc_lin) * mass;
-            let f_ang = -gyroscopic - i_acc_ang;
+            let f_lin = g * (mass * gravity_scale) + ext_force - acc_lin * mass;
+            let f_ang = ext_torque - gyroscopic - i_acc_ang;
 
             let body_jacobian = batch_ids.imat(batch_id, 
                 mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),

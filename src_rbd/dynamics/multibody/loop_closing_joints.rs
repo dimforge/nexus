@@ -113,31 +113,31 @@ impl GpuMultibodySet {
                     continue; // Both sides static — no constraint to solve.
                 }
 
-                // Mirror rapier `GenericJoint::transform_to_solver_body_space`:
-                // shift the anchor frame's translation into COM space — but ONLY
-                // for FREE-BODY sides, whose solver pose IS the center of mass.
-                // A multibody-link side is positioned by its `local_to_world`,
-                // which is the link ORIGIN frame (not the COM), so the shift must
-                // NOT be applied there — the anchor stays origin-relative and the
-                // lever arm is taken against the COM separately (see
-                // `world_com` in `update_one_joint`). Applying the shift to MB
-                // links offsets the anchor by `local_com` (≈0.25 m for Cassie's
-                // rods), producing a huge spurious loop-closure violation. This
-                // matches rapier's `generic_joint_constraint_builder` (the shift
-                // is applied to `LinkOrBody::Body` sides only). Fixed-side fold
-                // is still a TODO mirroring rapier's `is_fixed` branch.
+                // Move each anchor frame into the space the solver resolves it
+                // against. A free-body side is positioned by its COM-centered
+                // solver pose, so its anchor shifts by `-local_com`. A fixed
+                // side has no solver pose at all (the kernel resolves it against
+                // the identity), so its world transform is folded in here. A
+                // multibody-link side is positioned by its `local_to_world`, an
+                // origin frame, so the anchor stays as-is — shifting it there
+                // would offset it by `local_com` and fabricate a large loop
+                // violation.
                 let mut joint_data = convert_generic_joint(joint.data);
-                if side_a_kind == SIDE_KIND_BODY
-                    && let Some(rb) = rb1
-                {
-                    let com = rb.mass_properties().local_mprops.local_com;
-                    joint_data.local_frame_a.translation -= com;
+                if let Some(rb) = rb1 {
+                    if side_a_kind == SIDE_KIND_FIXED {
+                        joint_data.local_frame_a = *rb.position() * joint_data.local_frame_a;
+                    } else if side_a_kind == SIDE_KIND_BODY {
+                        joint_data.local_frame_a.translation -=
+                            rb.mass_properties().local_mprops.local_com;
+                    }
                 }
-                if side_b_kind == SIDE_KIND_BODY
-                    && let Some(rb) = rb2
-                {
-                    let com = rb.mass_properties().local_mprops.local_com;
-                    joint_data.local_frame_b.translation -= com;
+                if let Some(rb) = rb2 {
+                    if side_b_kind == SIDE_KIND_FIXED {
+                        joint_data.local_frame_b = *rb.position() * joint_data.local_frame_b;
+                    } else if side_b_kind == SIDE_KIND_BODY {
+                        joint_data.local_frame_b.translation -=
+                            rb.mass_properties().local_mprops.local_com;
+                    }
                 }
 
                 // Per-axis stride = 2 * (ndofs_a + ndofs_b); reserve

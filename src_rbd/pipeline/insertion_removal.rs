@@ -101,12 +101,7 @@ impl RbdState {
             let mb_refs: Vec<_> = (0..num_batches as usize)
                 .map(|_| (&empty_mb, &empty_body_ids, &empty_bodies))
                 .collect();
-            let mut mb = GpuMultibodySet::from_rapier(
-                backend,
-                &mb_refs,
-                [0.0, -9.81, 0.0],
-                capacity_per_batch,
-            );
+            let mut mb = GpuMultibodySet::from_rapier(backend, &mb_refs, capacity_per_batch);
             mb.set_constraint_softness(backend, &all_sim_params[0]);
             mb
         };
@@ -255,6 +250,7 @@ impl RbdState {
             joints,
             #[cfg(feature = "dim3")]
             multibodies,
+            gravity: Self::gravity_tensor(backend, [0.0, -9.81, 0.0]),
             body_group,
             local_mprops: Tensor::vector(backend, &all_local_mprops, rw).unwrap(),
             mprops: Tensor::vector(backend, &all_mprops, rw).unwrap(),

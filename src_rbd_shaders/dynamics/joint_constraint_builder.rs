@@ -86,6 +86,20 @@ fn gcross_matrix(r: Vec3) -> Mat3 {
     )
 }
 
+/// Computes the smallest absolute difference between two half-angle sines,
+/// i.e. the sine-space analog of [`smallest_abs_diff_between_angles`] where a
+/// full turn maps to a span of 2.
+pub(crate) fn smallest_abs_diff_between_sin_angles(a: f32, b: f32) -> f32 {
+    let s_err = a - b;
+    let sgn = if s_err < 0.0 { -1.0 } else { 1.0 };
+    let s_err_complement = s_err - sgn * 2.0;
+    if s_err.abs() < s_err_complement.abs() {
+        s_err
+    } else {
+        s_err_complement
+    }
+}
+
 /// Computes the smallest absolute difference between two angles.
 fn smallest_abs_diff_between_angles(a: f32, b: f32) -> f32 {
     // Select the smallest path among the two angles to reach the target.

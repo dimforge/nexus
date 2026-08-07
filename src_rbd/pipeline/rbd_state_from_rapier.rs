@@ -454,12 +454,10 @@ impl RbdState {
                 .iter()
                 .map(|(mb, ids, bodies)| (*mb, ids, *bodies))
                 .collect();
-            let mut mb = GpuMultibodySet::from_rapier(
-                backend,
-                &mb_refs,
-                [0.0, -9.81, 0.0],
-                max_colliders as u32,
-            );
+            let mut mb = GpuMultibodySet::from_rapier(backend, &mb_refs, max_colliders as u32);
+            // `set_visible_dt` divides by the substep count, so that has to be
+            // in place first or the multibody integrates at the wrong rate.
+            mb.set_num_solver_iterations(num_solver_iterations);
             mb.set_visible_dt(backend, multibody_dt);
             // Soft contact coefficients (rapier TGS-soft) from the substep sim
             // params, so multibody-vs-floor contacts use the same soft ERP + CFM
@@ -759,6 +757,7 @@ impl RbdState {
             joints,
             #[cfg(feature = "dim3")]
             multibodies,
+            gravity: RbdState::gravity_tensor(backend, [0.0, -9.81, 0.0]),
             body_group,
             local_mprops: Tensor::vector(backend, &all_local_mprops, storage).unwrap(),
             mprops: Tensor::vector(backend, &all_mprops, storage).unwrap(),

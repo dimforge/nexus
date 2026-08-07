@@ -35,12 +35,18 @@ mod layout {
     pub const WS_RB_VELS: u32 = 11;
     /// Kinematic acceleration: lin | ang.
     pub const WS_KIN_ACC: u32 = 13;
+    /// World-space center of mass of the link: xyz, pad.
+    pub const WS_WORLD_COM: u32 = 15;
+    /// User-applied force: xyz | gravity scale in `w`.
+    pub const WS_EXT_FORCE: u32 = 16;
+    /// User-applied torque: xyz, pad.
+    pub const WS_EXT_TORQUE: u32 = 17;
     /// Total quads per link (per-link stride, in quad units).
-    pub const WS_QUADS: u32 = 15;
+    pub const WS_QUADS: u32 = 18;
 }
 
 /*
- * Per-link QUAD offsets of each field (dim2): 9 quads / 144 B per link.
+ * Per-link QUAD offsets of each field (dim2): 11 quads / 176 B per link.
  */
 #[cfg(feature = "dim2")]
 mod layout {
@@ -62,8 +68,14 @@ mod layout {
     pub const WS_RB_VELS: u32 = 7;
     /// Kinematic acceleration: (lin.x, lin.y, ang, pad).
     pub const WS_KIN_ACC: u32 = 8;
+    /// World-space center of mass of the link: x, y, pad, pad.
+    pub const WS_WORLD_COM: u32 = 9;
+    /// User-applied wrench: force x, y | torque | gravity scale.
+    pub const WS_EXT_FORCE: u32 = 10;
+    /// Alias of [`WS_EXT_FORCE`]: in 2D the whole wrench fits one quad.
+    pub const WS_EXT_TORQUE: u32 = 10;
     /// Total quads per link (per-link stride, in quad units).
-    pub const WS_QUADS: u32 = 9;
+    pub const WS_QUADS: u32 = 11;
 }
 
 pub use layout::*;
@@ -157,6 +169,65 @@ pub fn ws_set_vec(buf: &mut [Vec4], a: WsAddr, k: u32, f: u32, v: Vector) {
 #[inline]
 pub fn ws_set_vec(buf: &mut [Vec4], a: WsAddr, k: u32, f: u32, v: Vector) {
     buf.write(a.at(k, f), Vec4::new(v.x, v.y, 0.0, 0.0));
+}
+
+/// User-applied external wrench and per-link gravity scale, packed into
+/// [`WS_EXT_FORCE`] (and [`WS_EXT_TORQUE`] in 3D). Written by the host, read
+/// by the generalized-force assembly; nothing in the step loop clears them.
+#[cfg(feature = "dim3")]
+#[inline]
+pub fn ws_ext_wrench(buf: &[Vec4], a: WsAddr, k: u32) -> (Vector, crate::AngVector, f32) {
+    let f = buf.read(a.at(k, WS_EXT_FORCE));
+    let t = buf.read(a.at(k, WS_EXT_TORQUE));
+    (
+        Vec3::new(f.x, f.y, f.z),
+        Vec3::new(t.x, t.y, t.z),
+        f.w,
+    )
+}
+
+#[cfg(feature = "dim2")]
+#[inline]
+pub fn ws_ext_wrench(buf: &[Vec4], a: WsAddr, k: u32) -> (Vector, crate::AngVector, f32) {
+    let q = buf.read(a.at(k, WS_EXT_FORCE));
+    (Vec2::new(q.x, q.y), q.z, q.w)
+}
+
+/// Writes the pair of quads [`ws_ext_wrench`] reads back.
+#[cfg(feature = "dim3")]
+#[inline]
+pub fn ws_set_ext_wrench(
+    buf: &mut [Vec4],
+    a: WsAddr,
+    k: u32,
+    force: Vector,
+    torque: crate::AngVector,
+    gravity_scale: f32,
+) {
+    buf.write(
+        a.at(k, WS_EXT_FORCE),
+        Vec4::new(force.x, force.y, force.z, gravity_scale),
+    );
+    buf.write(
+        a.at(k, WS_EXT_TORQUE),
+        Vec4::new(torque.x, torque.y, torque.z, 0.0),
+    );
+}
+
+#[cfg(feature = "dim2")]
+#[inline]
+pub fn ws_set_ext_wrench(
+    buf: &mut [Vec4],
+    a: WsAddr,
+    k: u32,
+    force: Vector,
+    torque: crate::AngVector,
+    gravity_scale: f32,
+) {
+    buf.write(
+        a.at(k, WS_EXT_FORCE),
+        Vec4::new(force.x, force.y, torque, gravity_scale),
+    );
 }
 
 /// Pose accessors. 3D: rotation quad + translation quad. 2D: one quad
@@ -367,6 +438,14 @@ pub fn ws_soa_from_structs(
             ws_set_vel(&mut out, a, k, WS_JOINT_VEL, ws.joint_velocity);
             ws_set_vel(&mut out, a, k, WS_RB_VELS, ws.rb_vels);
             ws_set_vel(&mut out, a, k, WS_KIN_ACC, ws.kinematic_acc);
+            ws_set_ext_wrench(
+                &mut out,
+                a,
+                k,
+                ws.external_force,
+                ws.external_torque,
+                ws.gravity_scale,
+            );
         }
     }
     out

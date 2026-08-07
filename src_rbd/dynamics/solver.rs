@@ -149,6 +149,8 @@ pub struct SolverArgs<'a> {
     pub rb_contacts_inert: bool,
     /// Shared per-batch indices.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
+    /// The one gravity uniform every rigid-body and multibody kernel reads.
+    pub gravity: &'a Tensor<glamx::Vec4>,
     /// GPU-written workgroup grid for the per-multibody contact-constraint
     /// dispatches (zero workgroups on contact-free steps).
     pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
@@ -278,6 +280,7 @@ impl GpuSolver {
                     args.mprops,
                     args.sim_params,
                     args.batch_indices,
+                    args.gravity,
                 )?;
             }
 
@@ -295,6 +298,7 @@ impl GpuSolver {
                     contacts_len: args.contacts_len,
                     solver_vels: &mut *args.solver_vels,
                     batch_indices: args.batch_indices,
+                    gravity: args.gravity,
                     color_uniforms: args.color_uniforms,
                     mb_sweep_indirect: args.mb_sweep_indirect,
                 };
@@ -319,6 +323,7 @@ impl GpuSolver {
                         contacts_len: args.contacts_len,
                         solver_vels: &mut *args.solver_vels,
                         batch_indices: args.batch_indices,
+                        gravity: args.gravity,
                         color_uniforms: args.color_uniforms,
                         mb_sweep_indirect: args.mb_sweep_indirect,
                     };
@@ -363,6 +368,7 @@ impl GpuSolver {
                         contacts_len: args.contacts_len,
                         solver_vels: &mut *args.solver_vels,
                         batch_indices: args.batch_indices,
+                        gravity: args.gravity,
                         color_uniforms: args.color_uniforms,
                         mb_sweep_indirect: args.mb_sweep_indirect,
                     };
@@ -553,6 +559,8 @@ impl GpuSolver {
                 }
             }
         }
+
+        mb_phase!("[RBD] slv/mb-restitution", apply_restitution);
 
         /*
          * Writeback body velocities and convert COM-centered solver poses

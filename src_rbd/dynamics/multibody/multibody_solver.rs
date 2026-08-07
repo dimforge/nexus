@@ -9,7 +9,8 @@ use crate::shaders::dynamics::{
     GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
     GpuMbRemoveImpulseJointConstraintBias,
-    GpuMbResetContactWarmstart, GpuMbStashContactsLen, GpuMbWarmstartContactConstraints,
+    GpuMbApplyContactRestitution, GpuMbSeedContactRestitution, GpuMbSnapshotContactWarmstart,
+    GpuMbStashContactsLen, GpuMbTransferContactWarmstart, GpuMbWarmstartContactConstraints,
     GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
     GpuMbSolveJoints,
     GpuMbFinalizeImpulseJointConstraints,
@@ -35,7 +36,7 @@ pub struct GpuMultibodySolver {
     init_joint_with_bias: GpuMbInitJointConstraints,
     init_contact_constraints: GpuMbInitContactConstraints,
     finalize_contact_constraints: GpuMbFinalizeContactConstraints,
-    /// Fused joint+contact PGS sweep (one workgroup per multibody, shared-
+    /// Fused joint+contact PGS iteration (one workgroup per multibody, shared-
     /// memory dof velocities).
     solve_constraints: GpuMbSolveConstraints,
     /// Joint-only half of the sweep, used with the Delassus contact path
@@ -49,14 +50,20 @@ pub struct GpuMultibodySolver {
     /// shared memory via the Delassus rows, breaking the per-iteration
     /// dof-space latency chain.
     solve_contacts_delassus: GpuMbSolveContactsDelassus,
-    /// Zero the accumulated contact impulses once per frame (warmstart reset).
-    reset_contact_warmstart: GpuMbResetContactWarmstart,
+    /// Snapshot the contact impulses once per frame, for the cross-frame match.
+    snapshot_contact_warmstart: GpuMbSnapshotContactWarmstart,
+    /// Carry the snapshotted impulses over to this frame's matching contacts.
+    transfer_contact_warmstart: GpuMbTransferContactWarmstart,
     /// Copy `contacts_len[batch]` into each `MultibodyInfo` once per step so
     /// `init_contact_constraints` (at the 8-storage-buffer limit) can bound
     /// its manifold scan by the actual count instead of the capacity.
     stash_contacts_len: GpuMbStashContactsLen,
     /// Re-apply the accumulated contact impulse each substep (warmstart).
     warmstart_contact_constraints: GpuMbWarmstartContactConstraints,
+    /// Capture each bouncy contact's approach velocity at the start of the step.
+    seed_contact_restitution: GpuMbSeedContactRestitution,
+    /// Restore that approach velocity once every substep is done.
+    apply_contact_restitution: GpuMbApplyContactRestitution,
     update_impulse_joint_constraints: GpuMbUpdateImpulseJointConstraints,
     /// Finalize pass for the impulse-joint build (LU back-solve + `inv_lhs`),
     /// split out so the build pass fits 8 storage buffers.
@@ -88,6 +95,9 @@ pub struct MultibodySolverArgs<'a> {
     /// Shared `BatchIndices` uniform — per-batch caps and packed-section
     /// offsets read by every multibody kernel. Owned by `RbdState`.
     pub batch_indices: &'a Tensor<BatchIndices>,
+    /// The one gravity uniform every rigid-body and multibody kernel reads.
+    /// Owned by `RbdState`.
+    pub gravity: &'a Tensor<glamx::Vec4>,
     /// Per-color-index uniform tensors (`color_uniforms[c]` holds `c`),
     /// shared with the contact/joint solvers.
     pub color_uniforms: &'a [Tensor<u32>],
@@ -128,18 +138,19 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        // Zero the accumulated contact impulses so the first substep's warmstart
-        // starts cold (within a frame they are then preserved across substeps).
-        // Flat (slot, multibody, batch) grid (impulse-field-only stores).
+        // Snapshot the contact slab this frame's build will overwrite, so the
+        // warmstart transfer can still match against it.
+        // Flat (slot, multibody, batch) grid.
         {
-            let mut pass = encoder.begin_pass("[RBD] mbi/reset", timestamps.as_deref_mut());
+            let mut pass = encoder.begin_pass("[RBD] mbi/snapshot", timestamps.as_deref_mut());
             let total_slots = mb.num_active_multibodies
                 * mb.num_batches
                 * crate::shaders::dynamics::MAX_MB_CONTACT_CONSTRAINTS_PER_MB;
-            self.reset_contact_warmstart.call(
+            self.snapshot_contact_warmstart.call(
                 &mut pass,
                 [total_slots, 1, 1],
-                &mut mb.contact_constraints,
+                &mb.contact_constraints,
+                &mut mb.old_contact_constraints,
                 args.batch_indices,
             )?;
         }
@@ -213,13 +224,50 @@ impl GpuMultibodySolver {
         }
 
         // Full rebuild of the joint + contact constraints every substep.
-        self.build_contact_constraints(encoder, timestamps.as_deref_mut(), mb, args)?;
+        self.build_contact_constraints(
+            encoder,
+            timestamps.as_deref_mut(),
+            mb,
+            args,
+            first_substep,
+        )?;
+
+        // Carry the previous frame's impulses over before anything reads them.
+        if first_substep && mb.warmstart_coefficient != 0.0 {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/transfer-warmstart", timestamps.as_deref_mut());
+            self.transfer_contact_warmstart.call(
+                &mut pass,
+                args.mb_sweep_indirect,
+                &mb.multibody_info,
+                &mut mb.contact_constraints,
+                &mb.old_contact_constraints,
+                args.batch_indices,
+                &mb.constraint_softness,
+            )?;
+        }
+
+        // Restitution is measured once, from the velocities the step starts with.
+        if first_substep {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/seed-restitution", timestamps.as_deref_mut());
+            self.seed_contact_restitution.call(
+                &mut pass,
+                args.mb_sweep_indirect,
+                &mb.multibody_info,
+                &mut mb.contact_constraints,
+                &mb.contact_constraint_jacs,
+                &mb.dof_state,
+                args.solver_vels,
+                args.batch_indices,
+            )?;
+        }
 
         // Warmstart: re-apply the accumulated contact impulse to dof_state (and
         // the free-body solver velocities) so the contact starts "warm" each
-        // substep.
+        // substep, including the first, which carries the previous frame's.
         // One 64-lane workgroup per multibody (one DOF per lane).
-        if !first_substep {
+        if mb.warmstart_coefficient != 0.0 {
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
             // Contact-only work: indirect grid collapses to zero workgroups
@@ -247,6 +295,7 @@ impl GpuMultibodySolver {
         mut timestamps: Option<&mut khal::backend::GpuTimestamps>,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
+        first_substep: bool,
     ) -> Result<(), GpuBackendError> {
         use khal::backend::Encoder;
         if mb.is_empty() {
@@ -284,15 +333,16 @@ impl GpuMultibodySolver {
                 &mut pass,
                 init_contact_dispatch,
                 &mut mb.multibody_info,
-                &mb.body_jacobians,
+                &mb.links_workspace,
                 &mb.body_to_link,
                 &mut mb.contact_constraints,
-                &mut mb.contact_constraint_jacs,
                 &mb.constraint_softness,
                 args.batch_indices,
+                &args.color_uniforms[first_substep as usize],
                 args.mprops,
                 args.collider_world_poses,
                 args.contacts,
+                args.poses,
             )?;
         }
 
@@ -307,8 +357,10 @@ impl GpuMultibodySolver {
                 &mb.mass_matrices,
                 &mb.lu_pivots,
                 &mut mb.contact_constraints,
-                &mb.contact_constraint_jacs,
+                &mut mb.contact_constraint_jacs,
                 &mut mb.contact_constraint_columns,
+                &mb.links_static,
+                &mb.body_jacobians,
                 args.batch_indices,
             )?;
         }
@@ -333,7 +385,7 @@ impl GpuMultibodySolver {
         Ok(())
     }
 
-    /// One joint+contact PGS sweep: the dof-space fused kernel, or (when the
+    /// One joint+contact PGS iteration: the dof-space fused kernel, or (when the
     /// Delassus blocks are allocated) the joint-only kernel followed by the
     /// constraint-space contact kernel. `use_bias_idx` indexes
     /// `color_uniforms` (0 or 1, holding those constants).
@@ -411,7 +463,7 @@ impl GpuMultibodySolver {
         Ok(())
     }
 
-    /// P3: one PGS sweep with bias over the joint, contact, and multibody-
+    /// P3: one PGS iteration with bias over the joint, contact, and multibody-
     /// touching impulse-joint constraints.
     pub fn substep_solve_with_bias(
         &self,
@@ -428,7 +480,9 @@ impl GpuMultibodySolver {
         // 1 = use_bias). With the Delassus blocks allocated, the contact half
         // runs in constraint space instead (joints first, same order).
         let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.dispatch_solve(pass, mb, args, solve_dispatch, 1)?;
+        for _ in 0..mb.num_internal_pgs_iterations() {
+            self.dispatch_solve(pass, mb, args, solve_dispatch, 1)?;
+        }
 
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
         // constraints.
@@ -461,8 +515,9 @@ impl GpuMultibodySolver {
                 &mb.multibody_info,
                 &mb.mass_matrices,
                 &mb.lu_pivots,
+                &mb.links_static,
             )?;
-            // Colored PGS sweep WITH bias: one dispatch per color, each
+            // Colored PGS iteration WITH bias: one dispatch per color, each
             // color's joints solved race-free in parallel (graph coloring
             // done at init in `set_impulse_joints`).
             for c in 0..mb.mb_imp_joint_num_colors as usize {
@@ -527,7 +582,7 @@ impl GpuMultibodySolver {
         Ok(())
     }
 
-    /// P5: stabilization — fused remove-bias + final PGS sweep WITHOUT bias for
+    /// P5: stabilization — fused remove-bias + final PGS iteration WITHOUT bias for
     /// joint limits/motors, contacts, and multibody-touching impulse joints.
     /// Settles velocity along constrained DOFs to zero (no rebound from the
     /// positional bias).
@@ -582,6 +637,29 @@ impl GpuMultibodySolver {
         Ok(())
     }
 
+    /// End-of-step restitution pass, run once after the last substep.
+    pub fn apply_restitution(
+        &self,
+        pass: &mut GpuPass,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
+        if mb.is_empty() {
+            return Ok(());
+        }
+        self.apply_contact_restitution.call(
+            pass,
+            args.mb_sweep_indirect,
+            &mb.multibody_info,
+            &mut mb.contact_constraints,
+            &mb.contact_constraint_jacs,
+            &mb.contact_constraint_columns,
+            args.batch_indices,
+            &mut mb.dof_state,
+            args.solver_vels,
+        )
+    }
+
     /// Recompute the dynamics (mass matrix, LU factors, generalized
     /// acceleration). After this call, `gen_forces` holds the generalized
     /// acceleration `a` for the *next* substep's velocity update.
@@ -625,7 +703,7 @@ impl GpuMultibodySolver {
                     &mut mb.mass_matrices,
                     &mut mb.lu_pivots,
                     &mb.dof_state,
-                    &mb.gravity,
+                    args.gravity,
                     args.batch_indices,
                     &mb.dt,
                 )?
@@ -650,7 +728,7 @@ impl GpuMultibodySolver {
                     &mut mb.mass_matrices,
                     &mut mb.lu_pivots,
                     &mb.dof_state,
-                    &mb.gravity,
+                    args.gravity,
                     args.batch_indices,
                     &mb.dt,
                 )?;

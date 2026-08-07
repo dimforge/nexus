@@ -6,11 +6,13 @@ use khal_std::index::MaybeIndexUnchecked;
 
 use crate::dynamics::body::WorldMassProperties;
 use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK, SPATIAL_DIM};
+use crate::utils::ISlice;
 use crate::utils::linalg::{MatSlice, lu_solve_in_place, VSlice};
 use crate::{DIM, Pose};
 
-use super::super::types::MultibodyInfo;
-use super::super::ws_soa::{WS_LTW, WsAddr, ws_pose};
+use super::super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::super::utils::zero_kinematic_dofs;
+use super::super::ws_soa::{WS_LTW, WS_WORLD_COM, WsAddr, ws_pose, ws_vec};
 use super::helper::*;
 use super::jacobians::*;
 use super::types::*;
@@ -27,6 +29,7 @@ pub(super) fn solve_mb_wj(
     mb: &MultibodyInfo,
     mass_matrices: &[f32],
     lu_pivots: &[u32],
+    links_static: &[MultibodyLinkStatic],
     // Interleaved dynamics-buffer view (`stride = num_batches`, `shift =
     // batch_id`).
     il: VSlice,
@@ -47,6 +50,15 @@ pub(super) fn solve_mb_wj(
     );
     let piv = VSlice::interleaved(mb.first_dof as usize, il.stride, il.shift);
     lu_solve_in_place(mass_matrices, m, lu_pivots, piv, jacobians, VSlice::dense(wj_base));
+
+    // Kinematic dofs are user-driven: the impulse must not move them.
+    let stat_slice = ISlice {
+        buf: links_static,
+        base: mb.first_link as usize,
+        stride: il.stride,
+        shift: il.shift,
+    };
+    zero_kinematic_dofs(jacobians, wj_base, &stat_slice, mb.num_links);
 }
 
 impl MbImpulseJointBuilder {
@@ -69,6 +81,7 @@ impl MbImpulseJointBuilder {
         dt: f32,
         lock_erp_inv_dt: f32,
         lock_cfm_coeff: f32,
+        max_corr_velocity: f32,
     ) {
         let cons_base = cons_start + self.constraint_id as usize;
         // Mark all axis-constraint slots inactive up-front; the active branches
@@ -119,8 +132,22 @@ impl MbImpulseJointBuilder {
 
         let frame1 = pose_a * self.joint.local_frame_a;
         let frame2 = pose_b * self.joint.local_frame_b;
-        let world_com1 = pose_a.translation;
-        let world_com2 = pose_b.translation;
+        let world_com1 = side_world_com(
+            self.side_a_kind,
+            self.side_a_link,
+            &mb_a,
+            links_workspace,
+            il,
+            pose_a,
+        );
+        let world_com2 = side_world_com(
+            self.side_b_kind,
+            self.side_b_link,
+            &mb_b,
+            links_workspace,
+            il,
+            pose_b,
+        );
 
         let helper = new_helper(
             frame1,
@@ -321,6 +348,7 @@ impl MbImpulseJointBuilder {
                     [lim.min, lim.max],
                     lock_erp_inv_dt,
                     lock_cfm_coeff,
+                    max_corr_velocity,
                     jacobians,
                     j_id_a,
                     j_id_b,
@@ -355,6 +383,7 @@ impl MbImpulseJointBuilder {
                     [lim.min, lim.max],
                     lock_erp_inv_dt,
                     lock_cfm_coeff,
+                    max_corr_velocity,
                     jacobians,
                     j_id_a,
                     j_id_b,
@@ -375,13 +404,32 @@ impl MbImpulseJointBuilder {
     }
 }
 
+/// Center of mass the side's lever arm is measured against. A free-body side
+/// is positioned by its COM-centered solver pose, so that pose's origin is it;
+/// a multibody link is positioned by its body-origin frame, so its center of
+/// mass comes from the workspace.
+#[inline]
+pub(super) fn side_world_com(
+    side_kind: u32,
+    side_link: u32,
+    mb: &MultibodyInfo,
+    links_workspace: &[Vec4],
+    il: VSlice,
+    side_pose: Pose,
+) -> crate::Vector {
+    if side_kind == SIDE_KIND_MB {
+        let wa = WsAddr::new(mb.first_link as usize, il.stride, il.shift);
+        ws_vec(links_workspace, wa, side_link, WS_WORLD_COM)
+    } else {
+        side_pose.translation
+    }
+}
+
 /// Look up the world-space pose of a side. Free-body sides read from the
 /// shared `poses` buffer (COM-centered solver pose); multibody sides take
-/// their link's `local_to_world` from the multibody workspace (which also
-/// stores body-origin = COM-centered, since multibody links have a zeroed
-/// `local_com`, as set up by the host pipeline). The `mb` argument is read
-/// by value to keep SPIR-V happy and is only meaningful when `side_kind ==
-/// SIDE_KIND_MB`.
+/// their link's body-origin `local_to_world` from the multibody workspace.
+/// The `mb` argument is read by value to keep SPIR-V happy and is only
+/// meaningful when `side_kind == SIDE_KIND_MB`.
 #[inline]
 pub(super) fn side_world_pose(
     side_kind: u32,

@@ -16,9 +16,9 @@ use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
 use super::types::{MultibodyInfo, MultibodyLinkStatic};
 use super::ws_soa::{
-    WS_JOINT_ROT, WS_JOINT_VEL, WS_LTP, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WsAddr,
-    ws_coords, ws_pose, ws_rot, ws_set_pose, ws_set_vec, ws_set_vel, ws_vec, ws_vel, ws_vel_ang,
-    ws_world_inertia,
+    WS_JOINT_ROT, WS_JOINT_VEL, WS_LTP, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WS_WORLD_COM,
+    WsAddr, ws_coords, ws_pose, ws_rot, ws_set_pose, ws_set_vec, ws_set_vel, ws_vec, ws_vel,
+    ws_vel_ang, ws_world_inertia,
 };
 use crate::dynamics::body::Velocity;
 use crate::dynamics::joint::SPATIAL_DIM;
@@ -58,8 +58,9 @@ fn packed_decode(wg_id: UVec3, lid: UVec3, batch_ids: &BatchIndices) -> (u32, u3
     (t, lane, batch_id, mb_idx, active_slot)
 }
 
-// TODO: refactor into multiple functions (but single kernel) to share between the coriolis and non-coriolis versions.
-/// Fused FK + body-jacobians + velocity propagation + CRBA-with-Coriolis.
+/// Fused FK + body-jacobians + velocity propagation + CRBA mass matrix.
+/// Coriolis blocks run only when implicit coriolis is enabled (non-zero
+/// `mass_matrix_acc_section_offset`).
 #[spirv_bindgen(force_cpu_coroutines)]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_compute_dynamics_pre(
@@ -150,7 +151,10 @@ pub fn gpu_mb_compute_dynamics_pre(
     }
     sync_slots(t);
 
-    // 3) Mass matrices.
+    // 3) Mass matrices. `split` (implicit coriolis on) builds two matrices:
+    // the plain one for constraints and the coriolis-augmented acc section for
+    // the acceleration solve. Otherwise only the plain matrix is built and the
+    // coriolis blocks are skipped entirely (forces stay explicit).
     let acc_section = batch_ids.mass_matrix_acc_section_offset as usize;
     let split = acc_section != 0;
     let acc_augmented_mass = if split {
@@ -180,8 +184,8 @@ pub fn gpu_mb_compute_dynamics_pre(
 
             inv_mass_x = lmp.inv_mass.x;
 
-            if inv_mass_x == 0.0 {
-                let coriolis_block = batch_ids.imat(batch_id, 
+            if split && inv_mass_x == 0.0 {
+                let coriolis_block = batch_ids.imat(batch_id,
                     mb_cor_base + (k as usize) * (DIM as usize) * (ndofs as usize),
                     DIM,
                     ndofs,
@@ -242,7 +246,7 @@ pub fn gpu_mb_compute_dynamics_pre(
                 t,
             );
 
-            if k != 0 {
+            if split && k != 0 {
                 let stat = stat_slice[k as usize];
                 let parent_id = stat.parent_link_id;
                 let parent_j = batch_ids.imat(batch_id,
@@ -349,7 +353,7 @@ pub fn gpu_mb_compute_dynamics_pre(
 
         sync_slots(t);
 
-        if loop_is_active {
+        if loop_is_active && split {
             if k != 0 {
                 let stat = stat_slice[k as usize];
                 let parent_id = stat.parent_link_id;
@@ -408,7 +412,7 @@ pub fn gpu_mb_compute_dynamics_pre(
 
         sync_slots(t);
 
-        if loop_is_active {
+        if loop_is_active && split {
             let ws_shift23 = ws_vec(links_workspace, wa, k, WS_SHIFT23);
             let ws_rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
             gemm_skew_tr_lhs_par(
@@ -451,7 +455,7 @@ pub fn gpu_mb_compute_dynamics_pre(
 
         sync_slots(t);
 
-        if loop_is_active {
+        if loop_is_active && split {
             // i_coriolis_dt assembly: dt · (mass·coriolis_v, I·coriolis_w).
             {
                 let scale = mass * dt;
@@ -496,7 +500,7 @@ pub fn gpu_mb_compute_dynamics_pre(
 
         sync_slots(t);
 
-        if loop_is_active {
+        if loop_is_active && split {
             gemm_tr_par(
                 mass_matrices,
                 acc_augmented_mass,
@@ -617,6 +621,7 @@ fn forward_kinematics(
     };
     ws_set_pose(ws, wa, 0, WS_LTP, root_pose);
     ws_set_pose(ws, wa, 0, WS_LTW, root_pose);
+    ws_set_vec(ws, wa, 0, WS_WORLD_COM, root_pose * root_config.local_mprops.com);
 
     for k in 1..num_links {
         let k_usize = k as usize;
@@ -639,6 +644,7 @@ fn forward_kinematics(
         ws_set_pose(ws, wa, k, WS_LTW, local_to_world);
         ws_set_vec(ws, wa, k, WS_SHIFT02, shift02);
         ws_set_vec(ws, wa, k, WS_SHIFT23, shift23);
+        ws_set_vec(ws, wa, k, WS_WORLD_COM, world_com);
         poses_slice[stat.rb_id as usize] = local_to_world;
     }
 }

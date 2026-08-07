@@ -141,11 +141,12 @@ impl NexusState {
         // TODO: resize the GPU buffers too.
     }
 
-    /// Sets the rigid-body multibody gravity vector, e.g. `[0.0, 0.0, -9.81]`
-    /// for a Z-up scene. No-op until the rigid-body state is built, so call it
-    /// after [`Self::finalize`]. Free (non-multibody) bodies keep the solver's
-    /// fixed gravity.
-    #[cfg(all(feature = "dim3", feature = "rbd"))]
+    /// Sets the rigid-body gravity vector, e.g. `[0.0, 0.0, -9.81]` for a Z-up
+    /// scene. Every solver path reads the same uniform, so this applies to free
+    /// rigid-bodies and multibody links alike (in 2D the third component is
+    /// ignored). No-op until the rigid-body state is built, so call it after
+    /// [`Self::finalize`].
+    #[cfg(feature = "rbd")]
     pub fn set_rbd_gravity(&mut self, backend: &GpuBackend, gravity: [f32; 3]) {
         if let Some(rbd) = self.rbd.as_mut() {
             rbd.set_gravity(backend, gravity);

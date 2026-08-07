@@ -1,5 +1,5 @@
 //! The [`GpuMultibodySet`] buffers: struct definition, accessors and
-//! runtime-mutation entry points (motors, gravity, dt, softness).
+//! runtime-mutation entry points (motors, dt, softness).
 
 use crate::math::Pose;
 use crate::shaders::dynamics::{
@@ -8,7 +8,6 @@ use crate::shaders::dynamics::{
     MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::BatchIndices;
-use glamx::Vec4;
 use khal::BufferUsages;
 use khal::backend::{Backend, GpuBackend, GpuBackendError};
 use rapier3d::prelude::JointAxis;
@@ -23,7 +22,7 @@ pub(super) const MB_LU_LANES: u32 = 64;
 /// constraint-space (Delassus) contact solve is enabled: each multibody's
 /// Delassus block costs `MAX_MB_CONTACT_CONSTRAINTS_PER_MB²` floats (~147 KB
 /// in 3D), so huge batched scenes would run out of memory.
-pub(super) const MAX_DELASSUS_MULTIBODIES: u32 = 128;
+pub(super) const MAX_DELASSUS_MULTIBODIES: u32 = 0; // 128;
 
 use crate::shaders::dynamics::{GenericJoint, JointLimits, JointMotor};
 
@@ -57,6 +56,9 @@ pub struct GpuMultibodySet {
     /// CPU-side mirror of [`Self::links_static`] used to support runtime
     /// mutations like motor changes without round-tripping through a GPU read.
     pub(super) links_static_mirror: Vec<MultibodyLinkStatic>,
+    /// Host copy of the per-multibody descriptors, batch-major (before the
+    /// batch interleave), indexed `batch * multibodies_per_batch + mb_idx`.
+    pub(super) info_mirror: Vec<MultibodyInfo>,
     /// Per-batch per-step link workspace, SoA quad layout.
     pub(super) links_workspace: Tensor<glamx::Vec4>,
     /// Generalized coordinates (flat).
@@ -95,6 +97,9 @@ pub struct GpuMultibodySet {
     /// Per-multibody bank of contact constraints (1 normal + 2 friction per
     /// touched contact point).
     pub(super) contact_constraints: Tensor<MultibodyContactConstraint>,
+    /// Snapshot of `contact_constraints` taken at the start of the step; the
+    /// warmstart transfer matches this frame's slots against it.
+    pub(super) old_contact_constraints: Tensor<MultibodyContactConstraint>,
     /// Per-constraint `Jᵀ` row (length `ndofs`) — the multibody side's
     /// contribution to the constraint Jacobian.
     pub(super) contact_constraint_jacs: Tensor<f32>,
@@ -145,14 +150,20 @@ pub struct GpuMultibodySet {
 
     /// Number of solver iterations to run on `joint_constraints` per `step()`.
     pub(super) num_solver_iterations: u32,
+    /// PGS iterations over the joint + contact constraints per substep, in the
+    /// biased pass. One is enough for simple articulations; servo-driven robots
+    /// resting on contacts need several to stop the motor and contact rows
+    /// fighting each other.
+    pub(super) num_internal_pgs_iterations: u32,
 
-    /// Gravity vector (only the first 3 components are read by the shaders).
-    pub(super) gravity: Tensor<Vec4>,
     /// Current integration timestep.
     pub(super) dt: Tensor<f32>,
     /// Precomputed soft-constraint coefficients (contact + joint, rapier
     /// TGS-soft).
     pub(super) constraint_softness: Tensor<ConstraintSoftness>,
+    /// CPU mirror of `ConstraintSoftness::warmstart_coefficient`, so the solver
+    /// can skip the warmstart passes entirely when it is zero.
+    pub(super) warmstart_coefficient: f32,
 }
 
 impl GpuMultibodySet {
@@ -223,7 +234,7 @@ impl GpuMultibodySet {
         &self.gen_forces
     }
 
-    /// Indicates if the implicit treatment of coriolis forces is enabled.
+    /// Enables or disables the implicit treatment of coriolis forces.
     pub fn set_implicit_coriolis(&mut self, enabled: bool) {
         self.implicit_coriolis = enabled;
     }
@@ -247,6 +258,17 @@ impl GpuMultibodySet {
         self.num_solver_iterations = n;
     }
 
+    /// Sets how many PGS iterations the biased pass runs per substep (default 1).
+    pub fn set_num_internal_pgs_iterations(&mut self, n: u32) {
+        self.num_internal_pgs_iterations = n.max(1);
+    }
+
+    /// PGS iterations per substep in the biased pass.
+    pub fn num_internal_pgs_iterations(&self) -> u32 {
+        self.num_internal_pgs_iterations
+    }
+
+
     /// Upload the visible-frame `dt`. Internally divides by `num_solver_iterations`
     /// and stores the *substep* dt (which is what the GPU kernels read).
     pub fn set_visible_dt(&mut self, backend: &GpuBackend, visible_dt: f32) {
@@ -263,6 +285,7 @@ impl GpuMultibodySet {
     /// (substep) sim params. Must be called whenever the contact softness /
     /// timestep changes.
     pub fn set_constraint_softness(&mut self, backend: &GpuBackend, params: &RbdSimParams) {
+        self.warmstart_coefficient = params.warmstart_coefficient;
         self.constraint_softness = Tensor::scalar(
             backend,
             ConstraintSoftness::from_params(params),
@@ -305,16 +328,6 @@ impl GpuMultibodySet {
         )
     }
 
-    /// Upload a new gravity vector.
-    pub fn set_gravity(&mut self, backend: &GpuBackend, g: [f32; 3]) {
-        self.gravity = Tensor::scalar(
-            backend,
-            Vec4::new(g[0], g[1], g[2], 0.0),
-            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        )
-        .unwrap();
-    }
-
     /// Number of multibody-touching impulse joints in any batch.
     pub fn mb_impulse_joints_per_batch(&self) -> u32 {
         self.mb_imp_joints_per_batch
@@ -348,12 +361,62 @@ impl GpuMultibodySet {
         dst.coriolis_w_section_offset = self.coriolis_entries_per_batch * self.num_batches;
         dst.i_coriolis_dt_section_offset = 2 * self.coriolis_entries_per_batch * self.num_batches;
         dst.dof_damping_section_offset = self.dofs_per_batch * self.num_batches;
+        // Implicit coriolis needs two matrices: the coriolis-augmented one (acc
+        // section) for the acceleration solve, the plain one for constraints.
+        // With the flag off, a single plain matrix serves both.
         dst.mass_matrix_acc_section_offset = if self.implicit_coriolis {
-            0
-        } else {
             self.mass_matrix_entries_per_batch
+        } else {
+            0
         };
         dst.mb_dof_couplings_batch_capacity = self.couplings_per_batch;
+    }
+
+    /// Sets the world-space force and torque applied to `link_id` of multibody
+    /// `mb_idx` in `batch_id`, plus that link's multiplier on the global
+    /// gravity. They stay applied until overwritten.
+    pub fn set_link_external_wrench(
+        &mut self,
+        backend: &GpuBackend,
+        batch_id: u32,
+        mb_idx: u32,
+        link_id: u32,
+        force: crate::math::Vector,
+        torque: crate::math::AngVector,
+        gravity_scale: f32,
+    ) -> Result<(), khal::backend::GpuBackendError> {
+        use crate::shaders::dynamics::{WS_EXT_FORCE, WS_EXT_TORQUE, WsAddr};
+
+        let info = self.info_mirror[(batch_id * self.multibodies_per_batch + mb_idx) as usize];
+        let k = info.first_link + link_id;
+        let a = WsAddr::new(0, self.num_batches, batch_id);
+
+        #[cfg(feature = "dim3")]
+        {
+            let f = glamx::Vec4::new(force.x, force.y, force.z, gravity_scale);
+            let t = glamx::Vec4::new(torque.x, torque.y, torque.z, 0.0);
+            backend.write_buffer(
+                self.links_workspace.buffer_mut(),
+                a.at(k, WS_EXT_FORCE) as u64,
+                &[f],
+            )?;
+            backend.write_buffer(
+                self.links_workspace.buffer_mut(),
+                a.at(k, WS_EXT_TORQUE) as u64,
+                &[t],
+            )?;
+        }
+        #[cfg(feature = "dim2")]
+        {
+            let _ = WS_EXT_TORQUE;
+            let f = glamx::Vec4::new(force.x, force.y, torque, gravity_scale);
+            backend.write_buffer(
+                self.links_workspace.buffer_mut(),
+                a.at(k, WS_EXT_FORCE) as u64,
+                &[f],
+            )?;
+        }
+        Ok(())
     }
 
     /// Upload a new integration timestep.
@@ -412,6 +475,7 @@ pub(super) fn convert_generic_joint(j: crate::rapier::dynamics::GenericJoint) ->
 pub(super) fn make_workspace_init() -> MultibodyLinkWorkspace {
     let mut w: MultibodyLinkWorkspace = bytemuck::Zeroable::zeroed();
     w.joint_rot = glamx::Quat::IDENTITY;
+    w.gravity_scale = 1.0;
     w.local_to_parent = Pose::default();
     w.local_to_world = Pose::default();
     w

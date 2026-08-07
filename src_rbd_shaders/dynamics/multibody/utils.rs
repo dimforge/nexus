@@ -1,11 +1,32 @@
 //! Small math / coordinate helpers shared across multibody kernels.
 
 use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK};
+use crate::utils::ISlice;
 use crate::{DIM, Pose, Rotation, Vector};
 use khal_std::index::MaybeIndexUnchecked;
 use parry::math::VectorExt;
 
 use super::types::{MAX_JOINT_DOFS, MultibodyLinkStatic};
+
+/// Zeroes the entries of a dense dof-space vector (`dst[base .. base + ndofs]`)
+/// that belong to kinematic joints. Those velocities are user-driven, so a
+/// constraint's `M⁻¹Jᵀ` response must never touch them.
+#[inline]
+pub fn zero_kinematic_dofs(
+    dst: &mut [f32],
+    base: usize,
+    stat_slice: &ISlice<MultibodyLinkStatic>,
+    num_links: u32,
+) {
+    for k in 0..num_links {
+        let stat = stat_slice[k as usize];
+        if stat.kinematic != 0 {
+            for d in 0..stat.ndofs {
+                dst.write(base + (stat.assembly_id + d) as usize, 0.0);
+            }
+        }
+    }
+}
 
 /// Number of free DOFs implied by a `locked_axes` bitmask.
 #[inline]

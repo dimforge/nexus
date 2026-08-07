@@ -96,6 +96,7 @@ impl RbdPipeline {
                     batch_indices: &state.batch_indices,
                     color_uniforms: &state.color_uniforms,
                     mb_sweep_indirect: &state.mb_sweep_indirect,
+                    gravity: &state.gravity,
                 };
                 self.multibody_solver.init_step(
                     &mut encoder,
@@ -306,6 +307,7 @@ impl RbdPipeline {
                 colorless_warmstart: false,
                 fused_color_sweeps,
                 rb_contacts_inert: state.rb_contacts_inert,
+                gravity: &state.gravity,
             };
             self.solver.prepare(
                 backend,
@@ -458,6 +460,7 @@ impl RbdPipeline {
             colorless_warmstart: true,
             fused_color_sweeps,
             rb_contacts_inert: state.rb_contacts_inert,
+            gravity: &state.gravity,
         };
 
         // Phase 3: Solve constraints

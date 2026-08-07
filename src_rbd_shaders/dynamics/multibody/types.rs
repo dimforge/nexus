@@ -16,11 +16,10 @@ use crate::dynamics::joint::{GenericJoint, SPATIAL_DIM};
 /// Equivalent to `SPATIAL_DIM`.
 pub const MAX_JOINT_DOFS: usize = SPATIAL_DIM;
 
-/// Maximum number of simultaneously-active multibody contact **points** per
-/// multibody. Sized for typical use (a single multibody touching the
-/// environment with up to ~32 contact points × 2 manifold sides). Per-multibody
-/// banks of this size are pre-allocated; surplus slots are left inactive.
-pub const MAX_MB_CONTACTS_PER_MB: u32 = 64;
+/// Maximum number of simultaneously-active multibody contact points per
+/// multibody.
+/// TODO: make this configurable/auto-resizeable
+pub const MAX_MB_CONTACTS_PER_MB: u32 = 128;
 
 /// Number of constraint slots reserved per contact point — one normal +
 /// `DIM-1` friction tangents (Coulomb friction). Mirrors rapier's
@@ -132,6 +131,13 @@ pub struct MultibodyLinkWorkspace {
     /// Per-link kinematic acceleration (rapier's `workspace.accs[i]`).
     /// Populated by the Coriolis  variant of `apply_gravity`.
     pub kinematic_acc: Velocity,
+    /// User-applied force on this link, in world space.
+    pub external_force: Vec3,
+    /// Per-link multiplier on the global gravity.
+    pub gravity_scale: f32,
+    /// User-applied torque on this link, in world space.
+    pub external_torque: Vec3,
+    pub _pad3: u32,
 }
 
 /// Per-link workspace updated every step.
@@ -163,6 +169,12 @@ pub struct MultibodyLinkWorkspace {
     pub rb_vels: Velocity,
     /// Per-link kinematic acceleration (rapier's `workspace.accs[i]`).
     pub kinematic_acc: Velocity,
+    /// User-applied force on this link, in world space.
+    pub external_force: Vec2,
+    /// User-applied torque on this link.
+    pub external_torque: f32,
+    /// Per-link multiplier on the global gravity.
+    pub gravity_scale: f32,
 }
 
 /// One unit (1-DOF) constraint generated from a multibody joint's limit or
@@ -264,7 +276,8 @@ pub struct MultibodyContactConstraint {
     /// `cons[normal_constraint_slot].impulse` to compute their clamp limit
     /// `±μ · normal_impulse`. For normal slots this is just self.
     pub normal_constraint_slot: u32,
-    pub _pad0: u32,
+    /// Second touched link for a self-contact, `u32::MAX` otherwise.
+    pub link_id_b: u32,
 
     /// Free-body linear jacobian: `+jac_dir` on body B's side or
     /// `-jac_dir` on body A's side, depending on which side of the contact
@@ -277,7 +290,7 @@ pub struct MultibodyContactConstraint {
     pub _pad2: u32,
     /// Same as `ang_jac` but pre-multiplied by the free body's
     /// `effective_world_inv_inertia`. Used to update `solver_vels.angular`
-    /// without re-multiplying every PGS sweep.
+    /// without re-multiplying every PGS iteration.
     pub ii_ang_jac: Vec3,
     pub _pad3: u32,
 
@@ -292,11 +305,34 @@ pub struct MultibodyContactConstraint {
     pub impulse: f32,
 
     /// Contact CFM factor `1/(1+cfm_coeff)` — rapier's generic-contact form:
-    /// multiplies the impulse each PGS sweep for compliance (replaces the old
+    /// multiplies the impulse each PGS iteration for compliance (replaces the old
     /// rigid `cfm_coeff`/`cfm_gain` generic-joint form, which was always 0).
     pub cfm_factor: f32,
-    pub _unused_cfm: f32,
-    pub _pad4: [u32; 2],
+    /// Approaching normal velocity captured at the start of the step, scaled by
+    /// the restitution coefficient. Zero on non-bouncy points.
+    pub restitution_seed: f32,
+    /// Combined restitution coefficient of the two colliders.
+    pub restitution: f32,
+    pub _pad4: u32,
+
+    /// Torque arm of the `link_id` side about that link's center of mass,
+    /// crossed with the multibody-side direction (`-lin_jac`).
+    pub torque_a: Vec3,
+    pub _pad5: u32,
+    /// Same for the `link_id_b` side of a self-contact, crossed with `lin_jac`.
+    pub torque_b: Vec3,
+    pub _pad6: u32,
+
+    /// Contact anchor frozen in the `link_id` side's body frame.
+    pub local_p1: Vec3,
+    /// Separation at the substep the anchors were frozen; the live separation
+    /// is this plus the drift of the two anchors along the contact normal.
+    pub base_dist: f32,
+    /// Contact anchor frozen in the other side's frame: the second link's body
+    /// frame for a self-contact, the free body's solver (center-of-mass) frame
+    /// otherwise.
+    pub local_p2: Vec3,
+    pub _pad7: u32,
 }
 
 /// 2D variant of [`MultibodyContactConstraint`] — angular jacobian collapses
@@ -311,6 +347,22 @@ pub struct MultibodyContactConstraint {
     pub kind: u32,
     pub free_body_id: u32,
 
+    /// Slot index (relative to `cons_base`) of the associated normal
+    /// constraint. Tangents read `cons[normal_constraint_slot].impulse` to
+    /// compute their clamp limit `±μ · normal_impulse`.
+    pub normal_constraint_slot: u32,
+    /// Second touched link for a self-contact, `u32::MAX` otherwise.
+    pub link_id_b: u32,
+    /// Free-body linear jacobian.
+    pub lin_jac: Vec2,
+
+    /// Contact anchor frozen in the `link_id` side's body frame.
+    pub local_p1: Vec2,
+    /// Contact anchor frozen in the other side's frame: the second link's body
+    /// frame for a self-contact, the free body's solver (center-of-mass) frame
+    /// otherwise.
+    pub local_p2: Vec2,
+
     pub free_body_im: f32,
     /// Free-body angular jacobian (`r_free × jac_dir`) — scalar in 2D.
     pub ang_jac: f32,
@@ -319,14 +371,6 @@ pub struct MultibodyContactConstraint {
     /// Coulomb friction coefficient `μ`.
     pub friction_coeff: f32,
 
-    /// Slot index (relative to `cons_base`) of the associated normal
-    /// constraint. Tangents read `cons[normal_constraint_slot].impulse` to
-    /// compute their clamp limit `±μ · normal_impulse`.
-    pub normal_constraint_slot: u32,
-    pub _pad0: [u32; 1],
-    /// Free-body linear jacobian.
-    pub lin_jac: Vec2,
-
     pub inv_lhs: f32,
     pub rhs: f32,
     pub rhs_wo_bias: f32,
@@ -334,7 +378,23 @@ pub struct MultibodyContactConstraint {
 
     /// Contact CFM factor `1/(1+cfm_coeff)` (rapier's generic-contact form).
     pub cfm_factor: f32,
-    pub _unused_cfm: f32,
+    /// Approaching normal velocity captured at the start of the step, scaled by
+    /// the restitution coefficient. Zero on non-bouncy points.
+    pub restitution_seed: f32,
+    /// Combined restitution coefficient of the two colliders.
+    pub restitution: f32,
+    /// Separation at the substep the anchors were frozen; the live separation
+    /// is this plus the drift of the two anchors along the contact normal.
+    pub base_dist: f32,
+
+    /// Torque arm of the `link_id` side about that link's center of mass,
+    /// crossed with the multibody-side direction (`-lin_jac`).
+    pub torque_a: f32,
+    /// Same for the `link_id_b` side of a self-contact, crossed with `lin_jac`.
+    pub torque_b: f32,
+    /// Pads the struct to a multiple of 16 bytes, which std430 requires of the
+    /// array stride given the vector members.
+    pub _pad1: [f32; 2],
 }
 
 /// Descriptor for one multibody: where its links live, how many DOFs it has, and

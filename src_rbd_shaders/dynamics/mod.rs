@@ -33,6 +33,7 @@ pub use joint::{
 };
 pub use joint_constraint::*;
 pub use joint_constraint_builder::{JointConstraintBuilder, JointConstraintHelper, new_helper};
+pub(crate) use joint_constraint_builder::smallest_abs_diff_between_sin_angles;
 pub use multibody::*;
 pub use sim_params::*;
 // Re-export solver items; update_constraint comes from joint_constraint_builder for joints
