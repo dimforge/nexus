@@ -22,7 +22,7 @@ use crate::dynamics::body::{Velocity, WorldMassProperties};
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::queries::IndexedManifold;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MatSlice, lu_solve_in_place};
+use crate::utils::linalg::{MatSlice, lu_solve_in_place_local};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 
 use super::types::{
@@ -699,7 +699,7 @@ pub fn gpu_mb_finalize_contact_constraints(
             col[i as usize] = contact_constraint_jacs.read(col_offset + i as usize);
         }
         // 2) Solve M · column = J^T in place in the local vector.
-        lu_solve_in_place(mass_matrices, m, lu_pivots, piv_offset, &mut col, 0);
+        lu_solve_in_place_local(mass_matrices, m, lu_pivots, piv_offset, &mut col);
         // 3) Write the finished column out + inv_r_mb = J · column in one pass.
         let mut inv_r_mb = 0.0f32;
         for i in 0..ndofs {

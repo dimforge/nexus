@@ -721,6 +721,51 @@ pub fn lu_solve_in_place(
     }
 }
 
+/// Variant of [`lu_solve_in_place`] whose right-hand side lives in a
+/// thread-local fixed-size array instead of a storage buffer: rust-gpu cannot
+/// unsize a local `[f32; N]` into a `&mut [f32]` argument, so the array is
+/// taken by reference directly. Same arithmetic and iteration order.
+#[inline]
+pub fn lu_solve_in_place_local<const N: usize>(
+    buf_m: &[f32],
+    m: MatSlice,
+    buf_pivots: &[u32],
+    pivots_offset: usize,
+    rhs: &mut [f32; N],
+) {
+    let n = m.rows;
+
+    // Permute rhs in place according to the recorded pivots.
+    for k in 0..n {
+        let p = buf_pivots.read(pivots_offset + k as usize);
+        if p != k {
+            let a = rhs[k as usize];
+            rhs[k as usize] = rhs[p as usize];
+            rhs[p as usize] = a;
+        }
+    }
+
+    // Forward substitution: L · y = P · rhs (L is unit-lower — implicit diag = 1).
+    for i in 0..n {
+        let mut s = rhs[i as usize];
+        for j in 0..i {
+            s -= buf_m.read(m.idx(i, j)) * rhs[j as usize];
+        }
+        rhs[i as usize] = s;
+    }
+
+    // Back substitution: U · x = y (reverse iteration — equivalent to `for ii in (0..n).rev()`).
+    for step in 0..n {
+        let ii = n - 1 - step;
+        let mut s = rhs[ii as usize];
+        for j in (ii + 1)..n {
+            s -= buf_m.read(m.idx(ii, j)) * rhs[j as usize];
+        }
+        let u = buf_m.read(m.idx(ii, ii));
+        rhs[ii as usize] = if u != 0.0 { s / u } else { 0.0 };
+    }
+}
+
 //
 // Workgroup-parallel variants. Mirror the sequential primitives above but
 // partition each iteration's work across `lanes` lanes of a SIMT workgroup.
