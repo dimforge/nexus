@@ -739,9 +739,15 @@ pub fn lu_solve_in_place_local<const N: usize>(
     for k in 0..n {
         let p = buf_pivots.read(pivots_offset + k as usize);
         if p != k {
-            let a = rhs[k as usize];
-            rhs[k as usize] = rhs[p as usize];
-            rhs[p as usize] = a;
+            // NOTE: not `rhs.swap(..)` — the method autoderefs the local
+            // array into a slice, which is the exact `*[f32; N]` → `*[f32]`
+            // cast rust-gpu rejects.
+            #[allow(clippy::manual_swap)]
+            {
+                let a = rhs[k as usize];
+                rhs[k as usize] = rhs[p as usize];
+                rhs[p as usize] = a;
+            }
         }
     }
 
