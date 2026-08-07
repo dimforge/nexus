@@ -72,7 +72,7 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
 
 /// Builds the flat-dispatch layout for a per-batch work-list: exclusive prefix
 /// offsets (so item `t` of the flat range maps back to a batch via
-/// [`find_batch`]) and the matching 1-D indirect grid.
+/// `find_batch`) and the matching 1-D indirect grid.
 ///
 /// This replaces the max-over-batches indirect grids for the narrow-phase
 /// kernels: with `[max/64, num_batches, 1]` every batch rounds its handful of

@@ -444,7 +444,6 @@ pub fn gpu_step_gauss_seidel(
     }
 }
 
-
 /// Max rigid bodies per batch supported by the fused (one-workgroup-per-env)
 /// contact solvers below — bounds the shared-memory velocity stage. The host
 /// falls back to the per-color dispatch loop when a batch exceeds it.
