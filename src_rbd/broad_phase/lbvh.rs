@@ -232,7 +232,8 @@ impl Lbvh {
         let mut pass = encoder.begin_pass("[RBD] lbvh-refit_leaves", timestamps.as_deref_mut());
         self.shaders.refit_leaves.call(
             &mut pass,
-            [colliders_per_batch, num_batches, 1],
+            // Flat over all batches' leaves (kernel recovers batch by division).
+            [colliders_per_batch * num_batches, 1, 1],
             poses,
             shapes,
             &state.sorted_colliders,

@@ -301,17 +301,24 @@ pub fn gpu_lbvh_refit_leaves(
     //            workgroup.
     // Bottom-up refit. Leaf index starts at `num_colliders`.
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
     let num_colliders = batch_ids.colliders_len;
     let first_leaf_id = num_colliders - 1;
 
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let sorted_colliders = batch_ids.coll_batch(batch_id, sorted_colliders);
-    let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
+    // Flat over all batches' leaves: the per-batch collider count is uniform,
+    // so batch/index recover by division — no per-batch workgroup rounding
+    // (a 14-collider robot env used 14 of 64 lanes per workgroup, and the
+    // per-leaf work is mesh-AABB computation, which is genuinely expensive).
+    let num_batches = (sorted_colliders.len() / batch_ids.colliders_batch_capacity as usize) as u32;
+    let total = num_colliders * num_batches;
 
-    for i in StepRng::new(invocation_id.x..num_colliders, num_threads) {
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let batch_id = t / num_colliders;
+        let i = t % num_colliders;
+        let colliders_start = batch_ids.coll_start(batch_id) as u32;
+        let poses = batch_ids.coll_batch(batch_id, poses);
+        let shapes = batch_ids.coll_batch(batch_id, shapes);
+        let sorted_colliders = batch_ids.coll_batch(batch_id, sorted_colliders);
+        let mut tree = SliceMut(&mut *tree, root_id(colliders_start) as usize);
         let curr_leaf_id = first_leaf_id + i;
         let leaf_collider = sorted_colliders[i as usize];
         let leaf_pose = poses[leaf_collider as usize];

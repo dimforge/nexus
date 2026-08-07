@@ -168,6 +168,16 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
+        let pairs_flat_offsets =
+            Tensor::vector_uninit(backend, num_batches + 1, BufferUsages::STORAGE).unwrap();
+        let pfm_flat_offsets =
+            Tensor::vector_uninit(backend, num_batches + 1, BufferUsages::STORAGE).unwrap();
+        let num_colors_uniform = Tensor::scalar(
+            backend,
+            capacities.solver_colors + 1,
+            BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        )
+        .unwrap();
         let old_constraints =
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
         let old_constraint_builders =
@@ -262,6 +272,10 @@ impl RbdState {
             pfm_pairs,
             pfm_pairs_len,
             pfm_pairs_indirect,
+            pairs_flat_offsets,
+            pfm_flat_offsets,
+            num_colors_uniform,
+            num_colors_uniform_cpu: capacities.solver_colors + 1,
             old_constraints,
             old_constraint_builders,
             old_constraints_counts,
