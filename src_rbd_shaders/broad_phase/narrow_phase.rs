@@ -70,7 +70,6 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
     *indirect_args.at_mut(2) = 1;
 }
 
-
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.
 ///
@@ -163,12 +162,12 @@ pub fn gpu_narrow_phase_shape_shape(
         if shape_ty1 == SHAPE_TYPE_CUBOID && shape_ty2 == SHAPE_TYPE_CUBOID {
             let cuboid1 = shape1.to_cuboid();
             let cuboid2 = shape2.to_cuboid();
-            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, (*prediction));
+            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, *prediction);
         }
 
         // Everything else (PFM / trimesh / polyline) is handled by the deferred
         // pass; `manifold.len` stays 0 here so nothing is written.
-        if manifold.len > 0 && manifold.points_a.at(0).dist < (*prediction) {
+        if manifold.len > 0 && manifold.points_a.at(0).dist < *prediction {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed the contacts allocation size, just skip
@@ -592,13 +591,13 @@ pub fn gpu_narrow_phase_pfm_pfm(
             pair.thickness1,
             &pair.shape2,
             pair.thickness2,
-            (*prediction),
+            *prediction,
             vertices,
             #[cfg(feature = "dim3")]
             indices,
         );
 
-        if manifold.len > 0 && manifold.points_a.at(0).dist < (*prediction) {
+        if manifold.len > 0 && manifold.points_a.at(0).dist < *prediction {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed the contacts allocation size, just skip
