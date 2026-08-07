@@ -232,7 +232,6 @@ pub fn gpu_mb_init_contact_constraints(
         }
 
         let pose1 = poses.read(colliders_start + id1 as usize);
-        let pose2 = poses.read(colliders_start + id2 as usize);
         let world_normal = pose1.rotation * im.contact.normal_a;
         let lin_jac = if is_self || mb_on_1 {
             world_normal
@@ -318,9 +317,9 @@ pub fn gpu_mb_init_contact_constraints(
             // contacts they collapse to zero because both sides are folded
             // into `J_mb` already.
             let (ang_jac_normal, ii_ang_jac_normal) = if is_self {
-                // Self-contact: B-side link is the collider at `id2`, so its
-                // world pose is `pose2` (already loaded). Avoids a
-                // `links_workspace` binding.
+                // Self-contact: B-side link is the collider at `id2`; its
+                // lever arm is taken about the link world COM from the
+                // workspace.
                 let link_origin_b = ws_slice[mb_link_id_b as usize].local_to_world
                     * stat_slice[mb_link_id_b as usize].local_mprops.com;
                 let _ = link_origin_b_default;
@@ -455,7 +454,7 @@ pub fn gpu_mb_init_contact_constraints(
 
                 let (ang_jac_tang, ii_ang_jac_tang) = if is_self {
                     let link_origin_b = ws_slice[mb_link_id_b as usize].local_to_world
-                    * stat_slice[mb_link_id_b as usize].local_mprops.com;
+                        * stat_slice[mb_link_id_b as usize].local_mprops.com;
                     let shift_b = pt_world - link_origin_b;
                     let torque_b_tang = gcross(shift_b, free_tangent);
                     fill_contact_jac_row(
