@@ -67,7 +67,6 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
     }
 }
 
-pub(crate) const PREDICTION: f32 = 2.0e-2; // TODO: make the prediction configurable.
 
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.
@@ -92,6 +91,8 @@ pub fn gpu_narrow_phase_shape_shape(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] collider_parent: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 8)]
     collider_materials: &[ColliderMaterial],
+    // Contact prediction distance (`RbdSimParams::prediction_distance`).
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] prediction: &f32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
@@ -164,12 +165,12 @@ pub fn gpu_narrow_phase_shape_shape(
         if shape_ty1 == SHAPE_TYPE_CUBOID && shape_ty2 == SHAPE_TYPE_CUBOID {
             let cuboid1 = shape1.to_cuboid();
             let cuboid2 = shape2.to_cuboid();
-            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, PREDICTION);
+            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, (*prediction));
         }
 
         // Everything else (PFM / trimesh / polyline) is handled by the deferred
         // pass; `manifold.len` stays 0 here so nothing is written.
-        if manifold.len > 0 && manifold.points_a.at(0).dist < PREDICTION {
+        if manifold.len > 0 && manifold.points_a.at(0).dist < (*prediction) {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed the contacts allocation size, just skip
@@ -213,6 +214,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     //       And we assume all batch dimensions are given the same buffer allocation sizes
     //       (i.e. the same `contacts_batch_capacity`).
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 7)] prediction: &f32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
@@ -304,6 +306,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let mesh = shape1.to_trimesh();
             let convex = shape2;
             trimesh_convex(
+                *prediction,
                 pose12,
                 &mesh,
                 convex,
@@ -322,6 +325,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let mesh = shape2.to_trimesh();
             // NOTE: pair indices are flipped.
             trimesh_convex(
+                *prediction,
                 pose12.inverse(),
                 &mesh,
                 convex,
@@ -341,6 +345,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let pline = shape1.to_polyline();
             let convex = shape2;
             polyline_convex(
+                *prediction,
                 pose12,
                 &pline,
                 convex,
@@ -359,6 +364,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let pline = shape2.to_polyline();
             // NOTE: pair indices are flipped.
             polyline_convex(
+                *prediction,
                 pose12.inverse(),
                 &pline,
                 convex,
@@ -376,6 +382,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
 
 /// Collision detection between a triangle mesh and a convex shape.
 fn trimesh_convex(
+    prediction: f32,
     pose12: Pose,
     mesh: &TriMesh,
     convex: &Shape,
@@ -392,10 +399,10 @@ fn trimesh_convex(
         return;
     }
 
-    // Get the convex shape's AABB in the trimesh's local space, and enlarge with the PREDICTION.
+    // Get the convex shape's AABB in the trimesh's local space, and enlarge with the prediction distance.
     let mut test_aabb = convex.compute_aabb(pose12, vertices);
-    test_aabb.mins -= Vector::splat(PREDICTION);
-    test_aabb.maxs += Vector::splat(PREDICTION);
+    test_aabb.mins -= Vector::splat(prediction);
+    test_aabb.maxs += Vector::splat(prediction);
 
     if !test_aabb.intersects(&mesh.root_aabb) {
         // No collision possible.
@@ -446,6 +453,7 @@ fn trimesh_convex(
 
 /// Collision detection between a polyline and a convex shape.
 fn polyline_convex(
+    prediction: f32,
     pose12: Pose,
     mesh: &Polyline,
     convex: &Shape,
@@ -462,11 +470,11 @@ fn polyline_convex(
         return;
     }
 
-    // Get the convex shape's AABB in the polyline's local space, and enlarge with the PREDICTION.
+    // Get the convex shape's AABB in the polyline's local space, and enlarge with the prediction distance.
     let thickness = 0.4; // TODO: make thickness configurable or part of the polyline struct
     let mut test_aabb = convex.compute_aabb(pose12, vertices);
-    test_aabb.mins -= Vector::splat(PREDICTION + thickness);
-    test_aabb.maxs += Vector::splat(PREDICTION + thickness);
+    test_aabb.mins -= Vector::splat(prediction + thickness);
+    test_aabb.maxs += Vector::splat(prediction + thickness);
 
     if !test_aabb.intersects(&mesh.root_aabb) {
         // No collision possible.
@@ -564,6 +572,7 @@ pub fn gpu_narrow_phase_pfm_pfm(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] collider_parent: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 8)]
     collider_materials: &[ColliderMaterial],
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] prediction: &f32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
@@ -597,13 +606,13 @@ pub fn gpu_narrow_phase_pfm_pfm(
             pair.thickness1,
             &pair.shape2,
             pair.thickness2,
-            PREDICTION,
+            (*prediction),
             vertices,
             #[cfg(feature = "dim3")]
             indices,
         );
 
-        if manifold.len > 0 && manifold.points_a.at(0).dist < PREDICTION {
+        if manifold.len > 0 && manifold.points_a.at(0).dist < (*prediction) {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed capacity, just skip the pair.

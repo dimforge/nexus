@@ -160,6 +160,9 @@ pub struct RbdState {
     /// Single-element scratch holding the max of `collision_pairs_len` across all
     /// batches, computed on the GPU (only used when `num_batches > 1`).
     pub(super) collision_pairs_len_max: Tensor<u32>,
+    /// Contact prediction distance (`RbdSimParams::prediction_distance`),
+    /// consumed by the narrow-phase kernels.
+    pub(super) prediction: Tensor<f32>,
     /// `num_batches` as a uniform, the scan length for the max reduction.
     pub(super) num_batches_uniform: Tensor<TensorShape>,
     /// Non-blocking readback of `[max collision_pairs_len, uncolored]` used by

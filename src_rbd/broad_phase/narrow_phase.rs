@@ -49,6 +49,7 @@ impl GpuNarrowPhase {
         batch_indices: &Tensor<crate::shaders::utils::BatchIndices>,
         collider_parent: &Tensor<u32>,
         collider_materials: &Tensor<crate::shaders::queries::ColliderMaterial>,
+        prediction: &Tensor<f32>,
     ) -> Result<(), GpuBackendError> {
         let num_batches = contacts_len.len() as u32;
         self.reset_narrow_phase
@@ -66,6 +67,7 @@ impl GpuNarrowPhase {
             batch_indices,
             collider_parent,
             collider_materials,
+            prediction,
         )?;
 
         // Pass 2: defer the complex shape pairs into `pfm_pairs` (kept as a
@@ -80,6 +82,7 @@ impl GpuNarrowPhase {
             pfm_pairs,
             pfm_pairs_len,
             batch_indices,
+            prediction,
             vertices,
             indices,
         )?;
@@ -98,6 +101,7 @@ impl GpuNarrowPhase {
             indices,
             collider_parent,
             collider_materials,
+            prediction,
         )?;
         self.init_contacts_indirect_args.call(
             pass,

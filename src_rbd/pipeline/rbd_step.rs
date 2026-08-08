@@ -258,6 +258,7 @@ impl RbdPipeline {
                 &state.batch_indices,
                 &state.collider_parent,
                 &state.collider_materials,
+                &state.prediction,
             )?;
 
             drop(pass);
