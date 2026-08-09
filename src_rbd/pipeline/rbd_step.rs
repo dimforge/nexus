@@ -157,6 +157,7 @@ impl RbdPipeline {
                     &mut state.collision_pairs_indirect,
                     &state.collision_groups,
                     &state.pair_filter,
+                    &state.prediction,
                 )?;
                 drop(pass);
                 backend.submit(encoder)?;

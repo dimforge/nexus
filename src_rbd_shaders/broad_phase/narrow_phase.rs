@@ -67,7 +67,6 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
     }
 }
 
-
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.
 ///
@@ -165,7 +164,7 @@ pub fn gpu_narrow_phase_shape_shape(
         if shape_ty1 == SHAPE_TYPE_CUBOID && shape_ty2 == SHAPE_TYPE_CUBOID {
             let cuboid1 = shape1.to_cuboid();
             let cuboid2 = shape2.to_cuboid();
-            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, (*prediction));
+            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, *prediction);
         }
 
         // Everything else (PFM / trimesh / polyline) is handled by the deferred
@@ -606,7 +605,7 @@ pub fn gpu_narrow_phase_pfm_pfm(
             pair.thickness1,
             &pair.shape2,
             pair.thickness2,
-            (*prediction),
+            *prediction,
             vertices,
             #[cfg(feature = "dim3")]
             indices,
