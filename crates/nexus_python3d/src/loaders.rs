@@ -243,7 +243,7 @@ pub fn insert_mjcf(
         let body = rp::RigidBodyBuilder::fixed().translation(center).build();
         let collider = rp::ColliderBuilder::cuboid(he.x, he.y, he.z).build();
         let shape = collider.shared_shape().clone();
-        let handle = state.insert_rigid_body_in(env, body, collider);
+        let handle = state.insert_rigid_body_in(env, body, collider, RbdCoupling::None);
         if env == 0 {
             v.insert_shape(handle, &shape, rp::Pose::IDENTITY);
         }
