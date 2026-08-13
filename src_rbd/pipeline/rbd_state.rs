@@ -123,21 +123,15 @@ pub struct RbdState {
     pub(super) num_colliders_per_batch: u32,
     pub(super) num_solver_iterations: u32,
     pub(super) sim_params: Tensor<RbdSimParams>,
-    /// Per-body world-origin pose (matches rapier's `RigidBody::position`). This
-    /// is the canonical pose stored between steps and the input to per-step
-    /// mass-properties update and multibody FK. The substep loop does NOT
-    /// touch this — see [`Self::solver_body_poses`].
+    /// Per-body world-origin pose (matches rapier's `RigidBody::position`).
     pub(super) body_poses: Tensor<Pose>,
-    /// Per-body COM-centered pose (rapier's `SolverPose`). Equals
-    /// `body_poses[i].prepend_translation(local_mprops[i].com)`. Seeded from
-    /// `body_poses` at step start, mutated by the solver substep loop, and
-    /// converted back to `body_poses` by `finalize` at step end.
+    /// Per-body COM-centered pose (rapier's `SolverPose`) used temporarily by
+    /// the solver (and then written back to `body_poses` after un-centering).
     pub(super) solver_body_poses: Tensor<Pose>,
     pub(super) local_mprops: Tensor<GpuLocalMassProperties>,
     pub(super) mprops: Tensor<GpuWorldMassProperties>,
     pub(super) vels: Tensor<GpuVelocity>,
     pub(super) solver_vels: Tensor<GpuVelocity>,
-    pub(super) solver_vels_out: Tensor<GpuVelocity>,
     pub(super) solver_vels_inc: Tensor<GpuVelocity>,
     pub(super) vertex_buffers: Tensor<PaddedVector>,
     pub(super) index_buffers: Tensor<u32>,
@@ -152,6 +146,11 @@ pub struct RbdState {
     pub(super) collider_world_poses: Tensor<Pose>,
     /// Per-collider [`crate::rapier::geometry::InteractionGroups`].
     pub(super) collision_groups: Tensor<crate::rapier::geometry::InteractionGroups>,
+    /// Per-collider broad-phase pair-filter key:
+    /// - `[0]`: to prevent colliders of the same body from colliding.
+    /// - `[1]`: to prevent colliders of adjacent links from a multibody from coliding.
+    /// Nonzero keys that are equal never collide.
+    pub(super) pair_filter: Tensor<[u32; 2]>,
     /// Per-collider friction / restitution coefficients (+ combine rules),
     pub(super) collider_materials: Tensor<GpuColliderMaterial>,
     pub(super) collision_pairs: Tensor<CollisionPair>,
@@ -187,6 +186,9 @@ pub struct RbdState {
     pub(super) contacts: Tensor<GpuIndexedContact>,
     pub(super) contacts_len: Tensor<u32>,
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
+    /// Workgroup grid for the per-multibody contact-constraint dispatches:
+    /// `[multibodies_batch_capacity, num_batches, 1]`.
+    pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
     pub(super) new_constraints: Tensor<TwoBodyConstraint>,
     pub(super) new_constraint_builders: Tensor<TwoBodyConstraintBuilder>,
     pub(super) new_constraints_counts: Tensor<u32>,
@@ -196,9 +198,23 @@ pub struct RbdState {
     pub(super) old_constraints_counts: Tensor<u32>,
     pub(super) old_body_constraint_ids: Tensor<u32>,
     pub(super) constraints_colors: Tensor<u32>,
+    pub(super) old_constraints_colors: Tensor<u32>,
     pub(super) colored: Tensor<u32>,
     pub(super) constraints_rands: Tensor<u32>,
+    /// Per-batch per-color constraint counts (stride `max_colors + 3`), see
+    /// the `gpu_color_buckets_*` kernels.
+    pub(super) color_bucket_counts: Tensor<u32>,
+    /// Per-batch per-color exclusive prefix sums over the counts: color `c`
+    /// owns `color_sorted_ids[starts[c]..starts[c + 1]]`.
+    pub(super) color_bucket_starts: Tensor<u32>,
+    /// Scatter cursors (seeded from the starts each step).
+    pub(super) color_bucket_cursors: Tensor<u32>,
+    /// Constraint indices bucket-sorted by color (contacts layout).
+    pub(super) color_sorted_ids: Tensor<u32>,
     pub(super) curr_color: Tensor<u32>,
+    /// Pre-built per-color-index uniforms: `color_uniforms[c] == c`.
+    /// [`Self::ensure_color_uniforms`].
+    pub(super) color_uniforms: Vec<Tensor<u32>>,
     pub(super) uncolored: Tensor<u32>,
     pub(super) uncolored_staging: Tensor<u32>,
     pub(super) lbvh: LbvhState,
@@ -214,6 +230,9 @@ pub struct RbdState {
     pub(super) prefix_sum_workspace: PrefixSumWorkspace,
     /// Maximum number of constraint colors the solver will iterate.
     pub(super) max_colors: u32,
+    /// `true` when every body is either non-dynamic or multibody-controlled
+    /// (its rb-side `inv_mass` is zero),i.e., we can skip the contact pipelines.
+    pub(super) rb_contacts_inert: bool,
     /// CPU-side mirror of the number of *active* colliders per batch. Identical
     /// across all batches by the equal-topology invariant; slots in
     /// `[num_active_colliders .. num_colliders_per_batch)` are reserved padding.
@@ -235,6 +254,7 @@ impl RbdState {
     pub(super) fn rebuild_batch_indices(&mut self, backend: &GpuBackend) {
         #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
         let mut bi = BatchIndices {
+            num_batches: self.num_batches,
             colliders_batch_capacity: self.num_colliders_per_batch,
             colliders_len: self.num_active_colliders,
             bodies_len: self.num_active_bodies,
@@ -242,19 +262,17 @@ impl RbdState {
             contacts_batch_capacity: self.contacts_per_batch_cpu,
             impulse_joints_batch_capacity: self.joints.joints_per_batch(),
             impulse_joints_len: self.joints.num_active_joints(),
+            solver_color_buckets_stride: self.max_colors + 3,
             ..Default::default()
         };
         #[cfg(feature = "dim3")]
         self.multibodies.fill_batch_indices(&mut bi);
-        self.batch_indices = Tensor::scalar(
-            backend,
-            bi,
-            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        )
-        .unwrap();
+        backend
+            .write_buffer(self.batch_indices.buffer_mut(), 0, &[bi])
+            .unwrap();
     }
 
-    /// Shared per-batch index uniform — see `Self::rebuild_batch_indices`.
+    /// Shared per-batch index uniform.
     pub fn batch_indices(&self) -> &Tensor<BatchIndices> {
         &self.batch_indices
     }
@@ -266,9 +284,22 @@ impl RbdState {
         self.max_colors = max_colors.max(1);
     }
 
+    /// Grows [`Self::color_uniforms`] so indices `0..n` are available.
+    pub(super) fn ensure_color_uniforms(&mut self, backend: &GpuBackend, n: u32) {
+        for c in self.color_uniforms.len() as u32..n {
+            self.color_uniforms
+                .push(Tensor::scalar(backend, c, BufferUsages::UNIFORM).unwrap());
+        }
+    }
+
     /// Returns the configured max color count.
     pub fn max_colors(&self) -> u32 {
         self.max_colors
+    }
+
+    /// `true` when every rigid-body contact constraint is provably a no-op.
+    pub fn rb_contacts_inert(&self) -> bool {
+        self.rb_contacts_inert
     }
 }
 

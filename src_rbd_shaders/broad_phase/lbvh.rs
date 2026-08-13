@@ -41,53 +41,82 @@ pub struct LbvhNode {
     pub right: u32,
     /// Parent node index.
     pub parent: u32,
-    /// Counter for bottom-up refitting (0, 1, or 2).
-    pub refit_count: u32,
+    /// During refit: bottom-up arrival counter; each thread atomically
+    /// increments it and only the second one continues upward (both children
+    /// ready). After refit, `refit_leaves` sets it to the maximum sorted leaf
+    /// index in this node’s subtree, which the pair traversal uses to prune
+    /// subtrees that can only produce duplicate pairs.
+    pub refit_count_or_max_subtree_index: u32,
 }
 
-/// Resets the collision pairs counter.
+/// Resets the collision pairs counter. One thread per batch.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_reset_collision_pairs(
-    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs_len: &mut [u32],
 ) {
-    let batch_id = workgroup_id.y as usize;
+    let batch_id = invocation_id.x as usize;
+    if batch_id < collision_pairs_len.len() {
+        collision_pairs_len.write(batch_id, 0);
+    }
+}
 
-    // NOTE: this `for` loop is silly. It doesn’t do anything
-    //       more than a `*collision_pairs_len = 0` in a convoluted
-    //       way because otherwise rustgpu apparently does not generate
-    //       the spirv for this kernel (seems to happen if the kernel is
-    //       too trivial.
-    for k in 0..1 {
-        collision_pairs_len.write(batch_id, k);
+/// Number of lanes used by the per-batch-count max reductions below. Their
+/// host dispatch is a single workgroup: `.call(pass, MAX_REDUCE_LANES, ...)`.
+pub const MAX_REDUCE_LANES: u32 = 256;
+
+/// Workgroup-parallel `max` over the per-batch counts, then writes the
+/// `[ceil(max/64), num_batches, 1]` indirect grid.
+///
+/// NOTE: `lens` is mutable even though we don't modify it: the loads must be
+/// atomic or they occasionally read stale data (breaks Windows+Nvidia+wgpu, see
+/// https://github.com/gfx-rs/wgpu/issues/9221).
+#[inline(always)]
+pub(crate) fn max_len_indirect_args(
+    lane: u32,
+    lens: &mut [u32],
+    indirect_args: &mut [u32; 3],
+    partial: &mut [u32; MAX_REDUCE_LANES as usize],
+) {
+    let num_batches = lens.len();
+
+    let mut m = 0u32;
+    for i in StepRng::new(lane..num_batches as u32, MAX_REDUCE_LANES) {
+        m = m.max(atomic_load_u32(lens.at_mut(i as usize)));
+    }
+    partial.write(lane as usize, m);
+    workgroup_memory_barrier_with_group_sync();
+
+    // Tree reduction over the 256 lanes (8 halving steps).
+    for step in 0..8u32 {
+        let stride = MAX_REDUCE_LANES >> (step + 1);
+        if lane < stride {
+            let v = partial
+                .read(lane as usize)
+                .max(partial.read((lane + stride) as usize));
+            partial.write(lane as usize, v);
+        }
+        workgroup_memory_barrier_with_group_sync();
+    }
+
+    if lane == 0 {
+        *indirect_args.at_mut(0) = partial.read(0).div_ceil(WORKGROUP_SIZE);
+        *indirect_args.at_mut(1) = num_batches as u32;
+        *indirect_args.at_mut(2) = 1;
     }
 }
 
 /// Initializes indirect dispatch arguments for narrow phase.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(256)))]
 pub fn gpu_lbvh_init_dispatch(
-    // TODO: take the batch dimension as argument (instead of relying on the len of `collision_pairs_len`)?
-    // NOTE: the `collision_pairs_len` is mutable here even though we don’t modify it. That’s
-    //       because we access it with an atomic load otherwise it would occasionally read
-    //       stale data (on Windows+Nvidia+wgpu backend). This might be caused by:
-    //       https://github.com/gfx-rs/wgpu/issues/9221
+    #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
+    #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
 ) {
-    // For indirect dispatch, get the largest length along all batch dimensions.
-    let num_batches = collision_pairs_len.len();
-    let mut highest_pairs_len = 0;
-    for batch_id in 0..num_batches {
-        // NOTE: atomic_load is needed for correctness on some platforms (see comment above `collision_pairs_len`).
-        highest_pairs_len =
-            highest_pairs_len.max(atomic_load_u32(collision_pairs_len.at_mut(batch_id)));
-    }
-
-    *indirect_args.at_mut(0) = highest_pairs_len.div_ceil(WORKGROUP_SIZE);
-    *indirect_args.at_mut(1) = num_batches as u32;
-    *indirect_args.at_mut(2) = 1;
+    max_len_indirect_args(lid.x, collision_pairs_len, indirect_args, partial);
 }
 
 /// Runs a reduction to compute the AABB of the collider positions.
@@ -278,7 +307,7 @@ pub fn gpu_lbvh_build(
 
         tree.at_mut(node_id as usize).left = left as u32;
         tree.at_mut(node_id as usize).right = right as u32;
-        tree.at_mut(node_id as usize).refit_count = 0; // Might as well reset the refit count here.
+        tree.at_mut(node_id as usize).refit_count_or_max_subtree_index = 0; // Might as well reset the refit count here.
         tree.at_mut(left as usize).parent = node_id;
         tree.at_mut(right as usize).parent = node_id;
     }
@@ -319,6 +348,9 @@ pub fn gpu_lbvh_refit_leaves(
 
         tree.at_mut(curr_leaf_id as usize).aabb = leaf_shape.compute_aabb(leaf_pose, vertices);
         tree.at_mut(curr_leaf_id as usize).left = leaf_collider;
+        // For leaves, we can set their index here. They don’t use the `refit_count`
+        // mechanism which is for internal nodes only.
+        tree.at_mut(curr_leaf_id as usize).refit_count_or_max_subtree_index = i;
     }
 }
 
@@ -342,12 +374,7 @@ pub fn gpu_lbvh_refit_internal(
     let first_leaf_id = num_bodies - 1;
 
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
-
-    // All threads must execute the same number of outer loop iterations for uniform control flow.
-    // NOTE: we calculate the interation count based on `colliders_batch_capacity` instead of
-    //       `num_bodies` since the latter is non-uniform because it originates from a storage
-    //       buffer.
-    let num_iterations = batch_ids.colliders_batch_capacity.div_ceil(num_threads);
+    let num_iterations = num_bodies.div_ceil(num_threads);
 
     // NOTE: using unchecked indexing (via MaybeIndexUnchecked) because otherwise the bounds
     //        checking inserted by rustgpu breaks the shader when targeting some NVidia graphics
@@ -366,7 +393,7 @@ pub fn gpu_lbvh_refit_internal(
         // Maximum tree depth is log2(num_colliders), but we use 32 as a safe upper bound.
         for _level in 0..32u32 {
             if thread_is_active {
-                let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count, 1);
+                let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index, 1);
 
                 if refit_count == 0 {
                     // If `refit_count` was 0 then the other thread hasn't reached this node
@@ -384,6 +411,11 @@ pub fn gpu_lbvh_refit_internal(
                     let left = tree.at(left_idx as usize).aabb;
                     let right = tree.at(right_idx as usize).aabb;
                     tree.at_mut(curr_id as usize).aabb = left.merged(&right);
+
+                    // Set `refit_count_or_max_subtree_index` to the max subtree leaf index.
+                    let max_l = tree.at(left_idx as usize).refit_count_or_max_subtree_index;
+                    let max_r = tree.at(right_idx as usize).refit_count_or_max_subtree_index;
+                    tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index = max_l.max(max_r);
 
                     if curr_id == 0 {
                         // We reached the root, can't go higher.
@@ -449,8 +481,10 @@ pub fn gpu_lbvh_refit(
         // Propagate to ancestors.
         let mut curr_id = tree.at(curr_leaf_id as usize).parent;
 
-        loop {
-            let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count, 1);
+        // NOTE: bounded `for` (tree depth <= 32 in practice) instead of `loop`
+        //       to avoid the MacOS miscompilation bug.
+        for _ in 0..32u32 {
+            let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index, 1);
 
             if refit_count == 0 {
                 // If `refit_count` was 0 then the other thread hasn't reached this node
@@ -493,6 +527,7 @@ pub fn gpu_lbvh_find_collision_pairs(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     collision_groups: &[InteractionGroups],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pair_filter: &[[u32; 2]],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
@@ -503,10 +538,12 @@ pub fn gpu_lbvh_find_collision_pairs(
     let mut collision_pairs = batch_ids.collision_pairs_batch_mut(batch_id, collision_pairs);
     let tree = Slice(tree, root_id(colliders_start) as usize);
     let collision_groups = batch_ids.coll_batch(batch_id, collision_groups);
+    let pair_filter = batch_ids.coll_batch(batch_id, pair_filter);
 
     for leaf_i in StepRng::new(invocation_id.x..num_bodies, num_threads) {
         let i = tree.at((first_leaf_id + leaf_i) as usize).left;
         let groups_i = collision_groups[i as usize];
+        let filter_i = pair_filter[i as usize];
         let mut aabb1 = tree.at((first_leaf_id + leaf_i) as usize).aabb;
         let prediction = 2.0e-3; // TODO: should be configurable.
         let dilation = Vector::splat(prediction);
@@ -518,7 +555,13 @@ pub fn gpu_lbvh_find_collision_pairs(
         let mut stack_len = 1u32;
         stack.write(0, 0);
 
-        while stack_len != 0 {
+        // NOTE: we use a fixed-size for loop to avoid miscompilation issues of
+        //       while loops on MacOs. Each tree node is pushed at most once per
+        //       traversal, so `2 * num_bodies` (≥ node count) bounds the loop.
+        for _ in 0..2 * num_bodies {
+            if stack_len == 0 {
+                break;
+            }
             stack_len -= 1;
             let curr_id = stack.read(stack_len as usize);
             let node = tree.at(curr_id as usize);
@@ -529,15 +572,16 @@ pub fn gpu_lbvh_find_collision_pairs(
                 let groups_j = collision_groups[j as usize];
 
                 // Skip pairs whose collision groups don't authorize an interaction.
-                // NOTE: same-body collider pairs are *not* filtered here — that
-                //       skip is deferred to the narrow-phase so the broad phase
-                //       never has to touch `collider_parent`.
                 if !groups_i.test(groups_j) {
                     continue;
                 }
 
-                // NOTE: we don't have to compare i < j to avoid duplicates since that comparison already happened
-                //       alongside the AABB check.
+                // Apply computed filters (same-body and self-contact).
+                let filter_j = pair_filter[j as usize];
+                if filter_i[0] == filter_j[0] || (filter_i[1] != 0 && filter_i[1] == filter_j[1]) {
+                    continue;
+                }
+
                 let target_pair_index =
                     atomic_add_u32(collision_pairs_len.at_mut(batch_id as usize), 1);
 
@@ -551,17 +595,19 @@ pub fn gpu_lbvh_find_collision_pairs(
                     //       by the solver — keeping this hot buffer (and the
                     //       intermediate pfm-pair buffer) narrow, and keeping
                     //       `collider_parent` out of the broad phase entirely.
+                    let (ci, cj) = if i < j { (i, j) } else { (j, i) };
                     collision_pairs[target_pair_index as usize] = CollisionPair {
-                        colliders: UVec2::new(i, j),
+                        colliders: UVec2::new(ci, cj),
                     };
                 }
             } else {
                 let left = node.left;
                 let right = node.right;
 
-                // Go on the child only if the AABB intersects and either the child isn't a leaf, or it is a leaf with associated collider
-                // smaller than `i` (to avoid duplicate pairs).
-                if (left < first_leaf_id || i < tree.at(left as usize).left)
+                // Descend only if the subtree contains leaf id smaller than
+                // `leaf_i`. That way we prune the part of the tree that’s
+                // on the "left" of `leaf_i`, avoiding duplicate pairs/traversals.
+                if leaf_i < tree.at(left as usize).refit_count_or_max_subtree_index
                     && aabb1.intersects(&tree.at(left as usize).aabb)
                     && stack_len < 64
                 {
@@ -569,8 +615,7 @@ pub fn gpu_lbvh_find_collision_pairs(
                     stack_len += 1;
                 }
 
-                // NOTE: on leaves (including tree[right]), the collider id is stored as the left child index.
-                if (right < first_leaf_id || i < tree.at(right as usize).left)
+                if leaf_i < tree.at(right as usize).refit_count_or_max_subtree_index
                     && aabb1.intersects(&tree.at(right as usize).aabb)
                     && stack_len < 64
                 {

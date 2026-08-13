@@ -42,6 +42,7 @@ impl GpuNarrowPhase {
         contacts: &mut Tensor<GpuIndexedContact>,
         contacts_len: &mut Tensor<u32>,
         contacts_indirect: &mut Tensor<[u32; 3]>,
+        mb_sweep_indirect: &mut Tensor<[u32; 3]>,
         pfm_pairs: &mut Tensor<NarrowPhasePfmPair>,
         pfm_pairs_len: &mut Tensor<u32>,
         pfm_pairs_indirect: &mut Tensor<[u32; 3]>,
@@ -51,7 +52,7 @@ impl GpuNarrowPhase {
     ) -> Result<(), GpuBackendError> {
         let num_batches = contacts_len.len() as u32;
         self.reset_narrow_phase
-            .call(pass, [1u32, num_batches, 1], contacts_len, pfm_pairs_len)?;
+            .call(pass, [num_batches, 1, 1], contacts_len, pfm_pairs_len)?;
 
         self.narrow_phase.call(
             pass,
@@ -84,7 +85,7 @@ impl GpuNarrowPhase {
         )?;
 
         self.init_pfm_pfm_indirect_args
-            .call(pass, 1u32, pfm_pairs_len, pfm_pairs_indirect)?;
+            .call(pass, 256u32, pfm_pairs_len, pfm_pairs_indirect)?;
         self.narrow_phase_pfm_pfm.call(
             pass,
             &*pfm_pairs_indirect,
@@ -98,8 +99,14 @@ impl GpuNarrowPhase {
             collider_parent,
             collider_materials,
         )?;
-        self.init_contacts_indirect_args
-            .call(pass, 1u32, contacts_len, contacts_indirect)?;
+        self.init_contacts_indirect_args.call(
+            pass,
+            256u32,
+            contacts_len,
+            contacts_indirect,
+            mb_sweep_indirect,
+            batch_indices,
+        )?;
 
         Ok(())
     }

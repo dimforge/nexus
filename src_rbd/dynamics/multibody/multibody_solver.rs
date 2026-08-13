@@ -4,14 +4,16 @@ use super::multibody_set::*;
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
-    GpuIncJointColor, GpuMbComputeDynamicsPre, GpuMbComputeDynamicsWithoutCoriolisPre,
-    GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints, GpuMbGravityAndLu,
-    GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
-    GpuMbIntegrateVelocities, GpuMbRemoveContactConstraintBias,
-    GpuMbRemoveImpulseJointConstraintBias, GpuMbRemoveSolveJointNoBias, GpuMbResetContactWarmstart,
-    GpuMbSolveContactConstraints, GpuMbSolveImpulseJointConstraints, GpuMbSolveJointConstraints,
-    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, GpuResetJointColor,
-    Velocity, WorldMassProperties,
+    GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
+    GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
+    GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
+    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
+    GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbResetContactWarmstart, GpuMbStashContactsLen, GpuMbWarmstartContactConstraints,
+    GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
+    GpuMbSolveJoints,
+    GpuMbFinalizeImpulseJointConstraints,
+    GpuMbUpdateImpulseJointConstraints, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -21,30 +23,45 @@ use vortx::tensor::Tensor;
 /// GPU shader bundle for multibody dynamics.
 #[derive(Shader)]
 pub struct GpuMultibodySolver {
+    // Five variants of the same function, selected by the per-batch DOF
+    // count, mainly to optimize small robots simulated across thousands
+    // of batches.
     gravity_and_lu: GpuMbGravityAndLu,
+    gravity_and_lu_t1: GpuMbGravityAndLuT1,
+    gravity_and_lu_t8: GpuMbGravityAndLuT8,
+    gravity_and_lu_t16: GpuMbGravityAndLuT16,
+    gravity_and_lu_t32: GpuMbGravityAndLuT32,
     compute_dynamics_pre: GpuMbComputeDynamicsPre,
-    compute_dynamics_without_coriolis_pre: GpuMbComputeDynamicsWithoutCoriolisPre,
-    solve_joint_with_bias: GpuMbSolveJointConstraints,
     init_joint_with_bias: GpuMbInitJointConstraints,
-    /// Fused remove-bias + solve-without-bias for the stabilization sweep.
-    remove_solve_joint_no_bias: GpuMbRemoveSolveJointNoBias,
     init_contact_constraints: GpuMbInitContactConstraints,
     finalize_contact_constraints: GpuMbFinalizeContactConstraints,
-    solve_contact_constraints: GpuMbSolveContactConstraints,
+    /// Fused joint+contact PGS sweep (one workgroup per multibody, shared-
+    /// memory dof velocities).
+    solve_constraints: GpuMbSolveConstraints,
+    /// Joint-only half of the sweep, used with the Delassus contact path
+    /// (one kernel binding both joint and Delassus buffers would exceed the
+    /// 8-storage-buffer budget).
+    solve_joints: GpuMbSolveJoints,
+    /// Fills the per-multibody Delassus blocks (`D = J M⁻¹ Jᵀ` + free-body
+    /// coupling) right after the contact columns are finalized.
+    build_contact_delassus: GpuMbBuildContactDelassus,
+    /// Constraint-space contact sweep: `a = J·u` tracked incrementally in
+    /// shared memory via the Delassus rows, breaking the per-iteration
+    /// dof-space latency chain.
+    solve_contacts_delassus: GpuMbSolveContactsDelassus,
     /// Zero the accumulated contact impulses once per frame (warmstart reset).
     reset_contact_warmstart: GpuMbResetContactWarmstart,
+    /// Copy `contacts_len[batch]` into each `MultibodyInfo` once per step so
+    /// `init_contact_constraints` (at the 8-storage-buffer limit) can bound
+    /// its manifold scan by the actual count instead of the capacity.
+    stash_contacts_len: GpuMbStashContactsLen,
     /// Re-apply the accumulated contact impulse each substep (warmstart).
     warmstart_contact_constraints: GpuMbWarmstartContactConstraints,
-    remove_contact_constraint_bias: GpuMbRemoveContactConstraintBias,
     update_impulse_joint_constraints: GpuMbUpdateImpulseJointConstraints,
     /// Finalize pass for the impulse-joint build (LU back-solve + `inv_lhs`),
     /// split out so the build pass fits 8 storage buffers.
     finalize_impulse_joint_constraints: GpuMbFinalizeImpulseJointConstraints,
     solve_impulse_joint_constraints: GpuMbSolveImpulseJointConstraints,
-    /// Color cursor reset / increment for the colored impulse-joint solve
-    /// loop. Reuses the free-body joint color kernels (generic `&mut u32`).
-    reset_imp_joint_color: GpuResetJointColor,
-    inc_imp_joint_color: GpuIncJointColor,
     remove_impulse_joint_constraint_bias: GpuMbRemoveImpulseJointConstraintBias,
     integrate_velocities: GpuMbIntegrateVelocities,
     integrate: GpuMbIntegrate,
@@ -71,6 +88,12 @@ pub struct MultibodySolverArgs<'a> {
     /// Shared `BatchIndices` uniform — per-batch caps and packed-section
     /// offsets read by every multibody kernel. Owned by `RbdState`.
     pub batch_indices: &'a Tensor<BatchIndices>,
+    /// Per-color-index uniform tensors (`color_uniforms[c]` holds `c`),
+    /// shared with the contact/joint solvers.
+    pub color_uniforms: &'a [Tensor<u32>],
+    /// GPU-written workgroup grid for the per-multibody contact-constraint
+    /// dispatches: `[multibodies_batch_capacity, num_batches, 1]`.
+    pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
 }
 
 impl GpuMultibodySolver {
@@ -83,67 +106,11 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: MultibodySolverArgs<'_>,
     ) -> Result<(), GpuBackendError> {
+        let mut args = args;
         if mb.is_empty() {
             return Ok(());
         }
-        // Fused FK + body-jacobians + velocity propagation + CRBA-with-Coriolis
-        // mass-matrix assembly (4 dispatches → 1) — see
-        // `gpu_mb_compute_dynamics_pre`. Only the implicit-Coriolis path is
-        // wired through the fused kernel; the explicit-Coriolis fallback keeps
-        // the legacy split path.
-        let pre_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        if mb.implicit_coriolis {
-            self.compute_dynamics_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mut mb.coriolis_packed,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        } else {
-            self.compute_dynamics_without_coriolis_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        }
-
-        // Fused: gravity / Coriolis force assembly + LU factor + LU solve in
-        // a single dispatch. Replaces the previous 2-dispatch chain
-        // (apply_gravity_with_coriolis → lu_factor_and_solve) — drops one
-        // WebGPU dispatch per `compute_dynamics` call.
-        let grav_lu_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.gravity_and_lu.call(
-            pass,
-            grav_lu_dispatch,
-            &mb.multibody_info,
-            &mb.links_static,
-            &mut mb.links_workspace,
-            &mb.body_jacobians,
-            &mut mb.gen_forces,
-            &mut mb.mass_matrices,
-            &mut mb.lu_pivots,
-            &mb.dof_state,
-            &mb.gravity,
-            args.batch_indices,
-        )?;
-
-        Ok(())
+        self.compute_dynamics(pass, mb, &mut args)
     }
 
     /// Once-per-visible-step setup. After this call, `gen_forces` holds the
@@ -152,6 +119,40 @@ impl GpuMultibodySolver {
     /// the last call carrying `is_last_substep = true`.
     pub fn init_step(
         &self,
+        encoder: &mut khal::backend::GpuEncoder,
+        mut timestamps: Option<&mut khal::backend::GpuTimestamps>,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
+        use khal::backend::Encoder;
+        if mb.is_empty() {
+            return Ok(());
+        }
+        // Zero the accumulated contact impulses so the first substep's warmstart
+        // starts cold (within a frame they are then preserved across substeps).
+        // Flat (slot, multibody, batch) grid (impulse-field-only stores).
+        {
+            let mut pass = encoder.begin_pass("[RBD] mbi/reset", timestamps.as_deref_mut());
+            let total_slots = mb.num_active_multibodies
+                * mb.num_batches
+                * crate::shaders::dynamics::MAX_MB_CONTACT_CONSTRAINTS_PER_MB;
+            self.reset_contact_warmstart.call(
+                &mut pass,
+                [total_slots, 1, 1],
+                &mut mb.contact_constraints,
+                args.batch_indices,
+            )?;
+        }
+        let mut pass = encoder.begin_pass("[RBD] mbi/dynamics", timestamps.as_deref_mut());
+        self.compute_dynamics(&mut pass, mb, args)
+    }
+
+    /// Copy `contacts_len[batch]` into each `MultibodyInfo`.
+    ///
+    /// This is a workaround for kernels that are already at the 8-storage-binding
+    /// web limit and could therefore not bind `contacts_len`.
+    pub fn stash_contacts_len(
+        &self,
         pass: &mut GpuPass,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
@@ -159,16 +160,14 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        // Zero the accumulated contact impulses so the first substep's warmstart
-        // starts cold (within a frame they are then preserved across substeps).
-        self.reset_contact_warmstart.call(
+        self.stash_contacts_len.call(
             pass,
-            [mb.multibodies_per_batch, mb.num_batches, 1],
-            &mb.multibody_info,
-            &mut mb.contact_constraints,
+            mb.flat_mb_dispatch(),
+            &mut mb.multibody_info,
+            args.contacts_len,
             args.batch_indices,
         )?;
-        self.compute_dynamics(pass, mb, args)
+        Ok(())
     }
 
     // Per-substep work is split into five phases so the pipeline can interleave
@@ -186,7 +185,7 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
+        let dispatch = mb.flat_mb_dispatch();
         self.integrate_velocities.call(
             pass,
             dispatch,
@@ -202,26 +201,66 @@ impl GpuMultibodySolver {
     /// constraints, then warmstart the contacts.
     pub fn substep_build_constraints(
         &self,
-        pass: &mut GpuPass,
+        encoder: &mut khal::backend::GpuEncoder,
+        mut timestamps: Option<&mut khal::backend::GpuTimestamps>,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
+        first_substep: bool,
     ) -> Result<(), GpuBackendError> {
+        use khal::backend::Encoder;
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
 
+        // Full rebuild of the joint + contact constraints every substep.
+        self.build_contact_constraints(encoder, timestamps.as_deref_mut(), mb, args)?;
+
+        // Warmstart: re-apply the accumulated contact impulse to dof_state (and
+        // the free-body solver velocities) so the contact starts "warm" each
+        // substep.
+        // One 64-lane workgroup per multibody (one DOF per lane).
+        if !first_substep {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
+            // Contact-only work: indirect grid collapses to zero workgroups
+            // when no batch has any contact this step.
+            self.warmstart_contact_constraints.call(
+                &mut pass,
+                args.mb_sweep_indirect,
+                &mb.multibody_info,
+                &mb.contact_constraints,
+                &mb.contact_constraint_columns,
+                &mut mb.dof_state,
+                args.solver_vels,
+                args.batch_indices,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Build + finalize the contact constraints (normal + friction slots,
+    /// free-body × multibody and self-contact pairs).
+    pub fn build_contact_constraints(
+        &self,
+        encoder: &mut khal::backend::GpuEncoder,
+        mut timestamps: Option<&mut khal::backend::GpuTimestamps>,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
+        use khal::backend::Encoder;
+        if mb.is_empty() {
+            return Ok(());
+        }
+
+        // Joint limit/motor constraints: one 64-lane workgroup per multibody
+        // (lane 0 emits the metadata serially).
         if mb.has_joint_constraints {
-            // TODO(PERF): joints init could parallelized. We either need to rework
-            //             the flow of the kernel to that the LU parts are not in
-            //             potentially diverging code paths, or we need to have
-            //             each link have its limits/motors generated by a separate
-            //             threadgroups (which might actually be better for lower
-            //             divergence and allow us to theadgroup-parallelize the LU
-            //             solve).
+            let mut pass = encoder.begin_pass("[RBD] mbb/init-joint", timestamps.as_deref_mut());
+            let init_joint_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
             self.init_joint_with_bias.call(
-                pass,
-                dispatch,
+                &mut pass,
+                init_joint_dispatch,
                 &mb.multibody_info,
                 &mb.links_static,
                 &mb.links_workspace,
@@ -229,62 +268,150 @@ impl GpuMultibodySolver {
                 &mb.lu_pivots,
                 &mut mb.joint_constraints,
                 &mut mb.joint_constraint_columns,
+                &mb.dof_couplings,
                 &mb.constraint_softness,
                 args.batch_indices,
             )?;
         }
 
-        // Build + finalize contact constraints (normal-only, free body ×
-        // multibody pairs only). `init` PRESERVES the accumulated impulse across
-        // substeps (zeroed once per frame by `reset_contact_warmstart` in
-        // `init_step`); `finalize` recomputes `inv_lhs` and the M⁻¹Jᵀ columns.
-        self.init_contact_constraints.call(
-            pass,
-            dispatch,
-            &mut mb.multibody_info,
-            &mb.body_jacobians,
-            &mb.body_to_link,
-            &mut mb.contact_constraints,
-            &mut mb.contact_constraint_jacs,
-            &mb.constraint_softness,
-            args.batch_indices,
-            args.mprops,
-            args.collider_world_poses,
-            args.contacts,
-        )?;
+        // One 64-lane workgroup per multibody.
+        {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/init-contact", timestamps.as_deref_mut());
+            let init_contact_dispatch =
+                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            self.init_contact_constraints.call(
+                &mut pass,
+                init_contact_dispatch,
+                &mut mb.multibody_info,
+                &mb.body_jacobians,
+                &mb.body_to_link,
+                &mut mb.contact_constraints,
+                &mut mb.contact_constraint_jacs,
+                &mb.constraint_softness,
+                args.batch_indices,
+                args.mprops,
+                args.collider_world_poses,
+                args.contacts,
+            )?;
+        }
 
-        self.finalize_contact_constraints.call(
-            pass,
-            dispatch,
-            &mb.multibody_info,
-            &mb.mass_matrices,
-            &mb.lu_pivots,
-            &mut mb.contact_constraints,
-            &mb.contact_constraint_jacs,
-            &mut mb.contact_constraint_columns,
-            args.batch_indices,
-        )?;
+        // One 64-lane workgroup per multibody.
+        {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/finalize-contact", timestamps.as_deref_mut());
+            self.finalize_contact_constraints.call(
+                &mut pass,
+                args.mb_sweep_indirect,
+                &mb.multibody_info,
+                &mb.mass_matrices,
+                &mb.lu_pivots,
+                &mut mb.contact_constraints,
+                &mb.contact_constraint_jacs,
+                &mut mb.contact_constraint_columns,
+                args.batch_indices,
+            )?;
+        }
 
-        // Warmstart: re-apply the accumulated contact impulse to dof_state (and
-        // the free-body solver velocities) so the contact starts "warm" each
-        // substep — mirrors rapier's per-substep `contact_constraints.warmstart`
-        // and matches what the rigid-body solver does for free contacts. On the
-        // first substep the impulse was just reset to 0, so this is a no-op.
-        self.warmstart_contact_constraints.call(
-            pass,
-            dispatch,
-            &mb.multibody_info,
-            &mb.contact_constraints,
-            &mb.contact_constraint_columns,
-            &mut mb.dof_state,
-            args.solver_vels,
-            args.batch_indices,
-        )?;
+        // Delassus blocks for the constraint-space contact sweep (consumes
+        // the columns finalized just above).
+        if let Some(delassus) = &mut mb.contact_delassus {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/build-delassus", timestamps.as_deref_mut());
+            self.build_contact_delassus.call(
+                &mut pass,
+                args.mb_sweep_indirect,
+                &mb.multibody_info,
+                &mb.contact_constraints,
+                &mb.contact_constraint_jacs,
+                &mb.contact_constraint_columns,
+                delassus,
+                args.batch_indices,
+            )?;
+        }
 
         Ok(())
     }
 
-    /// P3: one PGS sweep WITH bias over the joint, contact, and multibody-
+    /// One joint+contact PGS sweep: the dof-space fused kernel, or (when the
+    /// Delassus blocks are allocated) the joint-only kernel followed by the
+    /// constraint-space contact kernel. `use_bias_idx` indexes
+    /// `color_uniforms` (0 or 1, holding those constants).
+    fn dispatch_solve(
+        &self,
+        pass: &mut GpuPass,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+        solve_dispatch: [u32; 3],
+        use_bias_idx: usize,
+    ) -> Result<(), GpuBackendError> {
+        let use_bias = &args.color_uniforms[use_bias_idx];
+        if let Some(delassus) = &mb.contact_delassus {
+            if mb.has_joint_constraints {
+                self.solve_joints.call(
+                    pass,
+                    solve_dispatch,
+                    &mb.multibody_info,
+                    &mut mb.joint_constraints,
+                    &mb.joint_constraint_columns,
+                    &mut mb.dof_state,
+                    use_bias,
+                    args.batch_indices,
+                )?;
+            }
+            // Contact-only work: indirect grid collapses to zero workgroups
+            // on contact-free steps.
+            self.solve_contacts_delassus.call(
+                pass,
+                args.mb_sweep_indirect,
+                &mb.multibody_info,
+                &mut mb.contact_constraints,
+                &mb.contact_constraint_jacs,
+                &mb.contact_constraint_columns,
+                delassus,
+                use_bias,
+                args.batch_indices,
+                &mut mb.dof_state,
+                args.solver_vels,
+            )?;
+        } else if mb.has_joint_constraints {
+            self.solve_constraints.call(
+                pass,
+                solve_dispatch,
+                &mb.multibody_info,
+                &mut mb.joint_constraints,
+                &mb.joint_constraint_columns,
+                &mut mb.contact_constraints,
+                &mb.contact_constraint_jacs,
+                &mb.contact_constraint_columns,
+                use_bias,
+                args.batch_indices,
+                &mut mb.dof_state,
+                args.solver_vels,
+            )?;
+        } else {
+            // No joint limits/motors anywhere: the fused sweep is contact-only
+            // work, so the indirect grid (zero workgroups on contact-free
+            // steps) replaces the full per-(multibody, batch) launch.
+            self.solve_constraints.call(
+                pass,
+                args.mb_sweep_indirect,
+                &mb.multibody_info,
+                &mut mb.joint_constraints,
+                &mb.joint_constraint_columns,
+                &mut mb.contact_constraints,
+                &mb.contact_constraint_jacs,
+                &mb.contact_constraint_columns,
+                use_bias,
+                args.batch_indices,
+                &mut mb.dof_state,
+                args.solver_vels,
+            )?;
+        }
+        Ok(())
+    }
+
+    /// P3: one PGS sweep with bias over the joint, contact, and multibody-
     /// touching impulse-joint constraints.
     pub fn substep_solve_with_bias(
         &self,
@@ -295,35 +422,16 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
 
-        if mb.has_joint_constraints {
-            self.solve_joint_with_bias.call(
-                pass,
-                dispatch,
-                &mb.multibody_info,
-                &mut mb.joint_constraints,
-                &mut mb.joint_constraint_columns,
-                &mut mb.dof_state,
-                args.batch_indices,
-            )?;
-        }
-
-        self.solve_contact_constraints.call(
-            pass,
-            dispatch,
-            &mb.multibody_info,
-            &mut mb.contact_constraints,
-            &mb.contact_constraint_jacs,
-            &mb.contact_constraint_columns,
-            &mut mb.dof_state,
-            args.solver_vels,
-            args.batch_indices,
-        )?;
+        // One 64-lane workgroup per multibody with the generalized velocities
+        // held in workgroup memory (`color_uniforms[1]` holds the constant
+        // 1 = use_bias). With the Delassus blocks allocated, the contact half
+        // runs in constraint space instead (joints first, same order).
+        let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+        self.dispatch_solve(pass, mb, args, solve_dispatch, 1)?;
 
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
-        // constraints. Mirrors rapier's `JointGenericExternalConstraintBuilder::update`
-        // plus a PGS sweep WITH bias.
+        // constraints.
         if mb.mb_imp_joints_per_batch > 0 {
             let imp_dispatch = [mb.mb_imp_joints_per_batch, mb.num_batches, 1];
             self.update_impulse_joint_constraints.call(
@@ -357,9 +465,7 @@ impl GpuMultibodySolver {
             // Colored PGS sweep WITH bias: one dispatch per color, each
             // color's joints solved race-free in parallel (graph coloring
             // done at init in `set_impulse_joints`).
-            self.reset_imp_joint_color
-                .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
-            for _ in 0..mb.mb_imp_joint_num_colors {
+            for c in 0..mb.mb_imp_joint_num_colors as usize {
                 self.solve_impulse_joint_constraints.call(
                     pass,
                     // One workgroup (MB_LU_LANES threads) per joint; thread
@@ -374,13 +480,11 @@ impl GpuMultibodySolver {
                     &mb.mb_imp_joint_jacobians,
                     &mb.mb_imp_joint_color_groups,
                     args.batch_indices,
-                    &mb.mb_imp_joint_curr_color,
+                    &args.color_uniforms[c],
                     &mb.multibody_info,
                     &mut mb.dof_state,
                     args.solver_vels,
                 )?;
-                self.inc_imp_joint_color
-                    .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
             }
         }
 
@@ -400,7 +504,7 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
+        let dispatch = mb.flat_mb_dispatch();
 
         self.integrate.call(
             pass,
@@ -414,14 +518,9 @@ impl GpuMultibodySolver {
             args.batch_indices,
         )?;
 
-        // Recompute `a` for the next substep — orientations / positions just
-        // changed so M and τ are stale. Skipped on the last substep (rapier
-        // skips it too: `if !is_last_substep`).
-        // NOTE: we also only update the mass matrix a single time if running without
-        //       `implicit_coriolis`. This further improves performances as that’s the main
-        //       purpose of disabling the implicit handling of coriolis forces (and makes it
-        //       closer to Mujoco/Genesis).
-        if !is_last_substep && mb.implicit_coriolis {
+        // Recompute the dynamics (FK, mass matrices, LU, accelerations) for
+        // the next substep.
+        if !is_last_substep {
             self.compute_dynamics(pass, mb, args)?;
         }
 
@@ -441,26 +540,10 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        let dispatch = [mb.multibodies_per_batch, mb.num_batches, 1];
 
-        if mb.has_joint_constraints {
-            self.remove_solve_joint_no_bias.call(
-                pass,
-                dispatch,
-                &mb.multibody_info,
-                &mut mb.joint_constraints,
-                &mb.joint_constraint_columns,
-                &mut mb.dof_state,
-                args.batch_indices,
-            )?;
-        }
-        self.remove_contact_constraint_bias.call(
-            pass,
-            dispatch,
-            &mut mb.contact_constraints,
-            &mb.multibody_info,
-            args.batch_indices,
-        )?;
+        // Stabilization sweep: `use_bias = 0` (`color_uniforms[0] == 0`).
+        let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+        self.dispatch_solve(pass, mb, args, solve_dispatch, 0)?;
         if mb.mb_imp_joints_per_batch > 0 {
             let imp_dispatch = [mb.mb_imp_joints_per_batch, mb.num_batches, 1];
             self.remove_impulse_joint_constraint_bias.call(
@@ -471,26 +554,9 @@ impl GpuMultibodySolver {
                 &mb.mb_imp_joint_count,
                 args.batch_indices,
             )?;
-        }
-
-        // (joint sweep WITHOUT bias was fused into `remove_solve_joint_no_bias` above.)
-        self.solve_contact_constraints.call(
-            pass,
-            dispatch,
-            &mb.multibody_info,
-            &mut mb.contact_constraints,
-            &mb.contact_constraint_jacs,
-            &mb.contact_constraint_columns,
-            &mut mb.dof_state,
-            args.solver_vels,
-            args.batch_indices,
-        )?;
-        if mb.mb_imp_joints_per_batch > 0 {
             // Final stabilization sweep WITHOUT bias — colored, one
             // dispatch per color (see the with-bias sweep above).
-            self.reset_imp_joint_color
-                .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
-            for _ in 0..mb.mb_imp_joint_num_colors {
+            for c in 0..mb.mb_imp_joint_num_colors as usize {
                 self.solve_impulse_joint_constraints.call(
                     pass,
                     // One workgroup (MB_LU_LANES threads) per joint; thread
@@ -505,13 +571,11 @@ impl GpuMultibodySolver {
                     &mb.mb_imp_joint_jacobians,
                     &mb.mb_imp_joint_color_groups,
                     args.batch_indices,
-                    &mb.mb_imp_joint_curr_color,
+                    &args.color_uniforms[c],
                     &mb.multibody_info,
                     &mut mb.dof_state,
                     args.solver_vels,
                 )?;
-                self.inc_imp_joint_color
-                    .call(pass, 1u32, &mut mb.mb_imp_joint_curr_color)?;
             }
         }
 
@@ -527,55 +591,71 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
     ) -> Result<(), GpuBackendError> {
-        // Fused FK + body-jacobians + velocity propagation + Mass-matrix assembly
-        let pre_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        if mb.implicit_coriolis {
-            self.compute_dynamics_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mut mb.coriolis_packed,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        } else {
-            self.compute_dynamics_without_coriolis_pre.call(
-                pass,
-                pre_dispatch,
-                &mb.multibody_info,
-                &mb.links_static,
-                &mut mb.links_workspace,
-                args.poses,
-                &mut mb.body_jacobians,
-                &mut mb.mass_matrices,
-                &mb.dof_state,
-                &mb.dt,
-                args.batch_indices,
-            )?;
-        }
-
-        // Fused gravity + LU factor + LU solve.
-        let grav_lu_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.gravity_and_lu.call(
+        // Fused FK + body-jacobians + velocity propagation + Mass-matrix
+        // assembly. Packed: `64 / mb_pack_lanes` multibodies per workgroup,
+        // flattened (multibody, batch) grid.
+        let pre_dispatch = mb.packed_wg_dispatch();
+        self.compute_dynamics_pre.call(
             pass,
-            grav_lu_dispatch,
+            pre_dispatch,
             &mb.multibody_info,
             &mb.links_static,
             &mut mb.links_workspace,
-            &mb.body_jacobians,
-            &mut mb.gen_forces,
+            args.poses,
+            &mut mb.body_jacobians,
             &mut mb.mass_matrices,
-            &mut mb.lu_pivots,
+            &mut mb.coriolis_packed,
             &mb.dof_state,
-            &mb.gravity,
+            &mb.dt,
             args.batch_indices,
         )?;
+
+        // Fused gravity + LU factor + LU solve. Select an implementation based on how many
+        // environments we can pack on the same workgroup (depending on its dofs).
+        macro_rules! grav_lu {
+            ($kernel:ident) => {
+                self.$kernel.call(
+                    pass,
+                    mb.packed_wg_dispatch(),
+                    &mb.multibody_info,
+                    &mb.links_static,
+                    &mut mb.links_workspace,
+                    &mb.body_jacobians,
+                    &mut mb.gen_forces,
+                    &mut mb.mass_matrices,
+                    &mut mb.lu_pivots,
+                    &mb.dof_state,
+                    &mb.gravity,
+                    args.batch_indices,
+                    &mb.dt,
+                )?
+            };
+        }
+        match mb.pack_lanes() {
+            1 => grav_lu!(gravity_and_lu_t1),
+            8 => grav_lu!(gravity_and_lu_t8),
+            16 => grav_lu!(gravity_and_lu_t16),
+            32 => grav_lu!(gravity_and_lu_t32),
+            _ => {
+                let grav_lu_dispatch =
+                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+                self.gravity_and_lu.call(
+                    pass,
+                    grav_lu_dispatch,
+                    &mb.multibody_info,
+                    &mb.links_static,
+                    &mut mb.links_workspace,
+                    &mb.body_jacobians,
+                    &mut mb.gen_forces,
+                    &mut mb.mass_matrices,
+                    &mut mb.lu_pivots,
+                    &mb.dof_state,
+                    &mb.gravity,
+                    args.batch_indices,
+                    &mb.dt,
+                )?;
+            }
+        }
 
         Ok(())
     }

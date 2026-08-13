@@ -3,9 +3,9 @@
 
 use crate::math::Pose;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, LocalMassProperties, MbImpulseJointBuilder, MbImpulseJointConstraint,
-    MultibodyContactConstraint, MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic,
-    MultibodyLinkWorkspace, RbdSimParams,
+    ConstraintSoftness, LocalMassProperties, MbDofCoupling, MbImpulseJointBuilder,
+    MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::BatchIndices;
 use glamx::Vec4;
@@ -18,6 +18,12 @@ use vortx::tensor::Tensor;
 /// match the `threads(N, 1, 1)` attribute on `gpu_mb_lu_decompose` and
 /// `gpu_mb_lu_solve`.
 pub(super) const MB_LU_LANES: u32 = 64;
+
+/// Maximum total multibody count (capacity × batches) for which the
+/// constraint-space (Delassus) contact solve is enabled: each multibody's
+/// Delassus block costs `MAX_MB_CONTACT_CONSTRAINTS_PER_MB²` floats (~147 KB
+/// in 3D), so huge batched scenes would run out of memory.
+pub(super) const MAX_DELASSUS_MULTIBODIES: u32 = 128;
 
 use crate::shaders::dynamics::{GenericJoint, JointLimits, JointMotor};
 
@@ -39,9 +45,6 @@ pub struct GpuMultibodySet {
     pub(super) mass_matrix_entries_per_batch: u32,
     pub(super) coriolis_entries_per_batch: u32,
     pub(super) i_coriolis_dt_entries_per_batch: u32,
-    /// When `true`, the Coriolis / gyroscopic terms are folded into the mass
-    /// matrix (implicit integration). When `false`, they are applied explicitly
-    /// as part of the RHS.
     pub(super) implicit_coriolis: bool,
     /// When `false` (no joint limits / motors anywhere), the joint constraint
     /// kernel chain is skipped on the host side.
@@ -54,8 +57,8 @@ pub struct GpuMultibodySet {
     /// CPU-side mirror of [`Self::links_static`] used to support runtime
     /// mutations like motor changes without round-tripping through a GPU read.
     pub(super) links_static_mirror: Vec<MultibodyLinkStatic>,
-    /// Per-batch per-step link workspace.
-    pub(super) links_workspace: Tensor<MultibodyLinkWorkspace>,
+    /// Per-batch per-step link workspace, SoA quad layout.
+    pub(super) links_workspace: Tensor<glamx::Vec4>,
     /// Generalized coordinates (flat).
     pub(super) dof_values: Tensor<f32>,
     /// Packed buffer holding generalized velocities (offset 0) and per-DOF
@@ -78,6 +81,12 @@ pub struct GpuMultibodySet {
     pub(super) joint_constraints: Tensor<MultibodyJointConstraint>,
     /// Per-constraint columns of `M⁻¹` (length `ndofs` each, contiguous per multibody).
     pub(super) joint_constraint_columns: Tensor<f32>,
+    /// Per-batch slab of DoF couplings (rapier's `MultibodyDofCoupling`),
+    /// batch-major; each multibody's slice is
+    /// `[first_coupling, first_coupling + num_couplings)`.
+    pub(super) dof_couplings: Tensor<MbDofCoupling>,
+    /// Per-batch capacity (stride) of [`Self::dof_couplings`].
+    pub(super) couplings_per_batch: u32,
 
     /// Per-body lookup `[multibody_idx, link_idx]` (`u32::MAX` sentinel for
     /// free / non-multibody bodies). Indexed by the per-batch local body id.
@@ -91,6 +100,10 @@ pub struct GpuMultibodySet {
     pub(super) contact_constraint_jacs: Tensor<f32>,
     /// Per-constraint M⁻¹·Jᵀ column (length `ndofs`).
     pub(super) contact_constraint_columns: Tensor<f32>,
+    /// Per-multibody Delassus blocks (`MAX_MB_CONTACT_CONSTRAINTS_PER_MB²`
+    /// floats each) only allocated when the total multibody count is at most
+    /// [`MAX_DELASSUS_MULTIBODIES`].
+    pub(super) contact_delassus: Option<Tensor<f32>>,
 
     /// Per-batch number of multibody-touching impulse joints (body1 OR body2
     /// part of any multibody).
@@ -112,10 +125,15 @@ pub struct GpuMultibodySet {
     /// Per-batch prefix-sum over the color-sorted `mb_imp_joint_builders`.
     /// Built at init time by `set_impulse_joints` (greedy graph coloring).
     pub(super) mb_imp_joint_color_groups: Tensor<u32>,
-    /// Scalar color cursor incremented by the host color loop.
-    pub(super) mb_imp_joint_curr_color: Tensor<u32>,
-    /// Number of colors (host color-loop trip count). CPU mirror.
-    pub(super) mb_imp_joint_num_colors: u32,
+    /// Number of colors (per-batch stride of `mb_imp_joint_color_groups`,
+    /// and the host color-loop trip count). CPU mirror.
+    pub(crate) mb_imp_joint_num_colors: u32,
+    /// Max `ndofs` across every multibody in every batch (CPU mirror of
+    /// `BatchIndices::mb_max_ndofs`).
+    pub(super) max_ndofs: u32,
+    /// Max link count across every multibody in every batch (CPU mirror of
+    /// `BatchIndices::mb_max_links`).
+    pub(super) max_links: u32,
     /// Largest color group across batches — the per-color dispatch width.
     pub(super) mb_imp_joint_max_color_group_len: u32,
     /// Per-batch capacities of the joint / contact constraint slabs (CPU-side
@@ -148,15 +166,48 @@ impl GpuMultibodySet {
         self.multibodies_per_batch
     }
 
-    /// True if the set contains no multibodies in any batch.
-    pub fn is_empty(&self) -> bool {
-        self.multibodies_per_batch == 0 || self.links_per_batch == 0
+    /// Thread-count grid for the per-multibody kernels, with `(multibody,
+    /// batch)` flattened into X. The kernels decode
+    /// `batch_id = x / multibodies_len`, `mb_idx = x % multibodies_len`.
+    pub(crate) fn flat_mb_dispatch(&self) -> [u32; 3] {
+        [self.num_active_multibodies * self.num_batches, 1, 1]
     }
 
-    /// GPU buffer holding generalized velocities followed by per-DOF damping.
-    /// The velocity section is `[0, dof_batch_capacity * num_batches)`; the
-    /// damping section follows. Callers reading velocities should use only the
-    /// first half.
+    /// Lanes per multibody for the packed per-multibody dynamics kernels
+    /// (`compute_dynamics_pre`, `gravity_and_lu`).
+    pub(crate) fn pack_lanes(&self) -> u32 {
+        let total_mb = self.num_active_multibodies * self.num_batches;
+        if self.max_ndofs <= 8 && total_mb >= 1024 {
+            1
+        } else {
+            self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)
+        }
+    }
+
+    /// Thread-count grid for the packed per-multibody workgroup kernels
+    /// (`compute_dynamics_pre`, `gravity_and_lu`): `64 / pack_lanes`
+    /// multibodies per 64-lane workgroup, flattened `(multibody, batch)`.
+    pub(crate) fn packed_wg_dispatch(&self) -> [u32; 3] {
+        let slots = MB_LU_LANES / self.pack_lanes();
+        let total = self.num_active_multibodies * self.num_batches;
+        [total.div_ceil(slots) * MB_LU_LANES, 1, 1]
+    }
+
+    /// True if the set contains no active multibodies in any batch.
+    pub fn is_empty(&self) -> bool {
+        self.num_active_multibodies == 0 || self.links_per_batch == 0
+    }
+
+    /// Number of colors used by the colored multibody impulse-joint sweeps.
+    pub fn mb_imp_joint_num_colors(&self) -> u32 {
+        self.mb_imp_joint_num_colors
+    }
+
+    /// GPU buffer holding six back-to-back per-DOF sections of
+    /// `dof_batch_capacity * num_batches` floats each: generalized
+    /// velocities, damping, armature, spring stiffness, spring rest position,
+    /// and the kinematic-DOF mask. Callers reading velocities should use only
+    /// the first section.
     pub fn dof_state(&self) -> &Tensor<f32> {
         &self.dof_state
     }
@@ -172,9 +223,7 @@ impl GpuMultibodySet {
         &self.gen_forces
     }
 
-    /// Enable implicit integration of the Coriolis / gyroscopic terms. Implicit
-    /// treatment stabilizes the integrator at large time-steps; the explicit
-    /// form is slightly cheaper but can become unstable for fast rotations.
+    /// Indicates if the implicit treatment of coriolis forces is enabled.
     pub fn set_implicit_coriolis(&mut self, enabled: bool) {
         self.implicit_coriolis = enabled;
     }
@@ -238,8 +287,9 @@ impl GpuMultibodySet {
         axis: JointAxis,
         target_vel: f32,
     ) -> Result<(), GpuBackendError> {
-        let stride = self.links_per_batch;
-        let global_idx = (batch * stride + link_id) as usize;
+        // Batch-interleaved links layout: element `link_id` of batch `batch`
+        // lives at `link_id · num_batches + batch` (mirror included).
+        let global_idx = (link_id * self.num_batches + batch) as usize;
         let axis_id = axis as usize;
         let entry = match self.links_static_mirror.get_mut(global_idx) {
             Some(e) => e,
@@ -292,9 +342,18 @@ impl GpuMultibodySet {
         dst.mb_imp_joint_constraints_batch_capacity = self.mb_imp_joint_constraints_per_batch;
         dst.mb_imp_joint_jacobians_batch_capacity = self.mb_imp_joint_jacobians_per_batch;
         dst.mb_imp_joint_color_groups_batch_capacity = self.mb_imp_joint_num_colors.max(1);
+        dst.mb_max_ndofs = self.max_ndofs;
+        dst.mb_max_links = self.max_links;
+        dst.mb_pack_lanes = self.pack_lanes();
         dst.coriolis_w_section_offset = self.coriolis_entries_per_batch * self.num_batches;
         dst.i_coriolis_dt_section_offset = 2 * self.coriolis_entries_per_batch * self.num_batches;
         dst.dof_damping_section_offset = self.dofs_per_batch * self.num_batches;
+        dst.mass_matrix_acc_section_offset = if self.implicit_coriolis {
+            0
+        } else {
+            self.mass_matrix_entries_per_batch
+        };
+        dst.mb_dof_couplings_batch_capacity = self.couplings_per_batch;
     }
 
     /// Upload a new integration timestep.
@@ -350,10 +409,6 @@ pub(super) fn convert_generic_joint(j: crate::rapier::dynamics::GenericJoint) ->
     }
 }
 
-//
-// Zero-initialised workspaces would leave `joint_rot` as the all-zero quaternion, which
-// is not a valid rotation — seed it with the identity instead.
-//
 pub(super) fn make_workspace_init() -> MultibodyLinkWorkspace {
     let mut w: MultibodyLinkWorkspace = bytemuck::Zeroable::zeroed();
     w.joint_rot = glamx::Quat::IDENTITY;

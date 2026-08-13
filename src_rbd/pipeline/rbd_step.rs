@@ -1,6 +1,6 @@
 //! The [`RbdPipeline`] running one full simulation step on the GPU.
 
-use crate::broad_phase::{GpuNarrowPhase, Lbvh};
+use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, GpuNarrowPhase, Lbvh};
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySolver;
 use crate::dynamics::{
@@ -68,13 +68,24 @@ impl RbdPipeline {
     ) -> Result<RunStats, GpuBackendError> {
         let mut stats = RunStats::default();
 
+        // Make sure the color index uniforms are up-to-date.
+        // This is the maximum over the colors needed for contacts, joints, and multibodies.
+        {
+            let mut needed = state.max_colors + 2;
+            needed = needed.max(state.joints.num_colors() + 1);
+            #[cfg(feature = "dim3")]
+            {
+                needed = needed.max(state.multibodies.mb_imp_joint_num_colors() + 1);
+            }
+            state.ensure_color_uniforms(backend, needed);
+        }
+
+        let mut encoder = backend.begin_encoding();
+
         // Phase 0: Multibody once-per-visible-step setup (3D only for now).
         #[cfg(feature = "dim3")]
         {
             if !state.multibodies.is_empty() {
-                let mut encoder = backend.begin_encoding();
-                let mut pass =
-                    encoder.begin_pass("[RBD] multibody-init-step", timestamps.as_deref_mut());
                 let mut args = crate::dynamics::MultibodySolverArgs {
                     poses: &mut state.body_poses,
                     collider_world_poses: &state.collider_world_poses,
@@ -83,17 +94,20 @@ impl RbdPipeline {
                     contacts_len: &state.contacts_len,
                     solver_vels: &mut state.solver_vels,
                     batch_indices: &state.batch_indices,
+                    color_uniforms: &state.color_uniforms,
+                    mb_sweep_indirect: &state.mb_sweep_indirect,
                 };
-                self.multibody_solver
-                    .init_step(&mut pass, &mut state.multibodies, &mut args)?;
-                drop(pass);
-                backend.submit(encoder)?;
+                self.multibody_solver.init_step(
+                    &mut encoder,
+                    timestamps.as_deref_mut(),
+                    &mut state.multibodies,
+                    &mut args,
+                )?;
             }
         }
 
         // Phase 1: Update mass properties, build LBVH, and find collision pairs.
         {
-            let mut encoder = backend.begin_encoding();
             let mut pass = encoder.begin_pass("[RBD] update-mprops", timestamps.as_deref_mut());
 
             // Update mass properties — uses body world poses to compute the
@@ -122,60 +136,106 @@ impl RbdPipeline {
 
             drop(pass);
 
-            // Build LBVH and find collision pairs.
-            self.lbvh.update_tree(
-                backend,
-                &mut encoder,
-                &mut state.lbvh,
-                state.collider_local_poses.len() as u32,
-                state.num_active_colliders,
-                state.num_batches,
-                &state.collider_world_poses,
-                &state.vertex_buffers,
-                &state.shapes,
-                &state.batch_indices,
-                timestamps.as_deref_mut(),
-            )?;
-
-            // Debug: validate LBVH topology after tree construction
-            if crate::VALIDATE_LBVH_TOPOLOGY {
-                backend.submit(encoder)?;
-
-                let num_colliders = state.collider_world_poses.len() as u32;
-                let tree: Vec<LbvhNode> =
-                    futures::executor::block_on(backend.slow_read_vec(state.lbvh.tree().buffer()))?;
-                let sorted_colliders: Vec<u32> = futures::executor::block_on(
-                    backend.slow_read_vec(state.lbvh.sorted_colliders().buffer()),
+            let use_bf = state.num_active_colliders <= BRUTE_FORCE_MAX_COLLIDERS
+                && std::env::var("NEXUS_DISABLE_BF").is_err();
+            if use_bf {
+                let mut pass =
+                    encoder.begin_pass("[RBD] bf-find-pairs", timestamps.as_deref_mut());
+                self.lbvh.brute_force_pairs(
+                    backend,
+                    &mut pass,
+                    &mut state.lbvh,
+                    state.collider_local_poses.len() as u32,
+                    state.num_active_colliders,
+                    state.num_batches,
+                    &state.collider_world_poses,
+                    &state.vertex_buffers,
+                    &state.shapes,
+                    &state.batch_indices,
+                    &mut state.collision_pairs,
+                    &mut state.collision_pairs_len,
+                    &mut state.collision_pairs_indirect,
+                    &state.collision_groups,
+                    &state.pair_filter,
                 )?;
-                validate_lbvh_topology(&tree, &sorted_colliders, num_colliders);
+                drop(pass);
+                backend.submit(encoder)?;
+            } else {
+                // Build LBVH and find collision pairs.
+                self.lbvh.update_tree(
+                    backend,
+                    &mut encoder,
+                    &mut state.lbvh,
+                    state.collider_local_poses.len() as u32,
+                    state.num_active_colliders,
+                    state.num_batches,
+                    &state.collider_world_poses,
+                    &state.vertex_buffers,
+                    &state.shapes,
+                    &state.batch_indices,
+                    timestamps.as_deref_mut(),
+                )?;
 
-                encoder = backend.begin_encoding();
-                let _pass =
-                    encoder.begin_pass("[RBD] broad-phase-find-pairs", timestamps.as_deref_mut());
+                // Debug: validate LBVH topology after tree construction
+                if crate::VALIDATE_LBVH_TOPOLOGY {
+                    backend.submit(encoder)?;
+
+                    let num_colliders = state.collider_world_poses.len() as u32;
+                    let tree: Vec<LbvhNode> = futures::executor::block_on(
+                        backend.slow_read_vec(state.lbvh.tree().buffer()),
+                    )?;
+                    let sorted_colliders: Vec<u32> = futures::executor::block_on(
+                        backend.slow_read_vec(state.lbvh.sorted_colliders().buffer()),
+                    )?;
+                    validate_lbvh_topology(&tree, &sorted_colliders, num_colliders);
+
+                    encoder = backend.begin_encoding();
+                    let _pass = encoder
+                        .begin_pass("[RBD] broad-phase-find-pairs", timestamps.as_deref_mut());
+                }
+
+                let mut pass =
+                    encoder.begin_pass("[RBD] lbvh-find-pairs", timestamps.as_deref_mut());
+                self.lbvh.find_pairs(
+                    &mut pass,
+                    &mut state.lbvh,
+                    state.num_active_colliders,
+                    state.num_batches,
+                    &state.batch_indices,
+                    &mut state.collision_pairs,
+                    &mut state.collision_pairs_len,
+                    &mut state.collision_pairs_indirect,
+                    &state.collision_groups,
+                    &state.pair_filter,
+                )?;
+
+                drop(pass);
+                backend.submit(encoder)?;
             }
-
-            let mut pass = encoder.begin_pass("[RBD] lbvh-find-pairs", timestamps.as_deref_mut());
-            self.lbvh.find_pairs(
-                &mut pass,
-                &mut state.lbvh,
-                state.num_active_colliders,
-                state.num_batches,
-                &state.batch_indices,
-                &mut state.collision_pairs,
-                &mut state.collision_pairs_len,
-                &mut state.collision_pairs_indirect,
-                &state.collision_groups,
-            )?;
-
-            drop(pass);
-            backend.submit(encoder)?;
         }
+
+        let readback_enabled = state.capacities.solver_colors_resize_policy
+            != RbdResizePolicy::Fixed
+            || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
+        let est_pairs = if readback_enabled {
+            state.collision_pairs_len_cpu
+        } else {
+            state.collision_pairs_per_batch_cpu
+        };
+
+        // Choose the kernel depending on the expected pairs count.
+        // Small pairs with many environment benefit from the fused kernels.
+        let fused_color_sweeps = est_pairs <= 128;
+
+        // In small scenes, submit less frequently. In big scenes submit more
+        // to overlap compute and encoding.
+        let merge_submits = fused_color_sweeps && state.num_batches <= 64;
 
         // Phase 2a: Narrow phase. Split out from solver-prep + coloring
         // so its CPU encoding overlaps with Phase 1's GPU work and its
         // own GPU work overlaps with Phase 2b's CPU encoding.
+        let mut encoder = backend.begin_encoding();
         {
-            let mut encoder = backend.begin_encoding();
             let mut pass = encoder.begin_pass("[RBD] narrow-phase", timestamps.as_deref_mut());
 
             self.narrow_phase.dispatch(
@@ -191,6 +251,7 @@ impl RbdPipeline {
                 &mut state.contacts,
                 &mut state.contacts_len,
                 &mut state.contacts_indirect,
+                &mut state.mb_sweep_indirect,
                 &mut state.pfm_pairs,
                 &mut state.pfm_pairs_len,
                 &mut state.pfm_pairs_indirect,
@@ -200,14 +261,16 @@ impl RbdPipeline {
             )?;
 
             drop(pass);
-            backend.submit(encoder)?;
+            if !merge_submits {
+                backend.submit(encoder)?;
+                encoder = backend.begin_encoding();
+            }
         }
 
         // Phase 2b: solver-prep + warmstart + bounded coloring. Separate
         // submit from narrow-phase to enable CPU/GPU overlap with the
         // upcoming Phase 3 solver substep loop.
         {
-            let mut encoder = backend.begin_encoding();
             let mut pass = encoder.begin_pass("[RBD] solver-prep", timestamps.as_deref_mut());
 
             // Solver preparation - create args here to avoid borrow conflicts
@@ -224,14 +287,14 @@ impl RbdPipeline {
                 collider_world_poses: &state.collider_world_poses,
                 vels: &mut state.vels,
                 solver_vels: &mut state.solver_vels,
-                solver_vels_out: &state.solver_vels_out,
                 solver_vels_inc: &mut state.solver_vels_inc,
                 mprops: &state.mprops,
                 local_mprops: &state.local_mprops,
                 body_constraint_counts: &mut state.new_constraints_counts,
                 body_constraint_ids: &mut state.new_body_constraint_ids,
-                constraints_colors: &state.constraints_colors,
-                curr_color: &mut state.curr_color,
+                color_bucket_starts: &state.color_bucket_starts,
+                color_sorted_ids: &state.color_sorted_ids,
+                color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
                 num_colors: 0,
                 num_batches: state.num_batches,
@@ -239,6 +302,10 @@ impl RbdPipeline {
                 num_solver_iterations: state.num_solver_iterations,
                 body_group: &state.body_group,
                 batch_indices: &state.batch_indices,
+                mb_sweep_indirect: &state.mb_sweep_indirect,
+                colorless_warmstart: false,
+                fused_color_sweeps,
+                rb_contacts_inert: state.rb_contacts_inert,
             };
             self.solver.prepare(
                 backend,
@@ -246,6 +313,11 @@ impl RbdPipeline {
                 prepare_args,
                 &mut state.prefix_sum_workspace,
             )?;
+
+            if state.rb_contacts_inert {
+                stats.num_colors = state.max_colors + 1;
+                drop(pass);
+            } else {
 
             // Warmstart
             let warmstart_args = WarmstartArgs {
@@ -278,15 +350,72 @@ impl RbdPipeline {
                 batch_indices: &state.batch_indices,
                 body_group: &state.body_group,
             };
+            self.coloring.dispatch_topo_gc_reset(&mut pass, coloring_args)?;
+
+            // Seed the coloring from the previous frame's colors (contacts
+            // persist, so most constraints can reuse their old color and the
+            // topo-gc iterations converge in 1-2 rounds instead of ~num_colors).
+            let seed_args = crate::dynamics::warmstart::SeedColorsArgs {
+                contacts_len: &state.contacts_len,
+                old_body_constraint_counts: &state.old_constraints_counts,
+                old_body_constraint_ids: &state.old_body_constraint_ids,
+                old_constraints: &state.old_constraints,
+                new_constraints: &state.new_constraints,
+                old_constraints_colors: &state.old_constraints_colors,
+                constraints_colors: &mut state.constraints_colors,
+                colored: &mut state.colored,
+                contacts_len_indirect: &state.contacts_indirect,
+                batch_indices: &state.batch_indices,
+            };
+            self.warmstart.seed_colors_from_warmstart(&mut pass, seed_args)?;
+
+            let coloring_args = ColoringArgs {
+                contacts_len_indirect: &state.contacts_indirect,
+                body_constraint_counts: &state.new_constraints_counts,
+                body_constraint_ids: &state.new_body_constraint_ids,
+                constraints: &state.new_constraints,
+                constraints_colors: &mut state.constraints_colors,
+                constraints_rands: &mut state.constraints_rands,
+                curr_color: &mut state.curr_color,
+                uncolored: &mut state.uncolored,
+                uncolored_staging: &state.uncolored_staging,
+                contacts_len: &state.contacts_len,
+                colored: &mut state.colored,
+                batch_indices: &state.batch_indices,
+                body_group: &state.body_group,
+            };
             self.coloring
-                .dispatch_topo_gc_bounded(&mut pass, coloring_args, state.max_colors)?;
+                .dispatch_topo_gc_iterations(&mut pass, coloring_args, state.max_colors)?;
+
+            // Bucket-sort the constraint ids by color so each colored solver
+            // sweep only touches its own constraints.
+            let bucket_args = crate::dynamics::ColorBucketsArgs {
+                contacts_len_indirect: &state.contacts_indirect,
+                constraints_colors: &state.constraints_colors,
+                contacts_len: &state.contacts_len,
+                color_bucket_counts: &mut state.color_bucket_counts,
+                color_bucket_starts: &mut state.color_bucket_starts,
+                color_bucket_cursors: &mut state.color_bucket_cursors,
+                color_sorted_ids: &mut state.color_sorted_ids,
+                batch_indices: &state.batch_indices,
+            };
+            self.coloring.dispatch_build_color_buckets(
+                &mut pass,
+                bucket_args,
+                state.max_colors + 3,
+                state.num_batches,
+            )?;
 
             // `+1` because solver iterates 1..=max_colors (color 0 is unassigned).
             let num_colors = state.max_colors + 1;
             stats.num_colors = num_colors;
 
             drop(pass);
-            backend.submit(encoder)?;
+            }
+            if !merge_submits {
+                backend.submit(encoder)?;
+                encoder = backend.begin_encoding();
+            }
         }
 
         let num_colors = stats.num_colors;
@@ -305,14 +434,14 @@ impl RbdPipeline {
             collider_world_poses: &state.collider_world_poses,
             vels: &mut state.vels,
             solver_vels: &mut state.solver_vels,
-            solver_vels_out: &state.solver_vels_out,
             solver_vels_inc: &mut state.solver_vels_inc,
             mprops: &state.mprops,
             local_mprops: &state.local_mprops,
             body_constraint_counts: &mut state.new_constraints_counts,
             body_constraint_ids: &mut state.new_body_constraint_ids,
-            constraints_colors: &state.constraints_colors,
-            curr_color: &mut state.curr_color,
+            color_bucket_starts: &state.color_bucket_starts,
+            color_sorted_ids: &state.color_sorted_ids,
+            color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
             num_colors,
             num_batches: state.num_batches,
@@ -320,6 +449,15 @@ impl RbdPipeline {
             num_solver_iterations: state.num_solver_iterations,
             body_group: &state.body_group,
             batch_indices: &state.batch_indices,
+            mb_sweep_indirect: &state.mb_sweep_indirect,
+            // The gather warmstart is only valid without multibody grouping;
+            // see `SolverArgs::colorless_warmstart`.
+            #[cfg(feature = "dim3")]
+            colorless_warmstart: state.multibodies.is_empty(),
+            #[cfg(not(feature = "dim3"))]
+            colorless_warmstart: true,
+            fused_color_sweeps,
+            rb_contacts_inert: state.rb_contacts_inert,
         };
 
         // Phase 3: Solve constraints
@@ -330,11 +468,10 @@ impl RbdPipeline {
             local_mprops: &state.local_mprops,
             joints: &mut state.joints,
             batch_indices: &state.batch_indices,
+            color_uniforms: &state.color_uniforms,
         };
 
         {
-            let mut encoder = backend.begin_encoding();
-            let mut pass = encoder.begin_pass("[RBD] solver", timestamps.as_deref_mut());
             #[cfg(feature = "dim3")]
             let mb = if state.multibodies.is_empty() {
                 None
@@ -342,14 +479,14 @@ impl RbdPipeline {
                 Some((&self.multibody_solver, &mut state.multibodies))
             };
             self.solver.solve_tgs(
-                &mut pass,
+                &mut encoder,
+                timestamps.as_deref_mut(),
                 &self.joint_solver,
                 solver_args,
                 joint_solver_args,
                 #[cfg(feature = "dim3")]
                 mb,
             )?;
-            drop(pass);
 
             // Resolve all accumulated timestamps before the final submit.
             if let Some(ts) = &timestamps {
@@ -371,6 +508,10 @@ impl RbdPipeline {
         std::mem::swap(
             &mut state.old_constraints_counts,
             &mut state.new_constraints_counts,
+        );
+        std::mem::swap(
+            &mut state.old_constraints_colors,
+            &mut state.constraints_colors,
         );
 
         Ok(stats)
@@ -405,8 +546,22 @@ impl RbdPipeline {
             //       count earlier, before it gets a chance to fail.
             if state.capacities.solver_colors_resize_policy != RbdResizePolicy::Fixed
                 && coloring_converged == 0
+                && !state.rb_contacts_inert
             {
                 state.max_colors += 5;
+
+                // The color-bucket buffers are strided by `max_colors + 3`:
+                // regrow them and update the stride in `BatchIndices`.
+                let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
+                let stride = state.max_colors + 3;
+                let nb = state.num_batches;
+                state.color_bucket_counts =
+                    Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_bucket_starts =
+                    Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_bucket_cursors =
+                    Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.rebuild_batch_indices(backend);
             }
 
             // Lazy resize based on the *previous* frame's max pair count.
@@ -449,8 +604,14 @@ impl RbdPipeline {
                     Tensor::vector_uninit(backend, new_capacity * 2 * nb, storage)?;
                 state.constraints_colors =
                     Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                // Zeroed (not uninit): 0 = "uncolored" disables color seeding
+                // for the frame right after the resize.
+                state.old_constraints_colors =
+                    Tensor::vector(backend, &vec![0u32; (new_capacity * nb) as usize], storage)?;
                 state.colored = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
                 state.constraints_rands =
+                    Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                state.color_sorted_ids =
                     Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
 
                 state.collision_pairs_per_batch_cpu = new_capacity;

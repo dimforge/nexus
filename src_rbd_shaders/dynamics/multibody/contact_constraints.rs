@@ -15,6 +15,7 @@
 
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
+use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use crate::dynamics::ConstraintSoftness;
@@ -22,7 +23,7 @@ use crate::dynamics::body::{Velocity, WorldMassProperties};
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::queries::IndexedManifold;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MatSlice, lu_solve_in_place};
+use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 
 use super::types::{
@@ -59,10 +60,15 @@ fn orthonormal_vector(v: Vec2) -> Vec2 {
 /// **adding** the resulting `Jᵀ` row to `out_jacs[col_offset ..]` (so two
 /// calls accumulate — used by self-collisions, which combine the two
 /// touched links into a single net `Jᵀ` row).
+///
+/// One DOF per lane.
 #[inline]
 fn fill_contact_jac_row(
     body_jacobians: &[f32],
     mb_jac_base: usize,
+    // Interleave parameters of `body_jacobians` (`num_batches`, `batch_id`).
+    jac_stride: u32,
+    jac_shift: u32,
     ndofs: u32,
     link_id: u32,
     unit_force: Vector,
@@ -70,13 +76,16 @@ fn fill_contact_jac_row(
     out_jacs: &mut [f32],
     col_offset: usize,
     accumulate: bool,
+    lane: u32,
 ) {
     // Per-link SPATIAL_DIM × ndofs jacobian (rows 0..DIM = J_v, rows
     // DIM..SPATIAL_DIM = J_w).
     let link_jac_base = mb_jac_base + (link_id as usize) * SPATIAL_DIM * (ndofs as usize);
-    let link_j = MatSlice::dense(link_jac_base, SPATIAL_DIM as u32, ndofs);
+    let link_j =
+        MatSlice::interleaved(link_jac_base, SPATIAL_DIM as u32, ndofs, jac_stride, jac_shift);
     let (link_j_v, link_j_w) = link_j.rows_range_pair(0, DIM, DIM, ANG_DIM);
-    for j in 0..ndofs {
+    let j = lane;
+    if j < ndofs {
         // Linear contribution: `unit_force · J_v[:, j]`.
         let dot;
         #[cfg(feature = "dim3")]
@@ -117,10 +126,12 @@ fn fill_contact_jac_row(
 /// `MultibodyContactConstraint` and writes the multibody-side `Jᵀ` row into
 /// `contact_constraint_jacs`. Multibody-multibody contacts (each side a
 /// different multibody) are not handled — such contacts are skipped.
+/// One 64-lane workgroup per (multibody, batch).
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_contact_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     multibody_info: &mut [MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_jacobians: &[f32],
@@ -134,18 +145,20 @@ pub fn gpu_mb_init_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] contacts: &[IndexedManifold],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
-    // Soft-constraint coefficients (rapier TGS-soft), precomputed on the host.
-    // The old path used a rigid `erp = 1/dt` with zero CFM, which overshoots
-    // penetration recovery (~14× too stiff for the defaults) and jitters.
-    let inv_dt = softness.inv_dt;
-    let erp_inv_dt = softness.erp_inv_dt;
-    let allowed_lin_err = softness.allowed_lin_err;
-    let max_corr_velocity = softness.max_corr_velocity;
-    let cfm_factor = softness.cfm_factor;
+    // Only active multibody slots are visited now; the `ndofs == 0` sentinel
+    // below is kept for all-locked (zero-dof) multibodies. Padding slots past
+    // `multibodies_len` are never read (every consumer guards on it).
+    let num_mb = batch_ids.multibodies_len;
+    let batch_id = workgroup_id.y;
+    let mb_idx = workgroup_id.x;
+    let lane = local_id.x;
+    if mb_idx >= num_mb {
+        return;
+    }
 
-    let mb_start = batch_ids.mb_start(batch_id);
+    let inv_dt = softness.inv_dt;
+    let max_corr_velocity = softness.max_corr_velocity;
+
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
     let colliders_start = batch_ids.coll_start(batch_id);
@@ -155,14 +168,17 @@ pub fn gpu_mb_init_contact_constraints(
     // Per-multibody early-out: padding multibody slots have `ndofs == 0`,
     // which we use here as the sentinel (replaces the `num_multibodies`
     // storage binding the kernel used to read).
-    let mut mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mut mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     if ndofs == 0 {
-        mb.contact_constraint_count = 0;
-        multibody_info.write(mb_start + mb_idx as usize, mb);
+        // Uniform per workgroup: every lane returns together.
+        if lane == 0 {
+            mb.contact_constraint_count = 0;
+            multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
+        }
         return;
     }
-    let mb_jac_base = batch_ids.jac_start(batch_id) + mb.jacobian_offset as usize;
+    let mb_jac_base = mb.jacobian_offset as usize;
     let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
     // Each constraint slot reserves `dof_batch_capacity` floats in the
     // column buffer (matches the allocation in `from_rapier` and avoids any
@@ -172,10 +188,7 @@ pub fn gpu_mb_init_contact_constraints(
         col_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
 
     let contacts_slice = batch_ids.contact_batch(batch_id, contacts);
-    // Iterate to capacity (instead of reading a `contacts_len` storage buffer):
-    // empty slots have `contact.len == 0` and are skipped. Drops one binding to
-    // fit the 8-storage-buffer WebGPU limit; matches `gpu_solver_init_constraints`.
-    let n_contacts = batch_ids.contacts_batch_capacity;
+    let n_contacts = mb.batch_contacts_len.min(batch_ids.contacts_batch_capacity);
     let mut count = 0u32;
 
     for ci in 0..n_contacts {
@@ -243,18 +256,20 @@ pub fn gpu_mb_init_contact_constraints(
         };
         let free_im = if is_self { 0.0 } else { free_mp.inv_mass.x };
 
+        let contact_is_static = !is_self && free_mp.inv_mass == Vector::ZERO;
+        let erp_inv_dt = if contact_is_static {
+            softness.static_erp_inv_dt
+        } else {
+            softness.erp_inv_dt
+        };
+        let cfm_factor = if contact_is_static {
+            softness.static_cfm_factor
+        } else {
+            softness.cfm_factor
+        };
+
         // Multibody-link origins come from the collider poses buffer instead
-        // of `links_workspace` (which we no longer bind in this kernel — see
-        // binding-count cap discussion). This uses the contacting collider's
-        // world translation as a proxy for its link's world origin. It is exact
-        // when the collider sits at the link origin (the historical one-collider
-        // case); for a link carrying a collider offset from its origin the
-        // angular lever arm `pt_world - link_origin_a` is off by that offset.
-        // Binding `body_poses` here to use the true link origin would exceed the
-        // 10-storage-buffer cap — left as a follow-up. `mb_link_id_a` always
-        // corresponds to side `id1`/`b1` when `mb_on_1 || is_self`, and to
-        // `id2`/`b2` otherwise. `mb_link_id_b` is only used in the self-contact
-        // case where it corresponds to `id2`.
+        // of `links_workspace`.
         let link_origin_a = if is_self || mb_on_1 {
             pose1.translation
         } else {
@@ -288,22 +303,24 @@ pub fn gpu_mb_init_contact_constraints(
             #[cfg(feature = "dim3")]
             let torque_a_t1 = gcross(shift_a, mb_tangent1);
 
-            let rhs_bias = (erp_inv_dt * (dist + allowed_lin_err)).clamp(-max_corr_velocity, 0.0);
+            let rhs_bias = (erp_inv_dt * dist).clamp(-max_corr_velocity, 0.0);
             let rhs_wo_bias = if dist > 0.0 { dist * inv_dt } else { 0.0 };
 
             let normal_slot = count;
             let normal_col_offset = col_base + (normal_slot as usize) * dofs_stride;
-            // Warmstart: preserve the accumulated impulse from the previous
-            // substep (same contact slot — within a frame the manifolds are
-            // fixed). `gpu_mb_reset_contact_warmstart` zeroes these once per
-            // frame so the first substep starts cold.
-            let warmstart_normal_impulse = contact_constraints
-                .read(cons_base + normal_slot as usize)
-                .impulse;
+            let warmstart_normal_impulse = if lane == 0 {
+                contact_constraints
+                    .read(cons_base + normal_slot as usize)
+                    .impulse
+            } else {
+                0.0
+            };
 
             fill_contact_jac_row(
                 body_jacobians,
                 mb_jac_base,
+                batch_ids.num_batches,
+                batch_id,
                 ndofs,
                 mb_link_id_a,
                 mb_normal,
@@ -311,6 +328,7 @@ pub fn gpu_mb_init_contact_constraints(
                 contact_constraint_jacs,
                 normal_col_offset,
                 false,
+                lane,
             );
 
             // B-side fold-in for self-contacts, free body for the rest. The
@@ -328,6 +346,8 @@ pub fn gpu_mb_init_contact_constraints(
                 fill_contact_jac_row(
                     body_jacobians,
                     mb_jac_base,
+                    batch_ids.num_batches,
+                    batch_id,
                     ndofs,
                     mb_link_id_b,
                     lin_jac,
@@ -335,6 +355,7 @@ pub fn gpu_mb_init_contact_constraints(
                     contact_constraint_jacs,
                     normal_col_offset,
                     true,
+                    lane,
                 );
                 #[cfg(feature = "dim3")]
                 {
@@ -397,7 +418,9 @@ pub fn gpu_mb_init_contact_constraints(
                 cfm_factor,
                 _unused_cfm: 0.0,
             };
-            contact_constraints.write(cons_base + normal_slot as usize, normal_cons);
+            if lane == 0 {
+                contact_constraints.write(cons_base + normal_slot as usize, normal_cons);
+            }
             count += 1;
 
             // Friction tangent constraints — same contact point, tangent
@@ -435,14 +458,20 @@ pub fn gpu_mb_init_contact_constraints(
                 let tang_slot = count;
                 let tang_col_offset = col_base + (tang_slot as usize) * dofs_stride;
                 // Warmstart: preserve the accumulated tangent impulse (see the
-                // normal slot above).
-                let warmstart_tang_impulse = contact_constraints
-                    .read(cons_base + tang_slot as usize)
-                    .impulse;
+                // normal slot above; lane 0 only).
+                let warmstart_tang_impulse = if lane == 0 {
+                    contact_constraints
+                        .read(cons_base + tang_slot as usize)
+                        .impulse
+                } else {
+                    0.0
+                };
 
                 fill_contact_jac_row(
                     body_jacobians,
                     mb_jac_base,
+                    batch_ids.num_batches,
+                    batch_id,
                     ndofs,
                     mb_link_id_a,
                     mb_tangent,
@@ -450,6 +479,7 @@ pub fn gpu_mb_init_contact_constraints(
                     contact_constraint_jacs,
                     tang_col_offset,
                     false,
+                    lane,
                 );
 
                 let (ang_jac_tang, ii_ang_jac_tang) = if is_self {
@@ -459,6 +489,8 @@ pub fn gpu_mb_init_contact_constraints(
                     fill_contact_jac_row(
                         body_jacobians,
                         mb_jac_base,
+                        batch_ids.num_batches,
+                        batch_id,
                         ndofs,
                         mb_link_id_b,
                         free_tangent,
@@ -466,6 +498,7 @@ pub fn gpu_mb_init_contact_constraints(
                         contact_constraint_jacs,
                         tang_col_offset,
                         true,
+                        lane,
                     );
                     #[cfg(feature = "dim3")]
                     {
@@ -527,7 +560,9 @@ pub fn gpu_mb_init_contact_constraints(
                     cfm_factor,
                     _unused_cfm: 0.0,
                 };
-                contact_constraints.write(cons_base + tang_slot as usize, tang_cons);
+                if lane == 0 {
+                    contact_constraints.write(cons_base + tang_slot as usize, tang_cons);
+                }
                 count += 1;
             }
         }
@@ -535,8 +570,34 @@ pub fn gpu_mb_init_contact_constraints(
 
     // The solve / finalize / remove-bias kernels iterate `0..count` so we
     // don't need to mark surplus slots inactive — they're never read.
-    mb.contact_constraint_count = count;
-    multibody_info.write(mb_start + mb_idx as usize, mb);
+    if lane == 0 {
+        mb.contact_constraint_count = count;
+        multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
+    }
+}
+
+/// HACK: stash `contacts_len[batch]` into each multibody's `batch_contacts_len`.
+///
+/// This exists only to work around the web 8-storage-bindings limit for kernels
+/// that bind multibodies but don’t have any room left to bind `contacts_len`.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_stash_contacts_len(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    multibody_info: &mut [MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+) {
+    let num_mb = batch_ids.multibodies_len;
+    if invocation_id.x >= num_mb * batch_ids.num_batches {
+        return;
+    }
+    let batch_id = invocation_id.x / num_mb;
+    let mb_idx = invocation_id.x % num_mb;
+    let mut mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
+    mb.batch_contacts_len = contacts_len.read(batch_id as usize);
+    multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
 }
 
 /// Zero the accumulated impulse of every contact-constraint slot for each
@@ -544,45 +605,43 @@ pub fn gpu_mb_init_contact_constraints(
 /// substep loop) so the first substep's warmstart starts cold; within a frame
 /// `gpu_mb_init_contact_constraints` preserves the impulse across substeps and
 /// `gpu_mb_warmstart_contact_constraints` re-applies it each substep.
+/// One 64-lane workgroup per (multibody, batch).
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_reset_contact_warmstart(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     contact_constraints: &mut [MultibodyContactConstraint],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    // One thread per (slot, multibody, batch), flattened.
+    const MAXC: u32 = MAX_MB_CONTACT_CONSTRAINTS_PER_MB;
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    let per_batch = num_mb * MAXC;
+    if invocation_id.x >= per_batch * batch_ids.num_batches {
         return;
     }
-    let mb_start = batch_ids.mb_start(batch_id);
+    let batch_id = invocation_id.x / per_batch;
+    let r = invocation_id.x % per_batch;
+    let mb_idx = r / MAXC;
+    let s = r % MAXC;
+
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
-    if mb.ndofs == 0 {
-        return;
-    }
-    let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
-    // Zero to capacity (the per-frame contact count isn't known here, and last
-    // frame's count may be smaller than this frame's).
-    for s in 0..MAX_MB_CONTACT_CONSTRAINTS_PER_MB {
-        let mut cons = contact_constraints.read(cons_base + s as usize);
-        cons.impulse = 0.0;
-        contact_constraints.write(cons_base + s as usize, cons);
-    }
+    let idx = cons_start + (mb_idx * MAXC + s) as usize;
+    contact_constraints.at_mut(idx).impulse = 0.0;
 }
 
 /// Warmstart: re-apply each active contact constraint's accumulated `impulse`
 /// to the multibody generalized velocities (`dof_state`) and the free-body
 /// solver velocities. Applies the FULL accumulated impulse (no `rhs` term, no
 /// clamping).
+///
+/// One 64-lane workgroup per (multibody, batch).
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_warmstart_contact_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     contact_constraints: &[MultibodyContactConstraint],
@@ -591,45 +650,55 @@ pub fn gpu_mb_warmstart_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    let batch_id = workgroup_id.y;
+    let mb_idx = workgroup_id.x;
+    let lane = local_id.x;
     let num_mb = batch_ids.multibodies_len;
     if mb_idx >= num_mb {
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
     let colliders_start = batch_ids.coll_start(batch_id);
 
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     if ndofs == 0 {
         return;
     }
-    let v_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let v_base = mb.first_dof as usize;
     let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base =
         col_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
 
     let count = mb.contact_constraint_count;
+    // No accumulated impulses to re-apply: skip the dof round-trip.
+    if count == 0 {
+        return;
+    }
+
+    // This lane's DOF velocity, accumulated in a register across every
+    // constraint.
+    let mut v_lane = if lane < ndofs {
+        dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize))
+    } else {
+        0.0
+    };
     for s in 0..count {
         let cons = contact_constraints.read(cons_base + s as usize);
         let imp = cons.impulse;
         if imp != 0.0 {
             let col_offset = col_base + (s as usize) * dofs_stride;
             // Multibody side: v += impulse · column (column = M⁻¹ Jᵀ).
-            for i in 0..ndofs {
-                let v_idx = v_base + i as usize;
-                let cur = dof_state.read(v_idx);
-                let col = contact_constraint_columns.read(col_offset + i as usize);
-                dof_state.write(v_idx, cur + imp * col);
+            if lane < ndofs {
+                let col = contact_constraint_columns.read(col_offset + lane as usize);
+                v_lane += imp * col;
             }
             // Free body side (skipped for self-contacts).
             let is_self = cons.free_body_id == u32::MAX;
-            if !is_self {
+            if lane == 0 && !is_self {
                 let free = solver_vels.read(colliders_start + cons.free_body_id as usize);
                 let mut new_free = free;
                 new_free.linear += cons.lin_jac * (cons.free_body_im * imp);
@@ -638,15 +707,20 @@ pub fn gpu_mb_warmstart_contact_constraints(
             }
         }
     }
+
+    if lane < ndofs {
+        dof_state.write(batch_ids.mbi(batch_id, v_base + lane as usize), v_lane);
+    }
 }
 
 /// Pass 2: for each emitted constraint, LU back-solve `M · column = Jᵀ`
 /// (the row produced by the init kernel) and set `inv_lhs = 1 / (Jᵀ ·
 /// column + free_body_inv_r)`.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_contact_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mass_matrices: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] lu_pivots: &[u32],
@@ -657,33 +731,34 @@ pub fn gpu_mb_finalize_contact_constraints(
     contact_constraint_columns: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
+    const LANES: u32 = 64;
+    let batch_id = workgroup_id.y;
+    let mb_idx = workgroup_id.x;
+    let lane = local_id.x;
     let num_mb = batch_ids.multibodies_len;
     if mb_idx >= num_mb {
         return;
     }
 
-    let mb_start = batch_ids.mb_start(batch_id);
     let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
     let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
 
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
     if ndofs == 0 {
         return;
     }
-    let mb_mm_base = batch_ids.mm_start(batch_id) + mb.mass_matrix_offset as usize;
-    let piv_offset = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
+    let mb_mm_base = mb.mass_matrix_offset as usize;
+    let piv = batch_ids.ivec(batch_id, mb.first_dof as usize);
     let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base =
         col_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
 
-    let m = MatSlice::dense(mb_mm_base, ndofs, ndofs);
+    let m = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
     let count = mb.contact_constraint_count;
 
-    for s in 0..count {
+    for s in StepRng::new(lane..count, LANES) {
         let col_offset = col_base + (s as usize) * dofs_stride;
         // 1) Copy J^T row into the column buffer (it'll be overwritten by the
         //    LU solve with the M⁻¹·Jᵀ result).
@@ -696,9 +771,9 @@ pub fn gpu_mb_finalize_contact_constraints(
             mass_matrices,
             m,
             lu_pivots,
-            piv_offset,
+            piv,
             contact_constraint_columns,
-            col_offset,
+            VSlice::dense(col_offset),
         );
         // 3) inv_r_mb = J · column.
         let mut inv_r_mb = 0.0f32;
@@ -719,149 +794,6 @@ pub fn gpu_mb_finalize_contact_constraints(
         };
         let total = inv_r_mb + inv_r_free;
         cons.inv_lhs = if total > 0.0 { 1.0 / total } else { 0.0 };
-        contact_constraints.write(cons_base + s as usize, cons);
-    }
-}
-
-/// One PGS sweep over the multibody's active contact constraints. Updates
-/// the multibody's `dof_velocities` and the free body's `solver_vels`.
-#[spirv_bindgen]
-#[spirv(compute(threads(1)))]
-pub fn gpu_mb_solve_contact_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    contact_constraints: &mut [MultibodyContactConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_constraint_jacs: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_constraint_columns: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dof_state: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] solver_vels: &mut [Velocity],
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
-) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
-    let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
-        return;
-    }
-
-    let mb_start = batch_ids.mb_start(batch_id);
-    let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
-    let col_start = batch_ids.mb_contact_constraint_columns_start(batch_id);
-    let colliders_start = batch_ids.coll_start(batch_id);
-
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
-    let ndofs = mb.ndofs;
-    if ndofs == 0 {
-        return;
-    }
-    let v_base = batch_ids.dof_start(batch_id) + mb.first_dof as usize;
-    let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
-    let dofs_stride = batch_ids.dof_batch_capacity as usize;
-    let col_base =
-        col_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
-
-    let count = mb.contact_constraint_count;
-    for s in 0..count {
-        let mut cons = contact_constraints.read(cons_base + s as usize);
-        let col_offset = col_base + (s as usize) * dofs_stride;
-
-        // J · u = J_mb · v_mb_dofs + J_free · v_free.
-        let is_self = cons.free_body_id == u32::MAX;
-        let mut j_dot_v = 0.0f32;
-        for i in 0..ndofs {
-            let j = contact_constraint_jacs.read(col_offset + i as usize);
-            let v = dof_state.read(v_base + i as usize);
-            j_dot_v += j * v;
-        }
-        let free = if is_self {
-            Velocity::default()
-        } else {
-            solver_vels.read(colliders_start + cons.free_body_id as usize)
-        };
-        if !is_self {
-            j_dot_v += cons.lin_jac.dot(free.linear) + gdot(cons.ang_jac, free.angular);
-        }
-
-        let rhs_total = j_dot_v + cons.rhs;
-        // CFM-factor form (rapier's `*ContactConstraintNormalPart::generic_solve`):
-        // `new = cfm_factor · (impulse − r · Δvel)`. `cfm_factor < 1` provides the
-        // soft-constraint compliance that keeps resting contacts from jittering.
-        let raw_imp = cons.cfm_factor * (cons.impulse - cons.inv_lhs * rhs_total);
-
-        // Normal: clamp to ≥ 0 (no separation impulse). Friction tangent:
-        // clamp to `±μ · normal_impulse` — looks up the paired normal slot
-        // for the current accumulated impulse. Mirrors rapier's
-        // `ContactConstraintNormalPart::generic_solve` /
-        // `ContactConstraintTangentPart::generic_solve` (independent
-        // per-tangent clamp, i.e. box friction; rapier's circular-cone
-        // joint clamp is a future refinement).
-        let new_imp = if cons.kind == MB_CONTACT_KIND_TANGENT {
-            let normal = contact_constraints.read(cons_base + cons.normal_constraint_slot as usize);
-            let limit = cons.friction_coeff * normal.impulse;
-            if raw_imp > limit {
-                limit
-            } else if raw_imp < -limit {
-                -limit
-            } else {
-                raw_imp
-            }
-        } else if raw_imp < 0.0 {
-            0.0
-        } else {
-            raw_imp
-        };
-        let delta = new_imp - cons.impulse;
-        cons.impulse = new_imp;
-        contact_constraints.write(cons_base + s as usize, cons);
-
-        if delta != 0.0 {
-            for i in 0..ndofs {
-                let v_idx = v_base + i as usize;
-                let cur = dof_state.read(v_idx);
-                let col = contact_constraint_columns.read(col_offset + i as usize);
-                dof_state.write(v_idx, cur + delta * col);
-            }
-            if !is_self {
-                let mut new_free = free;
-                new_free.linear += cons.lin_jac * (cons.free_body_im * delta);
-                new_free.angular += cons.ii_ang_jac * delta;
-                solver_vels.write(colliders_start + cons.free_body_id as usize, new_free);
-            }
-        }
-    }
-}
-
-/// Strip the positional bias from each active contact constraint's `rhs`,
-/// matching `gpu_mb_remove_joint_constraint_bias`.
-#[spirv_bindgen]
-#[spirv(compute(threads(1)))]
-pub fn gpu_mb_remove_contact_constraint_bias(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    contact_constraints: &mut [MultibodyContactConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] multibody_info: &[MultibodyInfo],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
-) {
-    let batch_id = invocation_id.y;
-    let mb_idx = invocation_id.x;
-    let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
-        return;
-    }
-
-    let mb_start = batch_ids.mb_start(batch_id);
-    let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
-    let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
-    let mb = multibody_info.read(mb_start + mb_idx as usize);
-    let count = mb.contact_constraint_count;
-
-    for s in 0..count {
-        let mut cons = contact_constraints.read(cons_base + s as usize);
-        if cons.kind == 0 {
-            continue;
-        }
-        cons.rhs = cons.rhs_wo_bias;
         contact_constraints.write(cons_base + s as usize, cons);
     }
 }

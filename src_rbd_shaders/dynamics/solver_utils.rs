@@ -66,42 +66,17 @@ fn orthonormal_vector(vec: Vector) -> Vector {
 
 #[cfg(feature = "dim2")]
 /// Computes the tangent contact directions for friction (2D version).
-fn compute_tangent_contact_directions(
-    force_dir1: Vector,
-    _linvel1: Vector,
-    _linvel2: Vector,
-) -> [Vector; SUB_LEN] {
+fn compute_tangent_contact_directions(force_dir1: Vector) -> [Vector; SUB_LEN] {
     [orthonormal_vector(force_dir1)]
 }
 
 #[cfg(feature = "dim3")]
 /// Computes the tangent contact directions for friction (3D version).
-fn compute_tangent_contact_directions(
-    force_dir1: Vector,
-    linvel1: Vector,
-    linvel2: Vector,
-) -> [Vector; SUB_LEN] {
-    // Compute the tangent direction. Pick the direction of
-    // the linear relative velocity, if it is not too small.
-    // Otherwise use a fallback direction.
-    let relative_linvel = linvel1 - linvel2;
-    let mut tangent_relative_linvel =
-        relative_linvel - force_dir1 * force_dir1.dot(relative_linvel);
-
-    let tangent_linvel_norm = tangent_relative_linvel.length();
-    tangent_relative_linvel /= tangent_linvel_norm;
-
-    const THRESHOLD: f32 = 1.0e-4;
-    let use_fallback = tangent_linvel_norm < THRESHOLD;
-    let tangent_fallback = orthonormal_vector(force_dir1);
-
-    let tangent1 = if use_fallback {
-        tangent_fallback
-    } else {
-        tangent_relative_linvel
-    };
+///
+/// A deterministic basis derived from the contact normal.
+fn compute_tangent_contact_directions(force_dir1: Vector) -> [Vector; SUB_LEN] {
+    let tangent1 = orthonormal_vector(force_dir1);
     let bitangent1 = force_dir1.cross(tangent1);
-
     [tangent1, bitangent1]
 }
 
@@ -153,23 +128,19 @@ impl IndexedManifold {
 
         let force_dir1 = -(cpose1.rotation * contact.normal_a);
 
-        let cfm_factor = params.contact_cfm_factor();
-        let inv_dt_val = params.inv_dt();
-        let erp_inv_dt = params.contact_erp_inv_dt();
-        let allowed_lin_err = params.allowed_linear_error();
-        let max_corr_velocity = params.max_corrective_velocity();
-
         // Combined friction / restitution of the two colliders, resolved at
         // narrow-phase time (rapier's `CoefficientCombineRule`) and stored in the
         // manifold.
         let friction = self.friction;
         let restitution = self.restitution;
 
-        let tangents1 = compute_tangent_contact_directions(force_dir1, vel1.linear, vel2.linear);
+        let tangents1 = compute_tangent_contact_directions(force_dir1);
         constraint.dir_a = force_dir1;
         constraint.im_a = mprops1.inv_mass;
         constraint.im_b = mprops2.inv_mass;
-        constraint.cfm_factor = cfm_factor;
+        // Softness (cfm, erp) and the rhs are (re)computed by
+        // `update_constraint` before the first solve of every substep.
+        constraint.cfm_factor = params.contact_cfm_factor();
         constraint.limit = friction;
         constraint.solver_body_a = bid1;
         constraint.solver_body_b = bid2;
@@ -206,28 +177,24 @@ impl IndexedManifold {
 
             // TODO: handle is_bouncy?
             let dist = contact.points_a.at(k).dist;
-            let normal_rhs_wo_bias = restitution * (contact_vel1 - contact_vel2).dot(force_dir1)
-                + dist.max(0.0) * inv_dt_val;
-
-            let rhs_bias = (erp_inv_dt * (dist + allowed_lin_err)).clamp(-max_corr_velocity, 0.0);
+            let normal_rhs_wo_bias = restitution * (contact_vel1 - contact_vel2).dot(force_dir1);
 
             constraint.elements.at_mut(k).normal_part = TwoBodyConstraintNormalPart {
                 torque_dir_a: torque_dir1,
                 ii_torque_dir_a: ii_torque_dir1,
                 torque_dir_b: torque_dir2,
                 ii_torque_dir_b: ii_torque_dir2,
-                rhs: normal_rhs_wo_bias + rhs_bias,
+                rhs: normal_rhs_wo_bias,
                 rhs_wo_bias: normal_rhs_wo_bias,
                 impulse: 0.0,
                 r: projected_mass,
+                cfm_factor: 1.0,
                 #[cfg(feature = "dim3")]
                 _padding0: 0.0,
                 #[cfg(feature = "dim3")]
                 _padding1: 0.0,
                 #[cfg(feature = "dim3")]
                 _padding2: 0.0,
-                #[cfg(feature = "dim3")]
-                _padding3: 0.0,
             };
 
             //
@@ -322,10 +289,18 @@ impl TwoBodyConstraint {
         let body1 = self.solver_body_a as usize;
         let body2 = self.solver_body_b as usize;
 
-        let cfm_factor = params.contact_cfm_factor();
+        let is_static = self.im_a == Vector::ZERO || self.im_b == Vector::ZERO;
+        let cfm_factor = if is_static {
+            params.static_contact_cfm_factor()
+        } else {
+            params.contact_cfm_factor()
+        };
+        let erp_inv_dt = if is_static {
+            params.static_contact_erp_inv_dt()
+        } else {
+            params.contact_erp_inv_dt()
+        };
         let inv_dt_val = params.inv_dt();
-        let allowed_lin_err = params.allowed_linear_error();
-        let erp_inv_dt = params.contact_erp_inv_dt();
         let max_corr_velocity = params.max_corrective_velocity();
         let warmstart_coeff = params.warmstart_coefficient;
 
@@ -349,12 +324,14 @@ impl TwoBodyConstraint {
             // Normal part.
             {
                 let rhs_wo_bias = info.normal_vel + dist.max(0.0) * inv_dt_val;
-                let rhs_bias =
-                    ((dist + allowed_lin_err) * erp_inv_dt).clamp(-max_corr_velocity, 0.0);
+                let rhs_bias = (dist * erp_inv_dt).clamp(-max_corr_velocity, 0.0);
                 let new_rhs = rhs_wo_bias + rhs_bias;
 
                 self.elements.at_mut(j).normal_part.rhs_wo_bias = rhs_wo_bias;
                 self.elements.at_mut(j).normal_part.rhs = new_rhs;
+                // Separated (speculative) points are solved rigidly.
+                self.elements.at_mut(j).normal_part.cfm_factor =
+                    if dist <= 0.0 { cfm_factor } else { 1.0 };
                 self.elements.at_mut(j).normal_part.impulse *= warmstart_coeff;
             }
 
@@ -399,6 +376,33 @@ impl TwoBodyConstraint {
         }
 
         self.cfm_factor = cfm_factor;
+    }
+
+    /// Relax-pass refresh: recompute the unbiased normal rhs (speculative term
+    /// included) from the current solver poses.
+    #[inline(always)]
+    pub fn refresh_rhs_wo_bias(
+        &mut self,
+        builder: &TwoBodyConstraintBuilder,
+        poses: &Slice<Pose>,
+        params: &RbdSimParams,
+    ) {
+        let body1 = self.solver_body_a as usize;
+        let body2 = self.solver_body_b as usize;
+        let inv_dt_val = params.inv_dt();
+
+        let pose1 = poses[body1];
+        let pose2 = poses[body2];
+        let num_contacts = self.len as usize;
+
+        for j in 0..num_contacts {
+            let info = builder.infos.at(j);
+            let p1 = pose1 * info.local_pt_a;
+            let p2 = pose2 * info.local_pt_b;
+            let dist = info.dist + (p1 - p2).dot(self.dir_a);
+            self.elements.at_mut(j).normal_part.rhs_wo_bias =
+                info.normal_vel + dist.max(0.0) * inv_dt_val;
+        }
     }
 }
 
@@ -538,137 +542,122 @@ impl TwoBodyConstraint {
         &mut self,
         solver_vel1: &mut Velocity,
         solver_vel2: &mut Velocity,
+        use_bias: bool,
     ) {
         let dir_a = self.dir_a;
         let friction_coeff = self.limit;
         let im_a = self.im_a;
         let im_b = self.im_b;
-        let cfm_factor = self.cfm_factor;
+
+        // Solve the normal parts of the constraint.
+        for k in 0..(self.len as usize) {
+            let c = &self.elements.at(k).normal_part;
+            // Copy values we need after the assignment
+            let ii_torque_dir_a = c.ii_torque_dir_a;
+            let ii_torque_dir_b = c.ii_torque_dir_b;
+            let (rhs, cfm_factor) = if use_bias {
+                (c.rhs, c.cfm_factor)
+            } else {
+                (c.rhs_wo_bias, 1.0)
+            };
+            let dvel = dir_a.dot(solver_vel1.linear)
+                + gdot(c.torque_dir_a, solver_vel1.angular)
+                - dir_a.dot(solver_vel2.linear)
+                + gdot(c.torque_dir_b, solver_vel2.angular)
+                + rhs;
+            let new_impulse = cfm_factor * (c.impulse - c.r * dvel).max(0.0);
+            let delta_impulse = new_impulse - c.impulse;
+
+            self.elements.at_mut(k).normal_part.impulse = new_impulse;
+
+            solver_vel1.linear += dir_a * im_a * delta_impulse;
+            solver_vel1.angular += ii_torque_dir_a * delta_impulse;
+
+            solver_vel2.linear += dir_a * im_b * -delta_impulse;
+            solver_vel2.angular += ii_torque_dir_b * delta_impulse;
+        }
+
+        // Friction is only solved during the stabilization sweep.
+        if use_bias {
+            return;
+        }
 
         #[cfg(feature = "dim2")]
         let tangent_a = Vec2::new(-dir_a.y, dir_a.x);
         #[cfg(feature = "dim3")]
         let tangent_a = self.tangent_a;
 
+        // Solve the tangent parts of the constraint.
         for k in 0..(self.len as usize) {
-            // Solve the normal part of the constraint.
-            let limit = {
-                let c = &self.elements.at(k).normal_part;
-                // Copy values we need after the assignment
-                let ii_torque_dir_a = c.ii_torque_dir_a;
-                let ii_torque_dir_b = c.ii_torque_dir_b;
+            let limit = friction_coeff * self.elements.at(k).normal_part.impulse;
+            let c = &self.elements.at(k).tangent_part;
+            // Copy values we need after the assignment
+            let ii_torque_dir_a = c.ii_torque_dir_a;
+            let ii_torque_dir_b = c.ii_torque_dir_b;
 
-                let dvel = dir_a.dot(solver_vel1.linear)
-                    + gdot(c.torque_dir_a, solver_vel1.angular)
-                    - dir_a.dot(solver_vel2.linear)
-                    + gdot(c.torque_dir_b, solver_vel2.angular)
-                    + c.rhs;
-                let new_impulse = cfm_factor * (c.impulse - c.r * dvel).max(0.0);
-                let delta_impulse = new_impulse - c.impulse;
-
-                self.elements.at_mut(k).normal_part.impulse = new_impulse;
-
-                solver_vel1.linear += dir_a * im_a * delta_impulse;
-                solver_vel1.angular += ii_torque_dir_a * delta_impulse;
-
-                solver_vel2.linear += dir_a * im_b * -delta_impulse;
-                solver_vel2.angular += ii_torque_dir_b * delta_impulse;
-                new_impulse * friction_coeff // Friction impulse limit.
-            };
-
-            // Solve the tangent parts of the constraint.
+            #[cfg(feature = "dim2")]
             {
-                let c = &self.elements.at(k).tangent_part;
-                // Copy values we need after the assignment
-                let ii_torque_dir_a = c.ii_torque_dir_a;
-                let ii_torque_dir_b = c.ii_torque_dir_b;
+                let dvel = tangent_a.dot(solver_vel1.linear)
+                    + gdot(**c.torque_dir_a.at(0), solver_vel1.angular)
+                    - tangent_a.dot(solver_vel2.linear)
+                    + gdot(**c.torque_dir_b.at(0), solver_vel2.angular)
+                    + c.rhs_wo_bias.read(0);
+                let new_impulse = (c.impulse.read(0) - c.r.read(0) * dvel).clamp(-limit, limit);
+                let delta_impulse = new_impulse - c.impulse.read(0);
 
-                #[cfg(feature = "dim2")]
-                {
-                    let dvel = tangent_a.dot(solver_vel1.linear)
-                        + gdot(**c.torque_dir_a.at(0), solver_vel1.angular)
-                        - tangent_a.dot(solver_vel2.linear)
-                        + gdot(**c.torque_dir_b.at(0), solver_vel2.angular)
-                        + c.rhs.read(0);
-                    let new_impulse =
-                        cfm_factor * (c.impulse.read(0) - c.r.read(0) * dvel).clamp(-limit, limit);
-                    let delta_impulse = new_impulse - c.impulse.read(0);
+                self.elements
+                    .at_mut(k)
+                    .tangent_part
+                    .impulse
+                    .write(0, new_impulse);
 
-                    self.elements
-                        .at_mut(k)
-                        .tangent_part
-                        .impulse
-                        .write(0, new_impulse);
+                solver_vel1.linear += tangent_a * im_a * delta_impulse;
+                solver_vel1.angular += **ii_torque_dir_a.at(0) * delta_impulse;
 
-                    solver_vel1.linear += tangent_a * im_a * delta_impulse;
-                    solver_vel1.angular += **ii_torque_dir_a.at(0) * delta_impulse;
+                solver_vel2.linear += tangent_a * im_b * -delta_impulse;
+                solver_vel2.angular += **ii_torque_dir_b.at(0) * delta_impulse;
+            }
+            #[cfg(feature = "dim3")]
+            {
+                let tangents_a = [tangent_a, dir_a.cross(tangent_a)];
+                let dvel_0 = tangents_a.read(0).dot(solver_vel1.linear)
+                    + gdot(**c.torque_dir_a.at(0), solver_vel1.angular)
+                    - tangents_a.read(0).dot(solver_vel2.linear)
+                    + gdot(**c.torque_dir_b.at(0), solver_vel2.angular)
+                    + c.rhs_wo_bias.read(0);
+                let dvel_1 = tangents_a.read(1).dot(solver_vel1.linear)
+                    + gdot(**c.torque_dir_a.at(1), solver_vel1.angular)
+                    - tangents_a.read(1).dot(solver_vel2.linear)
+                    + gdot(**c.torque_dir_b.at(1), solver_vel2.angular)
+                    + c.rhs_wo_bias.read(1);
 
-                    solver_vel2.linear += tangent_a * im_b * -delta_impulse;
-                    solver_vel2.angular += **ii_torque_dir_b.at(0) * delta_impulse;
-                }
-                #[cfg(feature = "dim3")]
-                {
-                    let tangents_a = [tangent_a, dir_a.cross(tangent_a)];
-                    let dvel_0 = tangents_a.read(0).dot(solver_vel1.linear)
-                        + gdot(**c.torque_dir_a.at(0), solver_vel1.angular)
-                        - tangents_a.read(0).dot(solver_vel2.linear)
-                        + gdot(**c.torque_dir_b.at(0), solver_vel2.angular)
-                        + c.rhs.read(0);
-                    let dvel_1 = tangents_a.read(1).dot(solver_vel1.linear)
-                        + gdot(**c.torque_dir_a.at(1), solver_vel1.angular)
-                        - tangents_a.read(1).dot(solver_vel2.linear)
-                        + gdot(**c.torque_dir_b.at(1), solver_vel2.angular)
-                        + c.rhs.read(1);
+                let k11 = c.r.read(0);
+                let k22 = c.r.read(1);
+                let k12 = c.r.read(2) * 0.5;
+                let inv_det = maybe_inv(k11 * k22 - k12 * k12);
+                let delta_impulse = Vec2::new(
+                    (k22 * dvel_0 - k12 * dvel_1) * inv_det,
+                    (k11 * dvel_1 - k12 * dvel_0) * inv_det,
+                );
+                let mut new_impulse = c.impulse - delta_impulse;
+                new_impulse = cap_magnitude(new_impulse, limit);
 
-                    let dvel_00 = dvel_0 * dvel_0;
-                    let dvel_11 = dvel_1 * dvel_1;
-                    let dvel_01 = dvel_0 * dvel_1;
-                    let inv_lhs = (dvel_00 + dvel_11)
-                        * maybe_inv(
-                            dvel_00 * c.r.read(0) + dvel_11 * c.r.read(1) + dvel_01 * c.r.read(2),
-                        );
-                    let delta_impulse = Vec2::new(inv_lhs * dvel_0, inv_lhs * dvel_1);
-                    let mut new_impulse = c.impulse - delta_impulse;
-                    new_impulse = cap_magnitude(new_impulse, limit);
+                let delta_impulse = new_impulse - c.impulse;
+                self.elements.at_mut(k).tangent_part.impulse = new_impulse;
 
-                    let delta_impulse = new_impulse - c.impulse;
-                    self.elements.at_mut(k).tangent_part.impulse = new_impulse;
+                solver_vel1.linear += (tangents_a.read(0) * delta_impulse.x
+                    + tangents_a.read(1) * delta_impulse.y)
+                    * im_a;
+                solver_vel1.angular += **ii_torque_dir_a.at(0) * delta_impulse.x
+                    + **ii_torque_dir_a.at(1) * delta_impulse.y;
 
-                    solver_vel1.linear += (tangents_a.read(0) * delta_impulse.x
-                        + tangents_a.read(1) * delta_impulse.y)
-                        * im_a;
-                    solver_vel1.angular += **ii_torque_dir_a.at(0) * delta_impulse.x
-                        + **ii_torque_dir_a.at(1) * delta_impulse.y;
-
-                    solver_vel2.linear += (tangents_a.read(0) * -delta_impulse.x
-                        + tangents_a.read(1) * -delta_impulse.y)
-                        * im_b;
-                    solver_vel2.angular += **ii_torque_dir_b.at(0) * delta_impulse.x
-                        + **ii_torque_dir_b.at(1) * delta_impulse.y;
-                }
+                solver_vel2.linear += (tangents_a.read(0) * -delta_impulse.x
+                    + tangents_a.read(1) * -delta_impulse.y)
+                    * im_b;
+                solver_vel2.angular += **ii_torque_dir_b.at(0) * delta_impulse.x
+                    + **ii_torque_dir_b.at(1) * delta_impulse.y;
             }
         }
     }
 }
 
-impl TwoBodyConstraint {
-    /// Removes CFM and bias from constraints for the final substep iteration.
-    #[cfg(feature = "dim2")]
-    #[inline(always)]
-    pub fn remove_cfm_and_bias(&mut self) {
-        self.elements.at_mut(0).normal_part.rhs = self.elements.at(0).normal_part.rhs_wo_bias;
-        self.elements.at_mut(1).normal_part.rhs = self.elements.at(1).normal_part.rhs_wo_bias;
-        self.cfm_factor = 1.0;
-    }
-
-    /// Removes CFM and bias from constraints for the final substep iteration.
-    #[cfg(feature = "dim3")]
-    #[inline(always)]
-    pub fn remove_cfm_and_bias(&mut self) {
-        self.elements.at_mut(0).normal_part.rhs = self.elements.at(0).normal_part.rhs_wo_bias;
-        self.elements.at_mut(1).normal_part.rhs = self.elements.at(1).normal_part.rhs_wo_bias;
-        self.elements.at_mut(2).normal_part.rhs = self.elements.at(2).normal_part.rhs_wo_bias;
-        self.elements.at_mut(3).normal_part.rhs = self.elements.at(3).normal_part.rhs_wo_bias;
-        self.cfm_factor = 1.0;
-    }
-}

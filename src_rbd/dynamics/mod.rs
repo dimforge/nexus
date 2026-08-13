@@ -1,7 +1,7 @@
 //! Rigid-body dynamics: forces, velocities, constraints, and solvers.
 
 pub use crate::shaders::dynamics::RbdSimParams;
-pub use coloring::{ColoringArgs, GpuColoring};
+pub use coloring::{ColorBucketsArgs, ColoringArgs, GpuColoring};
 pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs};
 pub use mprops_update::{GpuMpropsUpdate, GpuSyncColliderPosesShader};
 #[cfg(feature = "dim3")]

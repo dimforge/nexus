@@ -16,61 +16,61 @@ use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::{
     iter::StepRng,
-    sync::{atomic_add_u32, atomic_load_u32},
+    sync::atomic_add_u32,
 };
 
+use super::lbvh::{MAX_REDUCE_LANES, max_len_indirect_args};
 use crate::broad_phase::CollisionPair;
 use crate::utils::{BatchIndices, SliceMut};
 use glamx::UVec2;
 
 const WORKGROUP_SIZE: u32 = 64;
 
-/// Resets the contacts counter.
+/// Resets the contacts counter. One thread per batch.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(64)))]
 pub fn gpu_reset_narrow_phase(
-    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] pfm_pairs_len: &mut [u32],
 ) {
-    let batch_id = workgroup_id.y as usize;
-
-    // NOTE: this `for` loop is silly. It doesn’t do anything
-    //       more than a `*contacts_len = 0` in a convoluted
-    //       way because otherwise rustgpu apparently does not generate
-    //       the spirv for this kernel (seems to happen if the kernel is
-    //       too trivial.
-    for k in 0..1 {
-        contacts_len.write(batch_id, k);
-        pfm_pairs_len.write(batch_id, k);
+    let batch_id = invocation_id.x as usize;
+    if batch_id < contacts_len.len() {
+        contacts_len.write(batch_id, 0);
+        pfm_pairs_len.write(batch_id, 0);
     }
 }
 
 /// Initializes indirect dispatch arguments for constraint solver.
+///
+/// Also inits `mb_sweep_indirect`, the workgroup grid for the per-multibody
+/// contact-constraint dispatches (`[multibodies_batch_capacity, num_batches,
+/// 1]`).
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(256)))]
 pub fn gpu_narrow_phase_init_contacts_dispatch(
-    // NOTE: the `contacts_len` is mutable here even though we don’t modify it. That’s
-    //       because we access it with an atomic load otherwise it would occasionally read
-    //       stale data (on Windows+Nvidia+wgpu backend). This might be caused by:
-    //       https://github.com/gfx-rs/wgpu/issues/9221
+    #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] mb_sweep_indirect: &mut [u32; 3],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
 ) {
-    // For indirect dispatch, get the largest length along all batch dimensions.
-    let num_batches = contacts_len.len();
-    let mut highest_contacts_len = 0;
-    for i in 0..num_batches {
-        // NOTE: atomic_load is needed for correctness on some platforms (see comment above `contacts_len`).
-        highest_contacts_len = highest_contacts_len.max(atomic_load_u32(contacts_len.at_mut(i)));
+    max_len_indirect_args(lid.x, contacts_len, indirect_args, partial);
+    // `partial[0]` holds the max after the reduction (all lanes synced).
+    if lid.x == 0 {
+        let any_contacts = partial.read(0) > 0;
+        *mb_sweep_indirect.at_mut(0) = if any_contacts {
+            batch_ids.multibodies_batch_capacity
+        } else {
+            0
+        };
+        *mb_sweep_indirect.at_mut(1) = batch_ids.num_batches;
+        *mb_sweep_indirect.at_mut(2) = 1;
     }
-
-    *indirect_args.at_mut(0) = highest_contacts_len.div_ceil(WORKGROUP_SIZE);
-    *indirect_args.at_mut(1) = num_batches as u32;
-    *indirect_args.at_mut(2) = 1;
 }
 
-const PREDICTION: f32 = 2.0e-3; // TODO: make the prediction configurable.
+pub(crate) const PREDICTION: f32 = 2.0e-2; // TODO: make the prediction configurable.
 
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.
@@ -171,8 +171,7 @@ pub fn gpu_narrow_phase_shape_shape(
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed the contacts allocation size, just skip
-            //       the contact. It’s up to the caller to resize the buffer
-            //       and re-run the narrow-phase.
+            //       the contact.
             if target_contact_index < contacts_batch_capacity {
                 let mat1 = collider_materials[pair.colliders.x as usize];
                 let mat2 = collider_materials[pair.colliders.y as usize];
@@ -234,13 +233,10 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     //       contact is written.
     for i in StepRng::new(invocation_id.x..len, num_threads) {
         let pair = collision_pairs[i as usize];
-        let pose1 = poses[pair.colliders.x as usize];
-        let pose2 = poses[pair.colliders.y as usize];
         let shape1 = &shapes[pair.colliders.x as usize];
         let shape2 = &shapes[pair.colliders.y as usize];
         let shape_ty1 = shape1.shape_type();
         let shape_ty2 = shape2.shape_type();
-        let pose12 = pose1.inverse() * pose2;
 
         // Mirror pass 1's analytic-pair predicate (ball/cuboid) so those pairs
         // are skipped here — they were already turned into contacts. Only the
@@ -267,6 +263,13 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
         if !checked && shape_ty1 == SHAPE_TYPE_CUBOID && shape_ty2 == SHAPE_TYPE_CUBOID {
             checked = true;
         }
+        if checked {
+            continue;
+        }
+
+        let pose1 = poses[pair.colliders.x as usize];
+        let pose2 = poses[pair.colliders.y as usize];
+        let pose12 = pose1.inverse() * pose2;
 
         // PFM - PFM (generic convex shapes via GJK/EPA)
         if !checked {
@@ -283,7 +286,10 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                     colliders: pair.colliders,
                 };
                 let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
-                pfm_pairs.write(pfm_index as usize, pfm_pair);
+                // NOTE: if we exceed capacity, just skip the pair.
+                if (pfm_index as usize) < contacts_batch_capacity {
+                    pfm_pairs.write(pfm_index as usize, pfm_pair);
+                }
 
                 // The actual calculations are deferred to another kernel.
                 continue;
@@ -302,6 +308,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 pair.colliders,
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -319,6 +326,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 UVec2::new(pair.colliders.y, pair.colliders.x),
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -337,6 +345,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 pair.colliders,
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -354,6 +363,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 UVec2::new(pair.colliders.y, pair.colliders.x),
                 &mut pfm_pairs,
                 pfm_pairs_len,
+                contacts_batch_capacity,
                 vertices,
                 indices,
             );
@@ -370,6 +380,7 @@ fn trimesh_convex(
     colliders: UVec2,
     pfm_pairs: &mut SliceMut<NarrowPhasePfmPair>,
     pfm_pairs_len: &mut u32,
+    pfm_pairs_capacity: usize,
     vertices: &[PaddedVector],
     indices: &[u32],
 ) {
@@ -413,7 +424,10 @@ fn trimesh_convex(
                 colliders,
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
-            pfm_pairs.write(pfm_index as usize, pfm_pair);
+            // Skip (don’t write) on overflow; the caller resizes and re-runs.
+            if (pfm_index as usize) < pfm_pairs_capacity {
+                pfm_pairs.write(pfm_index as usize, pfm_pair);
+            }
 
             // Continue traversal.
             curr = idx.exit_index;
@@ -436,6 +450,7 @@ fn polyline_convex(
     colliders: UVec2,
     pfm_pairs: &mut SliceMut<NarrowPhasePfmPair>,
     pfm_pairs_len: &mut u32,
+    pfm_pairs_capacity: usize,
     vertices: &[PaddedVector],
     indices: &[u32],
 ) {
@@ -482,7 +497,10 @@ fn polyline_convex(
                 colliders,
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
-            pfm_pairs.write(pfm_index as usize, pfm_pair);
+            // Skip (don’t write) on overflow; the caller resizes and re-runs.
+            if (pfm_index as usize) < pfm_pairs_capacity {
+                pfm_pairs.write(pfm_index as usize, pfm_pair);
+            }
 
             // Continue traversal.
             curr = idx.exit_index;
@@ -509,28 +527,17 @@ pub struct NarrowPhasePfmPair {
     colliders: UVec2,
 }
 
-/// Initializes PFM-PFM dispatch arguments for constraint solver.
+/// Initializes PFM-PFM dispatch arguments for constraint solver. Dispatch one
+/// [`MAX_REDUCE_LANES`]-thread workgroup.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(256)))]
 pub fn gpu_init_pfm_pfm_dispatch(
-    // NOTE: the `pfm_pairs_len` is mutable here even though we don’t modify it. That’s
-    //       because we access it with an atomic load otherwise it would occasionally read
-    //       stale data (on Windows+Nvidia+wgpu backend). This might be caused by:
-    //       https://github.com/gfx-rs/wgpu/issues/9221
+    #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] pfm_pairs_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
+    #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
 ) {
-    let num_batches = pfm_pairs_len.len();
-    let mut highest_pfm_pairs_len = 0;
-    for batch_id in 0..num_batches {
-        // NOTE: atomic_load is needed for correctness on some platforms (see comment above `pfm_pairs_len`).
-        highest_pfm_pairs_len =
-            highest_pfm_pairs_len.max(atomic_load_u32(pfm_pairs_len.at_mut(batch_id)));
-    }
-    // TODO PERF: pfm_pfm is very divergent. Use a smaller workgroup size?
-    *indirect_args.at_mut(0) = highest_pfm_pairs_len.div_ceil(WORKGROUP_SIZE);
-    *indirect_args.at_mut(1) = num_batches as u32;
-    *indirect_args.at_mut(2) = 1;
+    max_len_indirect_args(lid.x, pfm_pairs_len, indirect_args, partial);
 }
 
 #[spirv_bindgen]
@@ -564,7 +571,11 @@ pub fn gpu_narrow_phase_pfm_pfm(
     let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
     let pfm_pairs = batch_ids.contact_batch(batch_id, pfm_pairs);
     let contacts_len = contacts_len.at_mut(batch_id as usize);
-    let pfm_pairs_len = pfm_pairs_len.read(batch_id as usize);
+    // The producer counter can exceed the allocation on overflow (writes are
+    // skipped past capacity); clamp so we never read uninitialized slots.
+    let pfm_pairs_len = pfm_pairs_len
+        .read(batch_id as usize)
+        .min(contacts_batch_capacity as u32);
 
     for i in StepRng::new(invocation_id.x..pfm_pairs_len, num_threads) {
         let pair = pfm_pairs[i as usize];
@@ -592,9 +603,7 @@ pub fn gpu_narrow_phase_pfm_pfm(
         if manifold.len > 0 && manifold.points_a.at(0).dist < PREDICTION {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
-            // NOTE: if we exceed the contacts allocation size, just skip
-            //       the contact. It’s up to the caller to resize the buffer
-            //       and re-run the narrow-phase.
+            // NOTE: if we exceed capacity, just skip the pair.
             if target_contact_index < contacts_batch_capacity {
                 let mat1 = collider_materials[pair.colliders.x as usize];
                 let mat2 = collider_materials[pair.colliders.y as usize];

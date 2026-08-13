@@ -8,7 +8,7 @@ pub const TWO_PI: f32 = core::f32::consts::TAU;
 /// Precomputed soft-constraint coefficients (contact + joint), matching rapier's
 /// TGS-soft `SpringCoefficients`. Computed once per step on the host from
 /// [`RbdSimParams`] and passed to the multibody contact/joint kernels as a small
-/// uniform. Exactly 32 bytes (8 scalars) for std140 uniform layout.
+/// uniform. Exactly 48 bytes (12 scalars) for std140 uniform layout.
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
@@ -20,7 +20,7 @@ pub struct ConstraintSoftness {
     /// Contact `1 / (1 + cfm_coeff)` — multiplies the contact impulse each PGS
     /// sweep for constraint-force-mixing compliance.
     pub cfm_factor: f32,
-    /// Penetration the solver won't try to correct.
+    /// Geometric slop distance.
     pub allowed_lin_err: f32,
     /// Max corrective velocity applied for penetration recovery.
     pub max_corr_velocity: f32,
@@ -36,6 +36,14 @@ pub struct ConstraintSoftness {
     pub joint_cfm_coeff: f32,
     /// Substep `dt`, needed by `motor_params` for joint motors.
     pub dt: f32,
+    /// [`Self::erp_inv_dt`] for contacts touching a fixed body.
+    pub static_erp_inv_dt: f32,
+    /// [`Self::cfm_factor`] for contacts touching a fixed body.
+    pub static_cfm_factor: f32,
+    /// Unused; keeps the uniform a 16-byte multiple.
+    pub _padding0: f32,
+    /// Unused; keeps the uniform a 16-byte multiple.
+    pub _padding1: f32,
 }
 
 #[cfg(not(target_arch_is_gpu))]
@@ -52,6 +60,10 @@ impl ConstraintSoftness {
             joint_erp_inv_dt: params.joint_erp_inv_dt(),
             joint_cfm_coeff: params.joint_cfm_coeff(),
             dt: params.dt,
+            static_erp_inv_dt: params.static_contact_erp_inv_dt(),
+            static_cfm_factor: params.static_contact_cfm_factor(),
+            _padding0: 0.0,
+            _padding1: 0.0,
         }
     }
 }
@@ -68,7 +80,7 @@ pub struct RbdSimParams {
     ///
     /// Larger values make the constraints more compliant (allowing more visible
     /// penetrations before stabilization).
-    /// (default `5.0`).
+    /// (default `10.0`).
     pub contact_damping_ratio: f32,
 
     /// > 0: the natural frequency used by the springs for contact constraint regularization.
@@ -79,6 +91,14 @@ pub struct RbdSimParams {
     /// value.
     /// (default: `30.0`).
     pub contact_natural_frequency: f32,
+
+    /// [`Self::contact_damping_ratio`] for contacts touching a fixed body.
+    /// (default `10.0`).
+    pub static_contact_damping_ratio: f32,
+
+    /// [`Self::contact_natural_frequency`] for contacts touching a fixed body.
+    /// (default: `60.0`).
+    pub static_contact_natural_frequency: f32,
 
     /// > 0: the natural frequency used by the springs for joint constraint regularization.
     ///
@@ -114,20 +134,28 @@ pub struct RbdSimParams {
     /// (default `1.0`).
     pub length_unit: f32,
 
-    /// Amount of penetration the engine won't attempt to correct (default: `0.001m`).
+    /// Geometric slop distance (default: `0.005m`).
     ///
     /// This value is implicitly scaled by `length_unit`.
     pub normalized_allowed_linear_error: f32,
 
-    /// Maximum amount of penetration the solver will attempt to resolve in one timestep (default: `10.0`).
+    /// Maximum speed at which contact penetration is pushed out by the biased solve (default: `3.0`).
     ///
+    /// Capping this recovery velocity keeps deep penetrations from being resolved explosively.
     /// This value is implicitly scaled by `length_unit`.
     pub normalized_max_corrective_velocity: f32,
 
-    /// The maximal distance separating two objects that will generate predictive contacts (default: `0.002m`).
+    /// The maximal distance separating two objects that will generate predictive contacts
+    /// (default: `0.02m`)
     ///
     /// This value is implicitly scaled by `length_unit`.
     pub normalized_prediction_distance: f32,
+
+    /// Maximum linear velocity a body may have after each solver substep (default: `400.0` m/s).
+    /// Bounding per-step travel keeps speculative contacts reliable; set to `f32::MAX` to disable.
+    ///
+    /// This value is implicitly scaled by `length_unit`.
+    pub normalized_max_linear_velocity: f32,
 
     /// The number of solver iterations run by the constraints solver for calculating forces (default: `4`).
     pub num_solver_iterations: u32,
@@ -142,14 +170,17 @@ impl RbdSimParams {
         Self {
             dt: 1.0 / 60.0,
             contact_natural_frequency: 30.0,
-            contact_damping_ratio: 5.0,
+            contact_damping_ratio: 10.0,
+            static_contact_natural_frequency: 60.0,
+            static_contact_damping_ratio: 10.0,
             joint_natural_frequency: 1.0e6,
             joint_damping_ratio: 1.0,
             warmstart_coefficient: 1.0,
             num_solver_iterations: 4,
-            normalized_allowed_linear_error: 0.001,
-            normalized_max_corrective_velocity: 10.0,
-            normalized_prediction_distance: 0.002,
+            normalized_allowed_linear_error: 0.005,
+            normalized_max_corrective_velocity: 3.0,
+            normalized_prediction_distance: 0.02,
+            normalized_max_linear_velocity: 400.0,
             length_unit: 1.0,
         }
     }
@@ -167,6 +198,28 @@ impl RbdSimParams {
         if self.dt == 0.0 { 0.0 } else { 1.0 / self.dt }
     }
 
+    /// The soft-constraint `erp / dt` for a spring with the given natural
+    /// frequency (Hz) and damping ratio.
+    fn spring_erp_inv_dt(&self, natural_frequency: f32, damping_ratio: f32) -> f32 {
+        let ang_freq = natural_frequency * TWO_PI;
+        ang_freq / (self.dt * ang_freq + 2.0 * damping_ratio)
+    }
+
+    /// The soft-constraint CFM factor `1 / (1 + cfm_coeff)` for a spring with
+    /// the given natural frequency (Hz) and damping ratio.
+    ///
+    /// See [`Self::contact_cfm_factor`] for the derivation.
+    fn spring_cfm_factor(&self, natural_frequency: f32, damping_ratio: f32) -> f32 {
+        let erp = self.dt * self.spring_erp_inv_dt(natural_frequency, damping_ratio);
+        if erp == 0.0 {
+            return 0.0;
+        }
+        let inv_erp_minus_one = 1.0 / erp - 1.0;
+        let cfm_coeff = inv_erp_minus_one * inv_erp_minus_one
+            / ((1.0 + inv_erp_minus_one) * 4.0 * damping_ratio * damping_ratio);
+        1.0 / (1.0 + cfm_coeff)
+    }
+
     /// Computes the contact constraint angular frequency (rad/s).
     pub fn contact_angular_frequency(&self) -> f32 {
         self.contact_natural_frequency * TWO_PI
@@ -174,8 +227,16 @@ impl RbdSimParams {
 
     /// The `contact_erp` coefficient, multiplied by the inverse timestep length.
     pub fn contact_erp_inv_dt(&self) -> f32 {
-        let ang_freq = self.contact_angular_frequency();
-        ang_freq / (self.dt * ang_freq + 2.0 * self.contact_damping_ratio)
+        self.spring_erp_inv_dt(self.contact_natural_frequency, self.contact_damping_ratio)
+    }
+
+    /// [`Self::contact_erp_inv_dt`] for contacts touching a fixed body
+    /// (rapier's `static_contact_softness`).
+    pub fn static_contact_erp_inv_dt(&self) -> f32 {
+        self.spring_erp_inv_dt(
+            self.static_contact_natural_frequency,
+            self.static_contact_damping_ratio,
+        )
     }
 
     /// The effective Error Reduction Parameter applied for calculating regularization forces
@@ -212,43 +273,16 @@ impl RbdSimParams {
     /// This parameter is computed automatically from `contact_natural_frequency`,
     /// `contact_damping_ratio` and the substep length.
     pub fn contact_cfm_factor(&self) -> f32 {
-        // Compute CFM assuming a critically damped spring multiplied by the damping ratio.
-        // The logic is similar to `joint_cfm_coeff`.
-        let contact_erp = self.contact_erp();
-        if contact_erp == 0.0 {
-            return 0.0;
-        }
-        let inv_erp_minus_one = 1.0 / contact_erp - 1.0;
+        self.spring_cfm_factor(self.contact_natural_frequency, self.contact_damping_ratio)
+    }
 
-        // let stiffness = 4.0 * damping_ratio * damping_ratio * projected_mass
-        //     / (dt * dt * inv_erp_minus_one * inv_erp_minus_one);
-        // let damping = 4.0 * damping_ratio * damping_ratio * projected_mass
-        //     / (dt * inv_erp_minus_one);
-        // let cfm = 1.0 / (dt * dt * stiffness + dt * damping);
-        // NOTE: This simplifies to cfm = cfm_coeff / projected_mass:
-        let cfm_coeff = inv_erp_minus_one * inv_erp_minus_one
-            / ((1.0 + inv_erp_minus_one)
-                * 4.0
-                * self.contact_damping_ratio
-                * self.contact_damping_ratio);
-
-        // Furthermore, we use this coefficient inside of the impulse resolution.
-        // Surprisingly, several simplifications happen there.
-        // Let `m` the projected mass of the constraint.
-        // Let `m'` the projected mass that includes CFM: `m' = 1 / (1 / m + cfm_coeff / m) = m / (1 + cfm_coeff)`
-        // We have:
-        // new_impulse = old_impulse - m' (delta_vel - cfm * old_impulse)
-        //             = old_impulse - m / (1 + cfm_coeff) * (delta_vel - cfm_coeff / m * old_impulse)
-        //             = old_impulse * (1 - cfm_coeff / (1 + cfm_coeff)) - m / (1 + cfm_coeff) * delta_vel
-        //             = old_impulse / (1 + cfm_coeff) - m * delta_vel / (1 + cfm_coeff)
-        //             = 1 / (1 + cfm_coeff) * (old_impulse - m * delta_vel)
-        // So, setting cfm_factor = 1 / (1 + cfm_coeff).
-        // We obtain:
-        // new_impulse = cfm_factor * (old_impulse - m * delta_vel)
-        //
-        // The value returned by this function is this cfm_factor that can be used directly
-        // in the constraint solver.
-        1.0 / (1.0 + cfm_coeff)
+    /// [`Self::contact_cfm_factor`] for contacts touching a fixed body
+    /// (rapier's `static_contact_softness`).
+    pub fn static_contact_cfm_factor(&self) -> f32 {
+        self.spring_cfm_factor(
+            self.static_contact_natural_frequency,
+            self.static_contact_damping_ratio,
+        )
     }
 
     /// The CFM (constraints force mixing) coefficient applied to all joints for constraints regularization.
@@ -270,8 +304,7 @@ impl RbdSimParams {
                 * self.joint_damping_ratio)
     }
 
-    /// Amount of penetration the engine won't attempt to correct (default: `0.001` multiplied by
-    /// `length_unit`).
+    /// Geometric slop distance (default: `0.005` multiplied by `length_unit`).
     pub fn allowed_linear_error(&self) -> f32 {
         self.normalized_allowed_linear_error * self.length_unit
     }
@@ -289,8 +322,27 @@ impl RbdSimParams {
     }
 
     /// The maximal distance separating two objects that will generate predictive contacts
-    /// (default: `0.002m` multiplied by `length_unit`).
+    /// (default: `0.02m` multiplied by `length_unit`).
     pub fn prediction_distance(&self) -> f32 {
         self.normalized_prediction_distance * self.length_unit
+    }
+
+    /// Maximum linear velocity a body may have after each solver substep.
+    ///
+    /// This is equal to `normalized_max_linear_velocity` multiplied by
+    /// `length_unit`, or `f32::MAX` when the linear speed cap is disabled.
+    pub fn max_linear_velocity(&self) -> f32 {
+        if self.normalized_max_linear_velocity != MAX_FLT {
+            self.normalized_max_linear_velocity * self.length_unit
+        } else {
+            MAX_FLT
+        }
+    }
+
+    /// Per-substep angular speed cap: bounds the total rotation per step to `π/4`
+    /// regardless of the substep count.
+    pub fn max_angular_velocity(&self) -> f32 {
+        const MAX_ROTATION: f32 = core::f32::consts::FRAC_PI_4;
+        MAX_ROTATION * self.inv_dt() / self.num_solver_iterations.max(1) as f32
     }
 }

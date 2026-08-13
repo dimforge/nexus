@@ -193,8 +193,12 @@ pub struct TwoBodyConstraintNormalPart {
     /// Inverse effective mass: 1 / (m_eff)
     /// where m_eff = projected mass along constraint direction
     pub r: f32,
-    #[cfg(feature = "dim3")]
-    pub _padding3: f32,
+
+    /// Per-point softness: separated (speculative, `dist > 0`) points are solved
+    /// rigidly (`cfm_factor = 1`): perfectly inelastic touchdowns damp stack
+    /// rocking; a constraint-wide cfm under-stops each touchdown and pumps tall
+    /// stacks. Refreshed by `update_constraint` each substep.
+    pub cfm_factor: f32,
 }
 
 /// Tangent constraint data (friction).
