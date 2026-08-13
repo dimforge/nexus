@@ -107,6 +107,7 @@ impl RbdState {
                 [0.0, -9.81, 0.0],
                 capacity_per_batch,
             );
+            mb.set_num_solver_iterations(all_sim_params[0].num_solver_iterations);
             mb.set_constraint_softness(backend, &all_sim_params[0]);
             mb
         };
