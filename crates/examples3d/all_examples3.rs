@@ -2,30 +2,41 @@ use inflector::Inflector;
 use nexus_viewer3d::{BackendType, DemoKind, NexusViewer};
 use nexus3d::prelude::{NexusPipeline, NexusPipelineMask};
 
-mod balls3;
-mod boxes3;
-mod boxes_and_balls3;
-mod compound3;
-mod dynamic_rbd3;
-mod joint_ball3;
-mod joint_fixed3;
-mod joint_prismatic3;
-mod joint_revolute3;
-mod joint_revolute_batch3;
-mod joints3;
-mod keva3;
-mod many_pyramids3;
-mod many_pyramids_batch3;
+mod rbd_balls3;
+mod rbd_boxes3;
+mod rbd_boxes_and_balls3;
+mod rbd_compound3;
+mod rbd_dynamic3;
+mod rbd_joint_ball3;
+mod rbd_joint_fixed3;
+mod rbd_joint_prismatic3;
+mod rbd_joint_revolute3;
+mod rbd_joint_revolute_batch3;
+mod rbd_joints3;
+mod rbd_keva3;
+mod rbd_many_pyramids3;
+mod rbd_many_pyramids_batch3;
 // The robot loaders read URDF/MJCF assets from the filesystem, so they are
 // native-only.
 #[cfg(not(target_arch = "wasm32"))]
-mod mujoco_menagerie3;
-mod multibody_pendulum3;
-mod primitives3;
-mod pyramid3;
-mod trimesh3;
+mod rbd_mujoco_menagerie3;
+mod rbd_multibody_pendulum3;
+mod rbd_primitives3;
+mod rbd_pyramid3;
+mod rbd_trimesh3;
 #[cfg(not(target_arch = "wasm32"))]
-mod urdf3;
+mod rbd_urdf3;
+
+// MPM examples.
+mod mpm_centilever_beam3;
+// mod mpm_dam_break3;
+mod mpm_elastic_cut3;
+mod mpm_emitter3;
+mod mpm_erosion3;
+mod mpm_heightfield3;
+mod mpm_jelly_drop3;
+mod mpm_sand3;
+mod mpm_snow3;
 
 /// Declares the demo registry: a `(name, kind)` list for the picker UI and a
 /// name -> `run()` dispatcher. Keeping both in one macro keeps them in sync.
@@ -65,28 +76,38 @@ macro_rules! demos {
 }
 
 demos! {
-    "Balls" => Rbd : balls3,
-    "Boxes" => Rbd : boxes3,
-    "Boxes & balls" => Rbd : boxes_and_balls3,
-    "Compound" => Rbd : compound3,
-    "Dynamic insertion" => Rbd : dynamic_rbd3,
-    "Primitives" => Rbd : primitives3,
-    "Pyramid" => Rbd : pyramid3,
-    "Many pyramids" => Rbd : many_pyramids3,
-    "Many pyramids (batched)" => Rbd : many_pyramids_batch3,
-    "Keva tower" => Rbd : keva3,
-    "Joints (multibody)" => Rbd : joints3,
-    "Joints (Spherical)" => Rbd : joint_ball3,
-    "Joints (Fixed)" => Rbd : joint_fixed3,
-    "Joints (Prismatic)" => Rbd : joint_prismatic3,
-    "Joints (Revolute)" => Rbd : joint_revolute3,
-    "Joints (Revolute - Batched)" => Rbd : joint_revolute_batch3,
-    "Multibody (Pendulum)" => Rbd : multibody_pendulum3,
-    "Trimesh" => Rbd : trimesh3,
+    "Balls" => Rbd : rbd_balls3,
+    "Boxes" => Rbd : rbd_boxes3,
+    "Boxes & balls" => Rbd : rbd_boxes_and_balls3,
+    "Compound" => Rbd : rbd_compound3,
+    "Dynamic insertion" => Rbd : rbd_dynamic3,
+    "Primitives" => Rbd : rbd_primitives3,
+    "Pyramid" => Rbd : rbd_pyramid3,
+    "Many pyramids" => Rbd : rbd_many_pyramids3,
+    "Many pyramids (batched)" => Rbd : rbd_many_pyramids_batch3,
+    "Keva tower" => Rbd : rbd_keva3,
+    "Joints (multibody)" => Rbd : rbd_joints3,
+    "Joints (Spherical)" => Rbd : rbd_joint_ball3,
+    "Joints (Fixed)" => Rbd : rbd_joint_fixed3,
+    "Joints (Prismatic)" => Rbd : rbd_joint_prismatic3,
+    "Joints (Revolute)" => Rbd : rbd_joint_revolute3,
+    "Joints (Revolute - Batched)" => Rbd : rbd_joint_revolute_batch3,
+    "Multibody (Pendulum)" => Rbd : rbd_multibody_pendulum3,
+    "Trimesh" => Rbd : rbd_trimesh3,
     #[cfg(not(target_arch = "wasm32"))]
-    "URDF (multibody)" => Rbd : urdf3,
+    "URDF (multibody)" => Rbd : rbd_urdf3,
     #[cfg(not(target_arch = "wasm32"))]
-    "MuJoCo Menagerie" => Rbd : mujoco_menagerie3,
+    "MuJoCo Menagerie" => Rbd : rbd_mujoco_menagerie3,
+    // MPM demos.
+    "Cantilever beam" => Mpm : mpm_centilever_beam3,
+    "Sand" => Mpm : mpm_sand3,
+    "Sand emitter" => Mpm : mpm_emitter3,
+    "Heightfield" => Mpm : mpm_heightfield3,
+    "Elastic cut" => Mpm : mpm_elastic_cut3,
+    // "Dam break" => Mpm : mpm_dam_break3,
+    "Erosion" => Mpm : mpm_erosion3,
+    "Snow" => Mpm : mpm_snow3,
+    "Jelly drop" => Mpm : mpm_jelly_drop3,
 }
 
 struct CliOptions {

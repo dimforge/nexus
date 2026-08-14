@@ -14,7 +14,7 @@ metal = ["nexus_viewer3d/metal"]
 
 [dependencies]
 glamx = { workspace = true }
-nexus3d = { workspace = true, features = [ "rbd" ] }
+nexus3d = { workspace = true, features = [ "rbd", "mpm" ] }
 nexus_viewer3d = { workspace = true }
 nexus_rbd3d = { workspace = true, features = ["default"] } # TODO: remove this
 rapier3d = { workspace = true, features = ["default"] }
