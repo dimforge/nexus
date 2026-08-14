@@ -120,6 +120,7 @@ pub fn insert_mjcf(
     mut viewer: PyRefMut<crate::viewer::NexusViewer>,
     scene_path: &std::path::Path,
     render_colliders: bool,
+    env: usize,
 ) -> PyResult<MjcfSceneInfo> {
     use pyo3::exceptions::PyRuntimeError;
     use rapier3d::parry::bounding_volume::BoundingVolume; // for `Aabb::merge`
@@ -142,7 +143,7 @@ pub fn insert_mjcf(
 
     match MjcfRobot::from_file(scene_path, options) {
         Ok((robot, _model)) => {
-            let world = state.rbd_world_mut(0);
+            let world = state.rbd_world_mut(env);
             let handles = robot.clone().insert_using_multibody_joints(
                 &mut world.bodies,
                 &mut world.colliders,
@@ -241,11 +242,15 @@ pub fn insert_mjcf(
         let body = rp::RigidBodyBuilder::fixed().translation(center).build();
         let collider = rp::ColliderBuilder::cuboid(he.x, he.y, he.z).build();
         let shape = collider.shared_shape().clone();
-        let handle = state.insert_rigid_body(body, collider);
-        v.insert_shape(handle, &shape, rp::Pose::IDENTITY);
+        let handle = state.insert_rigid_body_in(env, body, collider);
+        if env == 0 {
+            v.insert_shape(handle, &shape, rp::Pose::IDENTITY);
+        }
     }
 
-    if render_colliders {
+    if env != 0 {
+        // Batch environments are physics-only: the viewer draws environment 0.
+    } else if render_colliders {
         for (body, shape, local_pose, _) in &collider_shapes {
             v.insert_visual_shape(0, *body, shape, *local_pose);
         }
@@ -270,11 +275,13 @@ pub fn insert_mjcf(
         }
     }
 
-    if let Some((eye, target)) = camera {
-        v.set_camera(eye, target);
+    if env == 0 {
+        if let Some((eye, target)) = camera {
+            v.set_camera(eye, target);
+        }
+        v.scene3d_mut()
+            .add_directional_light(glamx::Vec3::new(-1.0, 1.0, -1.0));
     }
-    v.scene3d_mut()
-        .add_directional_light(glamx::Vec3::new(-1.0, 1.0, -1.0));
 
     Ok(MjcfSceneInfo { z_up: true, loaded })
 }

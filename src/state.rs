@@ -154,6 +154,15 @@ impl NexusState {
 
     // ── Rigid-body runtime settings ─────────────────────────────────────
 
+    /// Overrides the per-environment collision-pair capacity used when the
+    /// GPU rigid-body state is (re)allocated at `finalize`. The default (4096)
+    /// is sized for one busy scene, not thousands of small batched envs —
+    /// pair-keyed workspaces scale as `capacity x num_envs x sizeof(manifold)`,
+    /// which at 2048 envs binds ~9 GiB unless this is lowered.
+    pub fn set_rbd_collisions_capacity(&mut self, capacity: u32) {
+        self.capacities.rbd.collisions_capacity = capacity.max(1);
+    }
+
     /// Sets the number of rigid-body solver steps advanced per
     /// [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call (default 1). Acts as a simulation-speed control.
     pub fn set_rbd_steps_per_frame(&mut self, steps: u32) {
