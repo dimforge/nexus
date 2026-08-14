@@ -149,6 +149,7 @@ pub struct RbdState {
     /// Per-collider broad-phase pair-filter key:
     /// - `[0]`: to prevent colliders of the same body from colliding.
     /// - `[1]`: to prevent colliders of adjacent links from a multibody from coliding.
+    ///
     /// Nonzero keys that are equal never collide.
     pub(super) pair_filter: Tensor<[u32; 2]>,
     /// Per-collider friction / restitution coefficients (+ combine rules),
@@ -221,6 +222,8 @@ pub struct RbdState {
     pub(super) joints: GpuImpulseJointSet,
     #[cfg(feature = "dim3")]
     pub(super) multibodies: GpuMultibodySet,
+    /// The one gravity uniform every rigid-body and multibody kernel reads.
+    pub(super) gravity: Tensor<glamx::Vec4>,
     /// Per-body "graph group" id, used by graph coloring to treat all bodies of
     /// the same multibody as a single node. For free bodies, `body_group[i] = i`;
     /// bodies of a multibody all share the group id of the root link, so two
@@ -331,13 +334,26 @@ impl RbdState {
         self.collision_pairs.capacity() as u32
     }
 
-    /// Uploads a new gravity vector for the multibody solver, e.g.
-    /// `[0.0, 0.0, -9.81]` for a Z-up scene. Affects multibody links; free
-    /// (non-multibody) rigid-bodies use a fixed gravity baked into the solver
-    /// shader.
-    #[cfg(feature = "dim3")]
+    /// Uploads a new gravity vector, e.g. `[0.0, 0.0, -9.81]` for a Z-up scene.
+    /// Every solver path reads this one uniform, so it applies to free
+    /// rigid-bodies and multibody links alike. In 2D the third component is
+    /// ignored.
     pub fn set_gravity(&mut self, backend: &GpuBackend, gravity: [f32; 3]) {
-        self.multibodies.set_gravity(backend, gravity);
+        self.gravity = Self::gravity_tensor(backend, gravity);
+    }
+
+    /// The gravity uniform shared by every solver kernel.
+    pub fn gravity(&self) -> &Tensor<glamx::Vec4> {
+        &self.gravity
+    }
+
+    pub(super) fn gravity_tensor(backend: &GpuBackend, gravity: [f32; 3]) -> Tensor<glamx::Vec4> {
+        Tensor::scalar(
+            backend,
+            glamx::Vec4::new(gravity[0], gravity[1], gravity[2], 0.0),
+            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        )
+        .unwrap()
     }
 
     /// Per-collider world pose.
@@ -363,6 +379,13 @@ impl RbdState {
         &self.multibodies
     }
 
+    /// Enables or disables the implicit treatment of multibody coriolis forces.
+    #[cfg(feature = "dim3")]
+    pub fn set_implicit_coriolis(&mut self, backend: &GpuBackend, enabled: bool) {
+        self.multibodies.set_implicit_coriolis(enabled);
+        self.rebuild_batch_indices(backend);
+    }
+
     /// Returns a reference to the GPU buffer containing collision shapes.
     ///
     /// Each shape corresponds to one rigid body in the simulation.
@@ -376,6 +399,12 @@ impl RbdState {
     }
 
     /// The contact manifold buffer (post narrow-phase + body resolution).
+    /// Per-batch number of manifolds currently in [`Self::contacts`].
+    pub fn contacts_len(&self) -> &Tensor<u32> {
+        &self.contacts_len
+    }
+
+    /// GPU buffer holding the contact manifolds.
     pub fn contacts(&self) -> &Tensor<GpuIndexedContact> {
         &self.contacts
     }

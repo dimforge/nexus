@@ -4,8 +4,8 @@
 //! sweeps. Per-multibody, all constraint slots are scanned (`kind == 0` ones
 //! are skipped).
 
-use khal_std::glamx::UVec3;
 use glamx::Vec4;
+use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
@@ -18,9 +18,8 @@ use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{DIM, MAX_FLT};
 
 use super::types::{
-    MB_JOINT_KIND_COUPLING, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_LIMIT_INACTIVE,
-    MB_JOINT_KIND_MOTOR, MbDofCoupling, MultibodyInfo, MultibodyJointConstraint,
-    MultibodyLinkStatic,
+    MB_JOINT_KIND_COUPLING, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_LIMIT_INACTIVE, MB_JOINT_KIND_MOTOR,
+    MbDofCoupling, MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic,
 };
 use super::ws_soa::{WsAddr, ws_coord};
 
@@ -435,16 +434,14 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &[Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mass_matrices: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] lu_pivots: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
     joint_constraints: &mut [MultibodyJointConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
     joint_constraint_columns: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
-    dof_couplings: &[MbDofCoupling],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_couplings: &[MbDofCoupling],
     #[spirv(uniform, descriptor_set = 0, binding = 8)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
 ) {
@@ -459,9 +456,7 @@ pub fn gpu_mb_init_joint_constraints(
         return;
     }
 
-    let mb = batch_ids
-        .ib(batch_id, multibody_info)
-        .read(mb_idx as usize);
+    let mb = batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize);
     let ndofs = mb.ndofs;
     // Uniform per workgroup: every lane of this group returns together.
     if ndofs == 0 {

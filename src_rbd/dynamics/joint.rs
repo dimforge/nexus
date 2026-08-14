@@ -5,9 +5,9 @@
 
 use crate::math::Pose;
 use crate::shaders::dynamics::{
-    GpuInitJointConstraints,
-    GpuSolveJointConstraints, GpuUpdateJointConstraints, ImpulseJoint, JointConstraint,
-    JointConstraintBuilder, LocalMassProperties, RbdSimParams, Velocity, WorldMassProperties,
+    GpuInitJointConstraints, GpuSolveJointConstraints, GpuUpdateJointConstraints, ImpulseJoint,
+    JointConstraint, JointConstraintBuilder, LocalMassProperties, RbdSimParams, Velocity,
+    WorldMassProperties,
 };
 use bytemuck::Zeroable;
 use khal::Shader;
@@ -33,7 +33,10 @@ fn convert_joint_limits(limits: RapierJointLimits<f32>) -> JointLimits {
     }
 }
 
-fn convert_joint_motor(motor: RapierJointMotor) -> JointMotor {
+/// Converts a rapier joint motor into the GPU representation. Public so callers
+/// driving actuators at runtime can push a freshly configured motor through
+/// `GpuMultibodySet::set_motor`.
+pub fn convert_joint_motor(motor: RapierJointMotor) -> JointMotor {
     JointMotor {
         target_vel: motor.target_vel,
         target_pos: motor.target_pos,

@@ -2,13 +2,11 @@
 
 use super::multibody_set::*;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB,
-    MbDofCoupling, MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint,
-    MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace,
-    RbdSimParams,
+    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDofCoupling,
+    MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::linalg::MAX_MB_DOFS;
-use glamx::Vec4;
 use khal::BufferUsages;
 use khal::backend::GpuBackend;
 use vortx::tensor::Tensor;
@@ -31,7 +29,6 @@ impl GpuMultibodySet {
             &HashMap<RigidBodyHandle, u32>,
             &RigidBodySet,
         )],
-        gravity: [f32; 3],
         colliders_per_batch: u32,
     ) -> Self {
         let num_batches = environments.len() as u32;
@@ -245,6 +242,11 @@ impl GpuMultibodySet {
                     let mut ws = make_workspace_init();
                     ws.coords = link.joint.coords();
                     ws.joint_rot = link.joint.joint_rot();
+                    if let Some(rb) = bodies.get(link.rigid_body_handle()) {
+                        ws.gravity_scale = rb.gravity_scale();
+                        ws.external_force = rb.user_force();
+                        ws.external_torque = rb.user_torque();
+                    }
 
                     // For free joints at the root, copy the rigid-body pose directly.
                     if link.joint.data.locked_axes.is_empty()
@@ -467,6 +469,7 @@ impl GpuMultibodySet {
             out
         }
         let nb = num_batches as usize;
+        let info_mirror = all_infos.clone();
         let all_infos = interleave(&all_infos, mb_cap, nb);
         let all_statics = interleave(&all_statics, links_cap, nb);
         let all_dof_vals = interleave(&all_dof_vals, dofs_cap, nb);
@@ -487,21 +490,22 @@ impl GpuMultibodySet {
             mass_matrix_entries_per_batch: mm_cap,
             coriolis_entries_per_batch: cor_cap,
             i_coriolis_dt_entries_per_batch: icdt_cap,
-            // Rapier's scheme (the default): the coriolis-melded matrix only
-            // drives the free-acceleration solve, constraints see the plain
-            // matrix, and everything is built once per step. The implicit
-            // legacy mode (single melded matrix, per-substep rebuilds) stays
-            // available via `set_implicit_coriolis(true)`.
-            implicit_coriolis: false,
+            // Default: implicit coriolis. The acceleration solve uses a mass
+            // matrix augmented with the coriolis/gyroscopic derivatives, while
+            // constraints keep the plain one. `set_implicit_coriolis(false)`
+            // falls back to a single plain matrix with explicit-only
+            // coriolis/gyroscopic forces (cheaper, but less stable).
+            implicit_coriolis: true,
             has_joint_constraints: all_infos.iter().any(|info| info.max_constraints > 0),
 
             multibody_info: Tensor::vector(backend, &all_infos, storage).unwrap(),
             links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_DST)
                 .unwrap(),
             links_static_mirror: all_statics.clone(),
+            info_mirror,
             links_workspace: Tensor::vector(
                 backend,
-                &crate::shaders::dynamics::ws_soa_from_structs(&all_ws, links_cap, num_batches),
+                crate::shaders::dynamics::ws_soa_from_structs(&all_ws, links_cap, num_batches),
                 storage,
             )
             .unwrap(),
@@ -581,6 +585,15 @@ impl GpuMultibodySet {
                 storage,
             )
             .unwrap(),
+            old_contact_constraints: Tensor::vector(
+                backend,
+                vec![
+                    MultibodyContactConstraint::default();
+                    (contact_cons_cap * num_batches) as usize
+                ],
+                storage,
+            )
+            .unwrap(),
             contact_constraint_jacs: Tensor::vector(
                 backend,
                 vec![0.0f32; (contact_cons_col_cap * num_batches) as usize],
@@ -601,7 +614,11 @@ impl GpuMultibodySet {
                 // Sized by the capacity stride (the kernels index blocks by
                 // `batch · multibodies_batch_capacity + mb_idx`).
                 let total_mbs = mb_cap * num_batches;
-                if global_max_mb > 0 && total_mbs <= MAX_DELASSUS_MULTIBODIES {
+                // `MAX_DELASSUS_MULTIBODIES` is currently 0, which disables the
+                // path; the bound is kept so raising the constant re-enables it.
+                #[allow(clippy::absurd_extreme_comparisons)]
+                let use_delassus = global_max_mb > 0 && total_mbs <= MAX_DELASSUS_MULTIBODIES;
+                if use_delassus {
                     let block = (MAX_MB_CONTACT_CONSTRAINTS_PER_MB
                         * MAX_MB_CONTACT_CONSTRAINTS_PER_MB)
                         as usize;
@@ -667,14 +684,8 @@ impl GpuMultibodySet {
             contact_constraint_columns_per_batch: contact_cons_col_cap,
 
             num_solver_iterations: 4,
+            num_internal_pgs_iterations: 1,
 
-            // FIXME: should be read from the simulation settings.
-            gravity: Tensor::scalar(
-                backend,
-                Vec4::new(gravity[0], gravity[1], gravity[2], 0.0),
-                BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            )
-            .unwrap(),
             dt: Tensor::scalar(
                 backend,
                 1.0f32 / 60.0,
@@ -689,6 +700,7 @@ impl GpuMultibodySet {
                 BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             )
             .unwrap(),
+            warmstart_coefficient: RbdSimParams::default().warmstart_coefficient,
         }
     }
 }

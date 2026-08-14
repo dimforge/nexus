@@ -1,4 +1,4 @@
-//! Fused multibody PGS sweep: joint limit/motor constraints followed by
+//! Fused multibody PGS iteration: joint limit/motor constraints followed by
 //! contact constraints, in one dispatch per substep phase.
 
 use khal_std::glamx::UVec3;
@@ -20,7 +20,21 @@ use super::types::{
 
 const LANES: u32 = 64;
 
-/// One PGS sweep over a multibody's joint (limit/motor) constraints followed
+/// Caps a friction impulse to the circular cone of radius `limit`. In 3D both
+/// tangent rows of a contact point are capped jointly; in 2D there is a single
+/// row and this degenerates to a scalar clamp.
+#[inline]
+fn cap_friction(t0: f32, t1: f32, limit: f32) -> (f32, f32) {
+    let norm_sq = t0 * t0 + t1 * t1;
+    if norm_sq > limit * limit && norm_sq > 0.0 {
+        let scale = limit / crate::sqrt(norm_sq);
+        (t0 * scale, t1 * scale)
+    } else {
+        (t0, t1)
+    }
+}
+
+/// One PGS iteration over a multibody's joint (limit/motor) constraints followed
 /// by its contact constraints.
 ///
 /// Dispatch: one 64-lane workgroup per (multibody, batch).
@@ -41,10 +55,11 @@ pub fn gpu_mb_solve_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
+    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
     #[spirv(workgroup)] scratch: &mut [f32; LANES as usize],
     #[spirv(workgroup)] imp_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
     #[spirv(workgroup)] delta_shared: &mut f32,
+    #[spirv(workgroup)] delta2_shared: &mut f32,
 ) {
     let batch_id = workgroup_id.y;
     let mb_idx = workgroup_id.x;
@@ -66,8 +81,7 @@ pub fn gpu_mb_solve_constraints(
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let colliders_start = batch_ids.coll_start(batch_id);
 
-    let jcons_base =
-        batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
+    let jcons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let jcol_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
 
@@ -92,7 +106,6 @@ pub fn gpu_mb_solve_constraints(
     }
     workgroup_memory_barrier_with_group_sync();
 
-
     // Joint limits/motors
     for s in 0..mb.max_constraints {
         let cons = joint_constraints.read(jcons_base + s as usize);
@@ -108,8 +121,7 @@ pub fn gpu_mb_solve_constraints(
         // Generalized `J·v` for `J = e_{dof_id} - coupling_coeff*e_{dof2_id}`
         // (coupling rows); collapses to `v[dof_id]` for limit / motor rows
         // (their `coupling_coeff` is 0).
-        let v_d = dof_v[cons.dof_id as usize]
-            - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
+        let v_d = dof_v[cons.dof_id as usize] - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
         let rhs_total = v_d + rhs;
         let raw_imp = cons.impulse + cons.inv_lhs * (rhs_total - cons.cfm_gain * cons.impulse);
         let mut new_imp = raw_imp;
@@ -137,15 +149,27 @@ pub fn gpu_mb_solve_constraints(
         workgroup_memory_barrier_with_group_sync();
     }
 
-
-    // Contacts.
+    // Contacts. In 3D the two friction rows of a contact point are solved
+    // together so their impulse can be capped to the friction cone; the second
+    // row is handled by its sibling and skipped here.
     for s in 0..contact_count {
         let cons = contact_constraints.read(ccons_base + s as usize);
+        let is_tangent = cons.kind == MB_CONTACT_KIND_TANGENT;
         // Friction is only solved during the relaxation phase.
-        if use_bias && cons.kind == MB_CONTACT_KIND_TANGENT {
+        if use_bias && is_tangent {
             continue;
         }
+        #[cfg(feature = "dim3")]
+        if is_tangent && s != cons.normal_constraint_slot + 1 {
+            continue;
+        }
+        #[cfg(feature = "dim3")]
+        let has_pair = is_tangent;
+        #[cfg(feature = "dim2")]
+        let has_pair = false;
+
         let col_offset = ccol_base + (s as usize) * dofs_stride;
+        let col_offset2 = col_offset + dofs_stride;
         let is_self = cons.free_body_id == u32::MAX;
 
         // Multibody side of J · u, one product per lane; lane 0 sums them in
@@ -157,10 +181,30 @@ pub fn gpu_mb_solve_constraints(
         };
         workgroup_memory_barrier_with_group_sync();
 
+        let mut j_dot_v0 = 0.0f32;
         if lane == 0 {
-            let mut j_dot_v = 0.0f32;
             for i in 0..ndofs {
-                j_dot_v += scratch[i as usize];
+                j_dot_v0 += scratch[i as usize];
+            }
+        }
+        workgroup_memory_barrier_with_group_sync();
+
+        if has_pair {
+            scratch[lane as usize] = if lane < ndofs {
+                contact_constraint_jacs.read(col_offset2 + lane as usize) * dof_v[lane as usize]
+            } else {
+                0.0
+            };
+        }
+        workgroup_memory_barrier_with_group_sync();
+
+        if lane == 0 {
+            let cons2 = contact_constraints.read(ccons_base + (s + 1) as usize);
+            let mut j_dot_v1 = 0.0f32;
+            if has_pair {
+                for i in 0..ndofs {
+                    j_dot_v1 += scratch[i as usize];
+                }
             }
             // Free-body side stays lane-0-local.
             let free = if is_self {
@@ -169,52 +213,80 @@ pub fn gpu_mb_solve_constraints(
                 solver_vels.read(colliders_start + cons.free_body_id as usize)
             };
             if !is_self {
-                j_dot_v += cons.lin_jac.dot(free.linear) + gdot(cons.ang_jac, free.angular);
+                j_dot_v0 += cons.lin_jac.dot(free.linear) + gdot(cons.ang_jac, free.angular);
+                if has_pair {
+                    j_dot_v1 += cons2.lin_jac.dot(free.linear) + gdot(cons2.ang_jac, free.angular);
+                }
             }
 
-            let rhs = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
-            let impulse = imp_shared[s as usize];
-            let rhs_total = j_dot_v + rhs;
             let cfm_factor = if use_bias { cons.cfm_factor } else { 1.0 };
-            let raw_imp = cfm_factor * (impulse - cons.inv_lhs * rhs_total);
+            let impulse0 = imp_shared[s as usize];
+            let rhs0 = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
+            let raw0 = cfm_factor * (impulse0 - cons.inv_lhs * (j_dot_v0 + rhs0));
 
-            // Normal: clamp to ≥ 0. Friction tangent: clamp to
-            // `±μ · normal_impulse` (box friction), reading the paired normal
-            // slot's current impulse from shared memory.
-            let new_imp = if cons.kind == MB_CONTACT_KIND_TANGENT {
-                let limit =
-                    cons.friction_coeff * imp_shared[cons.normal_constraint_slot as usize];
-                if raw_imp > limit {
-                    limit
-                } else if raw_imp < -limit {
-                    -limit
-                } else {
-                    raw_imp
-                }
-            } else if raw_imp < 0.0 {
-                0.0
+            let impulse1 = if has_pair {
+                imp_shared[(s + 1) as usize]
             } else {
-                raw_imp
+                0.0
             };
-            let delta = new_imp - impulse;
-            imp_shared[s as usize] = new_imp;
-            *delta_shared = delta;
+            let raw1 = if has_pair {
+                let rhs1 = if use_bias {
+                    cons2.rhs
+                } else {
+                    cons2.rhs_wo_bias
+                };
+                cfm_factor * (impulse1 - cons2.inv_lhs * (j_dot_v1 + rhs1))
+            } else {
+                0.0
+            };
 
-            if delta != 0.0 && !is_self {
+            // Normal: clamp to ≥ 0. Friction: cap the tangent pair to the
+            // circular cone `μ · normal_impulse`.
+            let (new0, new1) = if is_tangent {
+                let limit = cons.friction_coeff * imp_shared[cons.normal_constraint_slot as usize];
+                cap_friction(raw0, raw1, limit)
+            } else if raw0 < 0.0 {
+                (0.0, 0.0)
+            } else {
+                (raw0, 0.0)
+            };
+
+            let delta0 = new0 - impulse0;
+            let delta1 = if has_pair { new1 - impulse1 } else { 0.0 };
+            imp_shared[s as usize] = new0;
+            if has_pair {
+                imp_shared[(s + 1) as usize] = new1;
+            }
+            *delta_shared = delta0;
+            *delta2_shared = delta1;
+
+            if !is_self && (delta0 != 0.0 || delta1 != 0.0) {
                 let mut new_free = free;
-                new_free.linear += cons.lin_jac * (cons.free_body_im * delta);
-                new_free.angular += cons.ii_ang_jac * delta;
+                new_free.linear += cons.lin_jac * (cons.free_body_im * delta0);
+                new_free.angular += cons.ii_ang_jac * delta0;
+                if has_pair {
+                    new_free.linear += cons2.lin_jac * (cons2.free_body_im * delta1);
+                    new_free.angular += cons2.ii_ang_jac * delta1;
+                }
                 solver_vels.write(colliders_start + cons.free_body_id as usize, new_free);
             }
         }
         workgroup_memory_barrier_with_group_sync();
 
         // Per-lane `dof_v[lane]` update.
-        let delta = *delta_shared;
-        if delta != 0.0 && lane < ndofs {
-            let col = contact_constraint_columns.read(col_offset + lane as usize);
-            dof_v[lane as usize] += delta * col;
+        let delta0 = *delta_shared;
+        let delta1 = *delta2_shared;
+        if lane < ndofs {
+            if delta0 != 0.0 {
+                let col = contact_constraint_columns.read(col_offset + lane as usize);
+                dof_v[lane as usize] += delta0 * col;
+            }
+            if has_pair && delta1 != 0.0 {
+                let col = contact_constraint_columns.read(col_offset2 + lane as usize);
+                dof_v[lane as usize] += delta1 * col;
+            }
         }
+        workgroup_memory_barrier_with_group_sync();
     }
 
     // Writeback
@@ -231,7 +303,7 @@ pub fn gpu_mb_solve_constraints(
     }
 }
 
-/// Joint-only PGS sweep (the joint half of [`gpu_mb_solve_constraints`]),
+/// Joint-only PGS iteration (the joint half of [`gpu_mb_solve_constraints`]),
 /// used by the Delassus path where the contact half runs in constraint space
 /// as a separate dispatch (to avoid exceeding the 8-storage-buffer budget).
 #[spirv_bindgen]
@@ -246,7 +318,7 @@ pub fn gpu_mb_solve_joints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_state: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] use_bias: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
-    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
+    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
 ) {
     let batch_id = workgroup_id.y;
     let mb_idx = workgroup_id.x;
@@ -266,8 +338,7 @@ pub fn gpu_mb_solve_joints(
 
     let v_base = mb.first_dof as usize;
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
-    let jcons_base =
-        batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
+    let jcons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let jcol_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
 
@@ -290,8 +361,7 @@ pub fn gpu_mb_solve_joints(
         // Generalized `J·v` for `J = e_{dof_id} - coupling_coeff*e_{dof2_id}`
         // (coupling rows); collapses to `v[dof_id]` for limit / motor rows
         // (their `coupling_coeff` is 0).
-        let v_d = dof_v[cons.dof_id as usize]
-            - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
+        let v_d = dof_v[cons.dof_id as usize] - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
         let rhs_total = v_d + rhs;
         let raw_imp = cons.impulse + cons.inv_lhs * (rhs_total - cons.cfm_gain * cons.impulse);
         let mut new_imp = raw_imp;
@@ -361,8 +431,8 @@ pub fn gpu_mb_build_contact_delassus(
         return;
     }
 
-    let cons_base = batch_ids.mb_contact_constraints_start(batch_id)
-        + (mb_idx as usize) * (MAXC as usize);
+    let cons_base =
+        batch_ids.mb_contact_constraints_start(batch_id) + (mb_idx as usize) * (MAXC as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
         + (mb_idx as usize) * (MAXC as usize) * dofs_stride;
@@ -421,7 +491,7 @@ pub fn gpu_mb_solve_contacts_delassus(
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
+    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
     #[spirv(workgroup)] a_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
     #[spirv(workgroup)] imp_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
     #[spirv(workgroup)] rhs_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
@@ -450,8 +520,8 @@ pub fn gpu_mb_solve_contacts_delassus(
 
     let v_base = mb.first_dof as usize;
     let colliders_start = batch_ids.coll_start(batch_id);
-    let cons_base = batch_ids.mb_contact_constraints_start(batch_id)
-        + (mb_idx as usize) * (MAXC as usize);
+    let cons_base =
+        batch_ids.mb_contact_constraints_start(batch_id) + (mb_idx as usize) * (MAXC as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
         + (mb_idx as usize) * (MAXC as usize) * dofs_stride;
@@ -475,8 +545,8 @@ pub fn gpu_mb_solve_contacts_delassus(
         cfm_shared[s as usize] = if use_bias { cons.cfm_factor } else { 1.0 };
         friction_shared[s as usize] = cons.friction_coeff;
         let is_self = cons.free_body_id == u32::MAX;
-        let free_active = !is_self
-            && (cons.free_body_im != 0.0 || gdot(cons.ii_ang_jac, cons.ii_ang_jac) != 0.0);
+        let free_active =
+            !is_self && (cons.free_body_im != 0.0 || gdot(cons.ii_ang_jac, cons.ii_ang_jac) != 0.0);
         meta_shared[s as usize] = (cons.kind & 0xff)
             | ((cons.normal_constraint_slot & 0xffff) << 8)
             | (if free_active { 1 << 24 } else { 0 });
@@ -500,60 +570,98 @@ pub fn gpu_mb_solve_contacts_delassus(
     }
     workgroup_memory_barrier_with_group_sync();
 
+    // In 3D the two friction rows of a contact point are solved together so
+    // their impulse can be capped to the friction cone; the second row is
+    // handled by its sibling and skipped here.
     for s in 0..count {
         let meta = meta_shared[s as usize];
         let kind = meta & 0xff;
         let normal_slot = (meta >> 8) & 0xffff;
         let free_active = (meta >> 24) != 0;
+        let is_tangent = kind == MB_CONTACT_KIND_TANGENT;
 
-        if use_bias && kind == MB_CONTACT_KIND_TANGENT {
+        if use_bias && is_tangent {
             // Friction is only solved during the stabilization sweep.
             continue;
         }
+        #[cfg(feature = "dim3")]
+        if is_tangent && s != normal_slot + 1 {
+            continue;
+        }
+        #[cfg(feature = "dim3")]
+        let has_pair = is_tangent;
+        #[cfg(feature = "dim2")]
+        let has_pair = false;
 
-        let impulse = imp_shared[s as usize];
-        let rhs_total = a_shared[s as usize] + rhs_shared[s as usize];
-        let raw_imp = cfm_shared[s as usize] * (impulse - inv_lhs_shared[s as usize] * rhs_total);
-
-        let new_imp = if kind == MB_CONTACT_KIND_TANGENT {
-            let limit = friction_shared[s as usize] * imp_shared[normal_slot as usize];
-            if raw_imp > limit {
-                limit
-            } else if raw_imp < -limit {
-                -limit
-            } else {
-                raw_imp
-            }
-        } else if raw_imp < 0.0 {
-            0.0
+        let impulse0 = imp_shared[s as usize];
+        let raw0 = cfm_shared[s as usize]
+            * (impulse0
+                - inv_lhs_shared[s as usize] * (a_shared[s as usize] + rhs_shared[s as usize]));
+        let impulse1 = if has_pair {
+            imp_shared[(s + 1) as usize]
         } else {
-            raw_imp
+            0.0
         };
-        let delta = new_imp - impulse;
+        let raw1 = if has_pair {
+            cfm_shared[(s + 1) as usize]
+                * (impulse1
+                    - inv_lhs_shared[(s + 1) as usize]
+                        * (a_shared[(s + 1) as usize] + rhs_shared[(s + 1) as usize]))
+        } else {
+            0.0
+        };
 
-        if delta != 0.0 {
+        let (new0, new1) = if is_tangent {
+            let limit = friction_shared[s as usize] * imp_shared[normal_slot as usize];
+            cap_friction(raw0, raw1, limit)
+        } else if raw0 < 0.0 {
+            (0.0, 0.0)
+        } else {
+            (raw0, 0.0)
+        };
+        let delta0 = new0 - impulse0;
+        let delta1 = if has_pair { new1 - impulse1 } else { 0.0 };
+
+        if delta0 != 0.0 || delta1 != 0.0 {
             if lane == 0 {
-                imp_shared[s as usize] = new_imp;
+                imp_shared[s as usize] = new0;
+                if has_pair {
+                    imp_shared[(s + 1) as usize] = new1;
+                }
 
                 if free_active {
                     let cons = contact_constraints.read(cons_base + s as usize);
-                    let mut free =
-                        solver_vels.read(colliders_start + cons.free_body_id as usize);
-                    free.linear += cons.lin_jac * (cons.free_body_im * delta);
-                    free.angular += cons.ii_ang_jac * delta;
+                    let mut free = solver_vels.read(colliders_start + cons.free_body_id as usize);
+                    free.linear += cons.lin_jac * (cons.free_body_im * delta0);
+                    free.angular += cons.ii_ang_jac * delta0;
+                    if has_pair {
+                        let cons2 = contact_constraints.read(cons_base + (s + 1) as usize);
+                        free.linear += cons2.lin_jac * (cons2.free_body_im * delta1);
+                        free.angular += cons2.ii_ang_jac * delta1;
+                    }
                     solver_vels.write(colliders_start + cons.free_body_id as usize, free);
                 }
             }
             // Lane-parallel Delassus row update (row `s` is contiguous), plus
             // the off-path dof update (each lane owns its DOF).
             let d_row = d_base + (s * MAXC) as usize;
+            let d_row2 = d_base + ((s + 1) * MAXC) as usize;
             for j in StepRng::new(lane..count, LANES) {
-                a_shared[j as usize] += delta * delassus.read(d_row + j as usize);
+                let mut acc = delta0 * delassus.read(d_row + j as usize);
+                if has_pair {
+                    acc += delta1 * delassus.read(d_row2 + j as usize);
+                }
+                a_shared[j as usize] += acc;
             }
             if lane < ndofs {
                 let col = contact_constraint_columns
                     .read(col_base + (s as usize) * dofs_stride + lane as usize);
-                dof_v[lane as usize] += delta * col;
+                dof_v[lane as usize] += delta0 * col;
+                if has_pair {
+                    let col2 = contact_constraint_columns
+                        .read(col_base + ((s + 1) as usize) * dofs_stride + lane as usize);
+                    dof_v[lane as usize] += delta1 * col2;
+                }
             }
             workgroup_memory_barrier_with_group_sync();
         }

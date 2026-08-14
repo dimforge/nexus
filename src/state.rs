@@ -141,11 +141,12 @@ impl NexusState {
         // TODO: resize the GPU buffers too.
     }
 
-    /// Sets the rigid-body multibody gravity vector, e.g. `[0.0, 0.0, -9.81]`
-    /// for a Z-up scene. No-op until the rigid-body state is built, so call it
-    /// after [`Self::finalize`]. Free (non-multibody) bodies keep the solver's
-    /// fixed gravity.
-    #[cfg(all(feature = "dim3", feature = "rbd"))]
+    /// Sets the rigid-body gravity vector, e.g. `[0.0, 0.0, -9.81]` for a Z-up
+    /// scene. Every solver path reads the same uniform, so this applies to free
+    /// rigid-bodies and multibody links alike (in 2D the third component is
+    /// ignored). No-op until the rigid-body state is built, so call it after
+    /// [`Self::finalize`].
+    #[cfg(feature = "rbd")]
     pub fn set_rbd_gravity(&mut self, backend: &GpuBackend, gravity: [f32; 3]) {
         if let Some(rbd) = self.rbd.as_mut() {
             rbd.set_gravity(backend, gravity);
@@ -230,6 +231,20 @@ impl NexusState {
     /// dirty so [`Self::finalize`] rebuilds the GPU buffers.
     pub fn rbd_world_mut(&mut self, env: usize) -> &mut PhysicsWorld {
         self.rbd_dirty = true;
+        &mut self.rbd_envs[env]
+    }
+
+    /// Mutable access to environment `env`'s rapier world that does **not** mark
+    /// the rbd state dirty, for use after [`Self::finalize`].
+    ///
+    /// Nothing written here reaches the GPU on its own: the rapier sets are the
+    /// build-time source the GPU buffers were baked from, and marking them dirty
+    /// would rebuild those buffers and snap the simulation back to the authored
+    /// state. Use this to run rapier-side helpers whose output you then push
+    /// through a runtime setter — e.g. driving an MJCF actuator model and
+    /// forwarding the resulting motors with
+    /// `GpuMultibodySet::set_motors` (3D only, hence no intra-doc link here).
+    pub fn rbd_world_mut_untracked(&mut self, env: usize) -> &mut PhysicsWorld {
         &mut self.rbd_envs[env]
     }
 

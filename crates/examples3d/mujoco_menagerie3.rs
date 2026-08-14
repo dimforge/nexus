@@ -2,8 +2,10 @@ use khal::backend::GpuTimestamps;
 use kiss3d::egui;
 use nexus_viewer3d::{NexusViewer, RenderMaterial};
 use nexus3d::prelude::{NexusPipeline, NexusState};
+use nexus3d::rbd::dynamics::convert_joint_motor;
+use nexus3d::rbd::shaders::dynamics::JointMotor;
 use rapier3d::prelude::*;
-use rapier3d_mjcf::{MjcfLoaderOptions, MjcfMultibodyOptions, MjcfRobot};
+use rapier3d_mjcf::{MjcfLoaderOptions, MjcfMultibodyOptions, MjcfRobot, MjcfRobotHandles};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -118,123 +120,309 @@ struct VisualMeshReg {
     texture: Option<PathBuf>,
     material: Option<RenderMaterial>,
 }
-
-/// Loads a single MuJoCo Menagerie MJCF model into a fresh [`NexusState`],
-/// registers its render shapes and a floor with `viewer`, frames the camera on
-/// it, and finalizes the state ready for simulation.
-///
-/// The model is kept in its native Z-up frame (no rotation): the viewer is
-/// configured Z-up by the caller and the rigid-body gravity is set to -Z below,
-/// so MJCF data is consumed as-authored.
-async fn load_scene(
-    viewer: &mut NexusViewer,
-    scene: &Path,
+/// Panel state, mirroring the Example Settings of rapier's `mujoco_menagerie3`.
+#[derive(Clone, Copy, PartialEq)]
+struct Settings {
+    use_multibody: bool,
     render_colliders: bool,
-) -> anyhow::Result<NexusState> {
-    let mut state = NexusState::default();
+    render_visual_meshes: bool,
+    render_visual_primitives: bool,
+    disable_collisions: bool,
+    enable_controls: bool,
+    enable_springs: bool,
+    actuator_strength: f32,
+    /// Index into the keyframe picker: 0 is "(none)", `i + 1` is keyframe `i`.
+    keyframe: usize,
+}
 
-    // `<geom>` collision shapes get density 0 — the physical mass comes from the
-    // model's `<inertial>` tags. Roots stay dynamic so free-based robots fall
-    // and land on the floor; set `make_roots_fixed: true` to anchor them.
-    let options = MjcfLoaderOptions {
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            use_multibody: true,
+            render_colliders: false,
+            render_visual_meshes: true,
+            render_visual_primitives: false,
+            disable_collisions: true,
+            enable_controls: true,
+            enable_springs: true,
+            actuator_strength: 1.0,
+            keyframe: 0,
+        }
+    }
+}
+
+impl Settings {
+    /// With the actuators driving the model, switching keyframe retargets the
+    /// servos live; without them nothing tracks the target, so the pose has to
+    /// be applied by reloading instead.
+    fn keyframe_is_live(&self) -> bool {
+        self.use_multibody && self.enable_controls
+    }
+
+    /// Whether moving from `self` to `next` requires rebuilding the scene.
+    /// Actuator strength is read live every step, and so is the keyframe while
+    /// the servos are driving.
+    fn needs_reload(&self, next: &Self) -> bool {
+        self.use_multibody != next.use_multibody
+            || self.render_colliders != next.render_colliders
+            || self.render_visual_meshes != next.render_visual_meshes
+            || self.render_visual_primitives != next.render_visual_primitives
+            || self.disable_collisions != next.disable_collisions
+            || self.enable_controls != next.enable_controls
+            || self.enable_springs != next.enable_springs
+            || (self.keyframe != next.keyframe && !next.keyframe_is_live())
+    }
+}
+
+/// Everything the per-step actuator drive needs. Multibody path only.
+struct Controls {
+    handles: MjcfRobotHandles<Option<MultibodyJointHandle>>,
+    /// One control vector per keyframe, precomputed at load.
+    per_keyframe_ctrl: Vec<Vec<Real>>,
+    /// Control vector for "(none)": hold the neutral pose.
+    neutral: Vec<Real>,
+}
+
+/// A loaded model plus the picker state that depends on it.
+struct Loaded {
+    state: NexusState,
+    controls: Option<Controls>,
+    /// "(none)" followed by one entry per declared keyframe.
+    keyframe_names: Vec<String>,
+}
+
+/// Merge the keyframes from a sibling `keyframes.xml` (next to the scene file)
+/// into `robot`, skipping any whose name is already present.
+///
+/// Menagerie models often keep their keyframes in a standalone file meant to be
+/// `<include>`d, which the scene itself does not reference; without this they
+/// would never reach the picker.
+fn merge_sibling_keyframes(robot: &mut MjcfRobot, scene_path: &Path) {
+    let Some(kf_path) = scene_path.parent().map(|d| d.join("keyframes.xml")) else {
+        return;
+    };
+    if !kf_path.exists() {
+        return;
+    }
+    match MjcfRobot::from_file(&kf_path, loader_options()) {
+        Ok((kf_robot, _)) => {
+            let existing: std::collections::HashSet<String> = robot
+                .keyframes
+                .iter()
+                .filter_map(|k| k.name.clone())
+                .collect();
+            for k in kf_robot.keyframes {
+                if k.name.as_ref().is_none_or(|n| !existing.contains(n)) {
+                    robot.keyframes.push(k);
+                }
+            }
+        }
+        Err(e) => eprintln!(
+            "Failed to load sibling keyframes `{}`: {e}.",
+            kf_path.display()
+        ),
+    }
+}
+
+/// Picker entries for a model's keyframes, prefixed with "(none)".
+fn keyframe_names(robot: &MjcfRobot) -> Vec<String> {
+    let mut names = vec!["(none)".to_string()];
+    for (i, k) in robot.keyframes.iter().enumerate() {
+        names.push(k.name.clone().unwrap_or_else(|| format!("key {i}")));
+    }
+    names
+}
+
+/// The keyframe a freshly picked model starts on: `home` if it declares one,
+/// else its first, else "(none)".
+fn default_keyframe(names: &[String]) -> usize {
+    names
+        .iter()
+        .position(|n| n == "home")
+        .unwrap_or(if names.len() > 1 { 1 } else { 0 })
+}
+
+/// The MJCF loader options shared by the pre-flight DoF check and the real load.
+fn loader_options() -> MjcfLoaderOptions {
+    MjcfLoaderOptions {
         skip_plane_geoms: true,
         make_roots_fixed: false,
         // Surface visual-only geoms as `MjcfBody::visual_meshes` (forwarded to
         // the viewer below) instead of turning them into colliders.
         create_colliders_from_visual_shapes: false,
+        // Density 0: the physical mass comes from the model's `<inertial>` tags.
         collider_blueprint: ColliderBuilder::default().density(0.0),
-        // No `shift`: the model stays in its native MJCF Z-up frame. The viewer
-        // is set Z-up and gravity points -Z, so nothing needs rotating.
         ..MjcfLoaderOptions::default()
-    };
+    }
+}
 
-    // Collected during loading, registered once the world borrow ends. Both the
-    // visual meshes (textured/PBR) and every collision collider are gathered so
-    // the render mode can be chosen at registration time. Each collider entry is
-    // tagged with whether its body has visual meshes, so the visual-mesh mode can
-    // still fall back to colliders for links that have none.
+/// Loads a single MuJoCo Menagerie MJCF model into a fresh [`NexusState`] under
+/// `settings`, registers its render shapes and a floor with `viewer`, frames the
+/// camera on it, and finalizes the state ready for simulation.
+///
+/// The model is kept in its native Z-up frame (no rotation): the viewer is
+/// configured Z-up by the caller and gravity is set to -Z below, so MJCF data is
+/// consumed as-authored.
+async fn load_scene(
+    viewer: &mut NexusViewer,
+    scene: &Path,
+    settings: &Settings,
+) -> anyhow::Result<Loaded> {
+    let mut state = NexusState::default();
+
+    // Collected during loading, registered once the world borrow ends.
     let mut visual_meshes: Vec<VisualMeshReg> = Vec::new();
     let mut collider_shapes: Vec<(RigidBodyHandle, SharedShape, Pose, bool)> = Vec::new();
-    // Fixed cuboid floor, sized from the loaded model's bounding box.
     let mut floor: Option<(Vec3, Vec3)> = None;
-    // Camera framing for the loaded model: `(eye, target)`.
     let mut camera: Option<(Vec3, Vec3)> = None;
+    let mut controls = None;
+    let mut names = vec!["(none)".to_string()];
+    let mut gravity = -9.81;
 
     println!("Loading MJCF scene `{}`.", scene.display());
-    match MjcfRobot::from_file(scene, options) {
-        Ok((robot, _model)) => {
-            // Every `<geom>` collider is kept as-is. Collider-less links need no
-            // placeholder: the GPU pipeline now gives every body its own slot.
-            let world = state.rbd_world_mut(0);
-            // `insert_using_multibody_joints` consumes the robot, so clone
-            // it and keep the original around for its visual meshes.
-            let handles = robot.clone().insert_using_multibody_joints(
-                &mut world.bodies,
-                &mut world.colliders,
-                &mut world.multibody_joints,
-                &mut world.impulse_joints,
-                MjcfMultibodyOptions::DISABLE_SELF_CONTACTS,
-            );
+    match MjcfRobot::from_file(scene, loader_options()) {
+        Ok((mut robot, model)) => {
+            merge_sibling_keyframes(&mut robot, scene);
+            names = keyframe_names(&robot);
+            let keyframe = settings
+                .keyframe
+                .checked_sub(1)
+                .and_then(|i| robot.keyframes.get(i))
+                .cloned();
 
-            // Activate the model's actuators so position-servo robots hold their
-            // pose instead of folding under gravity (e.g. anymal_c's
-            // `<position kp=100>` joint servos). A zero control vector targets the
-            // neutral/rest pose — the same as the rapier testbed's "Enable joint
-            // controls" (which applies `ctrl = 0` every frame). The actuator motor
-            // config (target + stiffness) is static for a constant `ctrl`, so we
-            // configure it once here, before `finalize` bakes the multibody into
-            // the GPU state. Without this, `<position>`-actuated models collapse.
-            let ctrl = vec![0.0; handles.actuators.len()];
-            handles.apply_controls_multibody(&mut world.bodies, &mut world.multibody_joints, &ctrl);
+            // MJCF gives gravity as a 3-vector, normally (0, 0, -9.81) since the
+            // format is Z-up. Keep only the magnitude and lock it to -Z so
+            // physics and rendering stay aligned whatever the model declares.
+            let g = model.option.gravity;
+            let mag = ((g[0] * g[0] + g[1] * g[1] + g[2] * g[2]) as f32).sqrt();
+            gravity = -mag;
 
-            // Forward each body's visual meshes to the viewer; for bodies
-            // without visual meshes, render their collision shapes instead.
-            for (i, body_handle) in handles.bodies.iter().enumerate() {
-                let Some(body_handle) = body_handle else {
-                    continue;
-                };
-                let mjcf_body = &robot.bodies[i];
-                let has_visual = !mjcf_body.visual_meshes.is_empty();
-                // Collect every collision collider at its body-local pose (a body
-                // can own several now), tagged with whether the body has visuals.
-                for collider in &body_handle.colliders {
-                    let c = &world.colliders[collider.handle];
-                    let local_pose = c.position_wrt_parent().copied().unwrap_or(Pose::IDENTITY);
-                    collider_shapes.push((
-                        body_handle.body,
-                        c.shared_shape().clone(),
-                        local_pose,
-                        has_visual,
-                    ));
+            if settings.disable_collisions {
+                for link in &mut robot.bodies {
+                    for collider in &mut link.colliders {
+                        collider.set_collision_groups(InteractionGroups::new(
+                            Group::GROUP_1,
+                            Group::GROUP_2,
+                            Default::default(),
+                        ));
+                    }
                 }
-                if has_visual {
-                    for vm in &mjcf_body.visual_meshes {
-                        // Resolve the base color: geom/material rgba if set,
-                        // white behind a texture (so it shows in native colors),
-                        // else a neutral grey. Mirrors rapier's testbed.
-                        let textured = vm.texture.is_some();
-                        let color = vm.rgba.unwrap_or(if textured {
-                            [1.0, 1.0, 1.0, 1.0]
-                        } else {
-                            [0.7, 0.7, 0.75, 1.0]
-                        });
-                        let material = vm.material.map(|m| RenderMaterial {
+            }
+
+            let mut mb_options = if settings.disable_collisions {
+                MjcfMultibodyOptions::DISABLE_SELF_CONTACTS
+            } else {
+                MjcfMultibodyOptions::default()
+            };
+            // `<joint stiffness>` passive springs are integrated implicitly by
+            // default; unchecking strips them (e.g. cassie's leg springs).
+            if !settings.enable_springs {
+                mb_options |= MjcfMultibodyOptions::SKIP_JOINT_SPRINGS;
+            }
+
+            let world = state.rbd_world_mut(0);
+            // `insert_using_*` consumes the robot, so clone it and keep the
+            // original around for its visual meshes and keyframes.
+            let body_handles: Vec<Option<RigidBodyHandle>> = if settings.use_multibody {
+                let handles = robot.clone().insert_using_multibody_joints(
+                    &mut world.bodies,
+                    &mut world.colliders,
+                    &mut world.multibody_joints,
+                    &mut world.impulse_joints,
+                    mb_options,
+                );
+                if let Some(key) = &keyframe {
+                    handles.apply_keyframe(
+                        &mut world.bodies,
+                        &mut world.multibody_joints,
+                        &robot,
+                        key,
+                    );
+                }
+                let bodies = handles
+                    .bodies
+                    .iter()
+                    .map(|b| b.as_ref().map(|h| h.body))
+                    .collect();
+                if settings.enable_controls {
+                    let per_keyframe_ctrl = robot
+                        .keyframes
+                        .iter()
+                        .map(|k| robot.keyframe_controls(k))
+                        .collect();
+                    let neutral = vec![0.0; handles.actuators.len()];
+                    controls = Some(Controls {
+                        handles,
+                        per_keyframe_ctrl,
+                        neutral,
+                    });
+                }
+                bodies
+            } else {
+                let handles = robot.clone().insert_using_impulse_joints(
+                    &mut world.bodies,
+                    &mut world.colliders,
+                    &mut world.impulse_joints,
+                );
+                if let Some(key) = &keyframe {
+                    handles.apply_keyframe(&mut world.bodies, &robot, key);
+                }
+                handles
+                    .bodies
+                    .iter()
+                    .map(|b| b.as_ref().map(|h| h.body))
+                    .collect()
+            };
+
+            // Gather each body's render geometry. Visual meshes carry the
+            // authored color / texture / UVs; colliders are the fallback for
+            // links that declare none.
+            for (i, body) in body_handles.iter().enumerate() {
+                let Some(body) = *body else { continue };
+                let mjcf_body = &robot.bodies[i];
+                let visuals: Vec<_> = mjcf_body
+                    .visual_meshes
+                    .iter()
+                    // "Render visual primitives" keeps the capsules and boxes some
+                    // models declare in their visual channel; by default only the
+                    // .obj-derived meshes are drawn.
+                    .filter(|vm| {
+                        settings.render_visual_primitives || vm.shape.as_trimesh().is_some()
+                    })
+                    .collect();
+                let has_visual = !visuals.is_empty();
+                for (handle, _) in world
+                    .colliders
+                    .iter()
+                    .filter(|(_, c)| c.parent() == Some(body))
+                    .collect::<Vec<_>>()
+                {
+                    let c = &world.colliders[handle];
+                    let local_pose = c.position_wrt_parent().copied().unwrap_or(Pose::IDENTITY);
+                    collider_shapes.push((body, c.shared_shape().clone(), local_pose, has_visual));
+                }
+                for vm in visuals {
+                    let textured = vm.texture.is_some();
+                    let color = vm.rgba.unwrap_or(if textured {
+                        [1.0, 1.0, 1.0, 1.0]
+                    } else {
+                        [0.7, 0.7, 0.75, 1.0]
+                    });
+                    visual_meshes.push(VisualMeshReg {
+                        body,
+                        shape: vm.shape.clone(),
+                        local_pose: vm.local_pose,
+                        color,
+                        uvs: vm.uvs.clone(),
+                        normals: vm.normals.clone(),
+                        texture: vm.texture.clone(),
+                        material: vm.material.map(|m| RenderMaterial {
                             metallic: m.metallic,
                             roughness: m.roughness,
                             reflectance: m.reflectance,
                             emissive: m.emissive,
-                        });
-                        visual_meshes.push(VisualMeshReg {
-                            body: body_handle.body,
-                            shape: vm.shape.clone(),
-                            local_pose: vm.local_pose,
-                            color,
-                            uvs: vm.uvs.clone(),
-                            normals: vm.normals.clone(),
-                            texture: vm.texture.clone(),
-                            material,
-                        });
-                    }
+                        }),
+                    });
                 }
             }
 
@@ -248,28 +436,22 @@ async fn load_scene(
                 let center = aabb.center();
                 let he = aabb.half_extents();
                 let footprint = he.x.max(he.y).max(0.5);
-
-                // A wide, thin floor just below the model (Z is up, so it's thin
-                // on Z and sits at the model's lowest Z).
                 let floor_thick = 0.1;
-                let floor_he = Vec3::new(footprint * 6.0, footprint * 6.0, floor_thick);
-                let floor_center = Vec3::new(center.x, center.y, center.z - he.z - floor_thick);
-                floor = Some((floor_center, floor_he));
-
-                // Frame the model from a 3/4 view (Z up, so the elevation is +Z).
+                floor = Some((
+                    Vec3::new(center.x, center.y, center.z - he.z - floor_thick),
+                    Vec3::new(footprint * 6.0, footprint * 6.0, floor_thick),
+                ));
                 let radius = (he.x * he.x + he.y * he.y + he.z * he.z).sqrt().max(0.5);
                 let target = Vec3::new(center.x, center.y, center.z);
-                let eye = target + Vec3::new(radius * 2.2, -radius * 2.2, radius * 1.6);
-                camera = Some((eye, target));
+                camera = Some((
+                    target + Vec3::new(radius * 2.2, -radius * 2.2, radius * 1.6),
+                    target,
+                ));
             }
         }
-        Err(e) => {
-            eprintln!("Failed to load MJCF scene `{}`: {e}.", scene.display());
-        }
+        Err(e) => eprintln!("Failed to load MJCF scene `{}`: {e}.", scene.display()),
     }
 
-    // Floor (inserted through `NexusState` so it participates in the GPU sim and
-    // gets a render shape registered).
     if let Some((center, he)) = floor {
         let body = RigidBodyBuilder::fixed().translation(center).build();
         let collider = ColliderBuilder::cuboid(he.x, he.y, he.z).build();
@@ -278,16 +460,11 @@ async fn load_scene(
         viewer.insert_shape(handle, &shape, Pose::IDENTITY);
     }
 
-    if render_colliders {
-        // Collider view: every collision shape (instanced, colored by shape
-        // type), at its body-local pose. No visual meshes.
+    if settings.render_colliders || !settings.render_visual_meshes {
         for (body, shape, local_pose, _) in &collider_shapes {
             viewer.insert_visual_shape(0, *body, shape, *local_pose);
         }
     } else {
-        // Visual-mesh view: the authored color/texture/UVs/normals/PBR meshes —
-        // rendered the way MuJoCo's own viewer shows them — plus colliders only
-        // for links that have no visual mesh (so nothing is invisible).
         for vm in &visual_meshes {
             viewer.insert_visual_mesh(
                 0,
@@ -301,6 +478,7 @@ async fn load_scene(
                 vm.material,
             );
         }
+        // Links with no visual mesh would otherwise be invisible.
         for (body, shape, local_pose, has_visual) in &collider_shapes {
             if !has_visual {
                 viewer.insert_visual_shape(0, *body, shape, *local_pose);
@@ -311,35 +489,102 @@ async fn load_scene(
     if let Some((eye, target)) = camera {
         viewer.set_camera(eye, target);
     }
-
     viewer
         .scene3d_mut()
         .add_directional_light(glamx::Vec3::new(-1.0, 1.0, -1.0));
 
-    state.finalize(viewer.backend()).await?;
-    // MJCF is Z-up: gravity points along -Z (set after `finalize`, which builds
-    // the rigid-body state with the default -Y gravity).
-    state.set_rbd_gravity(viewer.backend(), [0.0, 0.0, -9.81]);
-    // MuJoCo-style explicit coriolis: the mass matrix / LU / gravity solve
-    // runs once per step instead of once per substep. This matches how
-    // MuJoCo integrates these models and saves ~25% of the step time.
-    if let Some(rbd) = state.rbd.as_mut() {
-        rbd.multibodies_mut().set_implicit_coriolis(false);
+    // The impulse-joint path needs a much finer step to stay stable; the
+    // multibody path instead raises the PGS iterations per substep. Mirrors the
+    // reference example.
+    let mut sim_params = nexus3d::rbd::shaders::dynamics::RbdSimParams::default();
+    if !settings.use_multibody {
+        sim_params.dt = 1.0 / 240.0;
+        sim_params.num_solver_iterations = 12;
     }
-    Ok(state)
+    state.set_rbd_sim_params(0, sim_params);
+
+    state.finalize(viewer.backend()).await?;
+    state.set_rbd_gravity(viewer.backend(), [0.0, 0.0, gravity]);
+    if let Some(rbd) = state.rbd.as_mut() {
+        if settings.use_multibody {
+            rbd.multibodies_mut().set_num_internal_pgs_iterations(4);
+        }
+        // MuJoCo-style explicit coriolis: a single plain mass matrix, with
+        // coriolis / gyroscopic forces applied explicitly on the rhs.
+        rbd.set_implicit_coriolis(viewer.backend(), false);
+    }
+    Ok(Loaded {
+        state,
+        controls,
+        keyframe_names: names,
+    })
+}
+
+/// Drives the model's actuators toward `ctrl`, scaled by `gain`.
+///
+/// The motor configuration is baked into the GPU state at finalization, so this
+/// runs the MJCF actuator model on the CPU-side joints and then pushes each
+/// touched motor across.
+fn apply_controls(
+    state: &mut NexusState,
+    backend: &khal::backend::GpuBackend,
+    controls: &Controls,
+    ctrl: &[Real],
+    gain: Real,
+) {
+    let mut updates: Vec<(u32, usize, JointMotor)> = Vec::new();
+    {
+        // Untracked: the rapier sets are only the scratch the MJCF actuator
+        // model writes into. Marking them dirty would rebuild the GPU buffers
+        // from the authored poses and reset the model every step.
+        let world = state.rbd_world_mut_untracked(0);
+        controls.handles.apply_controls_multibody_scaled(
+            &mut world.bodies,
+            &mut world.multibody_joints,
+            ctrl,
+            gain,
+        );
+        for ah in &controls.handles.actuators {
+            let Some(Some(handle)) = ah.joint else {
+                continue;
+            };
+            let Some((mb, link_id)) = world.multibody_joints.get(handle) else {
+                continue;
+            };
+            let Some(link) = mb.links().nth(link_id) else {
+                continue;
+            };
+            // The GPU link id is the body index (see `GpuMultibodySet::set_motor`).
+            let body_idx = link.rigid_body_handle().into_raw_parts().0;
+            let axes = link.joint().data.motor_axes.bits();
+            for axis in 0..6 {
+                if axes & (1 << axis) != 0 {
+                    updates.push((
+                        body_idx,
+                        axis,
+                        convert_joint_motor(link.joint().data.motors[axis]),
+                    ));
+                }
+            }
+        }
+    }
+    if let Some(rbd) = state.rbd.as_mut() {
+        let _ = rbd.multibodies_mut().set_motors(backend, 0, &updates);
+    }
 }
 
 /// Picks a scene: first runs the cheap DoF pre-check (no mesh I/O); if the model
 /// is within the GPU solver's DoF cap it tears down the current scene and loads
-/// it, returning `Ok(state)`. If it exceeds the cap, nothing is loaded and an
-/// `Err(message)` is returned for display in the picker.
+/// it. If it exceeds the cap, nothing is loaded and an `Err(message)` is
+/// returned for display in the picker.
 async fn select_scene(
     viewer: &mut NexusViewer,
     scene: &Path,
-    render_colliders: bool,
-) -> anyhow::Result<Result<NexusState, String>> {
+    settings: &Settings,
+) -> anyhow::Result<Result<Loaded, String>> {
     if let Some(dofs) = scene_max_dofs(scene)
         && dofs > MAX_MB_DOFS
+        && settings.use_multibody
     {
         return Ok(Err(format!(
             "{} needs {dofs} DoFs (max {MAX_MB_DOFS}) — not supported by the GPU solver.",
@@ -347,14 +592,13 @@ async fn select_scene(
         )));
     }
     viewer.clear_scene();
-    let state = load_scene(viewer, scene, render_colliders).await?;
-    Ok(Ok(state))
+    Ok(Ok(load_scene(viewer, scene, settings).await?))
 }
 
 /// Loads MuJoCo Menagerie MJCF models and simulates them on the GPU rigid-body
-/// pipeline, with a floating egui window to switch between the discovered models
-/// at runtime (mirroring the scene picker in rapier's `mujoco_menagerie3`
-/// example).
+/// pipeline, with a floating egui window carrying the same controls as rapier's
+/// `mujoco_menagerie3` example: model picker, render modes, collision / spring /
+/// actuator toggles, a keyframe picker and a live actuator-strength slider.
 ///
 /// Scenes are discovered under `MUJOCO_MENAGERIE_DIR` (default:
 /// `../mujoco_menagerie` next to the workspace). The initial model is the one
@@ -379,8 +623,6 @@ pub async fn run(
         println!("Discovered {} MuJoCo Menagerie scene(s).", scenes.len());
     }
 
-    // Pick the initial scene (substring match), defaulting to unitree_a1, and
-    // falling back to the first discovered scene otherwise.
     let wanted = std::env::var("MUJOCO_MENAGERIE_SCENE").unwrap_or_else(|_| "unitree_a1".into());
     let mut selected = scenes
         .iter()
@@ -388,76 +630,133 @@ pub async fn run(
         .unwrap_or(0);
 
     // MJCF models are Z-up: orient the viewer's camera accordingly so the model
-    // stands upright without rotating its data. Done once; preserved across the
-    // per-model `set_camera` calls in `load_scene`.
+    // stands upright without rotating its data.
     viewer.set_up_axis(Vec3::Z);
 
     let mut timestamps = GpuTimestamps::new(viewer.backend(), 2048);
-
-    // Red message shown in the picker when the highlighted model can't be loaded
-    // (currently: too many DoFs for the GPU solver).
     let mut error: Option<String> = None;
-    // Render mode: false = textured visual meshes (default), true = the collision
-    // shapes. Toggled via the picker checkbox; a change reloads the scene.
-    let mut render_colliders = false;
+    let mut settings = Settings::default();
+    let mut controls = None;
+    let mut keyframe_names = vec!["(none)".to_string()];
 
     let mut state = match scenes.get(selected) {
-        Some(scene) => match select_scene(viewer, scene, render_colliders).await? {
-            Ok(state) => state,
-            Err(msg) => {
-                eprintln!("{msg}");
-                error = Some(msg);
-                let mut state = NexusState::default();
-                state.finalize(viewer.backend()).await?;
-                state
+        Some(scene) => {
+            // A freshly picked model starts on its default keyframe, which is
+            // only known once it is loaded: probe the names, then load for real.
+            match select_scene(viewer, scene, &settings).await? {
+                Ok(loaded) => {
+                    settings.keyframe = default_keyframe(&loaded.keyframe_names);
+                    keyframe_names = loaded.keyframe_names;
+                    if settings.keyframe != 0 {
+                        let reloaded = select_scene(viewer, scene, &settings).await?;
+                        match reloaded {
+                            Ok(l) => {
+                                controls = l.controls;
+                                l.state
+                            }
+                            Err(msg) => {
+                                error = Some(msg);
+                                let mut s = NexusState::default();
+                                s.finalize(viewer.backend()).await?;
+                                s
+                            }
+                        }
+                    } else {
+                        controls = loaded.controls;
+                        loaded.state
+                    }
+                }
+                Err(msg) => {
+                    eprintln!("{msg}");
+                    error = Some(msg);
+                    let mut s = NexusState::default();
+                    s.finalize(viewer.backend()).await?;
+                    s
+                }
             }
-        },
+        }
         None => {
-            let mut state = NexusState::default();
-            state.finalize(viewer.backend()).await?;
-            state
+            let mut s = NexusState::default();
+            s.finalize(viewer.backend()).await?;
+            s
         }
     };
 
-    // Model selection requested through the picker this frame, applied after the
-    // UI pass so we don't rebuild the scene mid-borrow.
-    let mut pending: Option<usize> = None;
-    // Render-mode change requested through the picker this frame.
-    let mut pending_mode: Option<bool> = None;
+    // Requested through the picker this frame, applied after the UI pass so we
+    // never rebuild the scene mid-borrow.
+    let mut pending_scene: Option<usize> = None;
+    let mut pending_settings: Option<Settings> = None;
 
     while viewer.render_frame().await {
-        // Floating model-picker window (in addition to the viewer's main panel).
-        if !labels.is_empty() {
+        {
             let current = selected;
             let labels = &labels;
-            let pending = &mut pending;
+            let names = &keyframe_names;
+            let now = settings;
+            let pending_scene = &mut pending_scene;
+            let pending_settings = &mut pending_settings;
             let error = error.as_deref();
             let count = labels.len();
-            let render_colliders_now = render_colliders;
-            let pending_mode = &mut pending_mode;
             viewer.draw_custom_ui(move |ctx| {
                 egui::Window::new("MuJoCo Menagerie")
                     .default_pos([24.0, 220.0])
                     .resizable(true)
                     .show(ctx, |ui| {
-                        // Render-mode toggle: visual meshes (default) vs colliders.
-                        let mut rc = render_colliders_now;
-                        if ui.checkbox(&mut rc, "Render colliders").changed() {
-                            *pending_mode = Some(rc);
-                        }
-                        ui.separator();
-                        // Previous / next buttons cycle through the models,
-                        // wrapping around at either end.
+                        let mut next = now;
+                        ui.checkbox(&mut next.use_multibody, "Use multibody joints");
+                        ui.checkbox(&mut next.render_colliders, "Render colliders");
+                        ui.checkbox(&mut next.render_visual_meshes, "Render visual meshes");
+                        ui.checkbox(
+                            &mut next.render_visual_primitives,
+                            "Render visual primitives",
+                        );
+                        ui.checkbox(&mut next.disable_collisions, "Disable collisions");
+                        ui.checkbox(&mut next.enable_controls, "Enable joint controls");
+                        ui.checkbox(&mut next.enable_springs, "Enable joint springs");
+                        ui.add(
+                            egui::Slider::new(&mut next.actuator_strength, 0.02..=2.0)
+                                .text("Actuator strength"),
+                        );
                         ui.horizontal(|ui| {
+                            ui.label("Keyframe");
+                            // Prev / next step through the model's keyframes,
+                            // wrapping at either end, like the scene picker.
+                            let n = names.len().max(1);
                             if ui.button("<").clicked() {
-                                *pending = Some((current + count - 1) % count);
+                                next.keyframe = (next.keyframe + n - 1) % n;
                             }
                             if ui.button(">").clicked() {
-                                *pending = Some((current + 1) % count);
+                                next.keyframe = (next.keyframe + 1) % n;
                             }
-                            ui.label(format!("{}/{}", current + 1, count));
+                            egui::ComboBox::from_id_salt("keyframe")
+                                .selected_text(
+                                    names
+                                        .get(next.keyframe)
+                                        .cloned()
+                                        .unwrap_or_else(|| "(none)".into()),
+                                )
+                                .show_ui(ui, |ui| {
+                                    for (i, name) in names.iter().enumerate() {
+                                        ui.selectable_value(&mut next.keyframe, i, name);
+                                    }
+                                });
                         });
-                        // Red error for an unsupported (e.g. too-many-DoF) model.
+                        if next != now {
+                            *pending_settings = Some(next);
+                        }
+
+                        ui.separator();
+                        if count > 0 {
+                            ui.horizontal(|ui| {
+                                if ui.button("<").clicked() {
+                                    *pending_scene = Some((current + count - 1) % count);
+                                }
+                                if ui.button(">").clicked() {
+                                    *pending_scene = Some((current + 1) % count);
+                                }
+                                ui.label(format!("{}/{}", current + 1, count));
+                            });
+                        }
                         if let Some(msg) = error {
                             ui.colored_label(egui::Color32::RED, msg);
                         }
@@ -467,7 +766,7 @@ pub async fn run(
                             .show(ui, |ui| {
                                 for (i, label) in labels.iter().enumerate() {
                                     if ui.selectable_label(current == i, label).clicked() {
-                                        *pending = Some(i);
+                                        *pending_scene = Some(i);
                                     }
                                 }
                             });
@@ -475,18 +774,58 @@ pub async fn run(
             });
         }
 
-        // Apply a model selection: the highlight moves immediately (so prev/next
-        // can step past an unsupported model), but the scene is only rebuilt when
-        // the model is within the GPU solver's DoF cap — otherwise the current
-        // scene stays and the picker shows a red error.
-        if let Some(i) = pending.take()
-            && i != selected
-        {
-            selected = i;
-            match select_scene(viewer, &scenes[selected], render_colliders).await? {
-                Ok(new_state) => {
-                    state = new_state;
+        // A settings change either retargets the running sim (actuator strength,
+        // and the keyframe while the servos are driving) or rebuilds the scene.
+        let mut reload = false;
+        if let Some(next) = pending_settings.take() {
+            reload = settings.needs_reload(&next);
+            settings = next;
+        }
+        // A model change always rebuilds, and resets the keyframe to the new
+        // model's default.
+        let scene_changed = if let Some(i) = pending_scene.take() {
+            if i != selected {
+                selected = i;
+                settings.keyframe = 0;
+                reload = true;
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if reload && let Some(scene) = scenes.get(selected) {
+            match select_scene(viewer, scene, &settings).await? {
+                Ok(loaded) => {
+                    keyframe_names = loaded.keyframe_names;
                     error = None;
+                    if scene_changed {
+                        // Only known now that the model is loaded; re-load once
+                        // so it actually starts in that pose.
+                        let def = default_keyframe(&keyframe_names);
+                        if def != settings.keyframe {
+                            settings.keyframe = def;
+                            match select_scene(viewer, scene, &settings).await? {
+                                Ok(l) => {
+                                    keyframe_names = l.keyframe_names;
+                                    controls = l.controls;
+                                    state = l.state;
+                                }
+                                Err(msg) => {
+                                    eprintln!("{msg}");
+                                    error = Some(msg);
+                                }
+                            }
+                        } else {
+                            controls = loaded.controls;
+                            state = loaded.state;
+                        }
+                    } else {
+                        controls = loaded.controls;
+                        state = loaded.state;
+                    }
                 }
                 Err(msg) => {
                     eprintln!("{msg}");
@@ -495,26 +834,21 @@ pub async fn run(
             }
         }
 
-        // Apply a render-mode toggle: reload the current model with the new mode.
-        if let Some(new_mode) = pending_mode.take()
-            && new_mode != render_colliders
-        {
-            render_colliders = new_mode;
-            if let Some(scene) = scenes.get(selected) {
-                match select_scene(viewer, scene, render_colliders).await? {
-                    Ok(new_state) => {
-                        state = new_state;
-                        error = None;
-                    }
-                    Err(msg) => {
-                        eprintln!("{msg}");
-                        error = Some(msg);
-                    }
-                }
-            }
-        }
-
         if viewer.simulating() {
+            if let Some(controls) = controls.as_ref() {
+                let ctrl = settings
+                    .keyframe
+                    .checked_sub(1)
+                    .and_then(|i| controls.per_keyframe_ctrl.get(i))
+                    .unwrap_or(&controls.neutral);
+                apply_controls(
+                    &mut state,
+                    viewer.backend(),
+                    controls,
+                    ctrl,
+                    settings.actuator_strength,
+                );
+            }
             pipeline
                 .simulate(viewer.backend(), &mut state, Some(&mut timestamps))
                 .await?;

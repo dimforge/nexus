@@ -14,10 +14,7 @@ use crate::{PaddedVector, Pose, Vector};
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::{
-    iter::StepRng,
-    sync::atomic_add_u32,
-};
+use khal_std::{iter::StepRng, sync::atomic_add_u32};
 
 use super::lbvh::{MAX_REDUCE_LANES, max_len_indirect_args};
 use crate::broad_phase::CollisionPair;

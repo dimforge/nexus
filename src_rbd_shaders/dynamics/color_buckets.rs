@@ -112,8 +112,10 @@ pub fn gpu_color_buckets_scatter(
     for i in StepRng::new(invocation_id.x..len, num_threads) {
         let color = constraints_colors[i as usize];
         if color < stride - 1 {
-            let dst =
-                atomic_add_u32(color_cursors.at_mut((batch_id * stride + color) as usize), 1);
+            let dst = atomic_add_u32(
+                color_cursors.at_mut((batch_id * stride + color) as usize),
+                1,
+            );
             color_sorted_ids[dst as usize] = i;
         }
     }

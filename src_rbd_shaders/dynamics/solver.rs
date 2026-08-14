@@ -276,6 +276,7 @@ pub fn gpu_init_solver_vels_inc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mprops: &[WorldMassProperties],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] all_params: &[RbdSimParams],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] gravity: &glamx::Vec4,
 ) {
     let batch_id = invocation_id.y;
     let params = all_params.at(batch_id as usize);
@@ -292,10 +293,12 @@ pub fn gpu_init_solver_vels_inc(
 
         // TODO: this isn't a very pretty way of detecting static bodies.
         if mprops[idx].inv_mass != Vector::ZERO {
-            // TODO: this currently only handles gravity.
-            // TODO: make the gravity configurable
-            let gravity = Vector::Y * -9.81;
-            solver_vels_inc[idx].linear = gravity * params.dt;
+            // TODO: this currently only handles gravity (no user forces yet).
+            #[cfg(feature = "dim3")]
+            let g = Vector::new(gravity.x, gravity.y, gravity.z);
+            #[cfg(feature = "dim2")]
+            let g = Vector::new(gravity.x, gravity.y);
+            solver_vels_inc[idx].linear = g * params.dt;
         }
     }
 }
@@ -614,7 +617,15 @@ pub fn gpu_integrate_linearized(
         let max_ang = params.max_angular_velocity();
         #[cfg(feature = "dim2")]
         if vels.angular.abs() > max_ang {
-            vels.angular = vels.angular.signum() * max_ang;
+            // Explicit sign select rather than `signum`: `f32::signum` compiles to
+            // a comparison against a NaN constant, and naga rejects a NaN literal
+            // outright, so the whole module fails to translate at pipeline
+            // creation. The guard above rules out zero, so the two cases suffice.
+            vels.angular = if vels.angular > 0.0 {
+                max_ang
+            } else {
+                -max_ang
+            };
         }
         #[cfg(feature = "dim3")]
         {
@@ -692,4 +703,3 @@ pub fn gpu_solver_finalize(
         body_poses[idx] = solver_body_poses[idx].prepend_translation(-local_mprops[idx].com);
     }
 }
-

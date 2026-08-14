@@ -8,7 +8,7 @@
 //!
 //!   1. `gpu_mb_init_impulse_joint_constraints` — once per step, after FK / LU.
 //!   2. `gpu_mb_update_impulse_joint_constraints` — once per substep.
-//!   3. `gpu_mb_solve_impulse_joint_constraints` — one PGS sweep, updates both
+//!   3. `gpu_mb_solve_impulse_joint_constraints` — one PGS iteration, updates both
 //!      sides' velocities.
 //!   4. `gpu_mb_remove_impulse_joint_constraint_bias` — strips the positional
 //!      bias from `rhs` before the stabilization sweep.

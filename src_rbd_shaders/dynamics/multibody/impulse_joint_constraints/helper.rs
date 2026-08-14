@@ -8,12 +8,13 @@ use khal_std::index::MaybeIndexUnchecked;
 
 use crate::dynamics::body::WorldMassProperties;
 use crate::dynamics::joint::JointMotor;
+use crate::dynamics::smallest_abs_diff_between_sin_angles;
 use crate::{AngVector, MAX_FLT, Pose, Vector, rotation_to_matrix};
 
 use super::super::types::MultibodyInfo;
 use super::jacobians::*;
-use crate::utils::linalg::VSlice;
 use super::types::*;
+use crate::utils::linalg::VSlice;
 
 /// `JointConstraintHelper`-equivalent: precomputed per-joint quantities used
 /// by `lock_*`, `limit_*`, `motor_*`. Mirrors the homonymous rapier struct.
@@ -37,6 +38,10 @@ pub(super) struct JointConstraintHelper {
     ang_err: crate::Rotation,
     #[cfg(feature = "dim3")]
     ang_err: [f32; 3],
+    /// Real (scalar) part of the angular error quaternion, sign-matched to
+    /// `ang_err`. Needed to recover the re-centered angle of a limit row.
+    #[cfg(feature = "dim3")]
+    ang_err_w: f32,
 }
 
 #[cfg(feature = "dim3")]
@@ -137,7 +142,43 @@ pub(super) fn new_helper(
             ang_basis,
             lin_err,
             ang_err,
+            ang_err_w: quat_err.w * sgn,
         }
+    }
+}
+
+/// Row parameters of an angular limit allowing `[min, max]` (radians): the row
+/// measures the angle from the middle of the range against `±half_range`.
+pub(super) struct AngularLimitParams {
+    /// Middle of the allowed range.
+    center: f32,
+    /// Half the allowed range. Larger than π means the row is unconstrained.
+    half_range: f32,
+}
+
+impl AngularLimitParams {
+    pub(super) fn new(min: f32, max: f32) -> Self {
+        let half_range = (max - min) * 0.5;
+        // A range of a full turn or more is indistinguishable from "no limit"
+        // for an angle read off a relative rotation. NaN bounds are rejected
+        // here too, before they poison the row.
+        if half_range.is_nan() || half_range >= core::f32::consts::PI {
+            return Self {
+                center: 0.0,
+                half_range: 10.0,
+            };
+        }
+
+        Self {
+            center: (min + max) * 0.5,
+            half_range,
+        }
+    }
+
+    /// Symmetric bounds the re-centered angle is tested against.
+    #[inline]
+    pub(super) fn bounds(&self) -> [f32; 2] {
+        [-self.half_range, self.half_range]
     }
 }
 
@@ -343,14 +384,50 @@ impl JointConstraintHelper {
 
     #[inline]
     #[cfg(feature = "dim2")]
-    pub(super) fn motor_ang_jac(&self, _axis: usize) -> AngVector {
+    pub(super) fn axis_ang_jac(&self, _axis: usize) -> AngVector {
         1.0
     }
 
     #[inline]
     #[cfg(feature = "dim3")]
-    pub(super) fn motor_ang_jac(&self, axis: usize) -> AngVector {
+    pub(super) fn axis_ang_jac(&self, axis: usize) -> AngVector {
         self.basis.col(axis)
+    }
+
+    /// Angle of the relative rotation about `axis`, measured from the middle of
+    /// the limit's range and wrapped to `(-π, π]`. Its gradient is the plain
+    /// joint axis, so it pairs with [`Self::axis_ang_jac`].
+    #[inline]
+    #[cfg(feature = "dim3")]
+    pub(super) fn recentered_angle(&self, axis: usize, limit: &AngularLimitParams) -> f32 {
+        let c_cos = crate::cos(limit.center * 0.5);
+        let c_sin = crate::sin(limit.center * 0.5);
+        let x = self.ang_err.read(axis);
+        let w = self.ang_err_w;
+        let sin_half = c_cos * x - c_sin * w;
+        let cos_half = c_cos * w + c_sin * x;
+        // The re-centered HALF angle; doubling it must wrap back to `(-π, π]`,
+        // which is a ±π shift whenever the half angle leaves `(-π/2, π/2]`.
+        let half = crate::atan2(sin_half, cos_half);
+        let shift = if half >= 0.0 {
+            core::f32::consts::PI
+        } else {
+            -core::f32::consts::PI
+        };
+        let wrapped_half = if crate::abs(half) > core::f32::consts::FRAC_PI_2 {
+            half - shift
+        } else {
+            half
+        };
+        wrapped_half * 2.0
+    }
+
+    #[inline]
+    #[cfg(feature = "dim2")]
+    pub(super) fn recentered_angle(&self, _axis: usize, limit: &AngularLimitParams) -> f32 {
+        let d = crate::rotation_angle(self.ang_err) - limit.center;
+        // `atan2(sin, cos)` wraps the result to `(-π, π]`.
+        crate::atan2(crate::sin(d), crate::cos(d))
     }
 
     #[inline]
@@ -476,6 +553,7 @@ pub(super) fn limit_linear_generic(
     limits: [f32; 2],
     erp_inv_dt_val: f32,
     cfm_coeff: f32,
+    max_corr_velocity: f32,
     jacobians: &mut [f32],
     j_id_a: u32,
     j_id_b: u32,
@@ -517,7 +595,11 @@ pub(super) fn limit_linear_generic(
     let dist = helper.lin_err.dot(lin_jac);
     let min_enabled = dist <= limits[0];
     let max_enabled = limits[1] <= dist;
-    let rhs_bias = ((dist - limits[1]).max(0.0) - (limits[0] - dist).max(0.0)) * erp_inv_dt_val;
+    // Cap the bias so a deep violation recovers over a few steps instead of
+    // catapulting the bodies.
+    let rhs_bias = (((dist - limits[1]).max(0.0) - (limits[0] - dist).max(0.0)) * erp_inv_dt_val)
+        .max(-max_corr_velocity)
+        .min(max_corr_velocity);
     out.rhs_wo_bias = 0.0;
     out.rhs = rhs_bias;
     out.impulse_lo = if min_enabled { -MAX_FLT } else { 0.0 };
@@ -536,6 +618,7 @@ pub(super) fn limit_angular_generic(
     limits: [f32; 2],
     erp_inv_dt_val: f32,
     cfm_coeff: f32,
+    max_corr_velocity: f32,
     jacobians: &mut [f32],
     j_id_a: u32,
     j_id_b: u32,
@@ -544,7 +627,10 @@ pub(super) fn limit_angular_generic(
     mprops: &[WorldMassProperties],
     colliders_start: usize,
 ) {
-    let ang_jac = helper.ang_jac_for_axis(limited_axis);
+    // The row measures the wrapped angle from the middle of the allowed range;
+    // its gradient is the plain joint axis, like the angular motor row.
+    let limit = AngularLimitParams::new(limits[0], limits[1]);
+    let ang_jac = helper.axis_ang_jac(limited_axis);
     lock_jacobians_generic(
         out,
         jacobians,
@@ -565,12 +651,16 @@ pub(super) fn limit_angular_generic(
     out.writeback_axis = (DIM_USIZE + limited_axis) as u32;
     out.cfm_coeff = cfm_coeff;
 
-    let s_limits = [crate::sin(limits[0] * 0.5), crate::sin(limits[1] * 0.5)];
-    let s_ang = helper.ang_err_axis(limited_axis);
-    let min_enabled = s_ang <= s_limits[0];
-    let max_enabled = s_limits[1] <= s_ang;
-    let rhs_bias =
-        ((s_ang - s_limits[1]).max(0.0) - (s_limits[0] - s_ang).max(0.0)) * erp_inv_dt_val;
+    let ang_limits = limit.bounds();
+    let ang = helper.recentered_angle(limited_axis, &limit);
+    let min_enabled = ang <= ang_limits[0];
+    let max_enabled = ang_limits[1] <= ang;
+    // Cap the bias so a deep violation recovers over a few steps instead of
+    // catapulting the bodies.
+    let rhs_bias = (((ang - ang_limits[1]).max(0.0) - (ang_limits[0] - ang).max(0.0))
+        * erp_inv_dt_val)
+        .max(-max_corr_velocity)
+        .min(max_corr_velocity);
     out.rhs_wo_bias = 0.0;
     out.rhs = rhs_bias;
     out.impulse_lo = if min_enabled { -MAX_FLT } else { 0.0 };
@@ -661,7 +751,7 @@ pub(super) fn motor_angular_generic(
     colliders_start: usize,
 ) {
     let mp = motor.motor_params(dt);
-    let ang_jac = helper.motor_ang_jac(motor_axis);
+    let ang_jac = helper.axis_ang_jac(motor_axis);
     lock_jacobians_generic(
         out,
         jacobians,
@@ -688,10 +778,8 @@ pub(super) fn motor_angular_generic(
         #[cfg(feature = "dim2")]
         let s_ang_dist = crate::sin(crate::rotation_angle(helper.ang_err) * 0.5);
         let s_target_ang = crate::sin(mp.target_pos * 0.5);
-        // smallest_abs_diff_between_sin_angles — using the simpler form
-        // (dist - target) since the two-pi wrap concerns the rotation part
-        // and we operate on sin-half-angles already.
-        rhs_wo_bias += (s_ang_dist - s_target_ang) * mp.erp_inv_dt;
+        rhs_wo_bias +=
+            smallest_abs_diff_between_sin_angles(s_ang_dist, s_target_ang) * mp.erp_inv_dt;
     }
     rhs_wo_bias += -mp.target_vel;
 

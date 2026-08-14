@@ -40,8 +40,9 @@ pub struct ConstraintSoftness {
     pub static_erp_inv_dt: f32,
     /// [`Self::cfm_factor`] for contacts touching a fixed body.
     pub static_cfm_factor: f32,
-    /// Unused; keeps the uniform a 16-byte multiple.
-    pub _padding0: f32,
+    /// Coefficient in `[0, 1]` applied to a contact impulse before it is
+    /// re-used as the next substep's (or next frame's) initial guess.
+    pub warmstart_coefficient: f32,
     /// Unused; keeps the uniform a 16-byte multiple.
     pub _padding1: f32,
 }
@@ -62,7 +63,7 @@ impl ConstraintSoftness {
             dt: params.dt,
             static_erp_inv_dt: params.static_contact_erp_inv_dt(),
             static_cfm_factor: params.static_contact_cfm_factor(),
-            _padding0: 0.0,
+            warmstart_coefficient: params.warmstart_coefficient,
             _padding1: 0.0,
         }
     }

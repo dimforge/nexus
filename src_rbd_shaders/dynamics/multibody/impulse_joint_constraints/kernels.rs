@@ -1,8 +1,8 @@
 //! The four compute entry points of the multibody impulse-joint pipeline
 //! (update / finalize / solve / remove-bias).
 
-use khal_std::glamx::UVec3;
 use glamx::Vec4;
+use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
@@ -14,7 +14,7 @@ use crate::utils::BatchIndices;
 use crate::utils::linalg::VSlice;
 
 use super::super::lu::LANES;
-use super::super::types::MultibodyInfo;
+use super::super::types::{MultibodyInfo, MultibodyLinkStatic};
 
 use super::jacobians::*;
 use super::types::*;
@@ -36,8 +36,7 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] jacobians: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] softness: &ConstraintSoftness,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)]
-    links_workspace: &[Vec4],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 4)] mprops: &[WorldMassProperties],
@@ -55,6 +54,7 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     // hardcoded `0.8/dt` + `cfm = 0`.
     let lock_erp_inv_dt = softness.joint_erp_inv_dt;
     let lock_cfm_coeff = softness.joint_cfm_coeff;
+    let max_corr_velocity = softness.max_corr_velocity;
 
     let joints_start = batch_ids.mb_imp_joints_start(batch_id);
     let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
@@ -91,6 +91,7 @@ pub fn gpu_mb_update_impulse_joint_constraints(
                 dt,
                 lock_erp_inv_dt,
                 lock_cfm_coeff,
+                max_corr_velocity,
             );
         }
         i += num_threads;
@@ -113,6 +114,8 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] mass_matrices: &[f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] lu_pivots: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)]
+    links_static: &[MultibodyLinkStatic],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * 64;
@@ -150,6 +153,7 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
                             &mb,
                             mass_matrices,
                             lu_pivots,
+                            links_static,
                             il,
                         );
                     }
@@ -162,6 +166,7 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
                             &mb,
                             mass_matrices,
                             lu_pivots,
+                            links_static,
                             il,
                         );
                     }
@@ -174,7 +179,7 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
     }
 }
 
-/// One PGS sweep over the multibody-touching impulse-joint axis constraints
+/// One PGS iteration over the multibody-touching impulse-joint axis constraints
 /// of a single color — **one workgroup per joint**, the lanes cooperating on
 /// that joint's per-axis `J·v` reductions and `W·J` applies.
 ///

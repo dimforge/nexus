@@ -232,7 +232,10 @@ impl RbdState {
 
             // Handle bodies whose multibody disables self-contacts.
             #[cfg(feature = "dim3")]
-            let no_self_collide: HashMap<crate::rapier::dynamics::RigidBodyHandle, u32> = {
+            let no_self_collide: HashMap<
+                crate::rapier::dynamics::RigidBodyHandle,
+                u32,
+            > = {
                 let mut map = HashMap::new();
                 for (mb_ord, mb) in multibody_joints.multibodies().enumerate() {
                     if !mb.self_contacts_enabled() {
@@ -454,12 +457,10 @@ impl RbdState {
                 .iter()
                 .map(|(mb, ids, bodies)| (*mb, ids, *bodies))
                 .collect();
-            let mut mb = GpuMultibodySet::from_rapier(
-                backend,
-                &mb_refs,
-                [0.0, -9.81, 0.0],
-                max_colliders as u32,
-            );
+            let mut mb = GpuMultibodySet::from_rapier(backend, &mb_refs, max_colliders as u32);
+            // `set_visible_dt` divides by the substep count, so that has to be
+            // in place first or the multibody integrates at the wrong rate.
+            mb.set_num_solver_iterations(num_solver_iterations);
             mb.set_visible_dt(backend, multibody_dt);
             // Soft contact coefficients (rapier TGS-soft) from the substep sim
             // params, so multibody-vs-floor contacts use the same soft ERP + CFM
@@ -663,7 +664,7 @@ impl RbdState {
         .unwrap();
         let old_constraints_colors = Tensor::vector(
             backend,
-            &vec![0u32; (capacities.collisions_capacity * num_batches) as usize],
+            vec![0u32; (capacities.collisions_capacity * num_batches) as usize],
             storage,
         )
         .unwrap();
@@ -759,6 +760,7 @@ impl RbdState {
             joints,
             #[cfg(feature = "dim3")]
             multibodies,
+            gravity: RbdState::gravity_tensor(backend, [0.0, -9.81, 0.0]),
             body_group,
             local_mprops: Tensor::vector(backend, &all_local_mprops, storage).unwrap(),
             mprops: Tensor::vector(backend, &all_mprops, storage).unwrap(),

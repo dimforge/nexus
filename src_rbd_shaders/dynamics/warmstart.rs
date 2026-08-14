@@ -72,7 +72,8 @@ pub fn gpu_seed_colors_from_warmstart(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] old_body_constraint_ids: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     old_constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] new_constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
+    new_constraints: &[TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] old_constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] colored: &mut [u32],
@@ -256,8 +257,7 @@ pub fn transfer_warmstart_impulses(
                             let old_c = &old_constraints[cid_old];
                             let old_t0 = old_c.tangent_a;
                             let old_t1 = old_c.dir_a.cross(old_t0);
-                            let old_impulse =
-                                old_c.elements.at(k_old).tangent_part.impulse;
+                            let old_impulse = old_c.elements.at(k_old).tangent_part.impulse;
                             let world = old_t0 * old_impulse.x + old_t1 * old_impulse.y;
 
                             let new_t0 = new_constraints[i].tangent_a;

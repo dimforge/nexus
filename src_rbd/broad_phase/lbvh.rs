@@ -292,11 +292,9 @@ impl Lbvh {
         // One thread per live collider (leaf); padding slots aren't in the tree.
         let colliders_per_batch = active_per_batch;
 
-        self.shaders.reset_collision_pairs.call(
-            pass,
-            [num_batches, 1, 1],
-            collision_pairs_len,
-        )?;
+        self.shaders
+            .reset_collision_pairs
+            .call(pass, [num_batches, 1, 1], collision_pairs_len)?;
         self.shaders.find_collision_pairs.call(
             pass,
             [colliders_per_batch, num_batches, 1],
@@ -318,7 +316,7 @@ impl Lbvh {
 
     /// Brute-force O(n²) replacement for [`Self::update_tree`] +
     /// [`Self::find_pairs`], used when each batch holds at most
-    /// [`Self::BRUTE_FORCE_MAX_COLLIDERS`] colliders. One AABB pass and one
+    /// [`BRUTE_FORCE_MAX_COLLIDERS`] colliders. One AABB pass and one
     /// all-pairs pass emit the same pair set as the whole tree pipeline.
     #[allow(clippy::too_many_arguments)]
     pub fn brute_force_pairs(
@@ -350,11 +348,9 @@ impl Lbvh {
             batch_indices,
             vertex_buffers,
         )?;
-        self.shaders.reset_collision_pairs.call(
-            pass,
-            [num_batches, 1, 1],
-            collision_pairs_len,
-        )?;
+        self.shaders
+            .reset_collision_pairs
+            .call(pass, [num_batches, 1, 1], collision_pairs_len)?;
         self.shaders.bf_find_pairs.call(
             pass,
             [active_per_batch * active_per_batch * num_batches, 1, 1],

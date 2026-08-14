@@ -101,12 +101,7 @@ impl RbdState {
             let mb_refs: Vec<_> = (0..num_batches as usize)
                 .map(|_| (&empty_mb, &empty_body_ids, &empty_bodies))
                 .collect();
-            let mut mb = GpuMultibodySet::from_rapier(
-                backend,
-                &mb_refs,
-                [0.0, -9.81, 0.0],
-                capacity_per_batch,
-            );
+            let mut mb = GpuMultibodySet::from_rapier(backend, &mb_refs, capacity_per_batch);
             mb.set_constraint_softness(backend, &all_sim_params[0]);
             mb
         };
@@ -186,7 +181,7 @@ impl RbdState {
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
         let old_constraints_colors = Tensor::vector(
             backend,
-            &vec![0u32; (collisions_capacity * num_batches) as usize],
+            vec![0u32; (collisions_capacity * num_batches) as usize],
             storage,
         )
         .unwrap();
@@ -255,6 +250,7 @@ impl RbdState {
             joints,
             #[cfg(feature = "dim3")]
             multibodies,
+            gravity: Self::gravity_tensor(backend, [0.0, -9.81, 0.0]),
             body_group,
             local_mprops: Tensor::vector(backend, &all_local_mprops, rw).unwrap(),
             mprops: Tensor::vector(backend, &all_mprops, rw).unwrap(),
@@ -507,7 +503,8 @@ impl RbdState {
         let mut staging_pose = backend.uninit_buffer::<Pose>(1, staging_usages)?;
         let mut staging_local_mprops =
             backend.uninit_buffer::<GpuLocalMassProperties>(1, staging_usages)?;
-        let mut staging_mprops = backend.uninit_buffer::<GpuWorldMassProperties>(1, staging_usages)?;
+        let mut staging_mprops =
+            backend.uninit_buffer::<GpuWorldMassProperties>(1, staging_usages)?;
         let mut staging_vels = backend.uninit_buffer::<GpuVelocity>(1, staging_usages)?;
         let mut staging_shapes = backend.uninit_buffer::<Shape>(1, staging_usages)?;
         let mut staging_groups = backend
@@ -547,9 +544,9 @@ impl RbdState {
                                 hole_global,
                                 1,
                             )?;
-                            any_copy = true;
                         }};
                     }
+                    any_copy = true;
                     relocate!(self.body_poses, staging_pose);
                     relocate!(self.solver_body_poses, staging_pose);
                     relocate!(self.collider_world_poses, staging_pose);

@@ -81,8 +81,10 @@ pub struct BatchIndices {
     /// Offset (in f32 entries, within a batch's `mass_matrices` view) of the
     /// section holding the coriolis-aware "acceleration" mass matrix
     /// (rapier's `acc_augmented_mass`).
-    /// Non-zero = split-matrix.
-    /// Zero = single melded matrix for both (not recommended).
+    /// Non-zero = implicit coriolis on: split matrices, the acc section drives
+    /// the acceleration solve while the plain matrix drives constraints.
+    /// Zero = implicit coriolis off: a single plain (coriolis-free) matrix
+    /// serves both; coriolis/gyroscopic forces are applied explicitly only.
     pub mass_matrix_acc_section_offset: u32,
     /// Per-batch stride (capacity) of the multibody DoF-coupling buffer.
     pub mb_dof_couplings_batch_capacity: u32,

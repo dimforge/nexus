@@ -92,8 +92,7 @@ pub(super) fn side_dot_vel_par(
     } else {
         // SIDE_KIND_MB
         if lane < ndofs {
-            jacobians.read(j_id as usize + lane as usize)
-                * dof_vels.read(dof_base_for_mb.at(lane))
+            jacobians.read(j_id as usize + lane as usize) * dof_vels.read(dof_base_for_mb.at(lane))
         } else {
             0.0f32
         }
@@ -250,8 +249,13 @@ pub(super) fn fill_mb_jacobians(
     let ndofs = mb.ndofs;
     let mb_jac_base = mb.jacobian_offset as usize;
     let link_jac_base = mb_jac_base + (link_id as usize) * SPATIAL_DIM * (ndofs as usize);
-    let link_j =
-        MatSlice::interleaved(link_jac_base, SPATIAL_DIM as u32, ndofs, il.stride, il.shift);
+    let link_j = MatSlice::interleaved(
+        link_jac_base,
+        SPATIAL_DIM as u32,
+        ndofs,
+        il.stride,
+        il.shift,
+    );
     let (link_j_v, link_j_w) = link_j.rows_range_pair(0, DIM, DIM, ANG_DIM);
 
     // 1) j = link_J^T · (unit_force, unit_torque). Same kernel used by

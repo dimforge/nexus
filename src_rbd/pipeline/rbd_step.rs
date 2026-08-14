@@ -96,6 +96,7 @@ impl RbdPipeline {
                     batch_indices: &state.batch_indices,
                     color_uniforms: &state.color_uniforms,
                     mb_sweep_indirect: &state.mb_sweep_indirect,
+                    gravity: &state.gravity,
                 };
                 self.multibody_solver.init_step(
                     &mut encoder,
@@ -139,8 +140,7 @@ impl RbdPipeline {
             let use_bf = state.num_active_colliders <= BRUTE_FORCE_MAX_COLLIDERS
                 && std::env::var("NEXUS_DISABLE_BF").is_err();
             if use_bf {
-                let mut pass =
-                    encoder.begin_pass("[RBD] bf-find-pairs", timestamps.as_deref_mut());
+                let mut pass = encoder.begin_pass("[RBD] bf-find-pairs", timestamps.as_deref_mut());
                 self.lbvh.brute_force_pairs(
                     backend,
                     &mut pass,
@@ -306,6 +306,7 @@ impl RbdPipeline {
                 colorless_warmstart: false,
                 fused_color_sweeps,
                 rb_contacts_inert: state.rb_contacts_inert,
+                gravity: &state.gravity,
             };
             self.solver.prepare(
                 backend,
@@ -318,99 +319,103 @@ impl RbdPipeline {
                 stats.num_colors = state.max_colors + 1;
                 drop(pass);
             } else {
+                // Warmstart
+                let warmstart_args = WarmstartArgs {
+                    contacts_len: &state.contacts_len,
+                    old_body_constraint_counts: &state.old_constraints_counts,
+                    old_constraint_builders: &state.old_constraint_builders,
+                    old_body_constraint_ids: &state.old_body_constraint_ids,
+                    old_constraints: &state.old_constraints,
+                    new_constraints: &mut state.new_constraints,
+                    new_constraint_builders: &state.new_constraint_builders,
+                    contacts_len_indirect: &state.contacts_indirect,
+                    batch_indices: &state.batch_indices,
+                };
 
-            // Warmstart
-            let warmstart_args = WarmstartArgs {
-                contacts_len: &state.contacts_len,
-                old_body_constraint_counts: &state.old_constraints_counts,
-                old_constraint_builders: &state.old_constraint_builders,
-                old_body_constraint_ids: &state.old_body_constraint_ids,
-                old_constraints: &state.old_constraints,
-                new_constraints: &mut state.new_constraints,
-                new_constraint_builders: &state.new_constraint_builders,
-                contacts_len_indirect: &state.contacts_indirect,
-                batch_indices: &state.batch_indices,
-            };
+                self.warmstart
+                    .transfer_warmstart_impulses(&mut pass, warmstart_args)?;
 
-            self.warmstart
-                .transfer_warmstart_impulses(&mut pass, warmstart_args)?;
+                let coloring_args = ColoringArgs {
+                    contacts_len_indirect: &state.contacts_indirect,
+                    body_constraint_counts: &state.new_constraints_counts,
+                    body_constraint_ids: &state.new_body_constraint_ids,
+                    constraints: &state.new_constraints,
+                    constraints_colors: &mut state.constraints_colors,
+                    constraints_rands: &mut state.constraints_rands,
+                    curr_color: &mut state.curr_color,
+                    uncolored: &mut state.uncolored,
+                    uncolored_staging: &state.uncolored_staging,
+                    contacts_len: &state.contacts_len,
+                    colored: &mut state.colored,
+                    batch_indices: &state.batch_indices,
+                    body_group: &state.body_group,
+                };
+                self.coloring
+                    .dispatch_topo_gc_reset(&mut pass, coloring_args)?;
 
-            let coloring_args = ColoringArgs {
-                contacts_len_indirect: &state.contacts_indirect,
-                body_constraint_counts: &state.new_constraints_counts,
-                body_constraint_ids: &state.new_body_constraint_ids,
-                constraints: &state.new_constraints,
-                constraints_colors: &mut state.constraints_colors,
-                constraints_rands: &mut state.constraints_rands,
-                curr_color: &mut state.curr_color,
-                uncolored: &mut state.uncolored,
-                uncolored_staging: &state.uncolored_staging,
-                contacts_len: &state.contacts_len,
-                colored: &mut state.colored,
-                batch_indices: &state.batch_indices,
-                body_group: &state.body_group,
-            };
-            self.coloring.dispatch_topo_gc_reset(&mut pass, coloring_args)?;
+                // Seed the coloring from the previous frame's colors (contacts
+                // persist, so most constraints can reuse their old color and the
+                // topo-gc iterations converge in 1-2 rounds instead of ~num_colors).
+                let seed_args = crate::dynamics::warmstart::SeedColorsArgs {
+                    contacts_len: &state.contacts_len,
+                    old_body_constraint_counts: &state.old_constraints_counts,
+                    old_body_constraint_ids: &state.old_body_constraint_ids,
+                    old_constraints: &state.old_constraints,
+                    new_constraints: &state.new_constraints,
+                    old_constraints_colors: &state.old_constraints_colors,
+                    constraints_colors: &mut state.constraints_colors,
+                    colored: &mut state.colored,
+                    contacts_len_indirect: &state.contacts_indirect,
+                    batch_indices: &state.batch_indices,
+                };
+                self.warmstart
+                    .seed_colors_from_warmstart(&mut pass, seed_args)?;
 
-            // Seed the coloring from the previous frame's colors (contacts
-            // persist, so most constraints can reuse their old color and the
-            // topo-gc iterations converge in 1-2 rounds instead of ~num_colors).
-            let seed_args = crate::dynamics::warmstart::SeedColorsArgs {
-                contacts_len: &state.contacts_len,
-                old_body_constraint_counts: &state.old_constraints_counts,
-                old_body_constraint_ids: &state.old_body_constraint_ids,
-                old_constraints: &state.old_constraints,
-                new_constraints: &state.new_constraints,
-                old_constraints_colors: &state.old_constraints_colors,
-                constraints_colors: &mut state.constraints_colors,
-                colored: &mut state.colored,
-                contacts_len_indirect: &state.contacts_indirect,
-                batch_indices: &state.batch_indices,
-            };
-            self.warmstart.seed_colors_from_warmstart(&mut pass, seed_args)?;
+                let coloring_args = ColoringArgs {
+                    contacts_len_indirect: &state.contacts_indirect,
+                    body_constraint_counts: &state.new_constraints_counts,
+                    body_constraint_ids: &state.new_body_constraint_ids,
+                    constraints: &state.new_constraints,
+                    constraints_colors: &mut state.constraints_colors,
+                    constraints_rands: &mut state.constraints_rands,
+                    curr_color: &mut state.curr_color,
+                    uncolored: &mut state.uncolored,
+                    uncolored_staging: &state.uncolored_staging,
+                    contacts_len: &state.contacts_len,
+                    colored: &mut state.colored,
+                    batch_indices: &state.batch_indices,
+                    body_group: &state.body_group,
+                };
+                self.coloring.dispatch_topo_gc_iterations(
+                    &mut pass,
+                    coloring_args,
+                    state.max_colors,
+                )?;
 
-            let coloring_args = ColoringArgs {
-                contacts_len_indirect: &state.contacts_indirect,
-                body_constraint_counts: &state.new_constraints_counts,
-                body_constraint_ids: &state.new_body_constraint_ids,
-                constraints: &state.new_constraints,
-                constraints_colors: &mut state.constraints_colors,
-                constraints_rands: &mut state.constraints_rands,
-                curr_color: &mut state.curr_color,
-                uncolored: &mut state.uncolored,
-                uncolored_staging: &state.uncolored_staging,
-                contacts_len: &state.contacts_len,
-                colored: &mut state.colored,
-                batch_indices: &state.batch_indices,
-                body_group: &state.body_group,
-            };
-            self.coloring
-                .dispatch_topo_gc_iterations(&mut pass, coloring_args, state.max_colors)?;
+                // Bucket-sort the constraint ids by color so each colored solver
+                // sweep only touches its own constraints.
+                let bucket_args = crate::dynamics::ColorBucketsArgs {
+                    contacts_len_indirect: &state.contacts_indirect,
+                    constraints_colors: &state.constraints_colors,
+                    contacts_len: &state.contacts_len,
+                    color_bucket_counts: &mut state.color_bucket_counts,
+                    color_bucket_starts: &mut state.color_bucket_starts,
+                    color_bucket_cursors: &mut state.color_bucket_cursors,
+                    color_sorted_ids: &mut state.color_sorted_ids,
+                    batch_indices: &state.batch_indices,
+                };
+                self.coloring.dispatch_build_color_buckets(
+                    &mut pass,
+                    bucket_args,
+                    state.max_colors + 3,
+                    state.num_batches,
+                )?;
 
-            // Bucket-sort the constraint ids by color so each colored solver
-            // sweep only touches its own constraints.
-            let bucket_args = crate::dynamics::ColorBucketsArgs {
-                contacts_len_indirect: &state.contacts_indirect,
-                constraints_colors: &state.constraints_colors,
-                contacts_len: &state.contacts_len,
-                color_bucket_counts: &mut state.color_bucket_counts,
-                color_bucket_starts: &mut state.color_bucket_starts,
-                color_bucket_cursors: &mut state.color_bucket_cursors,
-                color_sorted_ids: &mut state.color_sorted_ids,
-                batch_indices: &state.batch_indices,
-            };
-            self.coloring.dispatch_build_color_buckets(
-                &mut pass,
-                bucket_args,
-                state.max_colors + 3,
-                state.num_batches,
-            )?;
+                // `+1` because solver iterates 1..=max_colors (color 0 is unassigned).
+                let num_colors = state.max_colors + 1;
+                stats.num_colors = num_colors;
 
-            // `+1` because solver iterates 1..=max_colors (color 0 is unassigned).
-            let num_colors = state.max_colors + 1;
-            stats.num_colors = num_colors;
-
-            drop(pass);
+                drop(pass);
             }
             if !merge_submits {
                 backend.submit(encoder)?;
@@ -458,6 +463,7 @@ impl RbdPipeline {
             colorless_warmstart: true,
             fused_color_sweeps,
             rb_contacts_inert: state.rb_contacts_inert,
+            gravity: &state.gravity,
         };
 
         // Phase 3: Solve constraints
@@ -555,12 +561,9 @@ impl RbdPipeline {
                 let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
                 let stride = state.max_colors + 3;
                 let nb = state.num_batches;
-                state.color_bucket_counts =
-                    Tensor::vector_uninit(backend, stride * nb, storage)?;
-                state.color_bucket_starts =
-                    Tensor::vector_uninit(backend, stride * nb, storage)?;
-                state.color_bucket_cursors =
-                    Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_bucket_counts = Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_bucket_starts = Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_bucket_cursors = Tensor::vector_uninit(backend, stride * nb, storage)?;
                 state.rebuild_batch_indices(backend);
             }
 
@@ -607,7 +610,7 @@ impl RbdPipeline {
                 // Zeroed (not uninit): 0 = "uncolored" disables color seeding
                 // for the frame right after the resize.
                 state.old_constraints_colors =
-                    Tensor::vector(backend, &vec![0u32; (new_capacity * nb) as usize], storage)?;
+                    Tensor::vector(backend, vec![0u32; (new_capacity * nb) as usize], storage)?;
                 state.colored = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
                 state.constraints_rands =
                     Tensor::vector_uninit(backend, new_capacity * nb, storage)?;

@@ -12,7 +12,7 @@
 //!     with multiple right-hand sides.
 
 use crate::utils::linalg::{
-    MatSlice, axpy_mat, copy_from, fill, gemm, gemm_mat3_lhs, gemm_tr, gemv_tr_spatial,
+    MatSlice, VSlice, axpy_mat, copy_from, fill, gemm, gemm_mat3_lhs, gemm_tr, gemv_tr_spatial,
     lu_decompose, lu_solve_in_place, quadform_spatial, skew, skew_tr,
 };
 use glamx::{Mat3, Vec3};
@@ -494,11 +494,18 @@ fn lu_solve_identity_recovers_rhs() {
         buf_m[m.idx(i, i)] = 1.0;
     }
     let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf_m, m, &mut pivots, 0);
+    lu_decompose(&mut buf_m, m, &mut pivots, VSlice::dense(0));
 
     let mut rhs = vec![7.0, -3.0, 2.5, 1.25];
     let want = rhs.clone();
-    lu_solve_in_place(&buf_m, m, &pivots, 0, &mut rhs, 0);
+    lu_solve_in_place(
+        &buf_m,
+        m,
+        &pivots,
+        VSlice::dense(0),
+        &mut rhs,
+        VSlice::dense(0),
+    );
     assert_slice_eq(&rhs, &want);
 }
 
@@ -516,11 +523,18 @@ fn lu_solve_spd_matrix() {
 
     // Decompose.
     let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf, m, &mut pivots, 0);
+    lu_decompose(&mut buf, m, &mut pivots, VSlice::dense(0));
 
     // Solve M · x = b with b = [1, 2, 3].
     let mut rhs = vec![1.0f32, 2.0, 3.0];
-    lu_solve_in_place(&buf, m, &pivots, 0, &mut rhs, 0);
+    lu_solve_in_place(
+        &buf,
+        m,
+        &pivots,
+        VSlice::dense(0),
+        &mut rhs,
+        VSlice::dense(0),
+    );
 
     // Verify by multiplying back: M · x ≈ b.
     let mx = matvec(rows, &rhs);
@@ -541,14 +555,21 @@ fn lu_solve_requires_pivoting() {
     pack_matrix(&mut buf, m, rows);
 
     let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf, m, &mut pivots, 0);
+    lu_decompose(&mut buf, m, &mut pivots, VSlice::dense(0));
 
     // Pick a known solution, compute b = M·x, then confirm the solve recovers x.
     let x_true = [1.5f32, -0.5, 2.0];
     let b = matvec(rows, &x_true);
 
     let mut rhs = b.clone();
-    lu_solve_in_place(&buf, m, &pivots, 0, &mut rhs, 0);
+    lu_solve_in_place(
+        &buf,
+        m,
+        &pivots,
+        VSlice::dense(0),
+        &mut rhs,
+        VSlice::dense(0),
+    );
     assert_slice_eq(&rhs, &x_true);
 }
 
@@ -569,7 +590,7 @@ fn lu_factor_reused_across_multiple_rhs() {
 
     // Decompose once.
     let mut pivots = vec![0u32; n as usize];
-    lu_decompose(&mut buf, m, &mut pivots, 0);
+    lu_decompose(&mut buf, m, &mut pivots, VSlice::dense(0));
 
     // Solve three different RHSes with the same factorization.
     let rhss = [
@@ -579,7 +600,14 @@ fn lu_factor_reused_across_multiple_rhs() {
     ];
     for b in &rhss {
         let mut rhs = b.to_vec();
-        lu_solve_in_place(&buf, m, &pivots, 0, &mut rhs, 0);
+        lu_solve_in_place(
+            &buf,
+            m,
+            &pivots,
+            VSlice::dense(0),
+            &mut rhs,
+            VSlice::dense(0),
+        );
         // Verify: M · rhs ≈ b.
         let mx = matvec(rows, &rhs);
         assert_slice_eq(&mx, b);
@@ -602,8 +630,8 @@ fn lu_solve_respects_offsets() {
     pack_matrix(&mut buf_m, m_b, rows_b);
 
     let mut pivots = vec![0u32; 4];
-    lu_decompose(&mut buf_m, m_a, &mut pivots, 0);
-    lu_decompose(&mut buf_m, m_b, &mut pivots, 2);
+    lu_decompose(&mut buf_m, m_a, &mut pivots, VSlice::dense(0));
+    lu_decompose(&mut buf_m, m_b, &mut pivots, VSlice::dense(2));
 
     let x_a_true = [1.0f32, -1.0];
     let x_b_true = [2.0f32, 0.5];
@@ -611,8 +639,22 @@ fn lu_solve_respects_offsets() {
     let b_b = matvec(rows_b, &x_b_true);
 
     let mut buf_rhs = vec![b_a[0], b_a[1], b_b[0], b_b[1]];
-    lu_solve_in_place(&buf_m, m_a, &pivots, 0, &mut buf_rhs, 0);
-    lu_solve_in_place(&buf_m, m_b, &pivots, 2, &mut buf_rhs, 2);
+    lu_solve_in_place(
+        &buf_m,
+        m_a,
+        &pivots,
+        VSlice::dense(0),
+        &mut buf_rhs,
+        VSlice::dense(0),
+    );
+    lu_solve_in_place(
+        &buf_m,
+        m_b,
+        &pivots,
+        VSlice::dense(2),
+        &mut buf_rhs,
+        VSlice::dense(2),
+    );
 
     assert_slice_eq(&buf_rhs[0..2], &x_a_true);
     assert_slice_eq(&buf_rhs[2..4], &x_b_true);
