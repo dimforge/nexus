@@ -39,7 +39,10 @@ pub fn gpu_bf_compute_aabbs(
     let poses = batch_ids.coll_batch(batch_id, poses);
     let shapes = batch_ids.coll_batch(batch_id, shapes);
     let out = batch_ids.coll_start(batch_id) + i as usize;
-    aabbs.write(out, shapes[i as usize].compute_aabb(poses[i as usize], vertices));
+    aabbs.write(
+        out,
+        shapes[i as usize].compute_aabb(poses[i as usize], vertices),
+    );
 }
 
 /// Tests every collider pair of every batch and appends the intersecting,

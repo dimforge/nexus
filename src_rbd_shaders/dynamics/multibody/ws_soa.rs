@@ -179,11 +179,7 @@ pub fn ws_set_vec(buf: &mut [Vec4], a: WsAddr, k: u32, f: u32, v: Vector) {
 pub fn ws_ext_wrench(buf: &[Vec4], a: WsAddr, k: u32) -> (Vector, crate::AngVector, f32) {
     let f = buf.read(a.at(k, WS_EXT_FORCE));
     let t = buf.read(a.at(k, WS_EXT_TORQUE));
-    (
-        Vec3::new(f.x, f.y, f.z),
-        Vec3::new(t.x, t.y, t.z),
-        f.w,
-    )
+    (Vec3::new(f.x, f.y, f.z), Vec3::new(t.x, t.y, t.z), f.w)
 }
 
 #[cfg(feature = "dim2")]
@@ -310,7 +306,10 @@ pub fn ws_set_vel(buf: &mut [Vec4], a: WsAddr, k: u32, f: u32, v: Velocity) {
 #[cfg(feature = "dim2")]
 #[inline]
 pub fn ws_set_vel(buf: &mut [Vec4], a: WsAddr, k: u32, f: u32, v: Velocity) {
-    buf.write(a.at(k, f), Vec4::new(v.linear.x, v.linear.y, v.angular, 0.0));
+    buf.write(
+        a.at(k, f),
+        Vec4::new(v.linear.x, v.linear.y, v.angular, 0.0),
+    );
 }
 
 /// Extract component `i` (0..4) of a `Vec4` by value (no reference indexing,

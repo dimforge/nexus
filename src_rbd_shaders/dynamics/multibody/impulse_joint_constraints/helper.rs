@@ -13,8 +13,8 @@ use crate::{AngVector, MAX_FLT, Pose, Vector, rotation_to_matrix};
 
 use super::super::types::MultibodyInfo;
 use super::jacobians::*;
-use crate::utils::linalg::VSlice;
 use super::types::*;
+use crate::utils::linalg::VSlice;
 
 /// `JointConstraintHelper`-equivalent: precomputed per-joint quantities used
 /// by `lock_*`, `limit_*`, `motor_*`. Mirrors the homonymous rapier struct.
@@ -160,9 +160,9 @@ impl AngularLimitParams {
     pub(super) fn new(min: f32, max: f32) -> Self {
         let half_range = (max - min) * 0.5;
         // A range of a full turn or more is indistinguishable from "no limit"
-        // for an angle read off a relative rotation. `!(x < PI)` also catches
-        // NaN bounds before they poison the row.
-        if !(half_range < core::f32::consts::PI) {
+        // for an angle read off a relative rotation. NaN bounds are rejected
+        // here too, before they poison the row.
+        if half_range.is_nan() || half_range >= core::f32::consts::PI {
             return Self {
                 center: 0.0,
                 half_range: 10.0,

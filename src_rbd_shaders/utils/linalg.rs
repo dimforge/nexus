@@ -716,7 +716,7 @@ pub fn gemm_tr(
 /// strictly-below-diagonal entries hold `L` (with implicit unit diagonal), the
 /// diagonal and above hold `U`. Row pivots are written to `pivots[0..n]` —
 /// `pivots[k]` is the row that was swapped with row `k` during elimination step
-/// `k`. `pivots_offset` is where this multibody's pivot slot starts in `buf_pivots`.
+/// `k`. `piv` is the view of this multibody's pivot slot inside `buf_pivots`.
 #[inline]
 pub fn lu_decompose(buf_m: &mut [f32], m: MatSlice, buf_pivots: &mut [u32], piv: VSlice) {
     let n = m.rows;
@@ -770,8 +770,8 @@ pub fn lu_decompose(buf_m: &mut [f32], m: MatSlice, buf_pivots: &mut [u32], piv:
 /// Solve `M · x = rhs` in-place, using LU factors produced by
 /// [`lu_decompose`] (and its pivot array). The result overwrites `rhs`.
 ///
-/// `m` and `pivots` must be the exact outputs of a previous `lu_decompose` call.
-/// `rhs` is an `n`-element column vector; `rhs_offset` is where it starts in `buf_rhs`.
+/// `m` and `piv` must designate the exact outputs of a previous `lu_decompose`
+/// call. `rhs` is the view of an `n`-element column vector inside `buf_rhs`.
 #[inline]
 pub fn lu_solve_in_place(
     buf_m: &[f32],

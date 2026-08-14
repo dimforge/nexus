@@ -4,8 +4,8 @@
 use crate::math::Pose;
 use crate::shaders::dynamics::{
     ConstraintSoftness, LocalMassProperties, MbDofCoupling, MbImpulseJointBuilder,
-    MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
-    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
+    MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo, MultibodyJointConstraint,
+    MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::BufferUsages;
@@ -223,13 +223,13 @@ impl GpuMultibodySet {
         &self.dof_state
     }
 
-    /// GPU buffer for generalized coordinates.
     /// Per-batch stride of the DoF buffers (the length of each section of
     /// [`Self::dof_state`]).
     pub fn dofs_per_batch(&self) -> u32 {
         self.dofs_per_batch
     }
 
+    /// GPU buffer for generalized coordinates.
     pub fn dof_values(&self) -> &Tensor<f32> {
         &self.dof_values
     }
@@ -273,7 +273,6 @@ impl GpuMultibodySet {
     pub fn num_internal_pgs_iterations(&self) -> u32 {
         self.num_internal_pgs_iterations
     }
-
 
     /// Upload the visible-frame `dt`. Internally divides by `num_solver_iterations`
     /// and stores the *substep* dt (which is what the GPU kernels read).
@@ -579,8 +578,7 @@ impl GpuMultibodySet {
         let a = WsAddr::new(0, self.num_batches, batch_id);
         let mut out = Vec::new();
         for k in 0..self.links_per_batch {
-            let stat = &self.links_static_mirror
-                [(batch_id * self.links_per_batch + k) as usize];
+            let stat = &self.links_static_mirror[(batch_id * self.links_per_batch + k) as usize];
             let locked = stat.data.locked_axes;
             for axis in 0..6u32 {
                 if locked & (1 << axis) == 0 {

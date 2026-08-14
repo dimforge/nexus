@@ -11,12 +11,11 @@ use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
-    GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
-    GpuSolverInitConstraints, GpuSolverRefreshRhsWoBias, GpuSolverSortConstraints,
-    GpuSolverUpdateConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused, GpuWarmstart,
-    GpuWarmstartFused, GpuWarmstartWithoutColors,
-    LocalMassProperties, RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity,
-    WorldMassProperties,
+    GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize, GpuSolverInitConstraints,
+    GpuSolverRefreshRhsWoBias, GpuSolverSortConstraints, GpuSolverUpdateConstraints,
+    GpuStepGaussSeidel, GpuStepGaussSeidelFused, GpuWarmstart, GpuWarmstartFused,
+    GpuWarmstartWithoutColors, LocalMassProperties, RbdSimParams, TwoBodyConstraint,
+    TwoBodyConstraintBuilder, Velocity, WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -567,7 +566,7 @@ impl GpuSolver {
          * back to body-origin poses.
          */
         {
-            let mut pass = encoder.begin_pass("[RBD] slv/finalize", timestamps.as_deref_mut());
+            let mut pass = encoder.begin_pass("[RBD] slv/finalize", timestamps);
             self.finalize.call(
                 &mut pass,
                 [args.num_colliders, args.num_batches, 1],

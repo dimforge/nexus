@@ -4,17 +4,15 @@ use super::multibody_set::*;
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
-    GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
-    GpuMbFinalizeContactConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
-    GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
-    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
-    GpuMbRemoveImpulseJointConstraintBias,
-    GpuMbApplyContactRestitution, GpuMbSeedContactRestitution, GpuMbSnapshotContactWarmstart,
-    GpuMbStashContactsLen, GpuMbTransferContactWarmstart, GpuMbWarmstartContactConstraints,
-    GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
-    GpuMbSolveJoints,
-    GpuMbFinalizeImpulseJointConstraints,
-    GpuMbUpdateImpulseJointConstraints, Velocity, WorldMassProperties,
+    GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
+    GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints, GpuMbGravityAndLu,
+    GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32,
+    GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
+    GpuMbIntegrateVelocities, GpuMbRemoveImpulseJointConstraintBias, GpuMbSeedContactRestitution,
+    GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
+    GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbStashContactsLen,
+    GpuMbTransferContactWarmstart, GpuMbUpdateImpulseJointConstraints,
+    GpuMbWarmstartContactConstraints, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -154,7 +152,7 @@ impl GpuMultibodySolver {
                 args.batch_indices,
             )?;
         }
-        let mut pass = encoder.begin_pass("[RBD] mbi/dynamics", timestamps.as_deref_mut());
+        let mut pass = encoder.begin_pass("[RBD] mbi/dynamics", timestamps);
         self.compute_dynamics(&mut pass, mb, args)
     }
 
@@ -268,8 +266,7 @@ impl GpuMultibodySolver {
         // substep, including the first, which carries the previous frame's.
         // One 64-lane workgroup per multibody (one DOF per lane).
         if mb.warmstart_coefficient != 0.0 {
-            let mut pass =
-                encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps.as_deref_mut());
+            let mut pass = encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps);
             // Contact-only work: indirect grid collapses to zero workgroups
             // when no batch has any contact this step.
             self.warmstart_contact_constraints.call(
@@ -325,10 +322,8 @@ impl GpuMultibodySolver {
 
         // One 64-lane workgroup per multibody.
         {
-            let mut pass =
-                encoder.begin_pass("[RBD] mbb/init-contact", timestamps.as_deref_mut());
-            let init_contact_dispatch =
-                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            let mut pass = encoder.begin_pass("[RBD] mbb/init-contact", timestamps.as_deref_mut());
+            let init_contact_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
             self.init_contact_constraints.call(
                 &mut pass,
                 init_contact_dispatch,
@@ -368,8 +363,7 @@ impl GpuMultibodySolver {
         // Delassus blocks for the constraint-space contact sweep (consumes
         // the columns finalized just above).
         if let Some(delassus) = &mut mb.contact_delassus {
-            let mut pass =
-                encoder.begin_pass("[RBD] mbb/build-delassus", timestamps.as_deref_mut());
+            let mut pass = encoder.begin_pass("[RBD] mbb/build-delassus", timestamps);
             self.build_contact_delassus.call(
                 &mut pass,
                 args.mb_sweep_indirect,
@@ -715,8 +709,7 @@ impl GpuMultibodySolver {
             16 => grav_lu!(gravity_and_lu_t16),
             32 => grav_lu!(gravity_and_lu_t32),
             _ => {
-                let grav_lu_dispatch =
-                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+                let grav_lu_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
                 self.gravity_and_lu.call(
                     pass,
                     grav_lu_dispatch,

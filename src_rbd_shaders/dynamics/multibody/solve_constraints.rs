@@ -55,7 +55,7 @@ pub fn gpu_mb_solve_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
+    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
     #[spirv(workgroup)] scratch: &mut [f32; LANES as usize],
     #[spirv(workgroup)] imp_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
     #[spirv(workgroup)] delta_shared: &mut f32,
@@ -81,8 +81,7 @@ pub fn gpu_mb_solve_constraints(
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let colliders_start = batch_ids.coll_start(batch_id);
 
-    let jcons_base =
-        batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
+    let jcons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let jcol_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
 
@@ -107,7 +106,6 @@ pub fn gpu_mb_solve_constraints(
     }
     workgroup_memory_barrier_with_group_sync();
 
-
     // Joint limits/motors
     for s in 0..mb.max_constraints {
         let cons = joint_constraints.read(jcons_base + s as usize);
@@ -123,8 +121,7 @@ pub fn gpu_mb_solve_constraints(
         // Generalized `J·v` for `J = e_{dof_id} - coupling_coeff*e_{dof2_id}`
         // (coupling rows); collapses to `v[dof_id]` for limit / motor rows
         // (their `coupling_coeff` is 0).
-        let v_d = dof_v[cons.dof_id as usize]
-            - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
+        let v_d = dof_v[cons.dof_id as usize] - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
         let rhs_total = v_d + rhs;
         let raw_imp = cons.impulse + cons.inv_lhs * (rhs_total - cons.cfm_gain * cons.impulse);
         let mut new_imp = raw_imp;
@@ -151,7 +148,6 @@ pub fn gpu_mb_solve_constraints(
         }
         workgroup_memory_barrier_with_group_sync();
     }
-
 
     // Contacts. In 3D the two friction rows of a contact point are solved
     // together so their impulse can be capped to the friction cone; the second
@@ -234,7 +230,11 @@ pub fn gpu_mb_solve_constraints(
                 0.0
             };
             let raw1 = if has_pair {
-                let rhs1 = if use_bias { cons2.rhs } else { cons2.rhs_wo_bias };
+                let rhs1 = if use_bias {
+                    cons2.rhs
+                } else {
+                    cons2.rhs_wo_bias
+                };
                 cfm_factor * (impulse1 - cons2.inv_lhs * (j_dot_v1 + rhs1))
             } else {
                 0.0
@@ -318,7 +318,7 @@ pub fn gpu_mb_solve_joints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_state: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] use_bias: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
-    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
+    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
 ) {
     let batch_id = workgroup_id.y;
     let mb_idx = workgroup_id.x;
@@ -338,8 +338,7 @@ pub fn gpu_mb_solve_joints(
 
     let v_base = mb.first_dof as usize;
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
-    let jcons_base =
-        batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
+    let jcons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let jcol_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
 
@@ -362,8 +361,7 @@ pub fn gpu_mb_solve_joints(
         // Generalized `J·v` for `J = e_{dof_id} - coupling_coeff*e_{dof2_id}`
         // (coupling rows); collapses to `v[dof_id]` for limit / motor rows
         // (their `coupling_coeff` is 0).
-        let v_d = dof_v[cons.dof_id as usize]
-            - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
+        let v_d = dof_v[cons.dof_id as usize] - cons.coupling_coeff * dof_v[cons.dof2_id as usize];
         let rhs_total = v_d + rhs;
         let raw_imp = cons.impulse + cons.inv_lhs * (rhs_total - cons.cfm_gain * cons.impulse);
         let mut new_imp = raw_imp;
@@ -433,8 +431,8 @@ pub fn gpu_mb_build_contact_delassus(
         return;
     }
 
-    let cons_base = batch_ids.mb_contact_constraints_start(batch_id)
-        + (mb_idx as usize) * (MAXC as usize);
+    let cons_base =
+        batch_ids.mb_contact_constraints_start(batch_id) + (mb_idx as usize) * (MAXC as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
         + (mb_idx as usize) * (MAXC as usize) * dofs_stride;
@@ -493,7 +491,7 @@ pub fn gpu_mb_solve_contacts_delassus(
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
+    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
     #[spirv(workgroup)] a_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
     #[spirv(workgroup)] imp_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
     #[spirv(workgroup)] rhs_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
@@ -522,8 +520,8 @@ pub fn gpu_mb_solve_contacts_delassus(
 
     let v_base = mb.first_dof as usize;
     let colliders_start = batch_ids.coll_start(batch_id);
-    let cons_base = batch_ids.mb_contact_constraints_start(batch_id)
-        + (mb_idx as usize) * (MAXC as usize);
+    let cons_base =
+        batch_ids.mb_contact_constraints_start(batch_id) + (mb_idx as usize) * (MAXC as usize);
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
         + (mb_idx as usize) * (MAXC as usize) * dofs_stride;
@@ -547,8 +545,8 @@ pub fn gpu_mb_solve_contacts_delassus(
         cfm_shared[s as usize] = if use_bias { cons.cfm_factor } else { 1.0 };
         friction_shared[s as usize] = cons.friction_coeff;
         let is_self = cons.free_body_id == u32::MAX;
-        let free_active = !is_self
-            && (cons.free_body_im != 0.0 || gdot(cons.ii_ang_jac, cons.ii_ang_jac) != 0.0);
+        let free_active =
+            !is_self && (cons.free_body_im != 0.0 || gdot(cons.ii_ang_jac, cons.ii_ang_jac) != 0.0);
         meta_shared[s as usize] = (cons.kind & 0xff)
             | ((cons.normal_constraint_slot & 0xffff) << 8)
             | (if free_active { 1 << 24 } else { 0 });
@@ -597,7 +595,8 @@ pub fn gpu_mb_solve_contacts_delassus(
 
         let impulse0 = imp_shared[s as usize];
         let raw0 = cfm_shared[s as usize]
-            * (impulse0 - inv_lhs_shared[s as usize] * (a_shared[s as usize] + rhs_shared[s as usize]));
+            * (impulse0
+                - inv_lhs_shared[s as usize] * (a_shared[s as usize] + rhs_shared[s as usize]));
         let impulse1 = if has_pair {
             imp_shared[(s + 1) as usize]
         } else {
@@ -632,8 +631,7 @@ pub fn gpu_mb_solve_contacts_delassus(
 
                 if free_active {
                     let cons = contact_constraints.read(cons_base + s as usize);
-                    let mut free =
-                        solver_vels.read(colliders_start + cons.free_body_id as usize);
+                    let mut free = solver_vels.read(colliders_start + cons.free_body_id as usize);
                     free.linear += cons.lin_jac * (cons.free_body_im * delta0);
                     free.angular += cons.ii_ang_jac * delta0;
                     if has_pair {

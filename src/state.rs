@@ -243,7 +243,7 @@ impl NexusState {
     /// state. Use this to run rapier-side helpers whose output you then push
     /// through a runtime setter — e.g. driving an MJCF actuator model and
     /// forwarding the resulting motors with
-    /// [`GpuMultibodySet::set_motors`](crate::rbd::dynamics::GpuMultibodySet::set_motors).
+    /// `GpuMultibodySet::set_motors` (3D only, hence no intra-doc link here).
     pub fn rbd_world_mut_untracked(&mut self, env: usize) -> &mut PhysicsWorld {
         &mut self.rbd_envs[env]
     }

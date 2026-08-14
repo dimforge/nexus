@@ -232,7 +232,10 @@ impl RbdState {
 
             // Handle bodies whose multibody disables self-contacts.
             #[cfg(feature = "dim3")]
-            let no_self_collide: HashMap<crate::rapier::dynamics::RigidBodyHandle, u32> = {
+            let no_self_collide: HashMap<
+                crate::rapier::dynamics::RigidBodyHandle,
+                u32,
+            > = {
                 let mut map = HashMap::new();
                 for (mb_ord, mb) in multibody_joints.multibodies().enumerate() {
                     if !mb.self_contacts_enabled() {
@@ -661,7 +664,7 @@ impl RbdState {
         .unwrap();
         let old_constraints_colors = Tensor::vector(
             backend,
-            &vec![0u32; (capacities.collisions_capacity * num_batches) as usize],
+            vec![0u32; (capacities.collisions_capacity * num_batches) as usize],
             storage,
         )
         .unwrap();

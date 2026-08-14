@@ -4,9 +4,8 @@
 //! After this pass, callers are expected to re-run forward kinematics to
 //! refresh link poses.
 
-use khal_std::glamx::UVec3;
 use glamx::Vec4;
-use khal_std::index::MaybeIndexUnchecked;
+use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 #[cfg(feature = "dim2")]
@@ -19,7 +18,9 @@ use crate::{Vector, rotation_from_scaled_axis, rotation_renormalize_fast};
 use parry::math::VectorExt;
 
 use super::types::{MultibodyInfo, MultibodyLinkStatic};
-use super::ws_soa::{WS_JOINT_ROT, WsAddr, ws_coord, ws_rot, ws_set_coord, ws_set_rot};
+#[cfg(feature = "dim3")]
+use super::ws_soa::ws_rot;
+use super::ws_soa::{WS_JOINT_ROT, WsAddr, ws_coord, ws_set_coord, ws_set_rot};
 
 /// Update generalized velocities: `v += a · dt`.
 ///
@@ -44,9 +45,7 @@ pub fn gpu_mb_integrate_velocities(
     let mb_idx = invocation_id.x % num_mb;
     let dt = *dt_uniform;
 
-    let mb = batch_ids
-        .ib(batch_id, multibody_info)
-        .read(mb_idx as usize);
+    let mb = batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize);
 
     let mut dof_vel = batch_ids
         .ib_mut(batch_id, dof_state)
@@ -82,9 +81,7 @@ pub fn gpu_mb_integrate(
     let mb_idx = invocation_id.x % num_mb;
     let dt = *dt_uniform;
 
-    let mb = batch_ids
-        .ib(batch_id, multibody_info)
-        .read(mb_idx as usize);
+    let mb = batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize);
     let num_links = mb.num_links;
 
     let stat_slice = batch_ids
@@ -143,7 +140,13 @@ pub fn gpu_mb_integrate(
                 let v = dof_vel[aid + curr_free as usize];
                 let new = ws_coord(links_workspace, wa, k, DIM) + v * dt;
                 ws_set_coord(links_workspace, wa, k, DIM, new);
-                ws_set_rot(links_workspace, wa, k, WS_JOINT_ROT, rotation_from_angle(new));
+                ws_set_rot(
+                    links_workspace,
+                    wa,
+                    k,
+                    WS_JOINT_ROT,
+                    rotation_from_angle(new),
+                );
             }
         } else if num_ang == 3 {
             #[cfg(feature = "dim3")]

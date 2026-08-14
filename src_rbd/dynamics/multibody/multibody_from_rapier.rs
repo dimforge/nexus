@@ -2,10 +2,9 @@
 
 use super::multibody_set::*;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB,
-    MbDofCoupling, MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint,
-    MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace,
-    RbdSimParams,
+    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDofCoupling,
+    MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::linalg::MAX_MB_DOFS;
 use khal::BufferUsages;
@@ -506,7 +505,7 @@ impl GpuMultibodySet {
             info_mirror,
             links_workspace: Tensor::vector(
                 backend,
-                &crate::shaders::dynamics::ws_soa_from_structs(&all_ws, links_cap, num_batches),
+                crate::shaders::dynamics::ws_soa_from_structs(&all_ws, links_cap, num_batches),
                 storage,
             )
             .unwrap(),
@@ -615,7 +614,11 @@ impl GpuMultibodySet {
                 // Sized by the capacity stride (the kernels index blocks by
                 // `batch · multibodies_batch_capacity + mb_idx`).
                 let total_mbs = mb_cap * num_batches;
-                if global_max_mb > 0 && total_mbs <= MAX_DELASSUS_MULTIBODIES {
+                // `MAX_DELASSUS_MULTIBODIES` is currently 0, which disables the
+                // path; the bound is kept so raising the constant re-enables it.
+                #[allow(clippy::absurd_extreme_comparisons)]
+                let use_delassus = global_max_mb > 0 && total_mbs <= MAX_DELASSUS_MULTIBODIES;
+                if use_delassus {
                     let block = (MAX_MB_CONTACT_CONSTRAINTS_PER_MB
                         * MAX_MB_CONTACT_CONSTRAINTS_PER_MB)
                         as usize;

@@ -560,8 +560,7 @@ impl TwoBodyConstraint {
             } else {
                 (c.rhs_wo_bias, 1.0)
             };
-            let dvel = dir_a.dot(solver_vel1.linear)
-                + gdot(c.torque_dir_a, solver_vel1.angular)
+            let dvel = dir_a.dot(solver_vel1.linear) + gdot(c.torque_dir_a, solver_vel1.angular)
                 - dir_a.dot(solver_vel2.linear)
                 + gdot(c.torque_dir_b, solver_vel2.angular)
                 + rhs;
@@ -660,4 +659,3 @@ impl TwoBodyConstraint {
         }
     }
 }
-

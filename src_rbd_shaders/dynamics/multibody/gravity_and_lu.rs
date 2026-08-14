@@ -25,8 +25,8 @@ use crate::{AngVector, Vector, gcross_av};
 
 use super::lu::{
     LANES, lu_apply_pivots, lu_apply_pivots_packed, lu_factor_in_shared,
-    lu_factor_in_shared_packed, lu_triangular_solve_in_place,
-    lu_triangular_solve_in_place_packed, sm_idx, sm_idx_packed,
+    lu_factor_in_shared_packed, lu_triangular_solve_in_place, lu_triangular_solve_in_place_packed,
+    sm_idx, sm_idx_packed,
 };
 use super::types::{MultibodyInfo, MultibodyLinkStatic};
 use super::ws_soa::{
@@ -88,8 +88,7 @@ pub fn gpu_mb_gravity_and_lu(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &mut [Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],
@@ -114,9 +113,7 @@ pub fn gpu_mb_gravity_and_lu(
     let max_ndofs = batch_ids.mb_max_ndofs;
     let max_links = batch_ids.mb_max_links;
 
-    let mb = batch_ids
-        .ib(batch_id, multibody_info)
-        .read(mb_idx as usize);
+    let mb = batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize);
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
     let mb_jac_base = mb.jacobian_offset as usize;
@@ -216,7 +213,13 @@ pub fn gpu_mb_gravity_and_lu(
             acc_lin += gcross_av(acc_ang, self_shift23);
 
             if lane == 0 {
-                ws_set_vel(links_workspace, wa, k, WS_KIN_ACC, Velocity::new(acc_lin, acc_ang));
+                ws_set_vel(
+                    links_workspace,
+                    wa,
+                    k,
+                    WS_KIN_ACC,
+                    Velocity::new(acc_lin, acc_ang),
+                );
             }
         }
 
@@ -242,13 +245,13 @@ pub fn gpu_mb_gravity_and_lu(
                 let gyroscopic: AngVector = 0.0;
 
                 let i_acc_ang = rb_inertia * acc_ang;
-                let (ext_force, ext_torque, gravity_scale) =
-                    ws_ext_wrench(links_workspace, wa, k);
+                let (ext_force, ext_torque, gravity_scale) = ws_ext_wrench(links_workspace, wa, k);
 
                 let f_lin = g * (mass * gravity_scale) + ext_force - acc_lin * mass;
                 let f_ang = ext_torque - gyroscopic - i_acc_ang;
 
-                let body_jacobian = batch_ids.imat(batch_id, 
+                let body_jacobian = batch_ids.imat(
+                    batch_id,
                     mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,
                     ndofs,
@@ -353,7 +356,10 @@ pub fn gpu_mb_gravity_and_lu(
     lu_triangular_solve_in_place(ndofs, max_ndofs, lane, mat, x, partial);
 
     if lane < ndofs {
-        gen_forces.write(batch_ids.mbi(batch_id, gen_base + lane as usize), x.read(lane as usize));
+        gen_forces.write(
+            batch_ids.mbi(batch_id, gen_base + lane as usize),
+            x.read(lane as usize),
+        );
     }
 
     // ---- Phase 5 (split mode only): factor the plain matrix and persist its
@@ -425,9 +431,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     let max_links = batch_ids.mb_max_links;
 
     let mb = if active_slot {
-        batch_ids
-            .ib(batch_id, multibody_info)
-            .read(mb_idx as usize)
+        batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize)
     } else {
         MultibodyInfo::default()
     };
@@ -526,7 +530,13 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
             acc_lin += gcross_av(acc_ang, self_shift23);
 
             if lane == 0 {
-                ws_set_vel(links_workspace, wa, k, WS_KIN_ACC, Velocity::new(acc_lin, acc_ang));
+                ws_set_vel(
+                    links_workspace,
+                    wa,
+                    k,
+                    WS_KIN_ACC,
+                    Velocity::new(acc_lin, acc_ang),
+                );
             }
         }
 
@@ -552,13 +562,13 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
                 let gyroscopic: AngVector = 0.0;
 
                 let i_acc_ang = rb_inertia * acc_ang;
-                let (ext_force, ext_torque, gravity_scale) =
-                    ws_ext_wrench(links_workspace, wa, k);
+                let (ext_force, ext_torque, gravity_scale) = ws_ext_wrench(links_workspace, wa, k);
 
                 let f_lin = g * (mass * gravity_scale) + ext_force - acc_lin * mass;
                 let f_ang = ext_torque - gyroscopic - i_acc_ang;
 
-                let body_jacobian = batch_ids.imat(batch_id, 
+                let body_jacobian = batch_ids.imat(
+                    batch_id,
                     mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,
                     ndofs,
@@ -653,7 +663,10 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
 
     if !split && lane < ndofs {
         for r in 0..ndofs {
-            mass_matrices.write(m_view.idx(r, lane), mat.read(sm_idx_packed::<T>(slot, r, lane)));
+            mass_matrices.write(
+                m_view.idx(r, lane),
+                mat.read(sm_idx_packed::<T>(slot, r, lane)),
+            );
         }
     }
 
@@ -704,8 +717,10 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
         );
         if lane < ndofs {
             for r in 0..ndofs {
-                mass_matrices
-                    .write(m_view.idx(r, lane), mat.read(sm_idx_packed::<T>(slot, r, lane)));
+                mass_matrices.write(
+                    m_view.idx(r, lane),
+                    mat.read(sm_idx_packed::<T>(slot, r, lane)),
+                );
             }
         }
     }
@@ -719,8 +734,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &mut [Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],
@@ -737,9 +751,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
     let batch_id = invocation_id.x / num_mb;
     let mb_idx = invocation_id.x % num_mb;
 
-    let mb = batch_ids
-        .ib(batch_id, multibody_info)
-        .read(mb_idx as usize);
+    let mb = batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize);
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
     if ndofs == 0 {
@@ -829,7 +841,13 @@ pub fn gpu_mb_gravity_and_lu_t1(
         acc_lin += gcross_av(rb_ang, gcross_av(rb_ang, self_shift23));
         acc_lin += gcross_av(acc_ang, self_shift23);
 
-        ws_set_vel(links_workspace, wa, k, WS_KIN_ACC, Velocity::new(acc_lin, acc_ang));
+        ws_set_vel(
+            links_workspace,
+            wa,
+            k,
+            WS_KIN_ACC,
+            Velocity::new(acc_lin, acc_ang),
+        );
 
         let lmp = stat_slice[k as usize].local_mprops;
         let inv_mass_x = lmp.inv_mass.x;
@@ -851,7 +869,8 @@ pub fn gpu_mb_gravity_and_lu_t1(
             let f_lin = g * (mass * gravity_scale) + ext_force - acc_lin * mass;
             let f_ang = ext_torque - gyroscopic - i_acc_ang;
 
-            let body_jacobian = batch_ids.imat(batch_id, 
+            let body_jacobian = batch_ids.imat(
+                batch_id,
                 mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
                 SPATIAL_DIM as u32,
                 ndofs,

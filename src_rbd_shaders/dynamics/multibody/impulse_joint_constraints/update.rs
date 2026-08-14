@@ -7,7 +7,7 @@ use khal_std::index::MaybeIndexUnchecked;
 use crate::dynamics::body::WorldMassProperties;
 use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK, SPATIAL_DIM};
 use crate::utils::ISlice;
-use crate::utils::linalg::{MatSlice, lu_solve_in_place, VSlice};
+use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{DIM, Pose};
 
 use super::super::types::{MultibodyInfo, MultibodyLinkStatic};
@@ -49,7 +49,14 @@ pub(super) fn solve_mb_wj(
         il.shift,
     );
     let piv = VSlice::interleaved(mb.first_dof as usize, il.stride, il.shift);
-    lu_solve_in_place(mass_matrices, m, lu_pivots, piv, jacobians, VSlice::dense(wj_base));
+    lu_solve_in_place(
+        mass_matrices,
+        m,
+        lu_pivots,
+        piv,
+        jacobians,
+        VSlice::dense(wj_base),
+    );
 
     // Kinematic dofs are user-driven: the impulse must not move them.
     let stat_slice = ISlice {

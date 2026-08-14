@@ -181,7 +181,7 @@ impl RbdState {
             Tensor::vector_uninit(backend, collisions_capacity * num_batches, storage).unwrap();
         let old_constraints_colors = Tensor::vector(
             backend,
-            &vec![0u32; (collisions_capacity * num_batches) as usize],
+            vec![0u32; (collisions_capacity * num_batches) as usize],
             storage,
         )
         .unwrap();
@@ -503,7 +503,8 @@ impl RbdState {
         let mut staging_pose = backend.uninit_buffer::<Pose>(1, staging_usages)?;
         let mut staging_local_mprops =
             backend.uninit_buffer::<GpuLocalMassProperties>(1, staging_usages)?;
-        let mut staging_mprops = backend.uninit_buffer::<GpuWorldMassProperties>(1, staging_usages)?;
+        let mut staging_mprops =
+            backend.uninit_buffer::<GpuWorldMassProperties>(1, staging_usages)?;
         let mut staging_vels = backend.uninit_buffer::<GpuVelocity>(1, staging_usages)?;
         let mut staging_shapes = backend.uninit_buffer::<Shape>(1, staging_usages)?;
         let mut staging_groups = backend
@@ -543,9 +544,9 @@ impl RbdState {
                                 hole_global,
                                 1,
                             )?;
-                            any_copy = true;
                         }};
                     }
+                    any_copy = true;
                     relocate!(self.body_poses, staging_pose);
                     relocate!(self.solver_body_poses, staging_pose);
                     relocate!(self.collider_world_poses, staging_pose);

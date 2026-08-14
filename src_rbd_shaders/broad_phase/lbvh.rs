@@ -71,7 +71,7 @@ pub const MAX_REDUCE_LANES: u32 = 256;
 ///
 /// NOTE: `lens` is mutable even though we don't modify it: the loads must be
 /// atomic or they occasionally read stale data (breaks Windows+Nvidia+wgpu, see
-/// https://github.com/gfx-rs/wgpu/issues/9221).
+/// <https://github.com/gfx-rs/wgpu/issues/9221>).
 #[inline(always)]
 pub(crate) fn max_len_indirect_args(
     lane: u32,
@@ -307,7 +307,8 @@ pub fn gpu_lbvh_build(
 
         tree.at_mut(node_id as usize).left = left as u32;
         tree.at_mut(node_id as usize).right = right as u32;
-        tree.at_mut(node_id as usize).refit_count_or_max_subtree_index = 0; // Might as well reset the refit count here.
+        tree.at_mut(node_id as usize)
+            .refit_count_or_max_subtree_index = 0; // Might as well reset the refit count here.
         tree.at_mut(left as usize).parent = node_id;
         tree.at_mut(right as usize).parent = node_id;
     }
@@ -350,7 +351,8 @@ pub fn gpu_lbvh_refit_leaves(
         tree.at_mut(curr_leaf_id as usize).left = leaf_collider;
         // For leaves, we can set their index here. They don’t use the `refit_count`
         // mechanism which is for internal nodes only.
-        tree.at_mut(curr_leaf_id as usize).refit_count_or_max_subtree_index = i;
+        tree.at_mut(curr_leaf_id as usize)
+            .refit_count_or_max_subtree_index = i;
     }
 }
 
@@ -393,7 +395,12 @@ pub fn gpu_lbvh_refit_internal(
         // Maximum tree depth is log2(num_colliders), but we use 32 as a safe upper bound.
         for _level in 0..32u32 {
             if thread_is_active {
-                let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index, 1);
+                let refit_count = atomic_add_u32(
+                    &mut tree
+                        .at_mut(curr_id as usize)
+                        .refit_count_or_max_subtree_index,
+                    1,
+                );
 
                 if refit_count == 0 {
                     // If `refit_count` was 0 then the other thread hasn't reached this node
@@ -415,7 +422,8 @@ pub fn gpu_lbvh_refit_internal(
                     // Set `refit_count_or_max_subtree_index` to the max subtree leaf index.
                     let max_l = tree.at(left_idx as usize).refit_count_or_max_subtree_index;
                     let max_r = tree.at(right_idx as usize).refit_count_or_max_subtree_index;
-                    tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index = max_l.max(max_r);
+                    tree.at_mut(curr_id as usize)
+                        .refit_count_or_max_subtree_index = max_l.max(max_r);
 
                     if curr_id == 0 {
                         // We reached the root, can't go higher.
@@ -484,7 +492,12 @@ pub fn gpu_lbvh_refit(
         // NOTE: bounded `for` (tree depth <= 32 in practice) instead of `loop`
         //       to avoid the MacOS miscompilation bug.
         for _ in 0..32u32 {
-            let refit_count = atomic_add_u32(&mut tree.at_mut(curr_id as usize).refit_count_or_max_subtree_index, 1);
+            let refit_count = atomic_add_u32(
+                &mut tree
+                    .at_mut(curr_id as usize)
+                    .refit_count_or_max_subtree_index,
+                1,
+            );
 
             if refit_count == 0 {
                 // If `refit_count` was 0 then the other thread hasn't reached this node

@@ -149,6 +149,7 @@ pub struct RbdState {
     /// Per-collider broad-phase pair-filter key:
     /// - `[0]`: to prevent colliders of the same body from colliding.
     /// - `[1]`: to prevent colliders of adjacent links from a multibody from coliding.
+    ///
     /// Nonzero keys that are equal never collide.
     pub(super) pair_filter: Tensor<[u32; 2]>,
     /// Per-collider friction / restitution coefficients (+ combine rules),
@@ -346,10 +347,7 @@ impl RbdState {
         &self.gravity
     }
 
-    pub(super) fn gravity_tensor(
-        backend: &GpuBackend,
-        gravity: [f32; 3],
-    ) -> Tensor<glamx::Vec4> {
+    pub(super) fn gravity_tensor(backend: &GpuBackend, gravity: [f32; 3]) -> Tensor<glamx::Vec4> {
         Tensor::scalar(
             backend,
             glamx::Vec4::new(gravity[0], gravity[1], gravity[2], 0.0),

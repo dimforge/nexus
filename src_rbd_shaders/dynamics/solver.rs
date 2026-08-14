@@ -617,7 +617,15 @@ pub fn gpu_integrate_linearized(
         let max_ang = params.max_angular_velocity();
         #[cfg(feature = "dim2")]
         if vels.angular.abs() > max_ang {
-            vels.angular = vels.angular.signum() * max_ang;
+            // Explicit sign select rather than `signum`: `f32::signum` compiles to
+            // a comparison against a NaN constant, and naga rejects a NaN literal
+            // outright, so the whole module fails to translate at pipeline
+            // creation. The guard above rules out zero, so the two cases suffice.
+            vels.angular = if vels.angular > 0.0 {
+                max_ang
+            } else {
+                -max_ang
+            };
         }
         #[cfg(feature = "dim3")]
         {
@@ -695,4 +703,3 @@ pub fn gpu_solver_finalize(
         body_poses[idx] = solver_body_poses[idx].prepend_translation(-local_mprops[idx].com);
     }
 }
-

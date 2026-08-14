@@ -8,8 +8,8 @@
 //! The follow-up `gpu_mb_gravity_and_lu` kernel finishes the dynamics pipeline
 //! (gravity rhs + LU factor + LU solve).
 
-use khal_std::glamx::UVec3;
 use glamx::Vec4;
+use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
@@ -22,13 +22,12 @@ use super::ws_soa::{
 };
 use crate::dynamics::body::Velocity;
 use crate::dynamics::joint::SPATIAL_DIM;
+use crate::utils::linalg::{
+    axpy_mat_par, copy_from_par, fill_par, gemm_inertia_lhs_par, gemm_omega_skew_tr_cross_buf_par,
+    gemm_skew_tr_lhs_cross_buf_par, gemm_skew_tr_lhs_par, gemm_tr_par, quadform_spatial_par,
+};
 #[cfg(feature = "dim3")]
 use crate::utils::linalg::{gemm_inertia_lhs_cross_buf_par, gemm_skew_lhs_cross_buf_par};
-use crate::utils::linalg::{
-    axpy_mat_par, copy_from_par, fill_par, gemm_inertia_lhs_par,
-    gemm_omega_skew_tr_cross_buf_par, gemm_skew_tr_lhs_cross_buf_par, gemm_skew_tr_lhs_par,
-    gemm_tr_par, quadform_spatial_par,
-};
 use crate::utils::{BatchIndices, ISlice, SliceMut};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross_av};
 use parry::math::VectorExt;
@@ -69,8 +68,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    links_workspace: &mut [Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] poses: &mut [Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_jacobians: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],
@@ -84,9 +82,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     let dt = *dt_uniform;
 
     let mb = if active_slot {
-        batch_ids
-            .ib(batch_id, multibody_info)
-            .read(mb_idx as usize)
+        batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize)
     } else {
         MultibodyInfo::default()
     };
@@ -125,7 +121,14 @@ pub fn gpu_mb_compute_dynamics_pre(
 
     // 1) Forward Kinematics (single-threaded)
     if active_slot && num_links > 0 && lane == 0 {
-        forward_kinematics(&mb, &stat_slice, &mut poses_slice, links_workspace, wa, num_links);
+        forward_kinematics(
+            &mb,
+            &stat_slice,
+            &mut poses_slice,
+            links_workspace,
+            wa,
+            num_links,
+        );
     }
     sync_slots(t);
 
@@ -185,7 +188,8 @@ pub fn gpu_mb_compute_dynamics_pre(
             inv_mass_x = lmp.inv_mass.x;
 
             if split && inv_mass_x == 0.0 {
-                let coriolis_block = batch_ids.imat(batch_id,
+                let coriolis_block = batch_ids.imat(
+                    batch_id,
                     mb_cor_base + (k as usize) * (DIM as usize) * (ndofs as usize),
                     DIM,
                     ndofs,
@@ -193,7 +197,8 @@ pub fn gpu_mb_compute_dynamics_pre(
                 fill_par(coriolis_packed, coriolis_block, 0.0, lane, t);
                 fill_par(
                     coriolis_packed,
-                    batch_ids.imat(batch_id, 
+                    batch_ids.imat(
+                        batch_id,
                         mb_cor_w_base + (k as usize) * (DIM as usize) * (ndofs as usize),
                         DIM,
                         ndofs,
@@ -209,17 +214,20 @@ pub fn gpu_mb_compute_dynamics_pre(
         sync_slots(t);
 
         let loop_is_active = k < num_links && inv_mass_x != 0.0;
-        let coriolis_v_i = batch_ids.imat(batch_id, 
+        let coriolis_v_i = batch_ids.imat(
+            batch_id,
             mb_cor_base + (k as usize) * (DIM as usize) * (ndofs as usize),
             DIM,
             ndofs,
         );
-        let coriolis_w_i = batch_ids.imat(batch_id, 
+        let coriolis_w_i = batch_ids.imat(
+            batch_id,
             mb_cor_w_base + (k as usize) * (DIM as usize) * (ndofs as usize),
             ANG_DIM,
             ndofs,
         );
-        let body_jacobian = batch_ids.imat(batch_id, 
+        let body_jacobian = batch_ids.imat(
+            batch_id,
             mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
             SPATIAL_DIM as u32,
             ndofs,
@@ -232,7 +240,11 @@ pub fn gpu_mb_compute_dynamics_pre(
             mass = 1.0 / inv_mass_x;
             rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
 
-            let quad_target = if split { plain_mass } else { acc_augmented_mass };
+            let quad_target = if split {
+                plain_mass
+            } else {
+                acc_augmented_mass
+            };
             quadform_spatial_par(
                 mass_matrices,
                 quad_target,
@@ -249,18 +261,21 @@ pub fn gpu_mb_compute_dynamics_pre(
             if split && k != 0 {
                 let stat = stat_slice[k as usize];
                 let parent_id = stat.parent_link_id;
-                let parent_j = batch_ids.imat(batch_id,
+                let parent_j = batch_ids.imat(
+                    batch_id,
                     mb_jac_base + (parent_id as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,
                     ndofs,
                 );
                 let parent_j_w = parent_j.fixed_rows(DIM, ANG_DIM);
-                let parent_coriolis_v = batch_ids.imat(batch_id, 
+                let parent_coriolis_v = batch_ids.imat(
+                    batch_id,
                     mb_cor_base + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
                     DIM,
                     ndofs,
                 );
-                let parent_coriolis_w = batch_ids.imat(batch_id, 
+                let parent_coriolis_w = batch_ids.imat(
+                    batch_id,
                     mb_cor_w_base + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
                     ANG_DIM,
                     ndofs,
@@ -269,20 +284,8 @@ pub fn gpu_mb_compute_dynamics_pre(
                 let ws_shift02 = ws_vec(links_workspace, wa, k, WS_SHIFT02);
                 let ws_joint_vel = ws_vel(links_workspace, wa, k, WS_JOINT_VEL);
 
-                copy_from_par(
-                    coriolis_packed,
-                    coriolis_v_i,
-                    parent_coriolis_v,
-                    lane,
-                    t,
-                );
-                copy_from_par(
-                    coriolis_packed,
-                    coriolis_w_i,
-                    parent_coriolis_w,
-                    lane,
-                    t,
-                );
+                copy_from_par(coriolis_packed, coriolis_v_i, parent_coriolis_v, lane, t);
+                copy_from_par(coriolis_packed, coriolis_w_i, parent_coriolis_w, lane, t);
 
                 gemm_skew_tr_lhs_par(
                     coriolis_packed,
@@ -366,9 +369,12 @@ pub fn gpu_mb_compute_dynamics_pre(
 
                     #[cfg(feature = "dim3")]
                     {
-                        let parent_w_skew = crate::utils::linalg::skew(
-                            ws_vel_ang(links_workspace, wa, parent_id, WS_RB_VELS),
-                        );
+                        let parent_w_skew = crate::utils::linalg::skew(ws_vel_ang(
+                            links_workspace,
+                            wa,
+                            parent_id,
+                            WS_RB_VELS,
+                        ));
                         let c = lane;
                         if c < stat.ndofs {
                             let (jv, jw) = stat.joint_jacobian_column(transform_rot, c);
@@ -524,7 +530,11 @@ pub fn gpu_mb_compute_dynamics_pre(
         let diag = damping_slice[d as usize] * dt
             + armature_slice[d as usize]
             + stiffness_slice[d as usize] * dt * dt;
-        let diag_target = if split { plain_mass } else { acc_augmented_mass };
+        let diag_target = if split {
+            plain_mass
+        } else {
+            acc_augmented_mass
+        };
         let diag_idx = diag_target.idx(d, d);
         let cur = mass_matrices.read(diag_idx);
         mass_matrices.write(diag_idx, cur + diag);
@@ -621,7 +631,13 @@ fn forward_kinematics(
     };
     ws_set_pose(ws, wa, 0, WS_LTP, root_pose);
     ws_set_pose(ws, wa, 0, WS_LTW, root_pose);
-    ws_set_vec(ws, wa, 0, WS_WORLD_COM, root_pose * root_config.local_mprops.com);
+    ws_set_vec(
+        ws,
+        wa,
+        0,
+        WS_WORLD_COM,
+        root_pose * root_config.local_mprops.com,
+    );
 
     for k in 1..num_links {
         let k_usize = k as usize;
@@ -670,7 +686,8 @@ fn update_body_jacobians(
     //             value per node.
     for k in 0..max_links {
         let mut parent_to_world = Pose::default();
-        let link_j = batch_ids.imat(batch_id, 
+        let link_j = batch_ids.imat(
+            batch_id,
             mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
             SPATIAL_DIM as u32,
             ndofs,
@@ -680,7 +697,8 @@ fn update_body_jacobians(
             let link_infos = &stat_slice[k as usize];
 
             if k != 0 {
-                let parent_j = batch_ids.imat(batch_id, 
+                let parent_j = batch_ids.imat(
+                    batch_id,
                     mb_jac_base
                         + (link_infos.parent_link_id as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,

@@ -21,7 +21,6 @@ mod integrate;
 mod jacobian;
 mod joint_constraints;
 mod lu;
-mod mass_matrix;
 mod solve_constraints;
 mod types;
 mod utils;

@@ -622,9 +622,7 @@ mod dim3 {
         for i in 0..num {
             let d = candidates.at(i).pt - selected_a;
             let dist = d.dot(d);
-            if i != selected.read(0)
-                && candidates.at(i).dist <= prediction
-                && dist > furthest_dist
+            if i != selected.read(0) && candidates.at(i).dist <= prediction && dist > furthest_dist
             {
                 furthest_dist = dist;
                 selected.write(1, i);
@@ -648,9 +646,7 @@ mod dim3 {
         let mut min_dot = MAX_FLT;
         let mut max_dot = -MAX_FLT;
         for i in 0..num {
-            if i == selected.read(0)
-                || i == selected.read(1)
-                || candidates.at(i).dist > prediction
+            if i == selected.read(0) || i == selected.read(1) || candidates.at(i).dist > prediction
             {
                 continue;
             }
@@ -889,7 +885,12 @@ mod dim3 {
                     }
 
                     if num_candidates as usize == MAX_CANDIDATE_POINTS {
-                        return manifold_reduction(&candidates, num_candidates, sep_axis1, prediction);
+                        return manifold_reduction(
+                            &candidates,
+                            num_candidates,
+                            sep_axis1,
+                            prediction,
+                        );
                     }
                 }
             }

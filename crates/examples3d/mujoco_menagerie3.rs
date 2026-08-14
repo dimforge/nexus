@@ -2,9 +2,9 @@ use khal::backend::GpuTimestamps;
 use kiss3d::egui;
 use nexus_viewer3d::{NexusViewer, RenderMaterial};
 use nexus3d::prelude::{NexusPipeline, NexusState};
-use rapier3d::prelude::*;
 use nexus3d::rbd::dynamics::convert_joint_motor;
 use nexus3d::rbd::shaders::dynamics::JointMotor;
+use rapier3d::prelude::*;
 use rapier3d_mjcf::{MjcfLoaderOptions, MjcfMultibodyOptions, MjcfRobot, MjcfRobotHandles};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -367,7 +367,11 @@ async fn load_scene(
                 if let Some(key) = &keyframe {
                     handles.apply_keyframe(&mut world.bodies, &robot, key);
                 }
-                handles.bodies.iter().map(|b| b.as_ref().map(|h| h.body)).collect()
+                handles
+                    .bodies
+                    .iter()
+                    .map(|b| b.as_ref().map(|h| h.body))
+                    .collect()
             };
 
             // Gather each body's render geometry. Visual meshes carry the
@@ -382,14 +386,15 @@ async fn load_scene(
                     // "Render visual primitives" keeps the capsules and boxes some
                     // models declare in their visual channel; by default only the
                     // .obj-derived meshes are drawn.
-                    .filter(|vm| settings.render_visual_primitives || vm.shape.as_trimesh().is_some())
+                    .filter(|vm| {
+                        settings.render_visual_primitives || vm.shape.as_trimesh().is_some()
+                    })
                     .collect();
                 let has_visual = !visuals.is_empty();
                 for (handle, _) in world
                     .colliders
                     .iter()
                     .filter(|(_, c)| c.parent() == Some(body))
-                    .map(|(h, c)| (h, c))
                     .collect::<Vec<_>>()
                 {
                     let c = &world.colliders[handle];
@@ -438,7 +443,10 @@ async fn load_scene(
                 ));
                 let radius = (he.x * he.x + he.y * he.y + he.z * he.z).sqrt().max(0.5);
                 let target = Vec3::new(center.x, center.y, center.z);
-                camera = Some((target + Vec3::new(radius * 2.2, -radius * 2.2, radius * 1.6), target));
+                camera = Some((
+                    target + Vec3::new(radius * 2.2, -radius * 2.2, radius * 1.6),
+                    target,
+                ));
             }
         }
         Err(e) => eprintln!("Failed to load MJCF scene `{}`: {e}.", scene.display()),
@@ -537,11 +545,15 @@ fn apply_controls(
             gain,
         );
         for ah in &controls.handles.actuators {
-            let Some(Some(handle)) = ah.joint else { continue };
+            let Some(Some(handle)) = ah.joint else {
+                continue;
+            };
             let Some((mb, link_id)) = world.multibody_joints.get(handle) else {
                 continue;
             };
-            let Some(link) = mb.links().nth(link_id) else { continue };
+            let Some(link) = mb.links().nth(link_id) else {
+                continue;
+            };
             // The GPU link id is the body index (see `GpuMultibodySet::set_motor`).
             let body_idx = link.rigid_body_handle().into_raw_parts().0;
             let axes = link.joint().data.motor_axes.bits();

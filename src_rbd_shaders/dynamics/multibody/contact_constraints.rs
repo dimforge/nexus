@@ -29,9 +29,9 @@ use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, VSlice, lu_solve_in_place};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 
 use super::types::{
-    CONTACT_CONSTRAINTS_PER_POINT, MAX_MB_CONTACT_CONSTRAINTS_PER_MB,
-    MB_CONTACT_KIND_INACTIVE, MB_CONTACT_KIND_NORMAL, MB_CONTACT_KIND_TANGENT,
-    MultibodyContactConstraint, MultibodyInfo, MultibodyLinkStatic,
+    CONTACT_CONSTRAINTS_PER_POINT, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_INACTIVE,
+    MB_CONTACT_KIND_NORMAL, MB_CONTACT_KIND_TANGENT, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyLinkStatic,
 };
 use super::utils::zero_kinematic_dofs;
 use super::ws_soa::{WS_LTW, WS_WORLD_COM, WsAddr, ws_pose, ws_vec};
@@ -84,8 +84,13 @@ fn fill_contact_jac_row(
     // Per-link SPATIAL_DIM × ndofs jacobian (rows 0..DIM = J_v, rows
     // DIM..SPATIAL_DIM = J_w).
     let link_jac_base = mb_jac_base + (link_id as usize) * SPATIAL_DIM * (ndofs as usize);
-    let link_j =
-        MatSlice::interleaved(link_jac_base, SPATIAL_DIM as u32, ndofs, jac_stride, jac_shift);
+    let link_j = MatSlice::interleaved(
+        link_jac_base,
+        SPATIAL_DIM as u32,
+        ndofs,
+        jac_stride,
+        jac_shift,
+    );
     let (link_j_v, link_j_w) = link_j.rows_range_pair(0, DIM, DIM, ANG_DIM);
     for j in 0..ndofs {
         // Linear contribution: `unit_force · J_v[:, j]`.
@@ -468,8 +473,7 @@ pub fn gpu_mb_init_contact_constraints(
                 };
 
                 let (torque_b_tang, ang_jac_tang, ii_ang_jac_tang) = if is_self {
-                    let shift_b =
-                        p2 - ws_vec(links_workspace, wa, mb_link_id_b, WS_WORLD_COM);
+                    let shift_b = p2 - ws_vec(links_workspace, wa, mb_link_id_b, WS_WORLD_COM);
                     #[cfg(feature = "dim3")]
                     {
                         (
@@ -851,7 +855,6 @@ pub fn gpu_mb_finalize_contact_constraints(
     }
 }
 
-
 /// Carries the accumulated contact impulses of the previous frame over to this
 /// frame's freshly built slots. A point is matched by the pair of links (or
 /// link and free body) it touches plus the proximity of both frozen local
@@ -1014,7 +1017,11 @@ pub fn gpu_mb_seed_contact_restitution(
         } else {
             cons.restitution >= 1.0
         };
-        cons.restitution_seed = if bouncy { cons.restitution * j_dot_v } else { 0.0 };
+        cons.restitution_seed = if bouncy {
+            cons.restitution * j_dot_v
+        } else {
+            0.0
+        };
         contact_constraints.write(cons_base + s as usize, cons);
     }
 }
@@ -1037,7 +1044,7 @@ pub fn gpu_mb_apply_contact_restitution(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS as usize],
+    #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
     #[spirv(workgroup)] scratch: &mut [f32; 64],
     #[spirv(workgroup)] delta_shared: &mut f32,
 ) {
