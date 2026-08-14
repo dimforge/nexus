@@ -115,13 +115,19 @@ struct VisualMeshReg {
 /// floor, camera and light with the viewer. Mirrors the Rust `mujoco_menagerie3`
 /// example's `load_scene` (minus the runtime model picker). Gravity is left to
 /// the caller (set after `finalize`).
+/// Handles of the robot loaded by [`insert_mjcf`], kept by the Python
+/// `NexusState` so per-step actuator control (`apply_actuator_controls`) can
+/// reuse `rapier3d-mjcf`'s MJCF actuator semantics.
+pub type MjcfHandles =
+    rapier3d_mjcf::MjcfRobotHandles<Option<rapier3d::prelude::MultibodyJointHandle>>;
+
 pub fn insert_mjcf(
     state: &mut nexus3d::prelude::NexusState,
     mut viewer: PyRefMut<crate::viewer::NexusViewer>,
     scene_path: &std::path::Path,
     render_colliders: bool,
     env: usize,
-) -> PyResult<MjcfSceneInfo> {
+) -> PyResult<(MjcfSceneInfo, Option<MjcfHandles>)> {
     use nexus3d::prelude::RbdCoupling;
     use pyo3::exceptions::PyRuntimeError;
     use rapier3d::parry::bounding_volume::BoundingVolume; // for `Aabb::merge`
@@ -142,6 +148,7 @@ pub fn insert_mjcf(
     let mut floor: Option<(glamx::Vec3, glamx::Vec3)> = None;
     let mut camera: Option<(glamx::Vec3, glamx::Vec3)> = None;
 
+    let mut robot_handles: Option<MjcfHandles> = None;
     match MjcfRobot::from_file(scene_path, options) {
         Ok((robot, _model)) => {
             let world = state.rbd_world_mut(env);
@@ -226,6 +233,7 @@ pub fn insert_mjcf(
                 let eye = target + glamx::Vec3::new(radius * 2.2, -radius * 2.2, radius * 1.6);
                 camera = Some((eye, target));
             }
+            robot_handles = Some(handles);
         }
         Err(e) => {
             return Err(PyRuntimeError::new_err(format!(
@@ -284,5 +292,5 @@ pub fn insert_mjcf(
             .add_directional_light(glamx::Vec3::new(-1.0, 1.0, -1.0));
     }
 
-    Ok(MjcfSceneInfo { z_up: true, loaded })
+    Ok((MjcfSceneInfo { z_up: true, loaded }, robot_handles))
 }

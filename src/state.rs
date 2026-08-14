@@ -410,6 +410,37 @@ impl NexusState {
         &mut self.rbd_envs[env]
     }
 
+    /// Runtime actuation entry point: mutates environment `env`'s rapier
+    /// multibody joints through `f` (e.g. `rapier3d-mjcf`'s
+    /// `apply_controls_multibody`, which implements MJCF actuator semantics),
+    /// then pushes the refreshed joint data — motor targets/gains, limits — to
+    /// the GPU multibody links in one buffer write.
+    ///
+    /// Unlike [`Self::rbd_world_mut`] this does NOT mark the world dirty: motor
+    /// updates are per-step control, not a topology change, so no GPU rebuild
+    /// is triggered. Call after [`Self::finalize`]; a no-op before it.
+    pub fn control_multibody_motors<F>(
+        &mut self,
+        backend: &GpuBackend,
+        env: usize,
+        f: F,
+    ) -> Result<(), GpuBackendError>
+    where
+        F: FnOnce(&mut PhysicsWorld),
+    {
+        let world = &mut self.rbd_envs[env];
+        f(world);
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.multibodies_mut().sync_joint_data_from_rapier(
+                backend,
+                env as u32,
+                &world.multibody_joints,
+                &world.bodies,
+            )?;
+        }
+        Ok(())
+    }
+
     /// Mutable access to environment `env`'s rapier world that does **not** mark
     /// the rbd state dirty, for use after [`Self::finalize`].
     ///
