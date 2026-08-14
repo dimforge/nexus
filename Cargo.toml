@@ -10,6 +10,10 @@ members = [
     "crates/nexus_rbd3d",
     "crates/nexus_rbd_shaders2d",
     "crates/nexus_rbd_shaders3d",
+    "crates/nexus_mpm_shaders2d",
+    "crates/nexus_mpm_shaders3d",
+    "crates/nexus_mpm2d",
+    "crates/nexus_mpm3d",
     "crates/nexus_python3d",
 ]
 resolver = "2"
@@ -68,13 +72,17 @@ crunchy = "0.2.4"
 # Shader crates
 nexus_rbd_shaders2d = { version = "0.4.0", path = "crates/nexus_rbd_shaders2d" }
 nexus_rbd_shaders3d = { version = "0.4.0", path = "crates/nexus_rbd_shaders3d" }
+nexus_mpm_shaders2d = { version = "0.4.0", path = "crates/nexus_mpm_shaders2d" }
+nexus_mpm_shaders3d = { version = "0.4.0", path = "crates/nexus_mpm_shaders3d" }
 
-# Internal crates. rbd is pulled with default-features off so dependents can
-# pick their own feature set, mirroring the rapier/parry pattern.
+# Internal crates. rbd is pulled both with defaults and with default-features
+# off (mpm wants just the dim feature), so it mirrors the rapier/parry pattern.
 nexus2d = { version = "0.4.0", path = "crates/nexus2d" }
 nexus3d = { version = "0.4.0", path = "crates/nexus3d" }
 nexus_rbd2d = { version = "0.4.0", path = "crates/nexus_rbd2d", default-features = false }
 nexus_rbd3d = { version = "0.4.0", path = "crates/nexus_rbd3d", default-features = false }
+nexus_mpm2d = { version = "0.4.0", path = "crates/nexus_mpm2d" }
+nexus_mpm3d = { version = "0.4.0", path = "crates/nexus_mpm3d" }
 nexus_viewer2d = { version = "0.4.0", path = "crates/nexus_viewer2d" }
 nexus_viewer3d = { version = "0.4.0", path = "crates/nexus_viewer3d" }
 
