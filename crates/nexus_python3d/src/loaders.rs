@@ -148,8 +148,7 @@ pub fn insert_mjcf(
     let mut floor: Option<(glamx::Vec3, glamx::Vec3)> = None;
     let mut camera: Option<(glamx::Vec3, glamx::Vec3)> = None;
 
-    let mut robot_handles: Option<MjcfHandles> = None;
-    match MjcfRobot::from_file(scene_path, options) {
+    let robot_handles: Option<MjcfHandles> = match MjcfRobot::from_file(scene_path, options) {
         Ok((robot, _model)) => {
             let world = state.rbd_world_mut(env);
             let handles = robot.clone().insert_using_multibody_joints(
@@ -233,7 +232,7 @@ pub fn insert_mjcf(
                 let eye = target + glamx::Vec3::new(radius * 2.2, -radius * 2.2, radius * 1.6);
                 camera = Some((eye, target));
             }
-            robot_handles = Some(handles);
+            Some(handles)
         }
         Err(e) => {
             return Err(PyRuntimeError::new_err(format!(
@@ -241,7 +240,7 @@ pub fn insert_mjcf(
                 scene_path.display()
             )));
         }
-    }
+    };
 
     let loaded = camera.is_some();
     let v = viewer.rust_mut();
