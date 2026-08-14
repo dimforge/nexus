@@ -23,17 +23,19 @@ default = ["dim2", "f32", "webgpu"]
 dim2 = []
 f32 = []
 f64 = []
-webgpu = ["nexus_rbd2d?/webgpu"]
-metal = ["nexus_rbd2d?/metal"]
-cpu = ["nexus_rbd2d?/cpu"]
-cpu-parallel = ["cpu", "nexus_rbd2d?/cpu-parallel"]
-cuda = ["nexus_rbd2d?/cuda"]
+webgpu = ["nexus_rbd2d?/webgpu", "nexus_mpm2d?/webgpu"]
+metal = ["nexus_rbd2d?/metal", "nexus_mpm2d?/metal"]
+cpu = ["nexus_rbd2d?/cpu", "nexus_mpm2d?/cpu"]
+cpu-parallel = ["cpu", "nexus_rbd2d?/cpu-parallel", "nexus_mpm2d?/cpu-parallel"]
+cuda = ["nexus_rbd2d?/cuda", "nexus_mpm2d?/cuda"]
 
 rbd = ["dep:nexus_rbd2d"]
+mpm = ["dep:nexus_mpm2d"]
 
 [dependencies]
 khal = { workspace = true }
 nexus_rbd2d = { workspace = true, optional = true, features = ["default"] }
+nexus_mpm2d = { workspace = true, optional = true }
 bitflags = { workspace = true }
 web-time = { workspace = true }
 

@@ -1,9 +1,14 @@
-use crate::rapier::data::{Coarena, Index};
+use crate::mpm::pipeline::{MpmCapacities, MpmState};
+use crate::mpm::solver::{BoundaryCondition, Particle, SimulationParams};
+use crate::rapier::data::{Arena, Coarena, Index};
 use crate::rapier::prelude::{
     Collider, ColliderHandle, GenericJoint, ImpulseJointHandle, MultibodyJointHandle, PhysicsWorld,
     RigidBody, RigidBodyHandle,
 };
-use crate::rbd::dynamics::RbdSimParams;
+use crate::rbd::dynamics::{
+    RbdSimParams,
+    body::{BodyCoupling, RapierBodyCouplingEntry},
+};
 use crate::rbd::pipeline::{RbdCapacities, RbdResizePolicy, RbdState, RunStats};
 use khal::backend::{GpuBackend, GpuBackendError};
 
@@ -11,15 +16,29 @@ use khal::backend::{GpuBackend, GpuBackendError};
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct NexusRbdHandle(Index);
 
-/// Initial capacities used when allocating the GPU-resident physics states.
+/// Handle referencing a *chunk* of MPM particles managed by a [`NexusState`].
 ///
-/// Groups the per-subsystem capacities, each owned by its own crate
-/// ([`RbdCapacities`] in nexus-rbd) and forwarded to that subsystem when its
-/// scene is first created.
+/// Particles are addressed by chunk rather than individually (a per-particle
+/// handle map would be prohibitive at MPM scale). A chunk is mutable: particles
+/// can be appended to it ([`NexusState::extend_chunk`]) or removed from it
+/// ([`NexusState::remove_particles_from_chunk`] / [`NexusState::remove_chunk`]).
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct NexusParticleChunk(Index);
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum RbdCoupling {
+    None,
+    MpmOneWay(BoundaryCondition),
+    MpmTwoWay(BoundaryCondition),
+}
+
+/// Initial capacities used when allocating the GPU-resident physics states.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct NexusCapacities {
-    /// Rigid-body subsystem capacities.
+    /// Rigid-body solver capacities.
     pub rbd: RbdCapacities,
+    /// MPM solver capacities.
+    pub mpm: MpmCapacities,
 }
 
 impl NexusCapacities {
@@ -38,20 +57,34 @@ impl NexusCapacities {
         self
     }
 
+    pub fn mpm_grid_size(mut self, num_chunks: u32) -> Self {
+        self.mpm.grid_size = num_chunks;
+        self
+    }
+
     pub fn rbd_resize_policy(mut self, resize_policy: RbdResizePolicy) -> Self {
         self.rbd.collisions_resize_policy = resize_policy;
+        self
+    }
+
+    pub fn mpm_particles(mut self, capacity: u32) -> Self {
+        self.mpm.particles_capacity = capacity;
         self
     }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct GpuRigidBodyRef {
+    pub coupling: RbdCoupling,
     pub gpu_id: u32,
 }
 
 impl Default for GpuRigidBodyRef {
     fn default() -> Self {
-        Self { gpu_id: u32::MAX }
+        Self {
+            coupling: RbdCoupling::None,
+            gpu_id: u32::MAX,
+        }
     }
 }
 
@@ -67,23 +100,48 @@ pub struct NexusCounts {
     pub multibody_dofs: usize,
     pub collision_pairs: usize,
     pub collision_pairs_capacity: usize,
+    pub particles: usize,
 }
 
-/// High-level, GPU-resident state of a physics simulation.
+/// High-level, GPU-resident state of a multiphysics simulation.
 ///
-/// The rigid-body sub-state is lazily allocated the first time content is
-/// added. The `rbd2gpu` maps translate the stable public handles into the
-/// (unstable) GPU buffer slots, which shift around as bodies are inserted and
-/// removed.
+/// Each sub-state (`rbd`/`mpm`) is lazily allocated the first time content
+/// of the corresponding kind is added. The `*2gpu` maps translate the stable
+/// public handles into the (unstable) GPU buffer slots, which shift around as
+/// bodies/particles are inserted and removed.
 pub struct NexusState {
     /// Rigid-body sub-state, allocated on the first [`Self::add_rigid_bodies`].
     pub rbd: Option<RbdState>,
+    /// MPM sub-state, allocated on the first [`Self::add_particles`] (or the
+    /// first coupled rigid-body insertion).
+    pub mpm: Option<MpmState>,
 
     pub run_stats: RunStats,
 
     /// Handle → GPU-slot map, one [`Coarena`] per simulation environment
     /// (batch).
     pub rbd2gpu: Vec<Coarena<GpuRigidBodyRef>>,
+
+    /// Live particle count per MPM chunk (the arena key is the public
+    /// [`NexusParticleChunk`] handle).
+    mpm_chunks: Arena<usize>,
+    /// Owning chunk for each GPU particle slot, kept in sync under the
+    /// swap-removal performed by [`Self::remove_chunk`] /
+    /// [`Self::remove_particles_from_chunk`].
+    slot2chunk: Vec<Index>,
+    /// MPM simulation params / grid cell width requested before the MPM
+    /// sub-state is lazily created.
+    mpm_params: Option<SimulationParams>,
+    mpm_cell_width: f32,
+    /// Number of MPM substeps run per [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call.
+    pub mpm_substeps: u32,
+    /// Desired CPIC rigid-coupling flag, kept here so it survives until the MPM
+    /// sub-state is lazily created (and is what [`Self::mpm_use_cpic`] reports
+    /// meanwhile).
+    mpm_use_cpic: bool,
+    /// Set when particles or MPM-coupled bodies change; consumed by
+    /// [`Self::finalize`] to rebuild the MPM↔rapier coupling.
+    mpm_dirty: bool,
 
     // Initial capacities used to allocate the states lazily.
     capacities: NexusCapacities,
@@ -121,6 +179,7 @@ impl NexusState {
     pub fn new(capacities: NexusCapacities) -> Self {
         Self {
             rbd: None,
+            mpm: None,
             run_stats: RunStats::default(),
             rbd_envs: vec![PhysicsWorld::default()],
             rbd_sim_params: vec![RbdSimParams::tgs_soft()],
@@ -128,17 +187,105 @@ impl NexusState {
             rbd_steps_per_frame: 1,
             rbd_reserve_per_env: 0,
             rbd2gpu: vec![Coarena::new()],
+            mpm_chunks: Arena::new(),
+            slot2chunk: Vec::new(),
+            mpm_params: None,
+            mpm_cell_width: 1.0,
+            mpm_substeps: 20,
+            mpm_use_cpic: true,
+            mpm_dirty: false,
             capacities,
         }
     }
 
     /// Reserves additional capacity in the handle maps to avoid reallocations
-    /// when a known number of bodies is about to be inserted.
+    /// when a known number of bodies/particles is about to be inserted.
     pub fn reserve(&mut self, additional: NexusCapacities) {
         for env in &mut self.rbd2gpu {
             env.reserve(additional.rbd.body_capacity as usize);
         }
-        // TODO: resize the GPU buffers too.
+        // TODO: reserve the MPM handle maps and resize the GPU buffers too.
+    }
+
+    /// Sets the MPM simulation parameters (gravity, timestep) and grid cell
+    /// width. Call before the first [`Self::add_particles`]; the values are
+    /// applied when the MPM sub-state is created. If MPM already exists they are
+    /// applied immediately (the grid is reset, so prefer calling this first).
+    pub fn set_mpm_params(
+        &mut self,
+        backend: &GpuBackend,
+        params: SimulationParams,
+        cell_width: f32,
+    ) -> Result<(), GpuBackendError> {
+        self.mpm_params = Some(params);
+        self.mpm_cell_width = cell_width;
+        if let Some(mpm) = self.mpm.as_mut() {
+            mpm.set_cell_width(backend, cell_width, self.capacities.mpm.grid_size)?;
+            mpm.set_simulation_params(backend, params)?;
+        }
+        Ok(())
+    }
+
+    /// Sets the number of MPM substeps run per [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call (default
+    /// 20). More substeps → smaller timestep → more stable but slower.
+    pub fn set_mpm_substeps(&mut self, substeps: u32) {
+        self.mpm_substeps = substeps.max(1);
+    }
+
+    /// Number of MPM substeps run per [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call.
+    pub fn mpm_substeps(&self) -> u32 {
+        self.mpm_substeps
+    }
+
+    /// Enables/disables CPIC (compatible particle-in-cell) rigid coupling. The
+    /// preference is stored so it survives until MPM is lazily allocated. Not
+    /// overwritten by [`Self::finalize`] unless the coupling set changes.
+    pub fn set_mpm_use_cpic(&mut self, enabled: bool) {
+        self.mpm_use_cpic = enabled;
+        if let Some(mpm) = self.mpm.as_mut() {
+            mpm.use_cpic = enabled;
+        }
+    }
+
+    /// Whether CPIC rigid coupling is enabled. Falls back to the stored
+    /// preference before MPM is lazily allocated.
+    pub fn mpm_use_cpic(&self) -> bool {
+        self.mpm
+            .as_ref()
+            .map(|m| m.use_cpic)
+            .unwrap_or(self.mpm_use_cpic)
+    }
+
+    /// Whether this state uses the MPM solver. True once MPM has been configured
+    /// via [`Self::set_mpm_params`], even before the sub-state is lazily
+    /// allocated on the first [`Self::add_particles`], so a particle emitter
+    /// that starts empty still reports its MPM usage.
+    pub fn has_mpm(&self) -> bool {
+        self.mpm.is_some() || self.mpm_params.is_some()
+    }
+
+    /// Sets the MPM gravity vector. Applied on the next [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) (the
+    /// per-substep params are re-uploaded each frame), so this is cheap.
+    pub fn set_mpm_gravity(&mut self, gravity: crate::rbd::math::Vector) {
+        // Keep the stored params authoritative so the gravity survives until MPM
+        // is lazily allocated (and is what `mpm_gravity` reports meanwhile).
+        if let Some(params) = self.mpm_params.as_mut() {
+            params.gravity = gravity;
+        }
+        if let Some(mpm) = self.mpm.as_mut() {
+            mpm.gravity = gravity;
+        }
+    }
+
+    /// Current MPM gravity vector. Falls back to the gravity configured via
+    /// [`Self::set_mpm_params`] before MPM is lazily allocated, and only to zero
+    /// if no params were ever set.
+    pub fn mpm_gravity(&self) -> crate::rbd::math::Vector {
+        self.mpm
+            .as_ref()
+            .map(|m| m.gravity)
+            .or_else(|| self.mpm_params.map(|p| p.gravity))
+            .unwrap_or(crate::rbd::math::Vector::ZERO)
     }
 
     /// Sets the rigid-body gravity vector, e.g. `[0.0, 0.0, -9.81]` for a Z-up
@@ -166,9 +313,9 @@ impl NexusState {
         self.rbd_steps_per_frame
     }
 
-    /// Current entity counts (rigid bodies, colliders, joints, multibody DOFs)
-    /// for display in the UI. Rigid-body counts are summed across all
-    /// environments.
+    /// Current entity counts (rigid bodies, colliders, joints, multibody DOFs,
+    /// particles) for display in the UI. Rigid-body
+    /// counts are summed across all environments.
     pub fn counts(&self) -> NexusCounts {
         let mut c = NexusCounts {
             num_environments: self.rbd_envs.len(),
@@ -187,7 +334,27 @@ impl NexusState {
             c.collision_pairs = rbd.collision_pairs_len() as usize;
             c.collision_pairs_capacity = rbd.collision_pairs_capacity() as usize;
         }
+        if let Some(mpm) = self.mpm.as_ref() {
+            c.particles = mpm.particles.len();
+        }
         c
+    }
+
+    /// Returns a mutable reference to the MPM sub-state, allocating an empty one
+    /// (sized from the stored capacities, configured from [`Self::set_mpm_params`])
+    /// if it doesn’t exist yet.
+    fn mpm_or_insert(&mut self, backend: &GpuBackend) -> Result<&mut MpmState, GpuBackendError> {
+        if self.mpm.is_none() {
+            let grid_capacity = self.capacities.mpm.grid_size;
+            let mut mpm = MpmState::empty(backend, &self.capacities.mpm)?;
+            mpm.set_cell_width(backend, self.mpm_cell_width, grid_capacity)?;
+            if let Some(params) = self.mpm_params {
+                mpm.set_simulation_params(backend, params)?;
+            }
+            mpm.use_cpic = self.mpm_use_cpic;
+            self.mpm = Some(mpm);
+        }
+        Ok(self.mpm.as_mut().unwrap())
     }
 
     /// Adds a new (empty) simulation environment (batch) and returns its index.
@@ -243,13 +410,18 @@ impl NexusState {
     /// state. Use this to run rapier-side helpers whose output you then push
     /// through a runtime setter — e.g. driving an MJCF actuator model and
     /// forwarding the resulting motors with
-    /// `GpuMultibodySet::set_motors` (3D only, hence no intra-doc link here).
+    /// `GpuMultibodySet::set_motors`.
     pub fn rbd_world_mut_untracked(&mut self, env: usize) -> &mut PhysicsWorld {
         &mut self.rbd_envs[env]
     }
 
-    pub fn insert_rigid_body(&mut self, body: RigidBody, collider: Collider) -> RigidBodyHandle {
-        self.insert_rigid_body_in(0, body, collider)
+    pub fn insert_rigid_body(
+        &mut self,
+        body: RigidBody,
+        collider: Collider,
+        coupling: RbdCoupling,
+    ) -> RigidBodyHandle {
+        self.insert_rigid_body_in(0, body, collider, coupling)
     }
 
     /// Inserts a body + collider into environment `env`.
@@ -258,10 +430,22 @@ impl NexusState {
         env: usize,
         body: RigidBody,
         collider: Collider,
+        coupling: RbdCoupling,
     ) -> RigidBodyHandle {
         let (handle, _) = self.rbd_envs[env].insert(body, collider);
-        self.rbd2gpu[env].insert(handle.0, GpuRigidBodyRef { gpu_id: u32::MAX });
+        self.rbd2gpu[env].insert(
+            handle.0,
+            GpuRigidBodyRef {
+                coupling,
+                gpu_id: u32::MAX,
+            },
+        );
         self.rbd_dirty = true;
+        // MPM-coupled boundary colliders live only in environment 0 and feed the
+        // MPM coupling rebuild in `finalize`.
+        if env == 0 && coupling != RbdCoupling::None {
+            self.mpm_dirty = true;
+        }
         handle
     }
 
@@ -289,8 +473,9 @@ impl NexusState {
         backend: &GpuBackend,
         body: RigidBody,
         collider: Collider,
+        coupling: RbdCoupling,
     ) -> Result<RigidBodyHandle, GpuBackendError> {
-        let handles = self.add_rigid_bodies(backend, [(body, collider)])?;
+        let handles = self.add_rigid_bodies(backend, [(body, collider, coupling)])?;
         Ok(handles[0])
     }
 
@@ -307,15 +492,17 @@ impl NexusState {
     pub fn add_rigid_bodies(
         &mut self,
         backend: &GpuBackend,
-        bodies: impl IntoIterator<Item = (RigidBody, Collider)>,
+        bodies: impl IntoIterator<Item = (RigidBody, Collider, RbdCoupling)>,
     ) -> Result<Vec<RigidBodyHandle>, GpuBackendError> {
         // Keep copies for the GPU append before the rapier world consumes them.
         let mut gpu_pairs: Vec<(RigidBody, Collider)> = Vec::new();
         let mut handles: Vec<RigidBodyHandle> = Vec::new();
-        for (body, collider) in bodies {
+        let mut couplings: Vec<RbdCoupling> = Vec::new();
+        for (body, collider, coupling) in bodies {
             gpu_pairs.push((body.clone(), collider.clone()));
             let (handle, _) = self.rbd_envs[0].insert(body, collider);
             handles.push(handle);
+            couplings.push(coupling);
         }
         if handles.is_empty() {
             return Ok(handles);
@@ -328,10 +515,11 @@ impl NexusState {
             {
                 let range = rbd.append_bodies(backend, &gpu_pairs)?;
                 // Single environment: the per-batch local slot is the gpu_id.
-                for (i, &handle) in handles.iter().enumerate() {
+                for (i, (&handle, &coupling)) in handles.iter().zip(&couplings).enumerate() {
                     self.rbd2gpu[0].insert(
                         handle.0,
                         GpuRigidBodyRef {
+                            coupling,
                             gpu_id: range.start + i as u32,
                         },
                     );
@@ -344,26 +532,46 @@ impl NexusState {
         if !appended {
             // No GPU state yet, or not enough room for the whole batch: fall back
             // to a full rebuild on the next `finalize`.
-            for &handle in handles.iter() {
-                self.rbd2gpu[0].insert(handle.0, GpuRigidBodyRef { gpu_id: u32::MAX });
+            for (&handle, &coupling) in handles.iter().zip(&couplings) {
+                self.rbd2gpu[0].insert(
+                    handle.0,
+                    GpuRigidBodyRef {
+                        coupling,
+                        gpu_id: u32::MAX,
+                    },
+                );
             }
             self.rbd_dirty = true;
+        }
+        if couplings.iter().any(|c| *c != RbdCoupling::None) {
+            self.mpm_dirty = true;
         }
         Ok(handles)
     }
 
     /// Inserts a rigid-body without any attached collider (e.g. a joint anchor).
-    pub fn insert_body(&mut self, body: RigidBody) -> RigidBodyHandle {
-        self.insert_body_in(0, body)
+    pub fn insert_body(&mut self, body: RigidBody, coupling: RbdCoupling) -> RigidBodyHandle {
+        self.insert_body_in(0, body, coupling)
     }
 
     // TODO: remove this. Inserting a collider should insert into all envs.
     //       (though we should also have a variant that allows specifying different
     //       shapes per env).
     /// Inserts a collider-less rigid-body into environment `env`.
-    pub fn insert_body_in(&mut self, env: usize, body: RigidBody) -> RigidBodyHandle {
+    pub fn insert_body_in(
+        &mut self,
+        env: usize,
+        body: RigidBody,
+        coupling: RbdCoupling,
+    ) -> RigidBodyHandle {
         let handle = self.rbd_envs[env].insert_body(body);
-        self.rbd2gpu[env].insert(handle.0, GpuRigidBodyRef { gpu_id: u32::MAX });
+        self.rbd2gpu[env].insert(
+            handle.0,
+            GpuRigidBodyRef {
+                coupling,
+                gpu_id: u32::MAX,
+            },
+        );
         self.rbd_dirty = true;
         handle
     }
@@ -453,7 +661,120 @@ impl NexusState {
         Ok(())
     }
 
+    /// Appends a new chunk of MPM particles (`O(added)`) and returns its handle.
+    pub fn add_particles(
+        &mut self,
+        backend: &GpuBackend,
+        particles: Vec<Particle>,
+    ) -> Result<NexusParticleChunk, GpuBackendError> {
+        let n = particles.len();
+        let chunk = self.mpm_chunks.insert(n);
+        {
+            let mpm = self.mpm_or_insert(backend)?;
+            mpm.particles.append(backend, &particles)?;
+        }
+        self.slot2chunk.extend(std::iter::repeat_n(chunk, n));
+        self.mpm_dirty = true;
+        Ok(NexusParticleChunk(chunk))
+    }
+
+    /// Appends more particles to an existing chunk (`O(added)`).
+    pub fn extend_chunk(
+        &mut self,
+        backend: &GpuBackend,
+        chunk: NexusParticleChunk,
+        particles: Vec<Particle>,
+    ) -> Result<(), GpuBackendError> {
+        let n = particles.len();
+        {
+            let mpm = self.mpm_or_insert(backend)?;
+            mpm.particles.append(backend, &particles)?;
+        }
+        self.slot2chunk.extend(std::iter::repeat_n(chunk.0, n));
+        if let Some(c) = self.mpm_chunks.get_mut(chunk.0) {
+            *c += n;
+        }
+        self.mpm_dirty = true;
+        Ok(())
+    }
+
+    /// MPM background-grid cell width.
+    pub fn mpm_cell_width(&self) -> f32 {
+        self.mpm_cell_width
+    }
+
+    /// Removes every particle of a chunk (`O(removed)`) and drops the handle.
+    pub fn remove_chunk(
+        &mut self,
+        backend: &GpuBackend,
+        chunk: NexusParticleChunk,
+    ) -> Result<(), GpuBackendError> {
+        let slots: Vec<u32> = self
+            .slot2chunk
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| **c == chunk.0)
+            .map(|(i, _)| i as u32)
+            .collect();
+        self.swap_remove_particle_slots(backend, &slots)?;
+        self.mpm_chunks.remove(chunk.0);
+        Ok(())
+    }
+
+    /// Removes up to `count` particles from a chunk (`O(removed)`), returning the
+    /// number actually removed. The chunk itself is kept (even if emptied).
+    pub fn remove_particles_from_chunk(
+        &mut self,
+        backend: &GpuBackend,
+        chunk: NexusParticleChunk,
+        count: usize,
+    ) -> Result<usize, GpuBackendError> {
+        let mut slots: Vec<u32> = self
+            .slot2chunk
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| **c == chunk.0)
+            .map(|(i, _)| i as u32)
+            .collect();
+        // Remove the highest GPU slots first, which keeps the swap-removal cheap.
+        slots.sort_unstable_by(|a, b| b.cmp(a));
+        slots.truncate(count);
+        let removed = slots.len();
+        self.swap_remove_particle_slots(backend, &slots)?;
+        if let Some(c) = self.mpm_chunks.get_mut(chunk.0) {
+            *c = c.saturating_sub(removed);
+        }
+        Ok(removed)
+    }
+
+    /// Swap-removes the given GPU particle slots and patches `slot2chunk` to
+    /// follow the relocations the GPU performed.
+    fn swap_remove_particle_slots(
+        &mut self,
+        backend: &GpuBackend,
+        slots: &[u32],
+    ) -> Result<(), GpuBackendError> {
+        if slots.is_empty() {
+            return Ok(());
+        }
+        let remaps = {
+            let Some(mpm) = self.mpm.as_mut() else {
+                return Ok(());
+            };
+            mpm.particles.swap_remove(backend, slots)?
+        };
+        // Each `(from, to)`: the tail particle at `from` was moved down to the
+        // freed slot `to`, so its chunk ownership moves with it.
+        for (from, to) in remaps {
+            self.slot2chunk[to as usize] = self.slot2chunk[from as usize];
+        }
+        let new_len = self.mpm.as_ref().unwrap().particles.len();
+        self.slot2chunk.truncate(new_len);
+        Ok(())
+    }
+
     pub async fn finalize(&mut self, backend: &GpuBackend) -> Result<(), GpuBackendError> {
+        let rbd_was_dirty = self.rbd_dirty;
         if self.rbd_dirty {
             // Finalize each body's mass properties so additional (`<inertial>`)
             // mass combined with its colliders is reflected in `local_mprops`.
@@ -523,14 +844,12 @@ impl NexusState {
                 RbdState::from_rapier(backend, &environments, self.capacities.rbd)
             };
 
-            // Rebuild the per-environment handle → GPU-slot maps. A handle's
-            // `gpu_id` is its BODY slot (which indexes the body-keyed buffers
-            // such as `body_poses`), NOT a collider slot — a body may own
-            // several colliders. Body slots are assigned in the same order
-            // `from_rapier` uses: the first time each parent body is seen while
-            // iterating colliders (a parentless collider consumes a synthetic
-            // body slot, matching `from_rapier`). Bodies are laid out env-major
-            // with stride `num_colliders_per_batch`.
+            // Rebuild the per-environment handle to GPU-slot maps. A handle's
+            // `gpu_id` is its *body* slot, not a collider slot, since a body may
+            // own several colliders. Body slots are assigned in the order
+            // `from_rapier` uses (the first time each parent body is seen while
+            // iterating colliders) and are laid out env-major with stride
+            // `num_colliders_per_batch`.
             let stride = rbd_state.num_colliders_per_batch();
             for (env_idx, world) in self.rbd_envs.iter().enumerate() {
                 let mut body_slot: std::collections::HashMap<_, u32> =
@@ -552,9 +871,14 @@ impl NexusState {
                         next_slot += 1;
                         s
                     });
+                    let coupling = self.rbd2gpu[env_idx]
+                        .get(body_handle.0)
+                        .map(|r| r.coupling)
+                        .unwrap_or(RbdCoupling::None);
                     self.rbd2gpu[env_idx].insert(
                         body_handle.0,
                         GpuRigidBodyRef {
+                            coupling,
                             gpu_id: env_idx as u32 * stride + slot,
                         },
                     );
@@ -573,9 +897,14 @@ impl NexusState {
                         let slot = next_slot;
                         next_slot += 1;
                         body_slot.insert(body_handle, slot);
+                        let coupling = self.rbd2gpu[env_idx]
+                            .get(body_handle.0)
+                            .map(|r| r.coupling)
+                            .unwrap_or(RbdCoupling::None);
                         self.rbd2gpu[env_idx].insert(
                             body_handle.0,
                             GpuRigidBodyRef {
+                                coupling,
                                 gpu_id: env_idx as u32 * stride + slot,
                             },
                         );
@@ -585,41 +914,59 @@ impl NexusState {
             self.rbd = Some(rbd_state);
             self.rbd_dirty = false;
         }
+
+        // MPM/rapier coupling. Boundary colliders are inserted into environment 0
+        // as rigid bodies tagged `RbdCoupling::Mpm*`; rebuild the coupling
+        // (sampled rigid particles, uploaded body set) whenever those bodies or
+        // the particle set changed.
+        if (rbd_was_dirty || self.mpm_dirty) && self.mpm.is_some() {
+            let world = &self.rbd_envs[0];
+            let mut coupling = Vec::new();
+            let mut materials = Vec::new();
+            // Rigid-body slot mirroring each coupling entry, so the MPM-owned
+            // poses can be written back to the buffer rendering reads.
+            let mut rbd_body_slots = Vec::new();
+            for (collider_handle, collider) in world.colliders.iter() {
+                let Some(body_handle) = collider.parent() else {
+                    continue;
+                };
+                let Some(gpu_ref) = self.rbd2gpu[0].get(body_handle.0) else {
+                    continue;
+                };
+
+                let (boundary_condition, mode) = match gpu_ref.coupling {
+                    RbdCoupling::None => continue,
+                    RbdCoupling::MpmOneWay(boundary_condition) => {
+                        (boundary_condition, BodyCoupling::OneWay)
+                    }
+                    RbdCoupling::MpmTwoWay(boundary_condition) => {
+                        (boundary_condition, BodyCoupling::TwoWays)
+                    }
+                };
+
+                coupling.push(RapierBodyCouplingEntry {
+                    body: body_handle,
+                    collider: collider_handle,
+                    mode,
+                });
+                materials.push(boundary_condition);
+                rbd_body_slots.push(gpu_ref.gpu_id);
+            }
+            if !coupling.is_empty() {
+                let cell_width = self.mpm_cell_width;
+                let mpm = self.mpm.as_mut().unwrap_or_else(|| unreachable!());
+                mpm.set_coupling(
+                    backend,
+                    &world.bodies,
+                    &world.colliders,
+                    coupling,
+                    &materials,
+                    &rbd_body_slots,
+                    cell_width,
+                )?;
+            }
+            self.mpm_dirty = false;
+        }
         Ok(())
     }
-
-    // /// Removes the given rigid-bodies from the simulation.
-    // pub fn remove_rigid_bodies(
-    //     &mut self,
-    //     backend: &GpuBackend,
-    //     bodies: &[NexusRbdHandle],
-    // ) -> Result<(), GpuBackendError> {
-    //     // 1. Resolve the rbd GPU slots of the bodies to remove.
-    //     let gpu_ids: Vec<u32> = bodies
-    //         .iter()
-    //         .filter_map(|h| self.rbd2gpu.get(h.0).copied())
-    //         .collect();
-    //
-    //     // 2. Swap-remove them from the rbd GPU buffers. `remove_bodies` returns
-    //     //    the slot relocations it performed (`(from, to)`) so we can patch the
-    //     //    handle map.
-    //     let remaps = match self.rbd.as_mut() {
-    //         Some(rbd) => rbd.remove_bodies(backend, &gpu_ids)?,
-    //         None => Vec::new(),
-    //     };
-    //
-    //     // 3. Drop the removed handles, then patch the relocated slots.
-    //     for h in bodies {
-    //         self.rbd2gpu.remove(h.0);
-    //     }
-    //     for (from, to) in remaps {
-    //         for (_, slot) in self.rbd2gpu.iter_mut() {
-    //             if *slot == from {
-    //                 *slot = to;
-    //             }
-    //         }
-    //     }
-    //
-    //     Ok(())
-    // }
 }
