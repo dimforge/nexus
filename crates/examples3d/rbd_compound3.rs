@@ -1,17 +1,18 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 
 /// Port of rapier's `compound3` demo, but every "U"-shaped body is assembled
-/// from THREE separate colliders attached to one rigid body — exercising
-/// multiple-colliders-per-body support — instead of a single compound collider.
+/// from three separate colliders attached to one rigid body instead of a single
+/// compound collider, which exercises multiple-colliders-per-body support.
 pub async fn run(
     viewer: &mut NexusViewer,
     pipeline: &mut NexusPipeline,
 ) -> anyhow::Result<NexusState> {
     let capacities = NexusCapacities::default().rbd_collisions(280_000);
     let mut state = NexusState::new(capacities);
+    let no_coupling = RbdCoupling::None;
 
     /*
      * Floor made of large cuboids.
@@ -40,7 +41,7 @@ pub async fn run(
                 .translation(wall_pos)
                 .build();
             let shape = collider.shared_shape().clone();
-            let handle = state.insert_rigid_body(body, collider);
+            let handle = state.insert_rigid_body(body, collider, no_coupling);
             viewer.insert_shape_with_color(
                 handle,
                 &shape,
@@ -86,7 +87,7 @@ pub async fn run(
                     .translation(Vec3::new(x, y, z))
                     .build();
 
-                let handle = state.insert_body_in(0, body);
+                let handle = state.insert_body_in(0, body, no_coupling);
                 for (offset, he) in parts {
                     let collider = ColliderBuilder::cuboid(he.x, he.y, he.z)
                         .translation(offset)

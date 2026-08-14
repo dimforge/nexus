@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 
 pub async fn run(
@@ -11,6 +11,7 @@ pub async fn run(
      * World
      */
     let mut state = NexusState::default();
+    let no_coupling = RbdCoupling::None;
 
     let rad = 0.4;
     let num = 10;
@@ -30,7 +31,7 @@ pub async fn run(
                     .build();
                 let collider = ColliderBuilder::cuboid(rad, rad, rad).build();
                 let shape = collider.shared_shape().clone();
-                let mut curr_parent = state.insert_rigid_body(ground, collider);
+                let mut curr_parent = state.insert_rigid_body(ground, collider, no_coupling);
                 viewer.insert_shape(curr_parent, &shape, Pose::IDENTITY);
 
                 for i in 0..num {
@@ -43,7 +44,7 @@ pub async fn run(
                         .density(density)
                         .build();
                     let shape = collider.shared_shape().clone();
-                    let curr_child = state.insert_rigid_body(rigid_body, collider);
+                    let curr_child = state.insert_rigid_body(rigid_body, collider, no_coupling);
                     viewer.insert_shape(curr_child, &shape, Pose::IDENTITY);
 
                     let axis = if i % 2 == 0 {

@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer2d::NexusViewer;
-use nexus2d::prelude::{NexusPipeline, NexusState};
+use nexus2d::prelude::{NexusPipeline, NexusState, RbdCoupling};
 use rapier2d::prelude::*;
 
 pub async fn run(
@@ -8,6 +8,7 @@ pub async fn run(
     pipeline: &mut NexusPipeline,
 ) -> anyhow::Result<NexusState> {
     let mut state = NexusState::default();
+    let no_coupling = RbdCoupling::None;
 
     /*
      * Create the balls
@@ -27,7 +28,7 @@ pub async fn run(
                 .build();
             let collider = ColliderBuilder::cuboid(rad, rad).build();
             let shape = collider.shared_shape().clone();
-            let mut curr_parent = state.insert_rigid_body(body, collider);
+            let mut curr_parent = state.insert_rigid_body(body, collider, no_coupling);
             viewer.insert_shape(curr_parent, &shape, Pose::IDENTITY);
 
             for i in 0..num {
@@ -38,7 +39,7 @@ pub async fn run(
                     .build();
                 let collider = ColliderBuilder::cuboid(rad, rad).density(density).build();
                 let shape = collider.shared_shape().clone();
-                let curr_child = state.insert_rigid_body(body, collider);
+                let curr_child = state.insert_rigid_body(body, collider, no_coupling);
                 viewer.insert_shape(curr_child, &shape, Pose::IDENTITY);
 
                 let axis = if i % 2 == 0 {

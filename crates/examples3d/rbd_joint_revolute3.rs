@@ -1,14 +1,17 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 
 pub async fn run(
     viewer: &mut NexusViewer,
     pipeline: &mut NexusPipeline,
 ) -> anyhow::Result<NexusState> {
-    let capacities = NexusCapacities::default().rbd_collisions(32);
-    let mut state = NexusState::new(capacities);
+    /*
+     * World
+     */
+    let mut state = NexusState::default();
+    let no_coupling = RbdCoupling::None;
 
     let rad = 0.4;
     let num = 10;
@@ -16,37 +19,21 @@ pub async fn run(
     let nk = 10;
     let nj = 50;
 
-    // Environment 0 already exists; the first chain reuses it, the rest get a
-    // fresh environment each.
-    let mut first = true;
-
     for k in 0..nk {
         for l in 0..4 {
             let y = l as f32 * shift * (num as f32) * 3.0;
-            for j in 0..nj {
-                let env = if first {
-                    first = false;
-                    0
-                } else {
-                    state.add_environment()
-                };
 
+            for j in 0..nj {
                 let x = (j as f32 - nj as f32 / 2.0) * shift * 4.0;
                 let z = (k as f32 - nk as f32 / 2.0) * num as f32 * shift * 2.1;
 
                 let ground = RigidBodyBuilder::fixed()
                     .translation(Vec3::new(x, y, z))
                     .build();
-                let ground_collider = ColliderBuilder::cuboid(rad, rad, rad).build();
-                let ground_shape = ground_collider.shared_shape().clone();
-                let mut curr_parent = state.insert_rigid_body_in(env, ground, ground_collider);
-                viewer.insert_shape_in(
-                    env as u32,
-                    curr_parent,
-                    &ground_shape,
-                    Pose::IDENTITY,
-                    None,
-                );
+                let collider = ColliderBuilder::cuboid(rad, rad, rad).build();
+                let shape = collider.shared_shape().clone();
+                let mut curr_parent = state.insert_rigid_body(ground, collider, no_coupling);
+                viewer.insert_shape(curr_parent, &shape, Pose::IDENTITY);
 
                 for i in 0..num {
                     // Create four bodies.
@@ -61,19 +48,13 @@ pub async fn run(
                     let mut handles = [curr_parent; 4];
                     for k in 0..4 {
                         let density = 1.0;
-                        let body = RigidBodyBuilder::dynamic().pose(positions[k]).build();
+                        let rigid_body = RigidBodyBuilder::dynamic().pose(positions[k]).build();
                         let collider = ColliderBuilder::cuboid(rad, rad, rad)
                             .density(density)
                             .build();
                         let shape = collider.shared_shape().clone();
-                        handles[k] = state.insert_rigid_body_in(env, body, collider);
-                        viewer.insert_shape_in(
-                            env as u32,
-                            handles[k],
-                            &shape,
-                            Pose::IDENTITY,
-                            None,
-                        );
+                        handles[k] = state.insert_rigid_body(rigid_body, collider, no_coupling);
+                        viewer.insert_shape(handles[k], &shape, Pose::IDENTITY);
                     }
 
                     // Setup four impulse_joints.
@@ -87,10 +68,10 @@ pub async fn run(
                         RevoluteJointBuilder::new(x).local_anchor2(Vec3::new(shift, 0.0, 0.0)),
                     ];
 
-                    state.insert_impulse_joint_in(env, curr_parent, handles[0], revs[0]);
-                    state.insert_impulse_joint_in(env, handles[0], handles[1], revs[1]);
-                    state.insert_impulse_joint_in(env, handles[1], handles[2], revs[2]);
-                    state.insert_impulse_joint_in(env, handles[2], handles[3], revs[3]);
+                    state.insert_impulse_joint(curr_parent, handles[0], revs[0]);
+                    state.insert_impulse_joint(handles[0], handles[1], revs[1]);
+                    state.insert_impulse_joint(handles[1], handles[2], revs[2]);
+                    state.insert_impulse_joint(handles[2], handles[3], revs[3]);
 
                     curr_parent = handles[3];
                 }
@@ -98,6 +79,7 @@ pub async fn run(
         }
     }
 
+    // Optional, useful so we can render even before starting the simulation.
     let mut timestamps = GpuTimestamps::new(viewer.backend(), 2048);
     viewer
         .scene3d_mut()

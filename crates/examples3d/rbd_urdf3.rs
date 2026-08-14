@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 use rapier3d_urdf::{UrdfLoaderOptions, UrdfMultibodyOptions, UrdfRobot};
 use std::path::PathBuf;
@@ -23,6 +23,7 @@ pub async fn run(
     use rand::RngExt;
 
     let mut state = NexusState::default();
+    let _ = RbdCoupling::None;
 
     /*
      * Robot loaded from URDF.
@@ -60,8 +61,8 @@ pub async fn run(
         Ok((mut robot, _)) => {
             // Switch every joint's `AngX` motor to acceleration-based mode so the
             // per-frame motor target velocity feels right regardless of link mass.
-            // Initial target velocity is 0 — the loop below re-randomizes it every
-            // 5 simulated seconds.
+            // Initial target velocity is 0; the loop below re-randomizes it
+            // every 5 simulated seconds.
             for urdf_joint in &mut robot.joints {
                 urdf_joint
                     .joint

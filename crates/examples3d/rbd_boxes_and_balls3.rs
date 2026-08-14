@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 
 pub async fn run(
@@ -12,6 +12,7 @@ pub async fn run(
 
     let capacities = NexusCapacities::default().rbd_collisions(400_000);
     let mut state = NexusState::new(capacities);
+    let no_coupling = RbdCoupling::None;
 
     /*
      * Falling dynamic objects.
@@ -33,7 +34,7 @@ pub async fn run(
                 }
                 .build();
                 let shape = collider.shared_shape().clone();
-                let handle = state.insert_rigid_body(body, collider);
+                let handle = state.insert_rigid_body(body, collider, no_coupling);
                 viewer.insert_shape(handle, &shape, Pose::IDENTITY);
             }
         }
@@ -66,7 +67,7 @@ pub async fn run(
                 .translation(wall_pos)
                 .build();
             let shape = collider.shared_shape().clone();
-            let handle = state.insert_rigid_body(body, collider);
+            let handle = state.insert_rigid_body(body, collider, no_coupling);
             viewer.insert_shape_with_color(
                 handle,
                 &shape,

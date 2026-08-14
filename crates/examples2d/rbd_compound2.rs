@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer2d::NexusViewer;
-use nexus2d::prelude::{NexusCapacities, NexusPipeline, NexusState};
+use nexus2d::prelude::{NexusCapacities, NexusPipeline, NexusState, RbdCoupling};
 use rapier2d::prelude::*;
 
 /// 2D analogue of rapier's `compound3` demo.
@@ -10,6 +10,7 @@ pub async fn run(
 ) -> anyhow::Result<NexusState> {
     let capacities = NexusCapacities::default().rbd_collisions(40_000);
     let mut state = NexusState::new(capacities);
+    let no_coupling = RbdCoupling::None;
 
     /*
      * Ground
@@ -19,7 +20,7 @@ pub async fn run(
     let body = RigidBodyBuilder::fixed().build();
     let collider = ColliderBuilder::cuboid(ground_size, 1.5).build();
     let shape = collider.shared_shape().clone();
-    let handle = state.insert_rigid_body(body, collider);
+    let handle = state.insert_rigid_body(body, collider, no_coupling);
     viewer.insert_shape(handle, &shape, Pose::IDENTITY);
 
     let body = RigidBodyBuilder::fixed()
@@ -28,7 +29,7 @@ pub async fn run(
         .build();
     let collider = ColliderBuilder::cuboid(ground_size * 2.1, 1.5).build();
     let shape = collider.shared_shape().clone();
-    let handle = state.insert_rigid_body(body, collider);
+    let handle = state.insert_rigid_body(body, collider, no_coupling);
     viewer.insert_shape(handle, &shape, Pose::IDENTITY);
 
     let body = RigidBodyBuilder::fixed()
@@ -37,7 +38,7 @@ pub async fn run(
         .build();
     let collider = ColliderBuilder::cuboid(ground_size * 2.1, 1.5).build();
     let shape = collider.shared_shape().clone();
-    let handle = state.insert_rigid_body(body, collider);
+    let handle = state.insert_rigid_body(body, collider, no_coupling);
     viewer.insert_shape(handle, &shape, Pose::IDENTITY);
 
     /*
@@ -79,7 +80,7 @@ pub async fn run(
             let base = ColliderBuilder::cuboid(base_he.x, base_he.y)
                 .translation(base_offset)
                 .build();
-            let handle = state.insert_rigid_body(body, base);
+            let handle = state.insert_rigid_body(body, base, no_coupling);
             for (offset, he) in &parts[1..] {
                 let collider = ColliderBuilder::cuboid(he.x, he.y)
                     .translation(*offset)

@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 
 /// Inserts a body + collider into the state and registers its render shape.
@@ -11,7 +11,7 @@ fn add_body(
     collider: Collider,
 ) -> RigidBodyHandle {
     let shape = collider.shared_shape().clone();
-    let handle = state.insert_rigid_body(body, collider);
+    let handle = state.insert_rigid_body(body, collider, RbdCoupling::None);
     viewer.insert_shape(handle, &shape, Pose::IDENTITY);
     handle
 }

@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 
 pub async fn run(
@@ -8,6 +8,7 @@ pub async fn run(
     pipeline: &mut NexusPipeline,
 ) -> anyhow::Result<NexusState> {
     let mut state = NexusState::default();
+    let no_coupling = RbdCoupling::None;
 
     /*
      * The ground
@@ -32,8 +33,8 @@ pub async fn run(
      * - Under gravity alone, the chain should swing in the YZ plane.
      *
      * The GPU pipeline picks up the multibody set from `SimulationState::environments`
-     * and runs `GpuMultibodySolver::step` each frame — no contacts or constraints
-     * with multibodies are involved.
+     * and runs `GpuMultibodySolver::step` each frame. No contacts or
+     * constraints with multibodies are involved.
      */
     let rad = 0.4;
     let link_len = 2.0;
@@ -43,7 +44,7 @@ pub async fn run(
     let root_body = RigidBodyBuilder::fixed().build();
     let root_collider = ColliderBuilder::cuboid(rad, rad, rad).build();
     let root_shape = root_collider.shared_shape().clone();
-    let mut parent_handle = state.insert_rigid_body(root_body, root_collider);
+    let mut parent_handle = state.insert_rigid_body(root_body, root_collider, no_coupling);
     viewer.insert_shape(parent_handle, &root_shape, Pose::IDENTITY);
 
     for i in 0..num_links {
@@ -56,7 +57,7 @@ pub async fn run(
             .collision_groups(InteractionGroups::none())
             .build();
         let shape = collider.shared_shape().clone();
-        let handle = state.insert_rigid_body(rigid_body, collider);
+        let handle = state.insert_rigid_body(rigid_body, collider, no_coupling);
         viewer.insert_shape(handle, &shape, Pose::IDENTITY);
 
         // Revolute joint about X: anchor on parent is at its bottom

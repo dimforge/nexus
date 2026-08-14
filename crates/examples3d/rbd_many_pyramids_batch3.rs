@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer3d::NexusViewer;
-use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusCapacities, NexusPipeline, NexusState, RbdCoupling};
 use rapier3d::prelude::*;
 
 fn create_pyramid(
@@ -25,7 +25,7 @@ fn create_pyramid(
                 .build();
             let collider = ColliderBuilder::cuboid(rad, rad, rad).build();
             let shape = collider.shared_shape().clone();
-            let handle = state.insert_rigid_body_in(env, body, collider);
+            let handle = state.insert_rigid_body_in(env, body, collider, RbdCoupling::None);
             viewer.insert_shape_in(env as u32, handle, &shape, Pose::IDENTITY, None);
         }
     }
@@ -37,6 +37,7 @@ pub async fn run(
 ) -> anyhow::Result<NexusState> {
     let capacities = NexusCapacities::default().rbd_collisions(11_000);
     let mut state = NexusState::new(capacities);
+    let no_coupling = RbdCoupling::None;
     let pyramid_count = 40;
 
     for pyramid_index in 0..pyramid_count {
@@ -66,7 +67,7 @@ pub async fn run(
         )
         .build();
         let shape = collider.shared_shape().clone();
-        let ground_handle = state.insert_rigid_body_in(env, body, collider);
+        let ground_handle = state.insert_rigid_body_in(env, body, collider, no_coupling);
         viewer.insert_shape_in(env as u32, ground_handle, &shape, Pose::IDENTITY, None);
 
         /*

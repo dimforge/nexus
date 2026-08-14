@@ -1,6 +1,6 @@
 use khal::backend::GpuTimestamps;
 use nexus_viewer2d::NexusViewer;
-use nexus2d::prelude::{NexusCapacities, NexusPipeline, NexusState};
+use nexus2d::prelude::{NexusCapacities, NexusPipeline, NexusState, RbdCoupling};
 use rapier2d::prelude::*;
 
 pub async fn run(
@@ -9,6 +9,7 @@ pub async fn run(
 ) -> anyhow::Result<NexusState> {
     let capacities = NexusCapacities::default().rbd_collisions(250_000);
     let mut state = NexusState::new(capacities);
+    let no_coupling = RbdCoupling::None;
 
     /*
      * Ground
@@ -18,7 +19,7 @@ pub async fn run(
     let body = RigidBodyBuilder::fixed().build();
     let collider = ColliderBuilder::cuboid(ground_size, 1.5).build();
     let shape = collider.shared_shape().clone();
-    let handle = state.insert_rigid_body(body, collider);
+    let handle = state.insert_rigid_body(body, collider, no_coupling);
     viewer.insert_shape(handle, &shape, Pose::IDENTITY);
 
     let body = RigidBodyBuilder::fixed()
@@ -27,7 +28,7 @@ pub async fn run(
         .build();
     let collider = ColliderBuilder::cuboid(ground_size * 1.2, 1.5).build();
     let shape = collider.shared_shape().clone();
-    let handle = state.insert_rigid_body(body, collider);
+    let handle = state.insert_rigid_body(body, collider, no_coupling);
     viewer.insert_shape(handle, &shape, Pose::IDENTITY);
 
     let body = RigidBodyBuilder::fixed()
@@ -36,7 +37,7 @@ pub async fn run(
         .build();
     let collider = ColliderBuilder::cuboid(ground_size * 1.2, 1.5).build();
     let shape = collider.shared_shape().clone();
-    let handle = state.insert_rigid_body(body, collider);
+    let handle = state.insert_rigid_body(body, collider, no_coupling);
     viewer.insert_shape(handle, &shape, Pose::IDENTITY);
 
     /*
@@ -60,7 +61,7 @@ pub async fn run(
                 .build();
             let collider = ColliderBuilder::ball(rad).build();
             let shape = collider.shared_shape().clone();
-            let handle = state.insert_rigid_body(body, collider);
+            let handle = state.insert_rigid_body(body, collider, no_coupling);
             viewer.insert_shape(handle, &shape, Pose::IDENTITY);
         }
     }

@@ -1,7 +1,7 @@
 use khal::backend::GpuTimestamps;
 use kiss3d::egui;
 use nexus_viewer3d::{NexusViewer, RenderMaterial};
-use nexus3d::prelude::{NexusPipeline, NexusState};
+use nexus3d::prelude::{NexusPipeline, NexusState, RbdCoupling};
 use nexus3d::rbd::dynamics::convert_joint_motor;
 use nexus3d::rbd::shaders::dynamics::JointMotor;
 use rapier3d::prelude::*;
@@ -31,11 +31,11 @@ const MAX_MB_DOFS: u32 = 64;
 /// Cheap pre-flight check: build the model's multibodies *without reading any
 /// mesh files* (collider/visual shape creation disabled) and return the largest
 /// per-multibody DoF count. `None` if the model fails to parse (those are kept
-/// in the list — `load_scene` reports the error gracefully instead of crashing).
+/// in the list: `load_scene` reports the error gracefully instead of crashing).
 /// Used to drop models the GPU solver can't handle from the picker.
 fn scene_max_dofs(scene: &Path) -> Option<u32> {
     // Same structural options as the real load (so the DoF count matches), but
-    // with every collider/visual shape skipped — only bodies and joints, which
+    // with every collider/visual shape skipped: only bodies and joints, which
     // determine the multibody DoFs, are needed here.
     let options = MjcfLoaderOptions {
         create_colliders_from_collision_shapes: false,
@@ -456,7 +456,7 @@ async fn load_scene(
         let body = RigidBodyBuilder::fixed().translation(center).build();
         let collider = ColliderBuilder::cuboid(he.x, he.y, he.z).build();
         let shape = collider.shared_shape().clone();
-        let handle = state.insert_rigid_body(body, collider);
+        let handle = state.insert_rigid_body(body, collider, RbdCoupling::None);
         viewer.insert_shape(handle, &shape, Pose::IDENTITY);
     }
 
@@ -587,7 +587,7 @@ async fn select_scene(
         && settings.use_multibody
     {
         return Ok(Err(format!(
-            "{} needs {dofs} DoFs (max {MAX_MB_DOFS}) — not supported by the GPU solver.",
+            "{} needs {dofs} DoFs (max {MAX_MB_DOFS}), not supported by the GPU solver.",
             scene_label(scene)
         )));
     }

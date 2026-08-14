@@ -1,7 +1,7 @@
 use glamx::Pose2;
 use khal::backend::GpuTimestamps;
 use nexus_viewer2d::NexusViewer;
-use nexus2d::prelude::{NexusPipeline, NexusState};
+use nexus2d::prelude::{NexusPipeline, NexusState, RbdCoupling};
 use rapier2d::prelude::*;
 
 pub async fn run(
@@ -9,6 +9,7 @@ pub async fn run(
     pipeline: &mut NexusPipeline,
 ) -> anyhow::Result<NexusState> {
     let mut state = NexusState::default();
+    let no_coupling = RbdCoupling::None;
 
     /*
      * Create the balls
@@ -41,7 +42,7 @@ pub async fn run(
                         .build();
                     let collider = ColliderBuilder::ball(rad).build();
                     let shape = collider.shared_shape().clone();
-                    let child_handle = state.insert_rigid_body(body, collider);
+                    let child_handle = state.insert_rigid_body(body, collider, no_coupling);
                     viewer.insert_shape(child_handle, &shape, Pose::IDENTITY);
 
                     // Vertical joint.
