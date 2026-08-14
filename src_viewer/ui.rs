@@ -1,13 +1,12 @@
-use std::time::Duration;
-// use crate::rbd::BackendType;
-use crate::viewer::UiState;
+use crate::viewer::{MpmRenderMode, UiState};
 use crate::{DemoKind, RunState, Transition};
 use kiss3d::egui;
 use nexus::rbd::pipeline::RunStats;
 use nexus::state::NexusCounts;
+use std::time::Duration;
 
 use crate::backend::BackendType;
-use egui::{Button, CollapsingHeader, Color32, CornerRadius, RichText, Stroke};
+use egui::{Button, CollapsingHeader, Color32, ComboBox, CornerRadius, RichText, Stroke};
 
 /// Sets up a custom warm theme that complements the app's off-white background.
 pub fn setup_custom_theme(ctx: &egui::Context) {
@@ -194,8 +193,8 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
 /// [`crate::NexusViewer::sync`]). Only the groups relevant to the current scene
 /// are shown.
 fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
-    let has_rbd = state.has_rbd;
-    if !has_rbd {
+    let (has_mpm, has_rbd) = (state.has_mpm, state.has_rbd);
+    if !(has_mpm || has_rbd) {
         return;
     }
 
@@ -203,8 +202,40 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
     ui.add_space(2.0);
     let s = &mut state.sim_settings;
 
-    ui.label("Rigid bodies");
-    ui.add(egui::Slider::new(&mut s.rbd_steps_per_frame, 1..=20).text("steps / frame"));
+    if has_mpm {
+        ui.label("MPM");
+        ui.add(egui::Slider::new(&mut s.mpm_substeps, 1..=200).text("substeps"));
+        ui.checkbox(&mut s.mpm_use_cpic, "Use CPIC")
+            .on_hover_text("Compatible particle-in-cell coupling with rigid colliders");
+        gravity_drag(ui, "gravity", &mut s.mpm_gravity);
+        // View-only coloring mode (not part of `sim_settings`).
+        ComboBox::from_label("coloring")
+            .selected_text(state.mpm_render_mode.text())
+            .show_ui(ui, |ui| {
+                for mode in MpmRenderMode::ALL {
+                    ui.selectable_value(&mut state.mpm_render_mode, *mode, mode.text());
+                }
+            });
+    }
+
+    if has_rbd {
+        if has_mpm {
+            ui.add_space(4.0);
+        }
+        ui.label("Rigid bodies");
+        ui.add(egui::Slider::new(&mut s.rbd_steps_per_frame, 1..=20).text("steps / frame"));
+    }
+}
+
+/// A labelled per-component drag editor for a gravity vector (2D or 3D).
+fn gravity_drag(ui: &mut egui::Ui, label: &str, g: &mut nexus::rbd::math::Vector) {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.add(egui::DragValue::new(&mut g.x).speed(0.1).prefix("x "));
+        ui.add(egui::DragValue::new(&mut g.y).speed(0.1).prefix("y "));
+        #[cfg(feature = "dim3")]
+        ui.add(egui::DragValue::new(&mut g.z).speed(0.1).prefix("z "));
+    });
 }
 
 fn performance_ui(
@@ -235,6 +266,10 @@ fn performance_ui(
                 row("Impulse joints:", counts.impulse_joints);
                 row("Multibodies:", counts.multibodies);
                 row("Multibody DOFs:", counts.multibody_dofs);
+            }
+
+            if counts.particles > 0 {
+                row("Particles:", counts.particles);
             }
         });
 
@@ -284,13 +319,13 @@ fn performance_ui(
 }
 
 impl UiState {
-    /// Order in which demos appear in the picker: grouped by kind, preserving
-    /// each group's listing order. Prev/Next walks this sequence so it matches
-    /// the visible list rather than the raw (lexicographically-sorted) `demos`
-    /// index order.
+    /// Order in which demos appear in the picker: grouped by kind (Rbd, Mpm),
+    /// preserving each group's listing order. Prev/Next walks this sequence so it
+    /// matches the visible list rather than the raw (lexicographically-sorted)
+    /// `demos` index order.
     fn demo_display_order(&self) -> Vec<usize> {
         let mut order = Vec::with_capacity(self.demos.len());
-        for kind in [DemoKind::Rbd] {
+        for kind in [DemoKind::Rbd, DemoKind::Mpm] {
             for (i, (_, k)) in self.demos.iter().enumerate() {
                 if *k == kind {
                     order.push(i);
@@ -341,6 +376,7 @@ fn examples_section(ui: &mut egui::Ui, state: &mut UiState) {
     ui.add_space(4.0);
 
     demo_group(ui, state, DemoKind::Rbd, "Rigid Bodies");
+    demo_group(ui, state, DemoKind::Mpm, "MPM");
 }
 
 fn demo_group(ui: &mut egui::Ui, state: &mut UiState, kind: DemoKind, label: &str) {
@@ -380,7 +416,8 @@ fn demo_group(ui: &mut egui::Ui, state: &mut UiState, kind: DemoKind, label: &st
         });
 }
 
-/// Unified backend selector.
+/// Unified backend selector. The "CPU (rapier)" option is only shown for RBD
+/// scenes; for MPM scenes a current Rapier selection is shown as CPU (nexus).
 fn backend_selector(ui: &mut egui::Ui, state: &mut UiState, gpu_available: bool) {
     ui.label(RichText::new("Physics Backend").strong());
     ui.add_space(2.0);
@@ -432,116 +469,3 @@ fn backend_selector(ui: &mut egui::Ui, state: &mut UiState, gpu_available: bool)
         state.transition = Some(Transition::Switch);
     }
 }
-
-// // ===========================================================================
-// // Per-scene UI, implemented through the `Scene` trait.
-// // ===========================================================================
-//
-// impl Scene for crate::rbd::RbdScene {
-//     fn is_rbd(&self) -> bool {
-//         true
-//     }
-//
-//     fn performance_ui(&mut self, ui: &mut egui::Ui, run_stats: &RunStats, backend_type: BackendType) {
-//         let physics = &self.physics;
-//
-//         // Scene info.
-//         ui.label(RichText::new("Scene").strong());
-//         ui.add_space(2.0);
-//
-//         egui::Grid::new("rbd_scene_grid")
-//             .num_columns(2)
-//             .spacing([20.0, 2.0])
-//             .show(ui, |ui| {
-//                 ui.label("Bodies:");
-//                 ui.label(format!("{}", physics.backend.num_bodies()));
-//                 ui.end_row();
-//
-//                 ui.label("Joints:");
-//                 ui.label(format!("{}", physics.backend.num_joints()));
-//                 ui.end_row();
-//
-//                 ui.label("Batches:");
-//                 ui.label(format!("{}", physics.backend.num_batches()));
-//                 ui.end_row();
-//             });
-//
-//         ui.add_space(8.0);
-//         ui.separator();
-//         ui.add_space(4.0);
-//
-//         // Timing.
-//         let total_ms_with_readback = run_stats.total_simulation_time_with_readback_ms();
-//         let total_ms_without_readback = run_stats.total_simulation_time_without_readback_ms();
-//         let total_readback_time = total_ms_with_readback - total_ms_without_readback;
-//         let fps = if total_ms_with_readback > 0.0 {
-//             (1000.0f32 / total_ms_with_readback).round()
-//         } else {
-//             0.0
-//         };
-//
-//         ui.label(
-//             RichText::new(format!(
-//                 "Total: {:.2}ms (+ readback: {:.2}ms) - {:.0} FPS",
-//                 total_ms_without_readback, total_readback_time, fps
-//             ))
-//             .strong(),
-//         );
-//         ui.add_space(4.0);
-//
-//         if !matches!(backend_type, BackendType::Rapier) {
-//             CollapsingHeader::new("Simulation details")
-//                 .id_salt("rbd_sim_details")
-//                 .default_open(false)
-//                 .show(ui, |ui| {
-//                     ui.label(format!("Colors: {}", run_stats.num_colors));
-//                     ui.label(format!(
-//                         "Coloring: {:.2}ms",
-//                         run_stats.coloring_time.as_secs_f32() * 1000.0
-//                     ));
-//                     ui.label(format!(
-//                         "Coloring iterations: {} x 10",
-//                         run_stats.coloring_iterations
-//                     ));
-//                     ui.label(format!(
-//                         "Start to pairs count: {:.2}ms",
-//                         run_stats.start_to_pairs_count_time.as_secs_f32() * 1000.0
-//                     ));
-//                     ui.label(format!(
-//                         "Coloring fallback: {:.2}ms",
-//                         run_stats.coloring_fallback_time.as_secs_f32() * 1000.0
-//                     ));
-//                 });
-//
-//             if !run_stats.gpu_pass_times.is_empty() {
-//                 CollapsingHeader::new(format!("GPU passes: {:.2}ms", run_stats.gpu_total_time))
-//                     .id_salt("rbd_gpu_passes")
-//                     .default_open(false)
-//                     .show(ui, |ui| {
-//                         egui::Grid::new("rbd_timestamp_grid")
-//                             .num_columns(2)
-//                             .spacing([20.0, 2.0])
-//                             .show(ui, |ui| {
-//                                 for (label, ms) in &run_stats.gpu_pass_times {
-//                                     ui.label(format!("{}:", label));
-//                                     ui.label(format!("{:.2}ms", ms));
-//                                     ui.end_row();
-//                                 }
-//                             });
-//                     });
-//             }
-//
-//             // Slow performance warning.
-//             if run_stats.total_simulation_time_with_readback.as_secs_f32() > 0.1 {
-//                 ui.add_space(4.0);
-//                 ui.colored_label(
-//                     Color32::from_rgb(180, 120, 60),
-//                     #[cfg(not(target_arch = "wasm32"))]
-//                     "Running slow? If you have both an integrated and discrete GPU, ensure the discrete GPU is in use.",
-//                     #[cfg(target_arch = "wasm32")]
-//                     "Running slow? If you have both an integrated and discrete GPU, ensure your browser runs exclusively on the discrete GPU.",
-//                 );
-//             }
-//         }
-//     }
-// }

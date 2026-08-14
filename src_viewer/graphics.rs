@@ -157,10 +157,16 @@ impl InstancedNode {
     /// opaque and translucent instances of the same shape must live in separate
     /// nodes because the transparent/opaque phase split is per-node, not
     /// per-instance.
+    ///
+    /// Backface culling is off on every node: instance transforms may mirror a
+    /// shape (a negative scale flips the winding), demos routinely look at thin
+    /// boundary colliders and open geometry from inside, and the translucent
+    /// nodes need their back faces to read as solid volumes.
     #[cfg(feature = "dim2")]
-    fn new(node: SceneNode2d, _transparent: bool) -> Self {
+    fn new(mut node: SceneNode2d, _transparent: bool) -> Self {
         // 2D rendering blends per-fragment regardless of node, so the split only
         // keeps the keying symmetric with 3D — no extra styling needed here.
+        node.enable_backface_culling_recursive(false);
         Self {
             node,
             entries: vec![],
@@ -177,6 +183,7 @@ impl InstancedNode {
         if transparent {
             node.set_color(Color::new(1.0, 1.0, 1.0, TRANSPARENT_NODE_ALPHA));
         }
+        node.enable_backface_culling_recursive(false);
         Self {
             node,
             entries: vec![],

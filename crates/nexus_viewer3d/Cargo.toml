@@ -29,7 +29,7 @@ cpu-parallel = ["cpu", "nexus3d/cpu-parallel", "vortx/cpu-parallel"]
 cuda = ["nexus3d/cuda"]
 
 [dependencies]
-nexus3d = { workspace = true, features = ["rbd"]}
+nexus3d = { workspace = true, features = ["rbd", "mpm"]}
 glamx = { workspace = true }
 khal = { workspace = true }
 vortx = { workspace = true }

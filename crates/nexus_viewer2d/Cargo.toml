@@ -29,7 +29,7 @@ cpu-parallel = ["cpu", "nexus2d/cpu-parallel", "vortx/cpu-parallel"]
 cuda = ["nexus2d/cuda"]
 
 [dependencies]
-nexus2d = { workspace = true, features = ["rbd"]}
+nexus2d = { workspace = true, features = ["rbd", "mpm"]}
 glamx = { workspace = true }
 khal = { workspace = true }
 vortx = { workspace = true }
