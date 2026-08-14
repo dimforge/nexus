@@ -9,6 +9,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     PrismaticJointBuilder,
@@ -20,6 +21,7 @@ from nexus3d import (
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     rad = 0.4
     num = 10
@@ -37,7 +39,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                 ground = RigidBodyBuilder.fixed().translation(Vec3(x, y, z)).build()
                 collider = ColliderBuilder.cuboid(rad, rad, rad).build()
                 shape = collider.shared_shape()
-                curr_parent = state.insert_rigid_body(ground, collider)
+                curr_parent = state.insert_rigid_body(ground, collider, no_coupling)
                 viewer.insert_shape(curr_parent, shape, Pose.IDENTITY)
 
                 for i in range(num):
@@ -53,7 +55,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                     )
                     shape = collider.shared_shape()
                     curr_child = state.insert_rigid_body(
-                        rigid_body, collider
+                        rigid_body, collider, no_coupling
                     )
                     viewer.insert_shape(curr_child, shape, Pose.IDENTITY)
 

@@ -15,6 +15,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     FixedJointBuilder,
@@ -44,7 +45,7 @@ def normalized(v: Vec3) -> Vec3:
 def add_body(state, viewer, body, collider):
     """Inserts a body + collider and registers its render shape."""
     shape = collider.shared_shape()
-    handle = state.insert_rigid_body(body, collider)
+    handle = state.insert_rigid_body(body, collider, RbdCoupling.NONE)
     viewer.insert_shape(handle, shape, Pose.IDENTITY)
     return handle
 

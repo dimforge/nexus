@@ -11,6 +11,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     GpuTimestamps,
@@ -34,6 +35,7 @@ GRID = 20
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     # A boxed ground: a floor plus four low walls to keep the pile contained.
     floor_half = 50.0
@@ -52,7 +54,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
             ColliderBuilder.cuboid(half.x, half.y, half.z).translation(pos).build()
         )
         shape = collider.shared_shape()
-        handle = state.insert_rigid_body(body, collider)
+        handle = state.insert_rigid_body(body, collider, no_coupling)
         viewer.insert_shape_with_color(
             handle, shape, Pose.from_translation(pos), walls_color
         )
@@ -97,7 +99,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                     colliders.append(collider)
                     shapes.append(collider.shared_shape())
 
-                handles = state.add_rigid_bodies(viewer, bodies, colliders)
+                handles = state.add_rigid_bodies(viewer, bodies, colliders, no_coupling)
                 for handle, shape in zip(handles, shapes):
                     viewer.insert_shape(handle, shape, Pose.IDENTITY)
                 added += n

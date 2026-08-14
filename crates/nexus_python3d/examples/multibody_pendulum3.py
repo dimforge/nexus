@@ -9,6 +9,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     InteractionGroups,
@@ -21,6 +22,7 @@ from nexus3d import (
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     rad = 0.4
     link_len = 2.0
@@ -30,7 +32,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     root_body = RigidBodyBuilder.fixed().build()
     root_collider = ColliderBuilder.cuboid(rad, rad, rad).build()
     root_shape = root_collider.shared_shape()
-    parent_handle = state.insert_rigid_body(root_body, root_collider)
+    parent_handle = state.insert_rigid_body(root_body, root_collider, no_coupling)
     viewer.insert_shape(parent_handle, root_shape, Pose.IDENTITY)
 
     for i in range(num_links):
@@ -46,7 +48,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
             .build()
         )
         shape = collider.shared_shape()
-        handle = state.insert_rigid_body(rigid_body, collider)
+        handle = state.insert_rigid_body(rigid_body, collider, no_coupling)
         viewer.insert_shape(handle, shape, Pose.IDENTITY)
 
         # Revolute joint about Z: anchor on parent is at its bottom

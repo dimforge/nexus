@@ -1,16 +1,19 @@
-//! Core simulation objects: `NexusState`, `NexusPipeline`, `GpuTimestamps`,
-//! and the various entity handles.
+//! Core simulation objects: `NexusState`, `NexusPipeline`, `RbdCoupling`,
+//! `GpuTimestamps`, and the various entity handles.
 
 use crate::loaders::{MjcfSceneInfo, UrdfLoaderOptions, UrdfRobotHandles};
 use crate::math::{Pose, Vec3};
+use crate::mpm::{BoundaryCondition, Particle, SimulationParams};
 use crate::rbd::{
     Collider, ImpulseJointHandle, JointArg, JointAxis, MultibodyJointHandle, RigidBody,
     RigidBodyHandle, SharedShape,
 };
 use crate::viewer::NexusViewer;
 use khal::backend::GpuTimestamps as RGpuTimestamps;
+use nexus3d::mpm::solver::BoundaryCondition as RBoundaryCondition;
 use nexus3d::prelude::{
     NexusPipeline as RNexusPipeline, NexusPipelineMask, NexusState as RNexusState,
+    RbdCoupling as RRbdCoupling,
 };
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -19,6 +22,39 @@ use rapier3d::prelude as rp;
 /// Maps a GPU backend error to a Python exception.
 fn gpu_err<E: std::fmt::Debug>(e: E) -> PyErr {
     PyRuntimeError::new_err(format!("{e:?}"))
+}
+
+/// Coupling mode between a rigid body and the MPM simulation.
+#[pyclass(name = "RbdCoupling", from_py_object)]
+#[derive(Clone, Copy)]
+pub struct RbdCoupling(pub RRbdCoupling);
+
+#[pymethods]
+impl RbdCoupling {
+    #[classattr]
+    const NONE: RbdCoupling = RbdCoupling(RRbdCoupling::None);
+    // Convenience constants defaulting to a `stick()` boundary; use
+    // `mpm_one_way` / `mpm_two_way` to pick a specific boundary condition.
+    #[classattr]
+    const MPM_ONE_WAY_COUPLING: RbdCoupling =
+        RbdCoupling(RRbdCoupling::MpmOneWay(RBoundaryCondition::stick()));
+    #[classattr]
+    const MPM_TWO_WAY_COUPLING: RbdCoupling =
+        RbdCoupling(RRbdCoupling::MpmTwoWay(RBoundaryCondition::stick()));
+
+    /// One-way coupling (MPM pushes the rigid body, not vice-versa) using the
+    /// given boundary condition at the collider surface.
+    #[staticmethod]
+    fn mpm_one_way(boundary: BoundaryCondition) -> RbdCoupling {
+        RbdCoupling(RRbdCoupling::MpmOneWay(boundary.0))
+    }
+
+    /// Two-way coupling (MPM and the rigid body affect each other) using the
+    /// given boundary condition at the collider surface.
+    #[staticmethod]
+    fn mpm_two_way(boundary: BoundaryCondition) -> RbdCoupling {
+        RbdCoupling(RRbdCoupling::MpmTwoWay(boundary.0))
+    }
 }
 
 /// Entity counts for a `NexusState` (mirrors `NexusCounts`).
@@ -37,7 +73,14 @@ pub struct NexusCounts {
     pub multibodies: usize,
     #[pyo3(get)]
     pub multibody_dofs: usize,
+    #[pyo3(get)]
+    pub particles: usize,
 }
+
+/// Handle to a chunk of MPM particles added via `NexusState.add_particles`.
+#[pyclass(name = "NexusParticleChunk", from_py_object)]
+#[derive(Clone, Copy)]
+pub struct NexusParticleChunk(pub nexus3d::prelude::NexusParticleChunk);
 
 /// Optional GPU timing-query buffer (`khal::backend::GpuTimestamps`).
 #[pyclass(name = "GpuTimestamps", unsendable)]
@@ -69,8 +112,12 @@ impl NexusState {
         &mut self,
         body: PyRef<RigidBody>,
         collider: PyRef<Collider>,
+        coupling: RbdCoupling,
     ) -> RigidBodyHandle {
-        RigidBodyHandle(self.0.insert_rigid_body(body.0.clone(), collider.0.clone()))
+        RigidBodyHandle(
+            self.0
+                .insert_rigid_body(body.0.clone(), collider.0.clone(), coupling.0),
+        )
     }
 
     fn insert_rigid_body_in(
@@ -78,21 +125,29 @@ impl NexusState {
         env: usize,
         body: PyRef<RigidBody>,
         collider: PyRef<Collider>,
+        coupling: RbdCoupling,
     ) -> RigidBodyHandle {
-        RigidBodyHandle(
-            self.0
-                .insert_rigid_body_in(env, body.0.clone(), collider.0.clone()),
-        )
+        RigidBodyHandle(self.0.insert_rigid_body_in(
+            env,
+            body.0.clone(),
+            collider.0.clone(),
+            coupling.0,
+        ))
     }
 
-    fn insert_body(&mut self, body: PyRef<RigidBody>) -> RigidBodyHandle {
-        RigidBodyHandle(self.0.insert_body(body.0.clone()))
+    fn insert_body(&mut self, body: PyRef<RigidBody>, coupling: RbdCoupling) -> RigidBodyHandle {
+        RigidBodyHandle(self.0.insert_body(body.0.clone(), coupling.0))
     }
 
     /// Inserts a collider-less body into environment `env`; attach colliders to
     /// it afterwards with `insert_collider_in` (multiple colliders per body).
-    fn insert_body_in(&mut self, env: usize, body: PyRef<RigidBody>) -> RigidBodyHandle {
-        RigidBodyHandle(self.0.insert_body_in(env, body.0.clone()))
+    fn insert_body_in(
+        &mut self,
+        env: usize,
+        body: PyRef<RigidBody>,
+        coupling: RbdCoupling,
+    ) -> RigidBodyHandle {
+        RigidBodyHandle(self.0.insert_body_in(env, body.0.clone(), coupling.0))
     }
 
     /// Attaches a collider to an existing body (`parent`), or inserts a
@@ -127,15 +182,19 @@ impl NexusState {
         viewer: PyRef<NexusViewer>,
         bodies: Vec<RigidBody>,
         colliders: Vec<Collider>,
+        coupling: RbdCoupling,
     ) -> PyResult<Vec<RigidBodyHandle>> {
         if bodies.len() != colliders.len() {
             return Err(PyRuntimeError::new_err(
                 "bodies and colliders must have the same length",
             ));
         }
-        let pairs = bodies.into_iter().zip(colliders).map(|(b, c)| (b.0, c.0));
+        let triples = bodies
+            .into_iter()
+            .zip(colliders)
+            .map(|(b, c)| (b.0, c.0, coupling.0));
         self.0
-            .add_rigid_bodies(viewer.backend(), pairs)
+            .add_rigid_bodies(viewer.backend(), triples)
             .map(|hs| hs.into_iter().map(RigidBodyHandle).collect())
             .map_err(gpu_err)
     }
@@ -306,6 +365,65 @@ impl NexusState {
             .map_err(gpu_err)
     }
 
+    // --- mpm --------------------------------------------------------------
+
+    fn set_mpm_params(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        params: PyRef<SimulationParams>,
+        cell_width: f32,
+    ) -> PyResult<()> {
+        self.0
+            .set_mpm_params(viewer.backend(), params.0, cell_width)
+            .map_err(gpu_err)
+    }
+
+    fn set_mpm_substeps(&mut self, substeps: u32) {
+        self.0.set_mpm_substeps(substeps);
+    }
+
+    fn set_mpm_use_cpic(&mut self, enabled: bool) {
+        self.0.set_mpm_use_cpic(enabled);
+    }
+
+    fn set_mpm_gravity(&mut self, gravity: Vec3) {
+        self.0.set_mpm_gravity(gravity.0);
+    }
+
+    fn add_particles(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        particles: Vec<Particle>,
+    ) -> PyResult<NexusParticleChunk> {
+        let particles: Vec<_> = particles.into_iter().map(|p| p.0).collect();
+        self.0
+            .add_particles(viewer.backend(), particles)
+            .map(NexusParticleChunk)
+            .map_err(gpu_err)
+    }
+
+    fn extend_chunk(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        chunk: NexusParticleChunk,
+        particles: Vec<Particle>,
+    ) -> PyResult<()> {
+        let particles: Vec<_> = particles.into_iter().map(|p| p.0).collect();
+        self.0
+            .extend_chunk(viewer.backend(), chunk.0, particles)
+            .map_err(gpu_err)
+    }
+
+    fn remove_chunk(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        chunk: NexusParticleChunk,
+    ) -> PyResult<()> {
+        self.0
+            .remove_chunk(viewer.backend(), chunk.0)
+            .map_err(gpu_err)
+    }
+
     // --- lifecycle --------------------------------------------------------
 
     fn counts(&self) -> NexusCounts {
@@ -317,6 +435,7 @@ impl NexusState {
             impulse_joints: c.impulse_joints,
             multibodies: c.multibodies,
             multibody_dofs: c.multibody_dofs,
+            particles: c.particles,
         }
     }
 
@@ -338,7 +457,7 @@ impl NexusPipeline {
         NexusPipeline(RNexusPipeline::default())
     }
 
-    /// Compiles all GPU pipelines up-front.
+    /// Compiles all GPU pipelines up-front (RBD + MPM).
     fn preload_pipelines(&mut self, viewer: PyRef<NexusViewer>) -> PyResult<()> {
         self.0
             .preload_pipelines(viewer.backend(), NexusPipelineMask::all())

@@ -15,6 +15,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     GpuTimestamps,
@@ -70,6 +71,7 @@ def make_polyhedron_points():
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     # Create 5 predefined convex polyhedron point sets.
     polyhedron_points = make_polyhedron_points()
@@ -103,7 +105,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                 collider = cb.build()
                 body = RigidBodyBuilder.dynamic().translation(pos).build()
                 shape = collider.shared_shape()
-                handle = state.insert_rigid_body(body, collider)
+                handle = state.insert_rigid_body(body, collider, no_coupling)
                 viewer.insert_shape(handle, shape, Pose.IDENTITY)
 
     # A trimesh floor built from the mesh representation of a heightfield.
@@ -124,7 +126,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     body = RigidBodyBuilder.fixed().build()
     collider = ColliderBuilder.trimesh(vertices, indices).build()
     shape = collider.shared_shape()
-    handle = state.insert_rigid_body(body, collider)
+    handle = state.insert_rigid_body(body, collider, no_coupling)
     viewer.insert_shape(handle, shape, Pose.IDENTITY)
 
     timestamps = GpuTimestamps(viewer, 2048)

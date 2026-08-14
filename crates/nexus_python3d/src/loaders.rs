@@ -121,6 +121,7 @@ pub fn insert_mjcf(
     scene_path: &std::path::Path,
     render_colliders: bool,
 ) -> PyResult<MjcfSceneInfo> {
+    use nexus3d::prelude::RbdCoupling;
     use pyo3::exceptions::PyRuntimeError;
     use rapier3d::parry::bounding_volume::BoundingVolume; // for `Aabb::merge`
     use rapier3d_mjcf::{MjcfLoaderOptions, MjcfMultibodyOptions, MjcfRobot};
@@ -241,7 +242,7 @@ pub fn insert_mjcf(
         let body = rp::RigidBodyBuilder::fixed().translation(center).build();
         let collider = rp::ColliderBuilder::cuboid(he.x, he.y, he.z).build();
         let shape = collider.shared_shape().clone();
-        let handle = state.insert_rigid_body(body, collider);
+        let handle = state.insert_rigid_body(body, collider, RbdCoupling::None);
         v.insert_shape(handle, &shape, rp::Pose::IDENTITY);
     }
 

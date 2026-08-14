@@ -8,6 +8,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     SphericalJointBuilder,
@@ -19,6 +20,7 @@ from nexus3d import (
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     rad = 0.4
     ni = 200
@@ -54,7 +56,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                 collider = ColliderBuilder.ball(rad).density(10.0).build()
 
             shape = collider.shared_shape()
-            child_handle = state.insert_rigid_body(rigid_body, collider)
+            child_handle = state.insert_rigid_body(rigid_body, collider, no_coupling)
             viewer.insert_shape(child_handle, shape, Pose.IDENTITY)
 
             # Vertical joint.
@@ -98,7 +100,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                 )
                 collider = ColliderBuilder.cuboid(rad, rad, rad).build()
                 shape = collider.shared_shape()
-                handle = state.insert_rigid_body(body, collider)
+                handle = state.insert_rigid_body(body, collider, no_coupling)
                 viewer.insert_shape(handle, shape, Pose.IDENTITY)
 
     timestamps = GpuTimestamps(viewer, 2048)

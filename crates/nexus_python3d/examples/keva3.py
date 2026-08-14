@@ -10,6 +10,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     GpuTimestamps,
@@ -21,7 +22,7 @@ from nexus3d import (
 def add_body(state, viewer, body, collider):
     """Inserts a body + collider into the state and registers its render shape."""
     shape = collider.shared_shape()
-    handle = state.insert_rigid_body(body, collider)
+    handle = state.insert_rigid_body(body, collider, RbdCoupling.NONE)
     viewer.insert_shape(handle, shape, Pose.IDENTITY)
     return handle
 

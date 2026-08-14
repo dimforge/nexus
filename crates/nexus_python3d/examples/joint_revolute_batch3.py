@@ -7,6 +7,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     RevoluteJointBuilder,
@@ -18,6 +19,7 @@ from nexus3d import (
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     rad = 0.4
     num = 10
@@ -42,7 +44,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                 ground = RigidBodyBuilder.fixed().translation(Vec3(x, y, z0)).build()
                 ground_collider = ColliderBuilder.cuboid(rad, rad, rad).build()
                 ground_shape = ground_collider.shared_shape()
-                curr_parent = state.insert_rigid_body_in(env, ground, ground_collider)
+                curr_parent = state.insert_rigid_body_in(env, ground, ground_collider, no_coupling)
                 viewer.insert_shape_in(env, curr_parent, ground_shape, Pose.IDENTITY)
 
                 for i in range(num):
@@ -59,7 +61,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                         body = RigidBodyBuilder.dynamic().pose(positions[m]).build()
                         collider = ColliderBuilder.cuboid(rad, rad, rad).density(1.0).build()
                         shape = collider.shared_shape()
-                        handles[m] = state.insert_rigid_body_in(env, body, collider)
+                        handles[m] = state.insert_rigid_body_in(env, body, collider, no_coupling)
                         viewer.insert_shape_in(env, handles[m], shape, Pose.IDENTITY)
 
                     ax = Vec3.X

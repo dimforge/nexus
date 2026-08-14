@@ -13,6 +13,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     GpuTimestamps,
@@ -24,6 +25,7 @@ from nexus3d import (
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     # Floor made of large cuboids.
     thick = 50.0
@@ -44,7 +46,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
             .build()
         )
         shape = collider.shared_shape()
-        handle = state.insert_rigid_body(body, collider)
+        handle = state.insert_rigid_body(body, collider, no_coupling)
         viewer.insert_shape_with_color(
             handle, shape, Pose.from_translation(wall_pos), walls_color
         )
@@ -75,7 +77,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
 
                 body = RigidBodyBuilder.dynamic().translation(Vec3(x, y, z)).build()
 
-                handle = state.insert_body_in(0, body)
+                handle = state.insert_body_in(0, body, no_coupling)
                 for offset, he in parts:
                     collider = (
                         ColliderBuilder.cuboid(he.x, he.y, he.z)
