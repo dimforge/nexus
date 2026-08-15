@@ -121,8 +121,8 @@ fn emit_joint_constraints(
 
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
-                let limit_min = stat.data.limits[axis as usize].min;
-                let limit_max = stat.data.limits[axis as usize].max;
+                let limit_min = stat.data.limits.read(axis as usize).min;
+                let limit_max = stat.data.limits.read(axis as usize).max;
                 let cons = build_motor_constraint(
                     abs_dof,
                     k,
@@ -130,7 +130,7 @@ fn emit_joint_constraints(
                     curr_pos,
                     inv_dt,
                     dt,
-                    &stat.data.motors[axis as usize],
+                    stat.data.motors.at(axis as usize),
                     has_limits,
                     limit_min,
                     limit_max,
@@ -145,8 +145,8 @@ fn emit_joint_constraints(
                     axis,
                     curr_pos,
                     [
-                        stat.data.limits[axis as usize].min,
-                        stat.data.limits[axis as usize].max,
+                        stat.data.limits.read(axis as usize).min,
+                        stat.data.limits.read(axis as usize).max,
                     ],
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
@@ -172,8 +172,8 @@ fn emit_joint_constraints(
                     axis,
                     curr_pos,
                     [
-                        stat.data.limits[axis as usize].min,
-                        stat.data.limits[axis as usize].max,
+                        stat.data.limits.read(axis as usize).min,
+                        stat.data.limits.read(axis as usize).max,
                     ],
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
@@ -183,8 +183,8 @@ fn emit_joint_constraints(
             }
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
-                let limit_min = stat.data.limits[axis as usize].min;
-                let limit_max = stat.data.limits[axis as usize].max;
+                let limit_min = stat.data.limits.read(axis as usize).min;
+                let limit_max = stat.data.limits.read(axis as usize).max;
                 let cons = build_motor_constraint(
                     abs_dof,
                     k,
@@ -192,7 +192,7 @@ fn emit_joint_constraints(
                     curr_pos,
                     inv_dt,
                     dt,
-                    &stat.data.motors[axis as usize],
+                    stat.data.motors.at(axis as usize),
                     has_limits,
                     limit_min,
                     limit_max,
@@ -452,16 +452,21 @@ pub fn gpu_mb_init_joint_constraints(
     let mb_idx = workgroup_id.x;
     let lane = local_id.x;
     let num_mb = batch_ids.multibodies_len;
-    if mb_idx >= num_mb {
+    let in_range = mb_idx < num_mb;
+    #[cfg(not(feature = "web-compat"))]
+    if !in_range {
         return;
     }
+    let slot = if in_range { mb_idx } else { 0 };
 
-    let mb = batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize);
+    let mb = batch_ids.ib(batch_id, multibody_info).read(slot as usize);
     let ndofs = mb.ndofs;
     // Uniform per workgroup: every lane of this group returns together.
+    #[cfg(not(feature = "web-compat"))]
     if ndofs == 0 {
         return;
     }
+    let active = in_range && ndofs != 0;
 
     let mb_mm_base = mb.mass_matrix_offset as usize;
     let piv = batch_ids.ivec(batch_id, mb.first_dof as usize);
@@ -473,11 +478,13 @@ pub fn gpu_mb_init_joint_constraints(
     let m = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
 
     // Stage 1: lane-parallel slot reset.
-    for s in StepRng::new(lane..mb.max_constraints, LANES) {
-        let mut cz: MultibodyJointConstraint = joint_constraints.read(cons_base + s as usize);
-        cz.kind = 0;
-        cz.impulse = 0.0;
-        joint_constraints.write(cons_base + s as usize, cz);
+    if active {
+        for s in StepRng::new(lane..mb.max_constraints, LANES) {
+            let mut cz: MultibodyJointConstraint = joint_constraints.read(cons_base + s as usize);
+            cz.kind = 0;
+            cz.impulse = 0.0;
+            joint_constraints.write(cons_base + s as usize, cz);
+        }
     }
 
     control_barrier::<
@@ -490,7 +497,7 @@ pub fn gpu_mb_init_joint_constraints(
     >();
 
     // Stage 2: serial metadata emission on lane 0.
-    if lane == 0 {
+    if active && lane == 0 {
         emit_joint_constraints(
             links_static,
             links_workspace,
@@ -516,28 +523,30 @@ pub fn gpu_mb_init_joint_constraints(
     >();
 
     // Stage 3: lane-parallel finalize.
-    for s in StepRng::new(lane..mb.max_constraints, LANES) {
-        let mut cons = joint_constraints.read(cons_base + s as usize);
-        if cons.kind == 0 {
-            continue;
+    if active {
+        for s in StepRng::new(lane..mb.max_constraints, LANES) {
+            let mut cons = joint_constraints.read(cons_base + s as usize);
+            if cons.kind == 0 {
+                continue;
+            }
+            let lhs = compute_constraint_column(
+                joint_constraint_columns,
+                col_base,
+                s,
+                dofs_stride,
+                ndofs,
+                cons.dof_id,
+                cons.dof2_id,
+                cons.coupling_coeff,
+                mass_matrices,
+                m,
+                lu_pivots,
+                piv,
+            );
+            let cfm_gain = lhs * cons.cfm_coeff + cons.cfm_gain;
+            cons.cfm_gain = cfm_gain;
+            cons.inv_lhs = inv(lhs + cfm_gain);
+            joint_constraints.write(cons_base + s as usize, cons);
         }
-        let lhs = compute_constraint_column(
-            joint_constraint_columns,
-            col_base,
-            s,
-            dofs_stride,
-            ndofs,
-            cons.dof_id,
-            cons.dof2_id,
-            cons.coupling_coeff,
-            mass_matrices,
-            m,
-            lu_pivots,
-            piv,
-        );
-        let cfm_gain = lhs * cons.cfm_coeff + cons.cfm_gain;
-        cons.cfm_gain = cfm_gain;
-        cons.inv_lhs = inv(lhs + cfm_gain);
-        joint_constraints.write(cons_base + s as usize, cons);
     }
 }

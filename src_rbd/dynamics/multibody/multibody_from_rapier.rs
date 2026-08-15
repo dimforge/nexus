@@ -54,6 +54,7 @@ impl GpuMultibodySet {
         // Per-multibody maxima (not per-env sums) for the uniform loop bounds.
         let mut max_mb_ndofs = 0u32;
         let mut max_mb_links = 0u32;
+        let mut max_mb_joint_constraints = 0u32;
         let mut global_max_dofs = 0u32;
         let mut global_max_jac = 0u32;
         let mut global_max_mm = 0u32;
@@ -151,6 +152,7 @@ impl GpuMultibodySet {
                 // among the joint constraints).
                 let num_couplings = mb.couplings().len() as u32;
                 let max_constraints = max_constraints + num_couplings;
+                max_mb_joint_constraints = max_mb_joint_constraints.max(max_constraints);
 
                 infos.push(MultibodyInfo {
                     first_link,
@@ -499,6 +501,12 @@ impl GpuMultibodySet {
             has_joint_constraints: all_infos.iter().any(|info| info.max_constraints > 0),
 
             multibody_info: Tensor::vector(backend, &all_infos, storage).unwrap(),
+            max_contact_constraints: Tensor::scalar(
+                backend,
+                0u32,
+                BufferUsages::STORAGE | BufferUsages::UNIFORM,
+            )
+            .unwrap(),
             links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_DST)
                 .unwrap(),
             links_static_mirror: all_statics.clone(),
@@ -678,6 +686,7 @@ impl GpuMultibodySet {
             mb_imp_joint_max_color_group_len: 0,
             max_ndofs: max_mb_ndofs,
             max_links: max_mb_links,
+            max_joint_constraints: max_mb_joint_constraints,
             joint_constraints_per_batch: cons_cap,
             joint_constraint_columns_per_batch: cons_col_cap,
             contact_constraints_per_batch: contact_cons_cap,

@@ -26,7 +26,7 @@ dim2 = []
 unsafe_remove_boundchecks = ["vortx-shaders/unsafe_remove_boundchecks"]
 push_constants = []
 # Enables some changes in the shaders for compatibility with web platforms.
-web-compat = []
+web-compat = ["nexus_rbd_shaders2d/web-compat"]
 cpu = []
 cpu-parallel = ["cpu", "vortx-shaders/cpu-parallel"]
 cuda = []

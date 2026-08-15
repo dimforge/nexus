@@ -1042,6 +1042,7 @@ pub fn gpu_mb_apply_contact_restitution(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_constraint_jacs: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_constraint_columns: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] max_contact_constraints: &u32,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
     #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
@@ -1051,16 +1052,21 @@ pub fn gpu_mb_apply_contact_restitution(
     let batch_id = workgroup_id.y;
     let mb_idx = workgroup_id.x;
     let lane = local_id.x;
-    if mb_idx >= batch_ids.multibodies_len {
+    let in_range = mb_idx < batch_ids.multibodies_len;
+    #[cfg(not(feature = "web-compat"))]
+    if !in_range {
         return;
     }
+    let slot = if in_range { mb_idx } else { 0 };
 
-    let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
+    let mb = multibody_info.read(batch_ids.mbi(batch_id, slot as usize));
     let ndofs = mb.ndofs;
     let count = mb.contact_constraint_count;
+    #[cfg(not(feature = "web-compat"))]
     if ndofs == 0 || count == 0 {
         return;
     }
+    let active = in_range && ndofs != 0 && count != 0;
 
     let colliders_start = batch_ids.coll_start(batch_id);
     let v_base = mb.first_dof as usize;
@@ -1070,34 +1076,58 @@ pub fn gpu_mb_apply_contact_restitution(
     let col_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
         + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
 
-    if lane < ndofs {
-        dof_v[lane as usize] = dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize));
+    if active && lane < ndofs {
+        dof_v.write(
+            lane as usize,
+            dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize)),
+        );
     }
     workgroup_memory_barrier_with_group_sync();
 
-    for s in 0..count {
-        let cons = contact_constraints.read(cons_base + s as usize);
+    #[cfg(feature = "web-compat")]
+    let contact_sweep_len = *max_contact_constraints;
+    #[cfg(not(feature = "web-compat"))]
+    let contact_sweep_len = count;
+    #[cfg(not(feature = "web-compat"))]
+    let _ = max_contact_constraints;
+
+    for s in 0..contact_sweep_len {
+        let slot_active = active && s < count;
+        let cons_idx = if slot_active {
+            cons_base + s as usize
+        } else {
+            0
+        };
+        let cons = contact_constraints.read(cons_idx);
         // Only approaching, load-bearing points bounce.
-        if cons.kind != MB_CONTACT_KIND_NORMAL
-            || cons.restitution_seed >= 0.0
-            || cons.impulse <= 0.0
-        {
+        let solve = slot_active
+            && cons.kind == MB_CONTACT_KIND_NORMAL
+            && cons.restitution_seed < 0.0
+            && cons.impulse > 0.0;
+        #[cfg(not(feature = "web-compat"))]
+        if !solve {
             continue;
         }
         let col_offset = col_base + (s as usize) * dofs_stride;
         let is_self = cons.free_body_id == u32::MAX;
 
-        scratch[lane as usize] = if lane < ndofs {
-            contact_constraint_jacs.read(col_offset + lane as usize) * dof_v[lane as usize]
-        } else {
-            0.0
-        };
+        if solve {
+            scratch.write(
+                lane as usize,
+                if lane < ndofs {
+                    contact_constraint_jacs.read(col_offset + lane as usize)
+                        * dof_v.read(lane as usize)
+                } else {
+                    0.0
+                },
+            );
+        }
         workgroup_memory_barrier_with_group_sync();
 
-        if lane == 0 {
+        if solve && lane == 0 {
             let mut j_dot_v = 0.0f32;
             for i in 0..ndofs {
-                j_dot_v += scratch[i as usize];
+                j_dot_v += scratch.read(i as usize);
             }
             let free = if is_self {
                 Velocity::default()
@@ -1127,17 +1157,17 @@ pub fn gpu_mb_apply_contact_restitution(
         workgroup_memory_barrier_with_group_sync();
 
         let delta = *delta_shared;
-        if delta != 0.0 && lane < ndofs {
+        if solve && delta != 0.0 && lane < ndofs {
             let col = contact_constraint_columns.read(col_offset + lane as usize);
-            dof_v[lane as usize] += delta * col;
+            dof_v.write(lane as usize, dof_v.read(lane as usize) + delta * col);
         }
         workgroup_memory_barrier_with_group_sync();
     }
 
-    if lane < ndofs {
+    if active && lane < ndofs {
         dof_state.write(
             batch_ids.mbi(batch_id, v_base + lane as usize),
-            dof_v[lane as usize],
+            dof_v.read(lane as usize),
         );
     }
 }
