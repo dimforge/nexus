@@ -433,11 +433,12 @@ impl GpuMultibodySet {
     }
 
     /// Per-batch per-step link workspace (generalized coordinates, joint
-    /// rotations, world-space link velocities). Read it back with
-    /// `slow_read_buffer` for joint/base state observation; entries are laid out
-    /// `env * links_per_batch + link`, in [`from_rapier`](Self::from_rapier)'s
-    /// link traversal order.
-    pub fn links_workspace(&self) -> &Tensor<MultibodyLinkWorkspace> {
+    /// rotations, world-space link velocities), in the batch-interleaved SoA
+    /// quad layout the kernels index. Read it back with `slow_read_buffer` for
+    /// joint/base state observation and decode it with `ws_soa_to_structs`,
+    /// which yields one struct per link laid out `env * links_per_batch + link`
+    /// in [`from_rapier`](Self::from_rapier)'s link traversal order.
+    pub fn links_workspace(&self) -> &Tensor<glamx::Vec4> {
         &self.links_workspace
     }
 
@@ -489,16 +490,6 @@ impl GpuMultibodySet {
             }
         }
         backend.write_buffer(self.links_static.buffer_mut(), 0, &self.links_static_mirror)
-    }
-
-    /// Upload a new gravity vector.
-    pub fn set_gravity(&mut self, backend: &GpuBackend, g: [f32; 3]) {
-        self.gravity = Tensor::scalar(
-            backend,
-            Vec4::new(g[0], g[1], g[2], 0.0),
-            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        )
-        .unwrap();
     }
 
     /// Number of multibody-touching impulse joints in any batch.

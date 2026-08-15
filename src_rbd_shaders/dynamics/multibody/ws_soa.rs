@@ -449,3 +449,38 @@ pub fn ws_soa_from_structs(
     }
     out
 }
+
+/*
+ * Host-side conversion of the SoA buffer back into the AoS structs, the inverse
+ * of `ws_soa_from_structs`. Used by observation readbacks, which want one struct
+ * per link rather than the interleaved quads the kernels index.
+ */
+#[cfg(not(target_arch_is_gpu))]
+pub fn ws_soa_to_structs(
+    buf: &[Vec4],
+    links_cap: u32,
+    num_batches: u32,
+) -> std::vec::Vec<MultibodyLinkWorkspace> {
+    let mut out: std::vec::Vec<MultibodyLinkWorkspace> =
+        bytemuck::zeroed_vec(links_cap as usize * num_batches as usize);
+    for b in 0..num_batches {
+        let a = WsAddr::new(0, num_batches, b);
+        for k in 0..links_cap {
+            let ws = &mut out[(b * links_cap + k) as usize];
+            ws.joint_rot = ws_rot(buf, a, k, WS_JOINT_ROT);
+            ws.coords = ws_coords(buf, a, k);
+            ws.local_to_parent = ws_pose(buf, a, k, WS_LTP);
+            ws.local_to_world = ws_pose(buf, a, k, WS_LTW);
+            ws.shift02 = ws_vec(buf, a, k, WS_SHIFT02);
+            ws.shift23 = ws_vec(buf, a, k, WS_SHIFT23);
+            ws.joint_velocity = ws_vel(buf, a, k, WS_JOINT_VEL);
+            ws.rb_vels = ws_vel(buf, a, k, WS_RB_VELS);
+            ws.kinematic_acc = ws_vel(buf, a, k, WS_KIN_ACC);
+            let (force, torque, gravity_scale) = ws_ext_wrench(buf, a, k);
+            ws.external_force = force;
+            ws.external_torque = torque;
+            ws.gravity_scale = gravity_scale;
+        }
+    }
+    out
+}

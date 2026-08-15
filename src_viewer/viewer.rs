@@ -1241,15 +1241,22 @@ impl NexusViewer {
         if stride == 0 {
             return Vec::new();
         }
-        let mut all = bytemuck::zeroed_vec(mbs.links_workspace().len() as usize);
+        // The workspace is stored batch-interleaved SoA (quads), so read the
+        // raw buffer and decode it back into one struct per link.
+        let mut raw: Vec<glamx::Vec4> = bytemuck::zeroed_vec(mbs.links_workspace().len() as usize);
         if self
             .backend()
-            .slow_read_buffer(mbs.links_workspace().buffer(), &mut all)
+            .slow_read_buffer(mbs.links_workspace().buffer(), &mut raw)
             .await
             .is_err()
         {
             return Vec::new();
         }
+        let all = nexus::rbd::shaders::dynamics::ws_soa_to_structs(
+            &raw,
+            mbs.links_per_batch(),
+            mbs.num_batches(),
+        );
         let start = (env as usize * stride).min(all.len());
         let end = (start + stride).min(all.len());
         all[start..end].to_vec()
