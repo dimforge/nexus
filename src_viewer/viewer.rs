@@ -17,7 +17,8 @@
 use glamx::Vec4;
 use khal::Shader;
 use khal::backend::{
-    Backend, GpuBackend as KhalGpuBackend, GpuBackendError, GpuTimestamps, WebGpu,
+    Backend, GpuBackend as KhalGpuBackend, GpuBackendError, GpuBufferSliceMut, GpuTimestamps,
+    WebGpu,
 };
 use khal::re_exports::wgpu::{Features, Limits};
 use std::time::Duration;
@@ -25,24 +26,74 @@ use std::time::Duration;
 use kiss3d::prelude::Color;
 #[cfg(feature = "dim3")]
 use kiss3d::renderer::RayTracer;
+#[cfg(feature = "dim2")]
+use kiss3d::scene::InstanceData2d;
+#[cfg(feature = "dim3")]
+use kiss3d::scene::InstanceData3d;
 use kiss3d::scene::{SceneNode2d, SceneNode3d};
 use kiss3d::window::{NumSamples, Window};
+
+/// Viewer-owned scene node type for the active dimension.
+#[cfg(feature = "dim2")]
+type SceneNodeX = SceneNode2d;
+#[cfg(feature = "dim3")]
+type SceneNodeX = SceneNode3d;
 
 #[cfg(feature = "dim3")]
 use kiss3d::camera::{FixedView2d, OrbitCamera3d};
 #[cfg(feature = "dim2")]
 use kiss3d::camera::{FixedView3d, PanZoomCamera2d};
+use nexus::mpm::solver::prep_readback::{
+    GpuReadbackData, ReadbackData, RenderConfig, WgPrepReadback,
+};
 use nexus::rbd::dynamics::WgRbdPrepRender;
-use nexus::rbd::math::Pose;
+use nexus::rbd::math::{Pose, Vector};
 use nexus::rbd::pipeline::RunStats;
 use nexus::state::{NexusCounts, NexusState};
 use rapier::prelude::{RigidBodyHandle, SharedShape};
-// use crate::rbd::{
-//     BackendType, RbdScene, RenderContext, SimulationState, setup_physics,
-// };
+
 use crate::backend::BackendType;
 use crate::graphics::RenderContext;
 use crate::{DemoKind, RunState, Transition, UiSections};
+
+/// Per-particle coloring mode for MPM rendering, written into the
+/// `WgPrepReadback` render config. Mirrors the `mode` values understood by the
+/// `gpu_prep_readback` shader.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum MpmRenderMode {
+    #[default]
+    Default = 0,
+    Volume = 1,
+    Velocity = 2,
+    Phase = 3,
+    CdfNormals = 4,
+    CdfDistances = 5,
+    CdfSigns = 6,
+}
+
+impl MpmRenderMode {
+    pub const ALL: &'static [MpmRenderMode] = &[
+        Self::Default,
+        Self::Volume,
+        Self::Velocity,
+        Self::Phase,
+        Self::CdfNormals,
+        Self::CdfDistances,
+        Self::CdfSigns,
+    ];
+
+    pub fn text(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::Volume => "volume",
+            Self::Velocity => "velocity",
+            Self::Phase => "phase",
+            Self::CdfNormals => "cdf (normals)",
+            Self::CdfDistances => "cdf (distances)",
+            Self::CdfSigns => "cdf (signs)",
+        }
+    }
+}
 
 /// UI / runtime state that is independent from the GPU/window resources. Kept in
 /// its own struct so [`NexusViewer::render_frame`] can split-borrow it from `window`.
@@ -67,9 +118,13 @@ pub struct UiState {
     /// otherwise — so restarts and backend switches keep the user's edits.
     pub(crate) settings_demo: Option<usize>,
     /// Which sub-systems the current scene contains (drives which settings show).
+    pub(crate) has_mpm: bool,
     pub(crate) has_rbd: bool,
     /// Current scene entity counts, refreshed every `sync` for the UI.
     pub(crate) counts: NexusCounts,
+    /// Per-particle coloring mode for MPM rendering (view-only; not a sim
+    /// setting). Drives the `WgPrepReadback` render config in `sync`.
+    pub mpm_render_mode: MpmRenderMode,
 }
 
 /// Editable simulation settings exposed in the viewer UI. The viewer pulls
@@ -77,6 +132,12 @@ pub struct UiState {
 /// frame (see [`NexusViewer::sync`]).
 #[derive(Clone)]
 pub struct SimSettings {
+    /// MPM substeps per rendered frame.
+    pub mpm_substeps: u32,
+    /// MPM CPIC rigid-body coupling toggle.
+    pub mpm_use_cpic: bool,
+    /// Gravity applied to the MPM particles.
+    pub mpm_gravity: Vector,
     /// Rigid-body solver steps advanced per rendered frame.
     pub rbd_steps_per_frame: u32,
 }
@@ -84,6 +145,9 @@ pub struct SimSettings {
 impl Default for SimSettings {
     fn default() -> Self {
         Self {
+            mpm_substeps: 20,
+            mpm_use_cpic: true,
+            mpm_gravity: Vector::ZERO,
             rbd_steps_per_frame: 1,
         }
     }
@@ -135,10 +199,25 @@ pub struct NexusViewer {
     /// instance buffers on the shared-device (WebGPU) path. Compiled lazily on
     /// the first direct sync; reused across demos.
     rbd_prep_render: Option<WgRbdPrepRender>,
-    /// Backend the cached render-prep shaders/buffers (`rbd_prep_render`, …)
-    /// were built for. When the active backend changes, those resources belong
-    /// to a different device and must be dropped and rebuilt — otherwise using
-    /// them crashes.
+    /// Viewer-owned point-cloud node for MPM particles (lazily created in `sync`).
+    mpm_node: Option<SceneNodeX>,
+    /// GPU kernel that turns raw MPM particle state into per-particle render data
+    /// (deformed position + mode-dependent color). Compiled lazily on the first
+    /// MPM frame; reused across demos.
+    mpm_readback: Option<WgPrepReadback>,
+    /// Output/staging buffers for [`Self::mpm_readback`], sized to the current
+    /// particle count. Recreated when the particle count changes (emitters).
+    mpm_readback_data: Option<GpuReadbackData>,
+    /// `(num_particles, num_rigid_particles)` the `mpm_readback_data` buffers
+    /// are sized for. A mismatch means they need reallocating.
+    mpm_readback_counts: (usize, usize),
+    /// Palette indexed by each particle's group id, set by the scene through
+    /// [`Self::set_particle_group_colors`]. Empty means the built-in palette.
+    mpm_group_colors: Vec<Vec4>,
+    /// Backend the cached render-prep shaders/buffers (`rbd_prep_render`,
+    /// `mpm_readback*`, …) were built for. When the active
+    /// backend changes, those resources belong to a different device and must be
+    /// dropped and rebuilt, otherwise using them crashes.
     render_resources_backend: Option<BackendType>,
     /// Last GPU pass timings harvested from the non-blocking timestamp readback.
     /// Re-applied to `run_stats` every frame so the profiler UI keeps showing the
@@ -243,6 +322,11 @@ impl NexusViewer {
             },
             nexus_render: RenderContext::new(),
             rbd_prep_render: None,
+            mpm_node: None,
+            mpm_readback: None,
+            mpm_readback_data: None,
+            mpm_readback_counts: (0, 0),
+            mpm_group_colors: Vec::new(),
             render_resources_backend: None,
             last_gpu_pass_times: Vec::new(),
             last_gpu_total_time_ms: 0.0,
@@ -265,8 +349,10 @@ impl NexusViewer {
                 transition: None,
                 sim_settings: SimSettings::default(),
                 settings_demo: None,
+                has_mpm: false,
                 has_rbd: false,
                 counts: NexusCounts::default(),
+                mpm_render_mode: MpmRenderMode::default(),
             },
         };
 
@@ -635,6 +721,87 @@ impl NexusViewer {
             }
         }
 
+        if let Some(mpm) = state.mpm.as_ref() {
+            let num_particles = mpm.particles.len();
+            if num_particles > 0 {
+                let backend = self.backend().clone();
+                let num_rigid = mpm.rigid_particles.len() as usize;
+                let mode = self.ui.mpm_render_mode as u32;
+
+                // Lazily compile the readback kernel (reused across demos).
+                if self.mpm_readback.is_none() {
+                    self.mpm_readback = WgPrepReadback::from_backend(&backend).ok();
+                }
+                // (Re)allocate the readback buffers when the particle count
+                // changes (emitters growing the particle set, for instance).
+                if self.mpm_readback_data.is_none()
+                    || self.mpm_readback_counts != (num_particles, num_rigid)
+                {
+                    self.mpm_readback_data = GpuReadbackData::new(
+                        &backend,
+                        num_particles,
+                        num_rigid,
+                        mode,
+                        &self.mpm_group_colors,
+                    )
+                    .ok();
+                    self.mpm_readback_counts = (num_particles, num_rigid);
+                }
+
+                let instances = if let (Some(shader), Some(readback)) =
+                    (self.mpm_readback.as_ref(), self.mpm_readback_data.as_mut())
+                {
+                    // Push the current coloring mode (cheap; applies UI switches).
+                    let _ = backend.write_buffer(
+                        readback.mode.buffer_mut(),
+                        0,
+                        &[RenderConfig {
+                            mode,
+                            num_groups: readback.num_groups,
+                            ..Default::default()
+                        }],
+                    );
+                    let mut enc = backend.begin_encoding();
+                    let launched = shader
+                        .launch(
+                            &mut enc,
+                            None,
+                            readback,
+                            &mpm.sim_params,
+                            &mpm.grid,
+                            &mpm.particles,
+                            &mpm.rigid_particles,
+                        )
+                        .is_ok();
+                    if launched && backend.submit(enc).is_ok() {
+                        let _ = backend.synchronize();
+                        let mut v = vec![ReadbackData::default(); num_particles];
+                        if backend
+                            .read_buffer(readback.instances_staging.buffer(), v.as_mut_slice())
+                            .await
+                            .is_ok()
+                        {
+                            Some(v)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(instances) = instances {
+                    if self.mpm_node.is_none() {
+                        self.mpm_node = Some(self.new_point_node());
+                    }
+                    let data = build_mpm_instances(&instances);
+                    self.mpm_node.as_mut().unwrap().set_instances(&data);
+                }
+            }
+        }
+
         Ok(())
     }
     async fn sync_without_readback(
@@ -670,11 +837,80 @@ impl NexusViewer {
             }
         }
 
+        if let Some(mpm) = state.mpm.as_ref() {
+            let num_particles = mpm.particles.len();
+            if num_particles > 0 {
+                let backend = self.backend().clone();
+                let num_rigid = mpm.rigid_particles.len() as usize;
+                let mode = self.ui.mpm_render_mode as u32;
+
+                // Lazily compile the readback kernel (reused across demos).
+                if self.mpm_readback.is_none() {
+                    self.mpm_readback = WgPrepReadback::from_backend(&backend).ok();
+                }
+                // (Re)allocate the readback buffers when the particle count
+                // changes (emitters growing the particle set, for instance).
+                if self.mpm_readback_data.is_none()
+                    || self.mpm_readback_counts != (num_particles, num_rigid)
+                {
+                    self.mpm_readback_data = GpuReadbackData::new(
+                        &backend,
+                        num_particles,
+                        num_rigid,
+                        mode,
+                        &self.mpm_group_colors,
+                    )
+                    .ok();
+                    self.mpm_readback_counts = (num_particles, num_rigid);
+                }
+
+                // Zero-readback: a compute kernel writes per-particle render
+                // data straight into the point node's GPU instance buffers.
+                if self.mpm_node.is_none() {
+                    self.mpm_node = Some(self.new_point_node());
+                }
+                let bufs = self
+                    .mpm_node
+                    .as_mut()
+                    .unwrap()
+                    .instance_compute_buffers(num_particles);
+                if let (Some(shader), Some(readback)) =
+                    (self.mpm_readback.as_ref(), self.mpm_readback_data.as_mut())
+                {
+                    let _ = backend.write_buffer(
+                        readback.mode.buffer_mut(),
+                        0,
+                        &[RenderConfig {
+                            mode,
+                            num_groups: readback.num_groups,
+                            ..Default::default()
+                        }],
+                    );
+                    let mut positions = GpuBufferSliceMut::<f32>::from_wgpu(&bufs.positions);
+                    let mut deformations = GpuBufferSliceMut::<f32>::from_wgpu(&bufs.deformations);
+                    let mut colors = GpuBufferSliceMut::<f32>::from_wgpu(&bufs.colors);
+                    let mut enc = backend.begin_encoding();
+                    let _ = shader.launch_render(
+                        &mut enc,
+                        &mut positions,
+                        &mut deformations,
+                        &mut colors,
+                        readback,
+                        &mpm.sim_params,
+                        &mpm.grid,
+                        &mpm.particles,
+                    );
+                    let _ = backend.submit(enc);
+                }
+            }
+        }
+
         Ok(())
     }
 
     /// Reads the latest state from a [`NexusState`] back from the GPU and pushes
-    /// it into the viewer-owned render instances (rigid-body collider poses).
+    /// it into the viewer-owned render instances: rigid-body collider poses and
+    /// the MPM particle point cloud.
     pub async fn sync(
         &mut self,
         state: &mut NexusState,
@@ -701,10 +937,17 @@ impl NexusViewer {
         // current settings and push them back into the freshly-built scene.
         if self.ui.settings_demo != Some(self.ui.selected_demo) {
             self.ui.has_rbd = state.rbd.is_some();
+            self.ui.has_mpm = state.has_mpm();
+            self.ui.sim_settings.mpm_substeps = state.mpm_substeps();
+            self.ui.sim_settings.mpm_use_cpic = state.mpm_use_cpic();
+            self.ui.sim_settings.mpm_gravity = state.mpm_gravity();
             self.ui.sim_settings.rbd_steps_per_frame = state.rbd_steps_per_frame();
             self.ui.settings_demo = Some(self.ui.selected_demo);
         } else {
             let s = self.ui.sim_settings.clone();
+            state.set_mpm_substeps(s.mpm_substeps);
+            state.set_mpm_use_cpic(s.mpm_use_cpic);
+            state.set_mpm_gravity(s.mpm_gravity);
             state.set_rbd_steps_per_frame(s.rbd_steps_per_frame);
         }
 
@@ -729,6 +972,17 @@ impl NexusViewer {
         self.ui.sync_time = t0.elapsed();
         self.ui.counts = state.counts();
         Ok(())
+    }
+
+    /// Creates a unit point-cloud base node (a cube in 3D, a rectangle in 2D)
+    /// that subsequent per-particle/per-vertex instances are drawn from.
+    fn new_point_node(&mut self) -> SceneNodeX {
+        #[cfg(feature = "dim2")]
+        let mut node = self.scene2d.add_rectangle(1.0, 1.0);
+        #[cfg(feature = "dim3")]
+        let mut node = self.scene3d.add_cube(1.0, 1.0, 1.0);
+        node.enable_backface_culling_recursive(false);
+        node
     }
 
     /// The backend currently selected in the UI.
@@ -769,6 +1023,21 @@ impl NexusViewer {
     /// those resources belong to the previous backend's device.
     fn invalidate_render_resources(&mut self) {
         self.rbd_prep_render = None;
+        self.mpm_readback = None;
+        self.mpm_readback_data = None;
+        self.mpm_readback_counts = (0, 0);
+    }
+
+    /// Sets the color palette that MPM particle group ids index into.
+    ///
+    /// A particle's group is set with [`Particle::with_group`](nexus::mpm::solver::Particle::with_group);
+    /// ids past the end of the palette wrap around. Passing an empty slice
+    /// restores the built-in palette.
+    pub fn set_particle_group_colors(&mut self, colors: &[Vec4]) {
+        self.mpm_group_colors = colors.to_vec();
+        // Force a reallocation so the new palette reaches the GPU.
+        self.mpm_readback_data = None;
+        self.mpm_readback_counts = (0, 0);
     }
 
     /// Tears down the viewer-owned `NexusState` render nodes. A no-op for legacy
@@ -777,6 +1046,7 @@ impl NexusViewer {
         self.scene3d = SceneNode3d::empty();
         self.scene2d = SceneNode2d::empty();
         self.nexus_render.clear();
+        self.mpm_node = None;
     }
 
     /// Whether the simulation should advance this frame, honoring the
@@ -957,4 +1227,34 @@ impl NexusViewer {
     pub fn draw_custom_ui(&mut self, ui_fn: impl FnOnce(&kiss3d::egui::Context)) {
         self.window.draw_ui(ui_fn);
     }
+}
+
+/// Builds MPM particle render instances from `WgPrepReadback` output: each
+/// particle's position, mode-dependent color, and deformation transform (so
+/// stretched/sheared particles render deformed rather than as fixed dots).
+#[cfg(feature = "dim3")]
+fn build_mpm_instances(instances: &[ReadbackData]) -> Vec<InstanceData3d> {
+    use nexus::mpm::mpm_shaders::PaddingExt;
+    instances
+        .iter()
+        .map(|d| InstanceData3d {
+            position: d.position,
+            color: Color::new(d.color.x, d.color.y, d.color.z, d.color.w),
+            deformation: d.deformation.remove_padding(),
+            ..Default::default()
+        })
+        .collect()
+}
+
+#[cfg(feature = "dim2")]
+fn build_mpm_instances(instances: &[ReadbackData]) -> Vec<InstanceData2d> {
+    instances
+        .iter()
+        .map(|d| InstanceData2d {
+            position: d.position,
+            color: [d.color.x, d.color.y, d.color.z, d.color.w],
+            deformation: d.deformation,
+            ..Default::default()
+        })
+        .collect()
 }

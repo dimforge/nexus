@@ -7,6 +7,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     GpuTimestamps,
@@ -26,12 +27,13 @@ def create_pyramid(state, viewer, env, offset, stack_height, rad):
             body = RigidBodyBuilder.dynamic().translation(Vec3(x, y, 0.0) + offset).build()
             collider = ColliderBuilder.cuboid(rad, rad, rad).build()
             shape = collider.shared_shape()
-            handle = state.insert_rigid_body_in(env, body, collider)
+            handle = state.insert_rigid_body_in(env, body, collider, RbdCoupling.NONE)
             viewer.insert_shape_in(env, handle, shape, Pose.IDENTITY)
 
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
     spacing = 4.0
 
     for pyramid_index in range(PYRAMID_COUNT):
@@ -48,7 +50,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
             ground_size, ground_height, PYRAMID_COUNT * spacing / 2.0 + ground_size
         ).build()
         shape = collider.shared_shape()
-        ground_handle = state.insert_rigid_body_in(env, body, collider)
+        ground_handle = state.insert_rigid_body_in(env, body, collider, no_coupling)
         viewer.insert_shape_in(env, ground_handle, shape, Pose.IDENTITY)
 
         # Cubes.

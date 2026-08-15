@@ -1,0 +1,55 @@
+[package]
+name = "nexus_mpm3d"
+authors = { workspace = true }
+description = "Cross-platform 3D GPU-accelerated MPM physics."
+repository = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[lib]
+name = "nexus_mpm3d"
+path = "../../src_mpm/lib.rs"
+required-features = ["dim3"]
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2"))',
+] }
+
+[features]
+default = ["dim3", "f32", "webgpu"]
+dim3 = []
+f32 = []
+f64 = []
+webgpu = ["khal/webgpu"]
+metal = ["khal/metal", "nexus_rbd3d/metal"]
+cpu = ["nexus_mpm_shaders3d/cpu", "nexus_rbd3d/cpu", "vortx/cpu"]
+cpu-parallel = ["cpu", "nexus_mpm_shaders3d/cpu-parallel", "nexus_rbd3d/cpu-parallel", "vortx/cpu-parallel"]
+cuda = ["khal/cuda", "khal-builder/cuda", "nexus_mpm_shaders3d/cuda"]
+
+[dependencies]
+nexus_mpm_shaders3d = { workspace = true }
+nexus_rbd3d = { workspace = true, features = ["dim3"] }
+glamx = { workspace = true }
+include_dir = { workspace = true }
+khal = { workspace = true }
+vortx = { workspace = true }
+bytemuck = { workspace = true }
+web-time = { workspace = true }
+static_assertions = { workspace = true }
+bvh = { workspace = true }
+
+# Optional dependencies for rapier/parry interop
+rapier3d = { workspace = true, features = ["default"] }
+parry3d = { workspace = true, features = ["default"] }
+
+[dev-dependencies]
+futures-test = { workspace = true }
+serial_test = { workspace = true }
+approx = { workspace = true }
+rand = { workspace = true }
+
+[build-dependencies]
+khal-builder = {workspace = true}
+nexus_mpm_shaders3d = { workspace = true }

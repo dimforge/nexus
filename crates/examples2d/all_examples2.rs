@@ -2,17 +2,28 @@ use inflector::Inflector;
 use nexus_viewer2d::{BackendType, DemoKind, NexusViewer};
 use nexus2d::prelude::{NexusPipeline, NexusPipelineMask};
 
-mod balls2;
-mod boxes2;
-mod boxes_and_balls2;
-mod compound2;
-mod dynamic_rbd2;
-mod joint_ball2;
-mod joint_fixed2;
-mod joint_prismatic2;
-mod polyline2;
-mod primitives2;
-mod pyramid2;
+mod rbd_balls2;
+mod rbd_boxes2;
+mod rbd_boxes_and_balls2;
+mod rbd_compound2;
+mod rbd_dynamic2;
+mod rbd_joint_ball2;
+mod rbd_joint_fixed2;
+mod rbd_joint_prismatic2;
+mod rbd_polyline2;
+mod rbd_primitives2;
+mod rbd_pyramid2;
+
+// MPM examples.
+mod mpm_centilever_beam2;
+mod mpm_cohesion_sweep2;
+mod mpm_dam_break2;
+mod mpm_elastic_cut2;
+mod mpm_elasticity2;
+mod mpm_emitter2;
+mod mpm_hourglass2;
+mod mpm_sand2;
+mod mpm_snowball2;
 
 /// Declares the demo registry: a `(name, kind)` list for the picker UI and a
 /// name -> `run()` dispatcher. Keeping both in one macro keeps them in sync.
@@ -42,17 +53,27 @@ macro_rules! demos {
 }
 
 demos! {
-    "Balls" => Rbd : balls2,
-    "Boxes" => Rbd : boxes2,
-    "Boxes & balls" => Rbd : boxes_and_balls2,
-    "Compound" => Rbd : compound2,
-    "Dynamic insertion" => Rbd : dynamic_rbd2,
-    "Pyramid" => Rbd : pyramid2,
-    "Primitives" => Rbd : primitives2,
-    "Polyline" => Rbd : polyline2,
-    "Joints (spherical)" => Rbd : joint_ball2,
-    "Joints (prismatic)" => Rbd : joint_prismatic2,
-    "Joints (fixed)" => Rbd : joint_fixed2,
+    "Balls" => Rbd : rbd_balls2,
+    "Boxes" => Rbd : rbd_boxes2,
+    "Boxes & balls" => Rbd : rbd_boxes_and_balls2,
+    "Compound" => Rbd : rbd_compound2,
+    "Dynamic insertion" => Rbd : rbd_dynamic2,
+    "Pyramid" => Rbd : rbd_pyramid2,
+    "Primitives" => Rbd : rbd_primitives2,
+    "Polyline" => Rbd : rbd_polyline2,
+    "Joints (spherical)" => Rbd : rbd_joint_ball2,
+    "Joints (prismatic)" => Rbd : rbd_joint_prismatic2,
+    "Joints (fixed)" => Rbd : rbd_joint_fixed2,
+    // MPM demos.
+    "Cantilever beam" => Mpm : mpm_centilever_beam2,
+    "Sand" => Mpm : mpm_sand2,
+    "Sand emitter" => Mpm : mpm_emitter2,
+    "Elasticity" => Mpm : mpm_elasticity2,
+    "Elastic cut" => Mpm : mpm_elastic_cut2,
+    "Dam break" => Mpm : mpm_dam_break2,
+    "Cohesion sweep" => Mpm : mpm_cohesion_sweep2,
+    "Snowballs" => Mpm : mpm_snowball2,
+    "Hourglass" => Mpm : mpm_hourglass2,
 }
 
 struct CliOptions {

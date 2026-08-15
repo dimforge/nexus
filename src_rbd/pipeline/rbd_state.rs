@@ -322,6 +322,15 @@ impl RbdState {
         &self.body_poses
     }
 
+    /// Mutable access to the per-body world-origin poses, for bodies this
+    /// pipeline doesn't own and that another solver integrates itself.
+    ///
+    /// Only valid between steps: the solver works on `solver_body_poses` and
+    /// overwrites this buffer wholesale in its finalize pass.
+    pub fn body_poses_mut(&mut self) -> &mut Tensor<Pose> {
+        &mut self.body_poses
+    }
+
     /// Live collision-pair count (batch 0) most recently harvested by the
     /// non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
     /// frame or two; `0` until the first readback completes.

@@ -14,6 +14,7 @@ from nexus3d import (
     NexusViewer,
     NexusPipeline,
     NexusState,
+    RbdCoupling,
     RigidBodyBuilder,
     ColliderBuilder,
     GpuTimestamps,
@@ -52,6 +53,7 @@ def make_polyhedron_points():
 
 def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
     state = NexusState()
+    no_coupling = RbdCoupling.NONE
 
     # Create 5 predefined convex polyhedron point sets (so we can render them
     # efficiently with instancing).
@@ -87,7 +89,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
                 collider = cb.build()
                 body = RigidBodyBuilder.dynamic().translation(pos).build()
                 shape = collider.shared_shape()
-                handle = state.insert_rigid_body(body, collider)
+                handle = state.insert_rigid_body(body, collider, no_coupling)
                 viewer.insert_shape(handle, shape, Pose.IDENTITY)
 
     # Floor made of large cuboids.
@@ -109,7 +111,7 @@ def run(viewer: NexusViewer, pipeline: NexusPipeline) -> NexusState:
             .build()
         )
         shape = collider.shared_shape()
-        handle = state.insert_rigid_body(body, collider)
+        handle = state.insert_rigid_body(body, collider, no_coupling)
         viewer.insert_shape_with_color(
             handle, shape, Pose.from_translation(wall_pos), walls_color
         )

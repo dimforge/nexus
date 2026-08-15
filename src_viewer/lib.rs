@@ -39,6 +39,7 @@ pub struct UiSections {
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum DemoKind {
     Rbd,
+    Mpm,
 }
 
 /// A loop transition requested from the UI: stop entirely, or switch to another

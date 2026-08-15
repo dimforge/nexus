@@ -54,6 +54,12 @@ ORDER = [
     "multibody_pendulum3",
     "joint_revolute_batch3",
     "many_pyramids_batch3",
+    # MPM
+    "mpm_emitter3",
+    "sand3",
+    "heightfield3",
+    "elastic_cut3",
+    "centilever_beam3",
     # Robots (need external assets via env vars; see README)
     "urdf3",
     "mujoco_menagerie3",

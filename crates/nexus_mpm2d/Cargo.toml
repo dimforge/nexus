@@ -1,0 +1,53 @@
+[package]
+name = "nexus_mpm2d"
+authors = { workspace = true }
+description = "Cross-platform 2D GPU-accelerated rigid-body physics."
+repository = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[lib]
+name = "nexus_mpm2d"
+path = "../../src_mpm/lib.rs"
+required-features = ["dim2"]
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim3"))',
+] }
+
+[features]
+default = ["dim2", "f32", "webgpu"]
+dim2 = []
+f32 = []
+f64 = []
+webgpu = ["khal/webgpu"]
+metal = ["khal/metal", "nexus_rbd2d/metal"]
+cpu = ["nexus_mpm_shaders2d/cpu", "nexus_rbd2d/cpu", "vortx/cpu"]
+cpu-parallel = ["cpu", "nexus_mpm_shaders2d/cpu-parallel", "nexus_rbd2d/cpu-parallel", "vortx/cpu-parallel"]
+cuda = ["khal/cuda", "khal-builder/cuda", "nexus_mpm_shaders2d/cuda"]
+
+[dependencies]
+nexus_mpm_shaders2d = { workspace = true }
+nexus_rbd2d = { workspace = true, features = ["dim2"] }
+glamx = { workspace = true }
+include_dir = { workspace = true }
+khal = { workspace = true }
+vortx = { workspace = true }
+bytemuck = { workspace = true }
+web-time = { workspace = true }
+static_assertions = { workspace = true }
+bvh = { workspace = true }
+rapier2d = { workspace = true, features = ["default"] }
+parry2d = { workspace = true, features = ["default"] }
+
+[dev-dependencies]
+futures-test = { workspace = true }
+serial_test = { workspace = true }
+approx = { workspace = true }
+rand = { workspace = true }
+
+[build-dependencies]
+khal-builder = {workspace = true}
+nexus_mpm_shaders2d = { workspace = true }

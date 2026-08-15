@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 
 pub mod loaders;
 pub mod math;
+pub mod mpm;
 pub mod nexus;
 pub mod rbd;
 pub mod viewer;
@@ -46,7 +47,9 @@ fn nexus3d(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<rbd::PrismaticJointBuilder>()?;
 
     // Core simulation
+    m.add_class::<nexus::RbdCoupling>()?;
     m.add_class::<nexus::NexusCounts>()?;
+    m.add_class::<nexus::NexusParticleChunk>()?;
     m.add_class::<nexus::GpuTimestamps>()?;
     m.add_class::<nexus::NexusState>()?;
     m.add_class::<nexus::NexusPipeline>()?;
@@ -58,6 +61,12 @@ fn nexus3d(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<loaders::UrdfLoaderOptions>()?;
     m.add_class::<loaders::UrdfRobotHandles>()?;
     m.add_class::<loaders::MjcfSceneInfo>()?;
+
+    // MPM
+    m.add_class::<mpm::SimulationParams>()?;
+    m.add_class::<mpm::BoundaryCondition>()?;
+    m.add_class::<mpm::ParticleModel>()?;
+    m.add_class::<mpm::Particle>()?;
 
     Ok(())
 }
