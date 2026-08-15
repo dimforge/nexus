@@ -288,6 +288,11 @@ mod dim2 {
 // 3D Implementation
 // ====================
 
+/// Re-export of the ≤8 → ≤4 keep-deepest-then-spread contact selector for the
+/// optional contact-reduction pass (see `gpu_reduce_contacts`).
+#[cfg(feature = "dim3")]
+pub use dim3::manifold_reduction;
+
 #[cfg(feature = "dim3")]
 mod dim3 {
     use super::*;

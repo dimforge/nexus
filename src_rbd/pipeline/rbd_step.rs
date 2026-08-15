@@ -32,6 +32,9 @@ pub struct RbdPipeline {
     coloring: GpuColoring,
     warmstart: GpuWarmstart,
     reduce: Reduce,
+    /// Optional (default `false`): merge each collider pair's manifolds
+    /// (e.g. per-triangle trimesh contacts) into one before the solvers.
+    pub contact_reduction: bool,
 }
 
 impl RbdPipeline {
@@ -54,6 +57,7 @@ impl RbdPipeline {
             coloring: GpuColoring::from_backend(backend)?,
             warmstart: GpuWarmstart::from_backend(backend)?,
             reduce: Reduce::from_backend(backend)?,
+            contact_reduction: false,
         })
     }
 
@@ -260,6 +264,7 @@ impl RbdPipeline {
                 &state.collider_parent,
                 &state.collider_materials,
                 &state.prediction,
+                self.contact_reduction,
             )?;
 
             drop(pass);
