@@ -65,6 +65,8 @@ pub struct BatchIndices {
     /// Lanes per multibody for the packed per-multibody workgroup kernels:
     /// `next_power_of_two(mb_max_ndofs).clamp(8, 64)`.
     pub mb_pack_lanes: u32,
+    /// Max `max_constraints` across every multibody in every batch.
+    pub mb_max_joint_constraints: u32,
     /// Per-batch stride of the contact-solver color-bucket buffers
     /// (`color_counts` / `color_starts` / `color_cursors`), = `max_colors + 3`
     /// so that `starts[c + 1]` is in bounds for every swept color.

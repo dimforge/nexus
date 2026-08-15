@@ -5,9 +5,9 @@ use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
-    GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints, GpuMbGravityAndLu,
-    GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32,
-    GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
+    GpuMbComputeSolveBounds, GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
+    GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16,
+    GpuMbGravityAndLuT32, GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
     GpuMbIntegrateVelocities, GpuMbRemoveImpulseJointConstraintBias, GpuMbSeedContactRestitution,
     GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
     GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbStashContactsLen,
@@ -44,6 +44,9 @@ pub struct GpuMultibodySolver {
     /// Fills the per-multibody Delassus blocks (`D = J M⁻¹ Jᵀ` + free-body
     /// coupling) right after the contact columns are finalized.
     build_contact_delassus: GpuMbBuildContactDelassus,
+    /// Reduces the per-multibody contact-constraint counts to their maximum,
+    /// the trip count of the `web-compat` contact sweeps.
+    compute_solve_bounds: GpuMbComputeSolveBounds,
     /// Constraint-space contact sweep: `a = J·u` tracked incrementally in
     /// shared memory via the Delassus rows, breaking the per-iteration
     /// dof-space latency chain.
@@ -360,6 +363,17 @@ impl GpuMultibodySolver {
             )?;
         }
 
+        {
+            let mut pass = encoder.begin_pass("[RBD] mbb/solve-bounds", timestamps.as_deref_mut());
+            self.compute_solve_bounds.call(
+                &mut pass,
+                MB_LU_LANES,
+                &mb.multibody_info,
+                &mut mb.max_contact_constraints,
+                args.batch_indices,
+            )?;
+        }
+
         // Delassus blocks for the constraint-space contact sweep (consumes
         // the columns finalized just above).
         if let Some(delassus) = &mut mb.contact_delassus {
@@ -417,6 +431,7 @@ impl GpuMultibodySolver {
                 delassus,
                 use_bias,
                 args.batch_indices,
+                &mb.max_contact_constraints,
                 &mut mb.dof_state,
                 args.solver_vels,
             )?;
@@ -432,6 +447,7 @@ impl GpuMultibodySolver {
                 &mb.contact_constraint_columns,
                 use_bias,
                 args.batch_indices,
+                &mb.max_contact_constraints,
                 &mut mb.dof_state,
                 args.solver_vels,
             )?;
@@ -450,6 +466,7 @@ impl GpuMultibodySolver {
                 &mb.contact_constraint_columns,
                 use_bias,
                 args.batch_indices,
+                &mb.max_contact_constraints,
                 &mut mb.dof_state,
                 args.solver_vels,
             )?;
@@ -649,6 +666,7 @@ impl GpuMultibodySolver {
             &mb.contact_constraint_jacs,
             &mb.contact_constraint_columns,
             args.batch_indices,
+            &mb.max_contact_constraints,
             &mut mb.dof_state,
             args.solver_vels,
         )

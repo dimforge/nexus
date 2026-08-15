@@ -24,8 +24,13 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 [features]
 default = ["dim3"]
 dim3 = []
-unsafe_remove_boundchecks = ["vortx-shaders/unsafe_remove_boundchecks"]
+unsafe_remove_boundchecks = [
+    "vortx-shaders/unsafe_remove_boundchecks",
+    "khal-std/unsafe_remove_boundchecks",
+]
 push_constants = []
+# Enables some changes in the shaders for compatibility with web platforms.
+web-compat = []
 cpu = []
 cpu-parallel = ["cpu", "vortx-shaders/cpu-parallel"]
 cuda = []

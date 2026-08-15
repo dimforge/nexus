@@ -476,7 +476,9 @@ pub fn gpu_warmstart_fused(
     let num_colors = *num_colors;
 
     let base = (batch_id * stride) as usize;
-    if color_starts.read(base + 1) == color_starts.read(base + num_colors as usize + 1) {
+    let any_work = color_starts.read(base + 1) != color_starts.read(base + num_colors as usize + 1);
+    #[cfg(not(feature = "web-compat"))]
+    if !any_work {
         // Every color bucket is empty.
         return;
     }
@@ -485,24 +487,27 @@ pub fn gpu_warmstart_fused(
         let bucket = base + color as usize;
         let start = color_starts.read(bucket);
         let end = color_starts.read(bucket + 1);
+        #[cfg(not(feature = "web-compat"))]
         if start == end {
             // Empty color.
             continue;
         }
 
-        for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
-            let i = color_sorted_ids[k as usize];
-            let constraint = &constraints[i as usize];
-            let solver_id1 = constraint.solver_body_a as usize;
-            let solver_id2 = constraint.solver_body_b as usize;
+        if any_work && start != end {
+            for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
+                let i = color_sorted_ids[k as usize];
+                let constraint = &constraints[i as usize];
+                let solver_id1 = constraint.solver_body_a as usize;
+                let solver_id2 = constraint.solver_body_b as usize;
 
-            let mut solver_vel1 = solver_vels[solver_id1];
-            let mut solver_vel2 = solver_vels[solver_id2];
+                let mut solver_vel1 = solver_vels[solver_id1];
+                let mut solver_vel2 = solver_vels[solver_id2];
 
-            constraint.warmstart_constraint(&mut solver_vel1, &mut solver_vel2);
+                constraint.warmstart_constraint(&mut solver_vel1, &mut solver_vel2);
 
-            solver_vels[solver_id1] = solver_vel1;
-            solver_vels[solver_id2] = solver_vel2;
+                solver_vels[solver_id1] = solver_vel1;
+                solver_vels[solver_id2] = solver_vel2;
+            }
         }
 
         control_barrier::<
@@ -545,7 +550,9 @@ pub fn gpu_step_gauss_seidel_fused(
 
     // Early-out / empty-color skip: see `gpu_warmstart_fused`.
     let base = (batch_id * stride) as usize;
-    if color_starts.read(base + 1) == color_starts.read(base + num_colors as usize + 1) {
+    let any_work = color_starts.read(base + 1) != color_starts.read(base + num_colors as usize + 1);
+    #[cfg(not(feature = "web-compat"))]
+    if !any_work {
         return;
     }
 
@@ -553,26 +560,29 @@ pub fn gpu_step_gauss_seidel_fused(
         let bucket = base + color as usize;
         let start = color_starts.read(bucket);
         let end = color_starts.read(bucket + 1);
+        #[cfg(not(feature = "web-compat"))]
         if start == end {
             continue;
         }
 
-        for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
-            let i = color_sorted_ids[k as usize];
-            let solver_id1 = constraints[i as usize].solver_body_a as usize;
-            let solver_id2 = constraints[i as usize].solver_body_b as usize;
+        if any_work && start != end {
+            for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
+                let i = color_sorted_ids[k as usize];
+                let solver_id1 = constraints[i as usize].solver_body_a as usize;
+                let solver_id2 = constraints[i as usize].solver_body_b as usize;
 
-            let mut solver_vel1 = solver_vels[solver_id1];
-            let mut solver_vel2 = solver_vels[solver_id2];
+                let mut solver_vel1 = solver_vels[solver_id1];
+                let mut solver_vel2 = solver_vels[solver_id2];
 
-            constraints[i as usize].solve_constraint_gauss_seidel(
-                &mut solver_vel1,
-                &mut solver_vel2,
-                use_bias,
-            );
+                constraints[i as usize].solve_constraint_gauss_seidel(
+                    &mut solver_vel1,
+                    &mut solver_vel2,
+                    use_bias,
+                );
 
-            solver_vels[solver_id1] = solver_vel1;
-            solver_vels[solver_id2] = solver_vel2;
+                solver_vels[solver_id1] = solver_vel1;
+                solver_vels[solver_id2] = solver_vel2;
+            }
         }
 
         control_barrier::<

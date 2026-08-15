@@ -601,7 +601,10 @@ impl TwoBodyConstraint {
                     - tangent_a.dot(solver_vel2.linear)
                     + gdot(**c.torque_dir_b.at(0), solver_vel2.angular)
                     + c.rhs_wo_bias.read(0);
-                let new_impulse = (c.impulse.read(0) - c.r.read(0) * dvel).clamp(-limit, limit);
+                // NOTE: don’t use clamp since it can panic.
+                let new_impulse = (c.impulse.read(0) - c.r.read(0) * dvel)
+                    .max(-limit)
+                    .min(limit);
                 let delta_impulse = new_impulse - c.impulse.read(0);
 
                 self.elements

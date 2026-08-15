@@ -51,6 +51,9 @@ pub struct GpuMultibodySet {
 
     /// Per-batch multibody descriptors.
     pub(super) multibody_info: Tensor<MultibodyInfo>,
+    /// Max `contact_constraint_count` across every multibody, written each
+    /// step by `gpu_mb_compute_solve_bounds`.
+    pub(super) max_contact_constraints: Tensor<u32>,
     /// Per-batch static link data.
     pub(super) links_static: Tensor<MultibodyLinkStatic>,
     /// CPU-side mirror of [`Self::links_static`] used to support runtime
@@ -139,6 +142,9 @@ pub struct GpuMultibodySet {
     /// Max link count across every multibody in every batch (CPU mirror of
     /// `BatchIndices::mb_max_links`).
     pub(super) max_links: u32,
+    /// Max joint-constraint slot count across every multibody in every batch
+    /// (CPU mirror of `BatchIndices::mb_max_joint_constraints`).
+    pub(super) max_joint_constraints: u32,
     /// Largest color group across batches — the per-color dispatch width.
     pub(super) mb_imp_joint_max_color_group_len: u32,
     /// Per-batch capacities of the joint / contact constraint slabs (CPU-side
@@ -455,6 +461,7 @@ impl GpuMultibodySet {
         dst.mb_imp_joint_color_groups_batch_capacity = self.mb_imp_joint_num_colors.max(1);
         dst.mb_max_ndofs = self.max_ndofs;
         dst.mb_max_links = self.max_links;
+        dst.mb_max_joint_constraints = self.max_joint_constraints;
         dst.mb_pack_lanes = self.pack_lanes();
         dst.coriolis_w_section_offset = self.coriolis_entries_per_batch * self.num_batches;
         dst.i_coriolis_dt_section_offset = 2 * self.coriolis_entries_per_batch * self.num_batches;
