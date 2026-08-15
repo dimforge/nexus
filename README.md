@@ -20,8 +20,11 @@ multiphysics engine, running compute shaders via WebGPU. Shaders are written in 
 
 Nexus is organized into independent physics modules, each available in 2D and 3D:
 
-- **nexus_rbd** - Rigid-body dynamics: colliders (boxes, balls, convex shapes, trimeshes, heightfields), joints (ball, fixed,
-  prismatic, revolute), contact resolution.
+- **nexus_rbd** - Rigid-body dynamics: colliders (boxes, balls, capsules, cones, cylinders, convex shapes, polylines,
+  trimeshes), joints (ball, fixed, prismatic, revolute), contact resolution.
+- **nexus_mpm** - Material Point Method: a hybrid particle/grid-based method for simulating deformable objects, granular
+  materials, fluids, etc. Supports one-way coupling with rigid-bodies (= rigid-bodies can push particles but particles
+  cannot push rigid-bodies).
 
 ## Prerequisites
 

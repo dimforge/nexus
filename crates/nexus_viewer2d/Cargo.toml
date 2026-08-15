@@ -1,6 +1,6 @@
 [package]
 name = "nexus_viewer2d"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Sébastien Crozet <developer@crozet.re>"]
 description = "Viewer for 2D GPU physics demos with nexus."
 edition = { workspace = true }

@@ -52,9 +52,10 @@ function Intro(): ReactNode {
             </p>
             <p>
               Rigid-body dynamics is available today, with colliders, joints,
-              articulated multibodies, and URDF/MJCF robots. Other solvers —
-              MPM for fluids and deformables, DEM for granular media, etc. —
-              are work in progress.
+              articulated multibodies, and URDF/MJCF robots. So is MPM, for
+              deformable objects, granular materials, and fluids, with one-way
+              coupling from rigid-bodies. Other solvers — DEM for granular
+              media, FEM, etc. — are work in progress.
             </p>
             <div className={styles.codeLinks}>
               <Link
@@ -101,6 +102,11 @@ function Features(): ReactNode {
             <p>Boxes, balls, convex shapes, trimeshes, heightfields, joints, and multibodies.</p>
           </div>
           <div className={styles.feature}>
+            <span className={styles.featureIcon}>🏖️</span>
+            <h3>Material Point Method</h3>
+            <p>Deformable objects, granular materials, and fluids, coupled with rigid-bodies.</p>
+          </div>
+          <div className={styles.feature}>
             <span className={styles.featureIcon}>🤖</span>
             <h3>Robotics-Ready</h3>
             <p>Load URDF and MJCF robot descriptions, including MuJoCo Menagerie models.</p>
@@ -120,7 +126,7 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title="Cross-platform GPU multiphysics simulation for Rust"
-      description="Nexus is a cross-platform GPU-accelerated multiphysics engine for Rust: rigid-body dynamics running as compute shaders via WebGPU, with shaders written in Rust using Rust-GPU.">
+      description="Nexus is a cross-platform GPU-accelerated multiphysics engine for Rust: rigid-body dynamics and MPM running as compute shaders via WebGPU, with shaders written in Rust using Rust-GPU.">
       <HomepageHeader />
       <main>
         <Intro />

@@ -77,27 +77,30 @@
   background: var(--ifm-background-surface-color);
 }
 
+/* Flex (not grid) so a partially-filled last row stays centered. */
 .featureGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2rem;
 }
 
+.feature {
+  flex: 0 1 calc(33.333% - 2rem);
+  text-align: center;
+  padding: 1.5rem;
+}
+
 @media screen and (max-width: 996px) {
-  .featureGrid {
-    grid-template-columns: repeat(2, 1fr);
+  .feature {
+    flex-basis: calc(50% - 2rem);
   }
 }
 
 @media screen and (max-width: 576px) {
-  .featureGrid {
-    grid-template-columns: 1fr;
+  .feature {
+    flex-basis: 100%;
   }
-}
-
-.feature {
-  text-align: center;
-  padding: 1.5rem;
 }
 
 .feature h3 {

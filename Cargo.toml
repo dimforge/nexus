@@ -19,7 +19,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -30,9 +30,9 @@ exclude = ["**/.DS_Store"]
 [workspace.dependencies]
 glamx = { version = "0.3", default-features = false, features = ["nostd-libm", "bytemuck"] }
 include_dir = "0.7"
-khal-std = "0.2"
-khal = { version = "0.2", features = ["derive"]}
-vortx = { version = "0.3", features = ["unsafe_remove_boundchecks"] }
+khal-std = "0.3"
+khal = { version = "0.3", features = ["derive"]}
+vortx = { version = "0.4", features = ["unsafe_remove_boundchecks"] }
 bytemuck = { version = "1", features = ["derive"] }
 web-time = "1"
 static_assertions = "1"
@@ -42,19 +42,19 @@ bvh = "0.7"
 
 # Physics / geometry. default-features off for the no_std shader crates; host
 # crates opt back in with `features = ["default"]`.
-rapier2d = { version = "0.35", default-features = false }
-rapier3d = { version = "0.35", default-features = false }
+rapier2d = { version = "0.35.2", default-features = false }
+rapier3d = { version = "0.35.2", default-features = false }
 rapier3d-urdf = "0.35"
 rapier3d-mjcf = { version = "0.35", features = ["stl", "wavefront", "msh"] }
 parry2d = { version = "0.30", default-features = false }
 parry3d = { version = "0.30", default-features = false }
 
 # Viewer / examples deps
-kiss3d = "0.45.1"
+kiss3d = "0.46.0"
 Inflector = "0.11"
 oorandom = "11"
 anyhow = "1"
-pollster = "0.4"
+pollster = "1"
 getrandom = { version = "0.2", features = ["js"] }
 
 # Dev deps
@@ -64,27 +64,27 @@ approx = "0.5"
 rand = "0.9"
 
 # Shaders deps
-khal-builder = "0.2"
-vortx-shaders = { version = "0.3", default-features = false }
+khal-builder = "0.3"
+vortx-shaders = { version = "0.4", default-features = false }
 unroll = "0.1"
 crunchy = "0.2.4"
 
 # Shader crates
-nexus_rbd_shaders2d = { version = "0.4.0", path = "crates/nexus_rbd_shaders2d" }
-nexus_rbd_shaders3d = { version = "0.4.0", path = "crates/nexus_rbd_shaders3d" }
-nexus_mpm_shaders2d = { version = "0.4.0", path = "crates/nexus_mpm_shaders2d" }
-nexus_mpm_shaders3d = { version = "0.4.0", path = "crates/nexus_mpm_shaders3d" }
+nexus_rbd_shaders2d = { version = "0.5.0", path = "crates/nexus_rbd_shaders2d" }
+nexus_rbd_shaders3d = { version = "0.5.0", path = "crates/nexus_rbd_shaders3d" }
+nexus_mpm_shaders2d = { version = "0.5.0", path = "crates/nexus_mpm_shaders2d" }
+nexus_mpm_shaders3d = { version = "0.5.0", path = "crates/nexus_mpm_shaders3d" }
 
 # Internal crates. rbd is pulled both with defaults and with default-features
 # off (mpm wants just the dim feature), so it mirrors the rapier/parry pattern.
-nexus2d = { version = "0.4.0", path = "crates/nexus2d" }
-nexus3d = { version = "0.4.0", path = "crates/nexus3d" }
-nexus_rbd2d = { version = "0.4.0", path = "crates/nexus_rbd2d", default-features = false }
-nexus_rbd3d = { version = "0.4.0", path = "crates/nexus_rbd3d", default-features = false }
-nexus_mpm2d = { version = "0.4.0", path = "crates/nexus_mpm2d" }
-nexus_mpm3d = { version = "0.4.0", path = "crates/nexus_mpm3d" }
-nexus_viewer2d = { version = "0.4.0", path = "crates/nexus_viewer2d" }
-nexus_viewer3d = { version = "0.4.0", path = "crates/nexus_viewer3d" }
+nexus2d = { version = "0.5.0", path = "crates/nexus2d" }
+nexus3d = { version = "0.5.0", path = "crates/nexus3d" }
+nexus_rbd2d = { version = "0.5.0", path = "crates/nexus_rbd2d", default-features = false }
+nexus_rbd3d = { version = "0.5.0", path = "crates/nexus_rbd3d", default-features = false }
+nexus_mpm2d = { version = "0.5.0", path = "crates/nexus_mpm2d" }
+nexus_mpm3d = { version = "0.5.0", path = "crates/nexus_mpm3d" }
+nexus_viewer2d = { version = "0.5.0", path = "crates/nexus_viewer2d" }
+nexus_viewer3d = { version = "0.5.0", path = "crates/nexus_viewer3d" }
 
 [workspace.lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
