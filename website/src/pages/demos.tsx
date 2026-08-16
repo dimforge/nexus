@@ -8,14 +8,14 @@ const demos = [
     name: '3d',
     demo: 'all_examples3',
     title: '3D Demos',
-    description: 'Rigid-body dynamics demos in 3D',
+    description: 'Rigid-body dynamics and MPM demos in 3D',
     source: 'https://github.com/dimforge/nexus/tree/main/crates/examples3d',
   },
   {
     name: '2d',
     demo: 'all_examples2',
     title: '2D Demos',
-    description: 'Rigid-body dynamics demos in 2D',
+    description: 'Rigid-body dynamics and MPM demos in 2D',
     source: 'https://github.com/dimforge/nexus/tree/main/crates/examples2d',
   },
 ];
