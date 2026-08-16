@@ -120,6 +120,7 @@ impl GpuNarrowPhase {
                 contacts,
                 contacts_len,
                 batch_indices,
+                prediction,
             )?;
         }
         #[cfg(not(feature = "dim3"))]

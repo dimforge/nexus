@@ -85,6 +85,9 @@ pub fn gpu_reduce_contacts(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &mut [IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+    // Contact prediction distance: `manifold_reduction` only keeps candidates
+    // within it, exactly as the narrow-phase passes that produced them.
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] prediction: &f32,
 ) {
     let batch_id = workgroup_id.y;
     let capacity = batch_ids.contacts_batch_capacity as usize;
@@ -128,7 +131,7 @@ pub fn gpu_reduce_contacts(
                 } else {
                     out.contact.normal_a
                 };
-                let mut reduced = manifold_reduction(&cand, (na + nb) as u32, normal);
+                let mut reduced = manifold_reduction(&cand, (na + nb) as u32, normal, *prediction);
                 // `manifold_reduction` fills points/len only.
                 reduced.normal_a = normal;
                 let mut kept = out;
