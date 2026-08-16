@@ -16,7 +16,10 @@ use crate::{PaddedVector, Pose, Vector};
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::{iter::StepRng, sync::atomic_add_u32};
+use khal_std::{
+    iter::StepRng,
+    sync::{atomic_add_u32, atomic_load_u32},
+};
 
 use super::lbvh::{MAX_REDUCE_LANES, max_len_indirect_args};
 use crate::broad_phase::CollisionPair;
@@ -155,7 +158,7 @@ pub fn gpu_reduce_contacts(
 
 /// Builds the flat-dispatch layout for a per-batch work-list: exclusive prefix
 /// offsets (so item `t` of the flat range maps back to a batch via
-/// [`find_batch`]) and the matching 1-D indirect grid.
+/// `find_batch`) and the matching 1-D indirect grid.
 ///
 /// This replaces the max-over-batches indirect grids for the narrow-phase
 /// kernels: with `[max/64, num_batches, 1]` every batch rounds its handful of
@@ -369,6 +372,8 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     #[spirv(uniform, descriptor_set = 0, binding = 7)] prediction: &f32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    // Every batch is allocated the same capacity, so this is batch-independent.
+    let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
     let num_batches = pairs_offsets.len() - 1;
     let total = pairs_offsets.read(num_batches);
