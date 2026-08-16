@@ -173,9 +173,13 @@ write_index_html() {
     }
     .error {
       color: #ff6b6b;
+      line-height: 1.5;
     }
     .error::after {
       display: none;
+    }
+    .error a {
+      color: #ff6b6b;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -183,25 +187,41 @@ write_index_html() {
 <body>
   <div class="loading" id="loading">Loading WebAssembly...</div>
   <script type="module">
-    import init from './pkg/example.js';
-
     const loading = document.getElementById('loading');
 
-    if (!navigator.gpu) {
+    const showError = (html) => {
       loading.className = 'loading error';
-      loading.textContent = 'WebGPU is not available in this browser. '
-        + 'Nexus runs its physics as WebGPU compute shaders. '
-        + 'On Firefox, enable dom.webgpu.enabled in about:config; '
-        + 'on Chromium, enable "Unsafe WebGPU Support" in chrome://flags. '
-        + 'Safari is currently not supported.';
+      loading.innerHTML = html;
+    };
+
+    // Safari matches every WebKit-based UA except the Chromium/Firefox ones,
+    // which advertise themselves as Safari too.
+    const isSafari = /^((?!chromium|chrome|crios|fxios|edgios|android).)*safari/i
+      .test(navigator.userAgent);
+
+    // Both checks run before the demo module is imported, so an unsupported
+    // browser never downloads the (large) WASM app.
+    if (isSafari) {
+      showError('Safari is currently not supported by nexus. '
+        + 'Please open this demo in a recent Chromium-based browser or in Firefox.');
+    } else if (!navigator.gpu) {
+      showError('WebGPU is required: nexus runs its physics as WebGPU compute '
+        + 'shaders, and WebGPU is not available in this browser. See '
+        + '<a href="https://caniuse.com/webgpu" target="_blank" rel="noopener noreferrer">'
+        + 'caniuse.com/webgpu</a> for browser support. On Firefox, enable '
+        + 'dom.webgpu.enabled in about:config; on Chromium, enable '
+        + '"Unsafe WebGPU Support" in chrome://flags.');
     } else {
-      init().then(() => {
-        loading.style.display = 'none';
-      }).catch(err => {
-        console.error('WASM Error:', err);
-        loading.className = 'loading error';
-        loading.textContent = 'Error: ' + err.message;
-      });
+      import('./pkg/example.js')
+        .then(({default: init}) => init())
+        .then(() => {
+          loading.style.display = 'none';
+        })
+        .catch(err => {
+          console.error('WASM Error:', err);
+          loading.className = 'loading error';
+          loading.textContent = 'Error: ' + err.message;
+        });
     }
   </script>
 </body>

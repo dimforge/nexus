@@ -57,13 +57,27 @@
   }
 }
 
-/* WebGPU warning */
-.webgpuWarning {
-  padding: 0.75rem 1rem;
-  background: var(--ifm-color-warning-contrast-background, #fff8e6);
-  color: var(--ifm-color-warning-contrast-foreground, #4d3800);
-  border-bottom: 1px solid var(--ifm-color-emphasis-300);
-  font-size: 0.9rem;
+/* Shown instead of the viewer when the browser can't run the demos */
+.unsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.unsupported h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.unsupported p {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--ifm-color-emphasis-700);
 }
 
 /* Viewer */
