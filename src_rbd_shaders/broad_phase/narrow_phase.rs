@@ -215,8 +215,6 @@ fn find_batch(offsets: &[u32], num_batches: u32, t: u32) -> u32 {
     lo
 }
 
-const PREDICTION: f32 = 2.0e-3; // TODO: make the prediction configurable.
-
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.
 ///
