@@ -20,16 +20,31 @@ const demos = [
   },
 ];
 
+// What prevents the demo from running here, if anything. Resolved on the
+// client only (`navigator` doesn't exist while the site is pre-rendered), so
+// `undefined` means "not determined yet".
+type Blocker = 'safari' | 'webgpu' | null;
+
+function detectBlocker(): Blocker {
+  // Safari matches every WebKit-based UA except the Chromium/Firefox ones,
+  // which advertise themselves as Safari too.
+  const isSafari = /^((?!chromium|chrome|crios|fxios|edgios|android).)*safari/i
+    .test(navigator.userAgent);
+  if (isSafari) return 'safari';
+  // Nexus runs its physics as WebGPU compute shaders: no WebGPU, no demo.
+  if (!(navigator as any).gpu) return 'webgpu';
+  return null;
+}
+
 export default function Demos(): ReactNode {
   const [selected, setSelected] = useState<string | null>(null);
   const [activeDemo, setActiveDemo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [webgpuSupported, setWebgpuSupported] = useState(true);
+  const [blocker, setBlocker] = useState<Blocker | undefined>(undefined);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Nexus runs its physics as WebGPU compute shaders: no WebGPU, no demo.
   useEffect(() => {
-    setWebgpuSupported(typeof navigator !== 'undefined' && !!(navigator as any).gpu);
+    setBlocker(detectBlocker());
   }, []);
 
   // Handle URL hash for deep linking
@@ -52,6 +67,9 @@ export default function Demos(): ReactNode {
 
   // Handle demo transitions - clear iframe first to release WebGPU context
   useEffect(() => {
+    // Nothing is loaded until the browser is known to support the demos
+    // (`undefined` = still unknown, non-null = unsupported).
+    if (blocker !== null) return;
     if (selected === activeDemo) return;
 
     setIsLoading(true);
@@ -69,7 +87,7 @@ export default function Demos(): ReactNode {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [selected]);
+  }, [selected, blocker]);
 
   const handleSelect = (name: string) => {
     setSelected(name);
@@ -97,24 +115,46 @@ export default function Demos(): ReactNode {
               </button>
             ))}
           </div>
-          <span className={styles.hint}>
-            Pick individual demos from the panel inside the viewer. First load
-            may take a while (the physics engine ships as a large WASM module).
-          </span>
+          {!blocker && (
+            <span className={styles.hint}>
+              Pick individual demos from the panel inside the viewer. First load
+              may take a while (the physics engine ships as a large WASM module).
+            </span>
+          )}
         </div>
 
-        {!webgpuSupported && (
-          <div className={styles.webgpuWarning}>
-            <strong>WebGPU is not available in this browser.</strong> Nexus
-            runs its physics as WebGPU compute shaders. On Firefox, enable{' '}
-            <code>dom.webgpu.enabled</code> in <code>about:config</code>; on
-            Chromium, enable <code>Unsafe WebGPU Support</code> in{' '}
-            <code>chrome://flags</code>. Safari is currently not supported.
-          </div>
-        )}
-
         <div className={styles.viewer}>
-          {activeDemo ? (
+          {blocker === 'safari' ? (
+            <div className={styles.unsupported}>
+              <h2>Safari is not supported</h2>
+              <p>
+                Nexus does not currently run in Safari. Please open this page
+                in a recent Chromium-based browser or in Firefox.
+              </p>
+            </div>
+          ) : blocker === 'webgpu' ? (
+            <div className={styles.unsupported}>
+              <h2>WebGPU is required</h2>
+              <p>
+                Nexus runs its physics as WebGPU compute shaders, and WebGPU is
+                not available in this browser. See{' '}
+                <a
+                  href="https://caniuse.com/webgpu"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  caniuse.com/webgpu
+                </a>{' '}
+                for browser support.
+              </p>
+              <p>
+                On Firefox, enable <code>dom.webgpu.enabled</code> in{' '}
+                <code>about:config</code>; on Chromium, enable{' '}
+                <code>Unsafe WebGPU Support</code> in{' '}
+                <code>chrome://flags</code>.
+              </p>
+            </div>
+          ) : activeDemo ? (
             <>
               <iframe
                 ref={iframeRef}
