@@ -1,3 +1,4 @@
+#[cfg(feature = "mpm")]
 use crate::mpm::pipeline::MpmPipeline;
 use crate::rbd::pipeline::RbdPipeline;
 use crate::state::NexusState;
@@ -15,6 +16,7 @@ bitflags::bitflags! {
 #[derive(Default)]
 pub struct NexusPipeline {
     pub rbd_pipeline: Option<RbdPipeline>,
+    #[cfg(feature = "mpm")]
     pub mpm_pipeline: Option<MpmPipeline>,
 }
 
@@ -27,6 +29,7 @@ impl NexusPipeline {
         if pipelines.contains(NexusPipelineMask::RBD) && self.rbd_pipeline.is_none() {
             self.rbd_pipeline = Some(RbdPipeline::new(backend)?);
         }
+        #[cfg(feature = "mpm")]
         if pipelines.contains(NexusPipelineMask::MPM) && self.mpm_pipeline.is_none() {
             self.mpm_pipeline = Some(MpmPipeline::new(backend)?);
         }
@@ -73,6 +76,7 @@ impl NexusPipeline {
         }
 
         // MPM pipeline
+        #[cfg(feature = "mpm")]
         if let Some(mpm) = state.mpm.as_mut() {
             self.preload_pipelines(backend, NexusPipelineMask::MPM)?;
             let pipeline = self.mpm_pipeline.as_mut().unwrap_or_else(|| unreachable!());
@@ -91,6 +95,7 @@ impl NexusPipeline {
         // bodies as static. Push that copy back so rendering and the next
         // step's broad phase see a boundary that actually moved.
         // FIXME: the RBD pipeline should remain in charge of moving the bodies.
+        #[cfg(feature = "mpm")]
         if let (Some(rbd), Some(mpm)) = (state.rbd.as_mut(), state.mpm.as_ref()) {
             let pipeline = self.mpm_pipeline.as_ref().unwrap_or_else(|| unreachable!());
             pipeline.writeback_body_poses(backend, mpm, rbd.body_poses_mut())?;
