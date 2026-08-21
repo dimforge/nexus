@@ -522,18 +522,22 @@ impl GpuMultibodySet {
             dof_values: Tensor::vector(backend, &all_dof_vals, storage).unwrap(),
             dof_state: {
                 // Pack [velocities, damping, armature, spring stiffness,
-                // spring rest, kinematic mask] back-to-back, each section
-                // N = dofs_cap * num_batches long. The shaders address
-                // section `s` at intra-batch offset `s · dof_batch_capacity`.
+                // spring rest, kinematic mask, frictionloss] back-to-back,
+                // each section N = dofs_cap * num_batches long. The shaders
+                // address section `s` at intra-batch offset
+                // `s · dof_batch_capacity`. Frictionloss has no rapier
+                // counterpart, so it starts at zero (off) and is filled in by
+                // `GpuMultibodySet::set_dof_frictionloss`.
                 let n = (dofs_cap * num_batches) as usize;
-                let mut buf = Vec::with_capacity(6 * n);
+                let mut buf = Vec::with_capacity(7 * n);
                 buf.extend_from_slice(&all_dof_vels);
                 buf.extend_from_slice(&all_dof_damping);
                 buf.extend_from_slice(&all_dof_armature);
                 buf.extend_from_slice(&all_dof_stiffness);
                 buf.extend_from_slice(&all_dof_spring_ref);
                 buf.extend_from_slice(&all_dof_kinematic);
-                debug_assert_eq!(buf.len(), 6 * n);
+                buf.resize(7 * n, 0.0);
+                debug_assert_eq!(buf.len(), 7 * n);
                 Tensor::vector(backend, &buf, storage).unwrap()
             },
             gen_forces: Tensor::vector(
@@ -588,6 +592,41 @@ impl GpuMultibodySet {
             body_to_link: Tensor::vector(backend, &all_body_to_link, storage).unwrap(),
             body_to_link_host: all_body_to_link,
             body_to_link_cap,
+            motor_delay_state: Tensor::vector(
+                backend,
+                vec![0.0f32; ((2 + links_cap) * num_batches) as usize],
+                storage | BufferUsages::COPY_DST,
+            )
+            .unwrap(),
+            motor_delay_params: Tensor::scalar(
+                backend,
+                glamx::UVec4::new(num_batches, 2 + links_cap, 0, 0),
+                BufferUsages::STORAGE | BufferUsages::UNIFORM,
+            )
+            .unwrap(),
+            delay_update_cache: None,
+            contact_sensor_links: Tensor::vector(
+                backend,
+                &[u32::MAX; crate::shaders::dynamics::MAX_CONTACT_SENSORS as usize],
+                storage,
+            )
+            .unwrap(),
+            contact_sensor_out: Tensor::vector(
+                backend,
+                vec![
+                    0.0f32;
+                    (mb_cap * num_batches * crate::shaders::dynamics::MAX_CONTACT_SENSORS)
+                        as usize
+                ],
+                storage | BufferUsages::COPY_SRC,
+            )
+            .unwrap(),
+            num_contact_sensors: 0,
+            substep_refresh: true,
+            substep_refresh_light: false,
+            env_reset: None,
+            reset_templates: None,
+            scatter_caches: Vec::new(),
             contact_constraints: Tensor::vector(
                 backend,
                 vec![

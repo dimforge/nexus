@@ -131,6 +131,10 @@ pub struct RbdState {
     pub(super) local_mprops: Tensor<GpuLocalMassProperties>,
     pub(super) mprops: Tensor<GpuWorldMassProperties>,
     pub(super) vels: Tensor<GpuVelocity>,
+    /// GPU-resident rigid-body reset templates, published by
+    /// `publish_reset_templates` and consumed by `reset_envs_from_templates`.
+    #[cfg(feature = "dim3")]
+    pub(super) reset_templates_bodies: Option<ResetTemplatesBodies>,
     pub(super) solver_vels: Tensor<GpuVelocity>,
     pub(super) solver_vels_inc: Tensor<GpuVelocity>,
     pub(super) vertex_buffers: Tensor<PaddedVector>,
@@ -345,6 +349,18 @@ impl RbdState {
     /// frame or two; `0` until the first readback completes.
     pub fn collision_pairs_len(&self) -> u32 {
         self.collision_pairs_len_cpu
+    }
+
+    /// GPU buffer of the broad-phase collision pairs found this step.
+    pub fn collision_pairs(&self) -> &Tensor<CollisionPair> {
+        &self.collision_pairs
+    }
+
+    /// GPU buffer holding the per-batch collision-pair counts. Unlike
+    /// [`Self::collision_pairs_len`], which returns the CPU mirror from the
+    /// last readback, this is the value the current step wrote.
+    pub fn collision_pairs_len_gpu(&self) -> &Tensor<u32> {
+        &self.collision_pairs_len
     }
 
     /// The max number a collision pairs the state can currently store.
@@ -568,5 +584,234 @@ pub(super) fn world_mprops_from_local(
             com: *pose * local.com,
             padding1: 0,
         }
+    }
+}
+
+/// GPU-resident rigid-body reset templates (see
+/// [`RbdState::publish_reset_templates`]).
+#[cfg(feature = "dim3")]
+pub(super) struct ResetTemplatesBodies {
+    poses: Tensor<Pose>,
+    vels: Tensor<GpuVelocity>,
+    mask: Tensor<u32>,
+    kernel: crate::shaders::dynamics::GpuEnvResetBodies,
+}
+
+/// CPU snapshot of one (single-batch) physics template: body poses, velocities
+/// and the multibody joint-space state, read off the GPU once so per-env resets
+/// need no readback. See [`RbdState::snapshot`].
+#[cfg(feature = "dim3")]
+#[derive(Clone)]
+pub struct RbdSnapshot {
+    body_poses: Vec<Pose>,
+    vels: Vec<GpuVelocity>,
+    mb: crate::dynamics::GpuMultibodySnapshot,
+}
+
+#[cfg(feature = "dim3")]
+impl RbdSnapshot {
+    /// A copy with every floating-base multibody translated by `offset`: the
+    /// affected links' `body_poses` plus the multibody workspace (root
+    /// free-joint coords, local-to-parent, per-link local-to-world). Fixed
+    /// bodies (ground, terrain) and velocities are untouched.
+    pub fn translated(&self, offset: crate::math::Vector) -> RbdSnapshot {
+        let mut out = self.clone();
+        out.mb = self.mb.translated(offset);
+        self.mb.for_each_link_rb_id(|rb_id| {
+            if let Some(p) = out.body_poses.get_mut(rb_id as usize) {
+                p.translation += offset;
+            }
+        });
+        out
+    }
+}
+
+#[cfg(feature = "dim3")]
+impl RbdState {
+    /// Reads this (template) physics state off the GPU into a CPU snapshot.
+    /// Call it once per template at setup and pass the result to
+    /// [`Self::reset_env_from_snapshot`] for readback-free per-env resets.
+    pub async fn snapshot(&self, backend: &GpuBackend) -> RbdSnapshot {
+        let mut body_poses = bytemuck::zeroed_vec(self.body_poses.len() as usize);
+        backend
+            .slow_read_buffer(self.body_poses.buffer(), &mut body_poses)
+            .await
+            .unwrap();
+        let mut vels = bytemuck::zeroed_vec(self.vels.len() as usize);
+        backend
+            .slow_read_buffer(self.vels.buffer(), &mut vels)
+            .await
+            .unwrap();
+        let mb = self.multibodies.snapshot(backend).await;
+        RbdSnapshot {
+            body_poses,
+            vels,
+            mb,
+        }
+    }
+
+    /// Resets env `dst_env` from a CPU snapshot using `write_buffer` only, with
+    /// no GPU to CPU readback. This is what removes the handful of per-reset
+    /// sync stalls that otherwise dominate reset cost on the WebGPU backend.
+    pub fn reset_env_from_snapshot(
+        &mut self,
+        backend: &GpuBackend,
+        dst_env: u32,
+        snap: &RbdSnapshot,
+    ) {
+        let nb = self.num_batches as u64;
+        let bps = (self.body_poses.len() / nb) as usize;
+        backend
+            .write_buffer(
+                self.body_poses.buffer_mut(),
+                dst_env as u64 * bps as u64,
+                &snap.body_poses[..bps],
+            )
+            .unwrap();
+        let vs = (self.vels.len() / nb) as usize;
+        backend
+            .write_buffer(
+                self.vels.buffer_mut(),
+                dst_env as u64 * vs as u64,
+                &snap.vels[..vs],
+            )
+            .unwrap();
+        self.multibodies
+            .reset_env_from_snapshot(backend, dst_env, &snap.mb);
+    }
+
+    /// [`Self::reset_env_from_snapshot`] with the robot rigidly translated by
+    /// `offset` (world frame): the teleport primitive for terrain-curriculum
+    /// spawn placement. Only floating-base multibody links move; fixed bodies
+    /// keep their snapshot poses. Costs one single-env-sized snapshot clone per
+    /// call, so prefer [`Self::reset_envs_from_templates`] in reset loops.
+    pub fn reset_env_from_snapshot_offset(
+        &mut self,
+        backend: &GpuBackend,
+        dst_env: u32,
+        snap: &RbdSnapshot,
+        offset: crate::math::Vector,
+    ) {
+        let moved = snap.translated(offset);
+        self.reset_env_from_snapshot(backend, dst_env, &moved);
+    }
+
+    /// Uploads the reset templates once (rigid-body poses and velocities here,
+    /// the multibody blobs via
+    /// [`GpuMultibodySet::publish_reset_templates`][mb]), enabling the batched
+    /// [`Self::reset_envs_from_templates`].
+    ///
+    /// [mb]: crate::dynamics::GpuMultibodySet::publish_reset_templates
+    pub fn publish_reset_templates(&mut self, backend: &GpuBackend, snaps: &[&RbdSnapshot]) {
+        use crate::shaders::dynamics::GpuEnvResetBodies;
+        use khal::Shader as _;
+        if snaps.is_empty() {
+            return;
+        }
+        let nb = self.num_batches as usize;
+        let bps = self.body_poses.len() as usize / nb;
+        let vs = self.vels.len() as usize / nb;
+        let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
+
+        let mut poses = Vec::with_capacity(snaps.len() * bps);
+        let mut vels = Vec::with_capacity(snaps.len() * vs);
+        for snap in snaps {
+            poses.extend_from_slice(&snap.body_poses[..bps]);
+            vels.extend_from_slice(&snap.vels[..vs]);
+        }
+        // The bodies a teleport offset applies to: free-multibody links, per
+        // `RbdSnapshot::translated`. Ground and terrain stay put.
+        let mut mask = vec![0u32; bps];
+        snaps[0].mb.for_each_link_rb_id(|rb_id| {
+            if let Some(m) = mask.get_mut(rb_id as usize) {
+                *m = 1;
+            }
+        });
+
+        /// `#[derive(Shader)]` supplies `from_backend` for the embedded entry.
+        #[derive(khal::Shader)]
+        struct EnvResetBodiesShader {
+            kernel: GpuEnvResetBodies,
+        }
+        let shader = EnvResetBodiesShader::from_backend(backend).unwrap();
+        self.reset_templates_bodies = Some(ResetTemplatesBodies {
+            poses: Tensor::vector(backend, &poses, storage).unwrap(),
+            vels: Tensor::vector(backend, &vels, storage).unwrap(),
+            mask: Tensor::vector(backend, &mask, storage).unwrap(),
+            kernel: shader.kernel,
+        });
+        let mb_snaps: Vec<&crate::dynamics::GpuMultibodySnapshot> =
+            snaps.iter().map(|s| &s.mb).collect();
+        self.multibodies.publish_reset_templates(backend, &mb_snaps);
+    }
+
+    /// Batched reset: restores every `(dst_env, template)` in `resets` from the
+    /// GPU-resident templates, translated by the matching `offsets` entry, with
+    /// `dof_vels` (`dofs_per_batch` floats per reset, a randomized reset draw or
+    /// zeros) written into the generalized-velocity section.
+    ///
+    /// One compact upload, two dispatches and one submit for the whole batch,
+    /// replacing the per-env snapshot clone, staging uploads and strided
+    /// velocity writes. [`Self::publish_reset_templates`] must have run first.
+    pub fn reset_envs_from_templates(
+        &mut self,
+        backend: &GpuBackend,
+        resets: &[(u32, u32)],
+        offsets: &[crate::math::Vector],
+        dof_vels: &[f32],
+    ) {
+        use glamx::{UVec4, Vec4};
+        use khal::backend::Encoder as _;
+        let n = resets.len() as u32;
+        if n == 0 {
+            return;
+        }
+        let nb = self.num_batches;
+        let bps = self.body_poses.len() as u32 / nb;
+        let vs = self.vels.len() as u32 / nb;
+        let meta: Vec<UVec4> = resets
+            .iter()
+            .map(|&(env, t)| UVec4::new(env, t, 0, 0))
+            .collect();
+        let offs: Vec<Vec4> = offsets
+            .iter()
+            .map(|o| Vec4::new(o.x, o.y, o.z, 0.0))
+            .collect();
+        let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
+        let t_meta = Tensor::vector(backend, &meta, storage).unwrap();
+        let t_offs = Tensor::vector(backend, &offs, storage).unwrap();
+        let params = Tensor::scalar(
+            backend,
+            UVec4::new(bps, vs, n, 0),
+            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        )
+        .unwrap();
+
+        let tpl = self
+            .reset_templates_bodies
+            .take()
+            .expect("publish_reset_templates must run first");
+        let mut enc = backend.begin_encoding();
+        {
+            let mut pass = enc.begin_pass("[RBD] env-reset-bodies", None);
+            tpl.kernel
+                .call(
+                    &mut pass,
+                    [bps.max(vs), n, 1],
+                    &tpl.poses,
+                    &tpl.vels,
+                    &tpl.mask,
+                    &t_meta,
+                    &t_offs,
+                    &mut self.body_poses,
+                    &mut self.vels,
+                    &params,
+                )
+                .unwrap();
+        }
+        self.multibodies
+            .encode_reset_envs_batch(backend, &mut enc, &meta, &offs, dof_vels);
+        backend.submit(enc).unwrap();
+        self.reset_templates_bodies = Some(tpl);
     }
 }

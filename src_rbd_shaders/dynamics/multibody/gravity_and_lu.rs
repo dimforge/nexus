@@ -129,6 +129,10 @@ pub fn gpu_mb_gravity_and_lu(
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + gen_base);
+    // Coulomb joint friction (MJCF `frictionloss`) sits in the 7th section.
+    let frictionloss_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(6 * batch_ids.dof_batch_capacity as usize + gen_base);
     let stiffness_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(3 * batch_ids.dof_batch_capacity as usize + gen_base);
@@ -283,7 +287,18 @@ pub fn gpu_mb_gravity_and_lu(
     if i < ndofs {
         let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
-        gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
+        let v = vel_slice[i as usize];
+        // Coulomb joint friction: -fl·sign(v), MuJoCo `frictionloss` semantics.
+        // Zero (the default) leaves the DoF untouched.
+        let fl = frictionloss_slice[i as usize];
+        let fric = if v > 0.0 {
+            -fl
+        } else if v < 0.0 {
+            fl
+        } else {
+            0.0
+        };
+        gen_forces.write(idx, cur - damping_slice[i as usize] * v + fric);
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -450,6 +465,10 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + gen_base);
+    // Coulomb joint friction (MJCF `frictionloss`) sits in the 7th section.
+    let frictionloss_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(6 * batch_ids.dof_batch_capacity as usize + gen_base);
     let stiffness_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(3 * batch_ids.dof_batch_capacity as usize + gen_base);
@@ -596,7 +615,18 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     if i < ndofs {
         let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
-        gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
+        let v = vel_slice[i as usize];
+        // Coulomb joint friction: -fl·sign(v), MuJoCo `frictionloss` semantics.
+        // Zero (the default) leaves the DoF untouched.
+        let fl = frictionloss_slice[i as usize];
+        let fric = if v > 0.0 {
+            -fl
+        } else if v < 0.0 {
+            fl
+        } else {
+            0.0
+        };
+        gen_forces.write(idx, cur - damping_slice[i as usize] * v + fric);
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -770,6 +800,10 @@ pub fn gpu_mb_gravity_and_lu_t1(
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + gen_base);
+    // Coulomb joint friction (MJCF `frictionloss`) sits in the 7th section.
+    let frictionloss_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(6 * batch_ids.dof_batch_capacity as usize + gen_base);
     let stiffness_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(3 * batch_ids.dof_batch_capacity as usize + gen_base);
@@ -896,7 +930,18 @@ pub fn gpu_mb_gravity_and_lu_t1(
     for i in 0..ndofs {
         let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
-        gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
+        let v = vel_slice[i as usize];
+        // Coulomb joint friction: -fl·sign(v), MuJoCo `frictionloss` semantics.
+        // Zero (the default) leaves the DoF untouched.
+        let fl = frictionloss_slice[i as usize];
+        let fric = if v > 0.0 {
+            -fl
+        } else if v < 0.0 {
+            fl
+        } else {
+            0.0
+        };
+        gen_forces.write(idx, cur - damping_slice[i as usize] * v + fric);
     }
 
     // Per-DoF joint springs.

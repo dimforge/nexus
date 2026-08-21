@@ -8,6 +8,7 @@ use crate::shaders::dynamics::{
     MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::BatchIndices;
+use khal::Shader;
 use khal::BufferUsages;
 use khal::backend::{Backend, GpuBackend, GpuBackendError};
 use rapier3d::prelude::JointAxis;
@@ -25,6 +26,42 @@ pub(super) const MB_LU_LANES: u32 = 64;
 pub(super) const MAX_DELASSUS_MULTIBODIES: u32 = 0; // 128;
 
 use crate::shaders::dynamics::{GenericJoint, JointLimits, JointMotor};
+
+/// The motor-target scatter entry point, loaded once per backend.
+#[derive(Shader)]
+pub(super) struct MotorScatterBundle {
+    scatter: crate::shaders::dynamics::GpuScatterMotorTargets,
+}
+
+/// Shader plus the constant tensors of one motor-target scatter configuration.
+/// The link ids, counts and axis do not change between steps, so a per-call
+/// `from_backend` and four allocations would cost more than the dispatch.
+pub(super) struct MotorScatterCache {
+    shader: MotorScatterBundle,
+    t_links: Tensor<u32>,
+    u_na: Tensor<u32>,
+    u_ne: Tensor<u32>,
+    u_ax: Tensor<u32>,
+    num_actuated: u32,
+    axis: u32,
+    link_ids: Vec<u32>,
+}
+
+/// The on-device delay-state refresh entry point.
+#[derive(Shader)]
+pub(super) struct DelayUpdateBundle {
+    kernel: crate::shaders::dynamics::GpuMbDelayStateUpdate,
+}
+
+/// Shader plus the constant tensors of the delay-state refresh. The link ids
+/// and counts do not change between steps, so a per-call `from_backend` plus
+/// uniform allocations would cost more than the upload this path removes.
+pub(super) struct DelayUpdateCache {
+    shader: DelayUpdateBundle,
+    t_links: Tensor<u32>,
+    params: Tensor<glamx::UVec4>,
+    num_actuated: u32,
+}
 
 /// GPU-resident articulated multibody set, packed across simulation batches.
 ///
@@ -45,6 +82,15 @@ pub struct GpuMultibodySet {
     pub(super) coriolis_entries_per_batch: u32,
     pub(super) i_coriolis_dt_entries_per_batch: u32,
     pub(super) implicit_coriolis: bool,
+    /// Rebuild the joint and contact constraints from scratch every substep.
+    /// On (the default) this matches a per-substep constraint refresh; off, the
+    /// full build runs once per step and each later substep only refreshes the
+    /// joint rhs / limit activity, which is cheaper and closer to how MuJoCo
+    /// and Genesis step.
+    pub(super) substep_refresh: bool,
+    /// Split cadence: refresh the constraints every substep but keep the mass
+    /// matrix and its LU factors per step. Ignored when `substep_refresh` is on.
+    pub(super) substep_refresh_light: bool,
     /// When `false` (no joint limits / motors anywhere), the joint constraint
     /// kernel chain is skipped on the host side.
     pub(super) has_joint_constraints: bool,
@@ -96,6 +142,29 @@ pub struct GpuMultibodySet {
     /// Per-body lookup `[multibody_idx, link_idx]` (`u32::MAX` sentinel for
     /// free / non-multibody bodies). Indexed by the per-batch local body id.
     pub(super) body_to_link: Tensor<[u32; 2]>,
+    /// Actuator-delay state, per batch `[tick, k, prev_target x
+    /// links_per_batch]`. All zeros (the default) means no delay.
+    pub(super) motor_delay_state: Tensor<f32>,
+    /// `(num_batches, stride, 0, 0)` uniform for the delay tick dispatch.
+    pub(super) motor_delay_params: Tensor<glamx::UVec4>,
+    /// Cached shader and constants for the on-device delay-state refresh.
+    pub(super) delay_update_cache: Option<DelayUpdateCache>,
+    /// The sensed multibody link ids, `MAX_CONTACT_SENSORS` slots padded with
+    /// `u32::MAX`. The same set is sensed on every multibody in every batch.
+    pub(super) contact_sensor_links: Tensor<u32>,
+    /// Per-(multibody, slot) summed normal-contact impulse, written once per
+    /// step by `gpu_mb_sense_contact_impulses`.
+    pub(super) contact_sensor_out: Tensor<f32>,
+    /// Number of configured contact sensors; 0 skips the readout dispatch.
+    pub(super) num_contact_sensors: u32,
+    /// Shader plus staging buffers for the single-env reset scatter, created
+    /// on first use.
+    pub(super) env_reset: Option<super::env_reset::EnvResetBundle>,
+    /// GPU-resident reset templates, published by `publish_reset_templates`.
+    pub(super) reset_templates: Option<super::env_reset::ResetTemplatesMb>,
+    /// One entry per (axis, actuated link set) the caller has scattered motor
+    /// targets for. Grown on demand by [`Self::encode_scatter_motor_targets`].
+    pub(super) scatter_caches: Vec<MotorScatterCache>,
     /// CPU mirror of [`Self::body_to_link`], batch-major with a
     /// `body_to_link_cap` stride. Backs [`Self::link_of_body`].
     pub(super) body_to_link_host: Vec<[u32; 2]>,
@@ -228,10 +297,27 @@ impl GpuMultibodySet {
     /// GPU buffer holding six back-to-back per-DOF sections of
     /// `dof_batch_capacity * num_batches` floats each: generalized
     /// velocities, damping, armature, spring stiffness, spring rest position,
-    /// and the kinematic-DOF mask. Callers reading velocities should use only
-    /// the first section.
+    /// the kinematic-DOF mask, and Coulomb joint friction. Callers reading
+    /// velocities should use only the first section.
     pub fn dof_state(&self) -> &Tensor<f32> {
         &self.dof_state
+    }
+
+    /// Sets whether the joint and contact constraints are rebuilt from scratch
+    /// every substep. See [`Self::substep_refresh`]; on by default.
+    pub fn set_substep_refresh(&mut self, enabled: bool) {
+        self.substep_refresh = enabled;
+    }
+
+    /// Whether the per-substep constraint rebuild is enabled.
+    pub fn substep_refresh(&self) -> bool {
+        self.substep_refresh
+    }
+
+    /// Sets the split cadence: constraints per substep, mass matrix and LU per
+    /// step. Ignored while [`Self::substep_refresh`] is on.
+    pub fn set_substep_refresh_light(&mut self, enabled: bool) {
+        self.substep_refresh_light = enabled;
     }
 
     /// Mutable view of [`Self::dof_state`], for callers that push generalized
@@ -446,6 +532,82 @@ impl GpuMultibodySet {
         )
     }
 
+    /// Scatters per-(actuated joint, env) motor target positions into
+    /// `links_static` on the GPU, reading the targets from a GPU buffer so a
+    /// GPU-resident policy can drive the motors with no host round-trip.
+    ///
+    /// `targets` is row-major `[num_actuated x num_batches]` (element
+    /// `(j, env)` at `j · num_batches + env`) and `actuated_link_ids[j]` is the
+    /// link index of actuated joint `j`. Sets `motors[axis].target_pos` and the
+    /// matching `motor_axes` bit.
+    ///
+    /// This bypasses `links_static_mirror`: the scattered targets live only on
+    /// the GPU, so do not interleave it with [`Self::set_motor`] /
+    /// [`Self::set_motors`] on the same axis.
+    pub fn scatter_motor_targets(
+        &mut self,
+        backend: &GpuBackend,
+        targets: &Tensor<f32>,
+        actuated_link_ids: &[u32],
+        axis: u32,
+    ) -> Result<(), GpuBackendError> {
+        let mut enc = backend.begin_encoding();
+        self.encode_scatter_motor_targets(backend, &mut enc, targets, actuated_link_ids, axis)?;
+        backend.submit(enc)
+    }
+
+    /// [`Self::scatter_motor_targets`], recorded into an existing encoder so
+    /// the control step shares one submit with the caller's other work.
+    pub fn encode_scatter_motor_targets(
+        &mut self,
+        backend: &GpuBackend,
+        enc: &mut <GpuBackend as Backend>::Encoder,
+        targets: &Tensor<f32>,
+        actuated_link_ids: &[u32],
+        axis: u32,
+    ) -> Result<(), GpuBackendError> {
+        use khal::backend::Encoder as _;
+
+        // Take the matching entry out so `self.links_static` can be borrowed
+        // mutably for the dispatch; it goes back at the end.
+        let hit = self
+            .scatter_caches
+            .iter()
+            .position(|c| c.axis == axis && c.link_ids == actuated_link_ids);
+        let cache = match hit {
+            Some(i) => self.scatter_caches.swap_remove(i),
+            None => {
+                let num_actuated = actuated_link_ids.len() as u32;
+                let uu = BufferUsages::STORAGE | BufferUsages::UNIFORM;
+                MotorScatterCache {
+                    shader: MotorScatterBundle::from_backend(backend)?,
+                    t_links: Tensor::vector(backend, actuated_link_ids, BufferUsages::STORAGE)?,
+                    u_na: Tensor::scalar(backend, num_actuated, uu)?,
+                    u_ne: Tensor::scalar(backend, self.num_batches, uu)?,
+                    u_ax: Tensor::scalar(backend, axis, uu)?,
+                    num_actuated,
+                    axis,
+                    link_ids: actuated_link_ids.to_vec(),
+                }
+            }
+        };
+        {
+            let mut pass = enc.begin_pass("[RBD] mb/scatter-motor-targets", None);
+            cache.shader.scatter.call(
+                &mut pass,
+                [cache.num_actuated, self.num_batches, 1],
+                targets,
+                &mut self.links_static,
+                &cache.t_links,
+                &cache.u_na,
+                &cache.u_ne,
+                &cache.u_ax,
+            )?;
+        }
+        self.scatter_caches.push(cache);
+        Ok(())
+    }
+
     /// Per-batch per-step link workspace (generalized coordinates, joint
     /// rotations, world-space link velocities), in the batch-interleaved SoA
     /// quad layout the kernels index. Read it back with `slow_read_buffer` for
@@ -635,6 +797,189 @@ impl GpuMultibodySet {
     /// Per-batch stride of [`Self::joint_constraints`].
     pub fn joint_constraints_per_batch(&self) -> u32 {
         self.joint_constraints_per_batch
+    }
+
+    /// Overwrites the per-DoF armature (reflected rotor inertia) section of
+    /// [`Self::dof_state`]. `values` is `dofs_per_batch * num_batches` in
+    /// env-major order (env outer, DoF inner) and is transposed here into the
+    /// batch-interleaved layout the kernels index.
+    ///
+    /// A post-build override for callers whose rapier scenes carry no armature,
+    /// or that randomize it per environment; the build path already seeds this
+    /// section from `mb.armature()`.
+    pub fn set_dof_armature(&mut self, backend: &GpuBackend, values: &[f32]) {
+        self.write_dof_section(backend, 2, values, "armature");
+    }
+
+    /// Overwrites the per-DoF Coulomb joint friction section of
+    /// [`Self::dof_state`] (MJCF `frictionloss`, N·m), applied by the gravity
+    /// kernels as `-fl·sign(q̇)`. Zero, the default, disables it. `values` uses
+    /// the same env-major layout as [`Self::set_dof_armature`].
+    pub fn set_dof_frictionloss(&mut self, backend: &GpuBackend, values: &[f32]) {
+        self.write_dof_section(backend, 6, values, "frictionloss");
+    }
+
+    /// Transposes an env-major `dofs_per_batch * num_batches` block into the
+    /// batch-interleaved layout and writes it over section `section` of
+    /// [`Self::dof_state`].
+    fn write_dof_section(
+        &mut self,
+        backend: &GpuBackend,
+        section: u64,
+        values: &[f32],
+        what: &str,
+    ) {
+        let cap = self.dofs_per_batch as usize;
+        let nb = self.num_batches as usize;
+        assert_eq!(
+            values.len(),
+            cap * nb,
+            "{what}: expected dofs_per_batch * num_batches values"
+        );
+        let mut interleaved = vec![0.0f32; cap * nb];
+        for b in 0..nb {
+            for k in 0..cap {
+                interleaved[k * nb + b] = values[b * cap + k];
+            }
+        }
+        backend
+            .write_buffer(
+                self.dof_state.buffer_mut(),
+                section * (cap * nb) as u64,
+                &interleaved,
+            )
+            .unwrap();
+    }
+
+    /// Per-batch stride of the actuator-delay state buffer:
+    /// `[tick, k, prev_target x links_per_batch]`.
+    pub fn motor_delay_stride(&self) -> u32 {
+        2 + self.links_per_batch
+    }
+
+    /// Uploads the actuator-delay state for every batch. `data.len()` must be
+    /// `motor_delay_stride() * num_batches`; all zeros disables the delay.
+    ///
+    /// While a control step's substep counter `tick` is below that batch's `k`,
+    /// every motor tracks `prev_target[link]` instead of its current target, so
+    /// latency costs no mid-step host writes. Call this before the step's
+    /// kernels are queued: an upload issued between queued substeps stalls the
+    /// stream, which is exactly what the GPU-side delay exists to avoid.
+    pub fn write_motor_delay_state(
+        &mut self,
+        backend: &GpuBackend,
+        data: &[f32],
+    ) -> Result<(), GpuBackendError> {
+        assert_eq!(
+            data.len(),
+            (self.motor_delay_stride() * self.num_batches) as usize,
+            "motor delay state: expected motor_delay_stride() * num_batches values"
+        );
+        backend.write_buffer(self.motor_delay_state.buffer_mut(), 0, data)
+    }
+
+    /// Per-step actuator-delay refresh on device (see
+    /// `gpu_mb_delay_state_update`): `tick <- 0`, `k <- k_eff`, and the
+    /// actuated links' prev-target lanes copied from `prev_targets`, the motor
+    /// target tensor as it stood *before* this step's scatter.
+    ///
+    /// This replaces the full `stride * num_batches` host rebuild and upload
+    /// that [`Self::write_motor_delay_state`] performs.
+    pub fn update_motor_delay_state_gpu(
+        &mut self,
+        backend: &GpuBackend,
+        prev_targets: &Tensor<f32>,
+        k_eff: &Tensor<f32>,
+        actuated_link_ids: &[u32],
+    ) -> Result<(), GpuBackendError> {
+        let mut enc = backend.begin_encoding();
+        self.encode_update_motor_delay_state(
+            backend,
+            &mut enc,
+            prev_targets,
+            k_eff,
+            actuated_link_ids,
+        )?;
+        backend.submit(enc)
+    }
+
+    /// [`Self::update_motor_delay_state_gpu`], recorded into an existing
+    /// encoder so the delay refresh and the target scatter share one submit.
+    pub fn encode_update_motor_delay_state(
+        &mut self,
+        backend: &GpuBackend,
+        enc: &mut <GpuBackend as Backend>::Encoder,
+        prev_targets: &Tensor<f32>,
+        k_eff: &Tensor<f32>,
+        actuated_link_ids: &[u32],
+    ) -> Result<(), GpuBackendError> {
+        use khal::backend::Encoder as _;
+        let stride = self.motor_delay_stride();
+        let cache = match self.delay_update_cache.take() {
+            Some(c) => c,
+            None => {
+                let num_actuated = actuated_link_ids.len() as u32;
+                DelayUpdateCache {
+                    shader: DelayUpdateBundle::from_backend(backend)?,
+                    t_links: Tensor::vector(backend, actuated_link_ids, BufferUsages::STORAGE)?,
+                    params: Tensor::scalar(
+                        backend,
+                        glamx::UVec4::new(num_actuated, self.num_batches, stride, 0),
+                        BufferUsages::STORAGE | BufferUsages::UNIFORM,
+                    )?,
+                    num_actuated,
+                }
+            }
+        };
+        {
+            let mut pass = enc.begin_pass("[RBD] mb/delay-state-update", None);
+            cache.shader.kernel.call(
+                &mut pass,
+                [cache.num_actuated, self.num_batches, 1],
+                prev_targets,
+                k_eff,
+                &cache.t_links,
+                &mut self.motor_delay_state,
+                &cache.params,
+            )?;
+        }
+        self.delay_update_cache = Some(cache);
+        Ok(())
+    }
+
+    /// Configures the contact force sensor: senses the summed normal-contact
+    /// impulse on these multibody links (at most
+    /// [`MAX_CONTACT_SENSORS`](crate::shaders::dynamics::MAX_CONTACT_SENSORS);
+    /// the same links are sensed on every multibody in every batch). Translate
+    /// a local body / collider id with [`Self::link_of_body`] first. An empty
+    /// slice disables the readout.
+    pub fn set_contact_sensor_links(&mut self, backend: &GpuBackend, links: &[u32]) {
+        const MAX: usize = crate::shaders::dynamics::MAX_CONTACT_SENSORS as usize;
+        assert!(
+            links.len() <= MAX,
+            "at most {MAX} contact sensors supported (got {})",
+            links.len()
+        );
+        let mut padded = [u32::MAX; MAX];
+        padded[..links.len()].copy_from_slice(links);
+        backend
+            .write_buffer(self.contact_sensor_links.buffer_mut(), 0, &padded)
+            .unwrap();
+        self.num_contact_sensors = links.len() as u32;
+    }
+
+    /// The contact force-sensor readout, interleaved like the other per-mb
+    /// buffers: slot `s` of multibody `m` in batch `b` at
+    /// `(m · num_batches + b) · MAX_CONTACT_SENSORS + s`. Read it after a step;
+    /// the values are accumulated normal impulses, so divide by the step `dt`
+    /// for an average force.
+    pub fn contact_sensor_out(&self) -> &Tensor<f32> {
+        &self.contact_sensor_out
+    }
+
+    /// Number of configured contact sensors (0 means sensing is disabled).
+    pub fn num_contact_sensors(&self) -> u32 {
+        self.num_contact_sensors
     }
 
     /// `[multibody_idx, link_idx]` of the local body / collider id

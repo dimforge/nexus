@@ -23,6 +23,40 @@ use super::types::{
 };
 use super::ws_soa::{WsAddr, ws_coord};
 
+/// Per-batch stride of the actuator-delay state: `[tick, k, prev_target x
+/// links_batch_capacity]`.
+#[inline]
+fn motor_delay_stride(batch_ids: &BatchIndices) -> usize {
+    2 + batch_ids.links_batch_capacity as usize
+}
+
+/// The motor position target to track this substep.
+///
+/// `tick` counts the physics steps begun since the host last refreshed the
+/// delay state, incremented once per step by `gpu_mb_delay_tick`; it is stable
+/// for a whole step, so every substep of a step agrees. While it is at most the
+/// batch's delay `k`, the motor tracks the previous control step's target
+/// instead of the current one, modelling actuator latency with no mid-step host
+/// writes. An all-zero delay buffer (the default) leaves `target` untouched:
+/// the first step's `tick` is 1, already past `k = 0`.
+#[inline]
+fn delayed_motor_target(
+    motor_delay_state: &[f32],
+    batch_ids: &BatchIndices,
+    batch_id: u32,
+    link_id: u32,
+    target: f32,
+) -> f32 {
+    let base = batch_id as usize * motor_delay_stride(batch_ids);
+    let tick = motor_delay_state.read(base);
+    let delay_k = motor_delay_state.read(base + 1);
+    if tick <= delay_k {
+        motor_delay_state.read(base + 2 + link_id as usize)
+    } else {
+        target
+    }
+}
+
 /// Compute joint motor parameters mirroring rapier's `JointMotor::motor_params`.
 #[inline]
 fn motor_params(motor: &crate::dynamics::joint::JointMotor, dt: f32) -> (f32, f32, f32, f32, f32) {
@@ -81,6 +115,7 @@ fn emit_joint_constraints(
     dt: f32,
     joint_erp_inv_dt: f32,
     joint_cfm_coeff: f32,
+    motor_delay_state: &[f32],
     batch_ids: &BatchIndices,
 ) {
     let num_links = mb.num_links;
@@ -131,6 +166,13 @@ fn emit_joint_constraints(
                     inv_dt,
                     dt,
                     stat.data.motors.at(axis as usize),
+                    delayed_motor_target(
+                        motor_delay_state,
+                        batch_ids,
+                        batch_id,
+                        mb.first_link + k,
+                        stat.data.motors.read(axis as usize).target_pos,
+                    ),
                     has_limits,
                     limit_min,
                     limit_max,
@@ -193,6 +235,13 @@ fn emit_joint_constraints(
                     inv_dt,
                     dt,
                     stat.data.motors.at(axis as usize),
+                    delayed_motor_target(
+                        motor_delay_state,
+                        batch_ids,
+                        batch_id,
+                        mb.first_link + k,
+                        stat.data.motors.read(axis as usize).target_pos,
+                    ),
                     has_limits,
                     limit_min,
                     limit_max,
@@ -368,6 +417,9 @@ fn build_motor_constraint(
     inv_dt: f32,
     dt: f32,
     motor: &crate::dynamics::joint::JointMotor,
+    // The position target to track, which actuator delay may pull from a
+    // previous control step (see `delayed_motor_target`).
+    target_pos: f32,
     has_limits: bool,
     limit_min: f32,
     limit_max: f32,
@@ -376,7 +428,7 @@ fn build_motor_constraint(
 
     let mut rhs_wo_bias = 0.0f32;
     if erp_inv_dt != 0.0 {
-        rhs_wo_bias += (curr_pos - motor.target_pos) * erp_inv_dt;
+        rhs_wo_bias += (curr_pos - target_pos) * erp_inv_dt;
     }
 
     let mut target_vel = motor.target_vel;
@@ -442,8 +494,12 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
     joint_constraint_columns: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_couplings: &[MbDofCoupling],
-    #[spirv(uniform, descriptor_set = 0, binding = 8)] softness: &ConstraintSoftness,
-    #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+    // Actuator-delay state, per-batch `[tick, k, prev_target x links]`. Zeroed
+    // (the default) means no delay; see `delayed_motor_target`.
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 8)]
+    motor_delay_state: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] softness: &ConstraintSoftness,
+    #[spirv(uniform, descriptor_set = 0, binding = 10)] batch_ids: &BatchIndices,
 ) {
     const LANES: u32 = 64;
 
@@ -509,6 +565,7 @@ pub fn gpu_mb_init_joint_constraints(
             softness.dt,
             softness.joint_erp_inv_dt,
             softness.joint_cfm_coeff,
+            motor_delay_state,
             batch_ids,
         );
     }
@@ -548,5 +605,112 @@ pub fn gpu_mb_init_joint_constraints(
             cons.inv_lhs = inv(lhs + cfm_gain);
             joint_constraints.write(cons_base + s as usize, cons);
         }
+    }
+}
+
+/// Per-substep refresh of the joint limit / motor slots, the cheap alternative
+/// to a full rebuild.
+///
+/// When the constraint columns and `inv_lhs` are per-step constants (no
+/// implicit Coriolis, no per-substep mass-matrix refresh), the only things that
+/// change between substeps are the rhs, the limit activity and the accumulated
+/// impulse. This recomputes exactly those from the slot's stashed `(link,
+/// axis)`, so the full emission walk and the LU back-solves run once per step
+/// instead of once per substep.
+///
+/// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_refresh_joint_constraints(
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &[Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
+    joint_constraints: &mut [MultibodyJointConstraint],
+    // Actuator-delay state; see `gpu_mb_init_joint_constraints`.
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
+    motor_delay_state: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] softness: &ConstraintSoftness,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
+) {
+    const LANES: u32 = 64;
+    let batch_id = workgroup_id.y;
+    let mb_idx = workgroup_id.x;
+    let lane = local_id.x;
+    if mb_idx >= batch_ids.multibodies_len {
+        return;
+    }
+
+    let mb = batch_ids.ib(batch_id, multibody_info).read(mb_idx as usize);
+    if mb.ndofs == 0 || mb.max_constraints == 0 {
+        return;
+    }
+    let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
+    let stat_slice = batch_ids
+        .ib(batch_id, links_static)
+        .offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
+
+    let dt = softness.dt;
+    let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
+
+    for s in StepRng::new(lane..mb.max_constraints, LANES) {
+        let old = joint_constraints.read(cons_base + s as usize);
+        // Coupling rows are per-step constants; inactive slots stay inactive.
+        if old.kind != MB_JOINT_KIND_MOTOR
+            && old.kind != MB_JOINT_KIND_LIMIT
+            && old.kind != MB_JOINT_KIND_LIMIT_INACTIVE
+        {
+            continue;
+        }
+        let link_id = old._kind_extra & 0xffff;
+        let axis = old._kind_extra >> 16;
+        let stat = &stat_slice[link_id as usize];
+        let curr_pos = ws_coord(links_workspace, wa, link_id, axis);
+        let limit_min = stat.data.limits.read(axis as usize).min;
+        let limit_max = stat.data.limits.read(axis as usize).max;
+
+        // Rebuild the per-substep fields with the same formulas the full
+        // emission uses, then graft back the per-step constants (the
+        // column-derived `inv_lhs` and the folded `cfm_gain`).
+        let mut fresh = if old.kind == MB_JOINT_KIND_MOTOR {
+            let locked = stat.data.locked_axes;
+            let has_limits = (stat.data.limit_axes & !locked & (1 << axis)) != 0;
+            build_motor_constraint(
+                old.dof_id,
+                link_id,
+                axis,
+                curr_pos,
+                inv_dt,
+                dt,
+                stat.data.motors.at(axis as usize),
+                delayed_motor_target(
+                    motor_delay_state,
+                    batch_ids,
+                    batch_id,
+                    mb.first_link + link_id,
+                    stat.data.motors.read(axis as usize).target_pos,
+                ),
+                has_limits,
+                limit_min,
+                limit_max,
+            )
+        } else {
+            build_limit_constraint(
+                old.dof_id,
+                link_id,
+                axis,
+                curr_pos,
+                [limit_min, limit_max],
+                softness.joint_erp_inv_dt,
+                softness.joint_cfm_coeff,
+            )
+        };
+        fresh.inv_lhs = old.inv_lhs;
+        fresh.cfm_gain = old.cfm_gain;
+        joint_constraints.write(cons_base + s as usize, fresh);
     }
 }

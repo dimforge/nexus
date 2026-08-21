@@ -8,10 +8,12 @@
 
 #![cfg(feature = "dim3")]
 
+mod env_reset;
 mod loop_closing_joints;
 mod multibody_from_rapier;
 mod multibody_set;
 mod multibody_solver;
 
+pub use env_reset::GpuMultibodySnapshot;
 pub use multibody_set::GpuMultibodySet;
 pub use multibody_solver::{GpuMultibodySolver, MultibodySolverArgs};

@@ -8,8 +8,8 @@ use crate::shaders::dynamics::{
     GpuMbComputeSolveBounds, GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
     GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16,
     GpuMbGravityAndLuT32, GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
-    GpuMbIntegrateVelocities, GpuMbRemoveImpulseJointConstraintBias, GpuMbSeedContactRestitution,
-    GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
+    GpuMbIntegrateVelocities, GpuMbRemoveImpulseJointConstraintBias, GpuMbDelayTick, GpuMbRefreshJointConstraints, GpuMbSeedContactRestitution,
+    GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
     GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbStashContactsLen,
     GpuMbTransferContactWarmstart, GpuMbUpdateImpulseJointConstraints,
     GpuMbWarmstartContactConstraints, Velocity, WorldMassProperties,
@@ -33,6 +33,14 @@ pub struct GpuMultibodySolver {
     compute_dynamics_pre: GpuMbComputeDynamicsPre,
     init_joint_with_bias: GpuMbInitJointConstraints,
     init_contact_constraints: GpuMbInitContactConstraints,
+    /// Cheap per-substep refresh of the joint rhs / limit activity, used when
+    /// the full build runs only once per step.
+    refresh_joint_constraints: GpuMbRefreshJointConstraints,
+    /// Advances the actuator-delay step counter, once per physics step.
+    delay_tick: GpuMbDelayTick,
+    /// Contact force-sensor readout, dispatched once per step after the last
+    /// substep's stabilization sweep and only when sensors are configured.
+    sense_contact_impulses: GpuMbSenseContactImpulses,
     finalize_contact_constraints: GpuMbFinalizeContactConstraints,
     /// Fused joint+contact PGS iteration (one workgroup per multibody, shared-
     /// memory dof velocities).
@@ -224,14 +232,38 @@ impl GpuMultibodySolver {
             return Ok(());
         }
 
-        // Full rebuild of the joint + contact constraints every substep.
-        self.build_contact_constraints(
-            encoder,
-            timestamps.as_deref_mut(),
-            mb,
-            args,
-            first_substep,
-        )?;
+        // Full rebuild of the joint + contact constraints. With the refresh
+        // cadences off, every column-derived quantity is a per-step constant,
+        // so the full build runs only on the first substep and each later one
+        // just refreshes the joint rhs / limit activity / accumulated impulse
+        // from the integrated joint positions.
+        if mb.implicit_coriolis
+            || mb.substep_refresh
+            || mb.substep_refresh_light
+            || first_substep
+        {
+            self.build_contact_constraints(
+                encoder,
+                timestamps.as_deref_mut(),
+                mb,
+                args,
+                first_substep,
+            )?;
+        } else if mb.has_joint_constraints {
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
+            self.refresh_joint_constraints.call(
+                &mut pass,
+                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1],
+                &mb.multibody_info,
+                &mb.links_static,
+                &mb.links_workspace,
+                &mut mb.joint_constraints,
+                &mut mb.motor_delay_state,
+                &mb.constraint_softness,
+                args.batch_indices,
+            )?;
+        }
 
         // Carry the previous frame's impulses over before anything reads them.
         if first_substep && mb.warmstart_coefficient != 0.0 {
@@ -302,6 +334,18 @@ impl GpuMultibodySolver {
             return Ok(());
         }
 
+        // Actuator delay: advance the step counter before anything reads it,
+        // so every substep of this step sees the same tick.
+        if first_substep {
+            let mut pass = encoder.begin_pass("[RBD] mbb/delay-tick", timestamps.as_deref_mut());
+            self.delay_tick.call(
+                &mut pass,
+                mb.num_batches,
+                &mut mb.motor_delay_state,
+                &mb.motor_delay_params,
+            )?;
+        }
+
         // Joint limit/motor constraints: one 64-lane workgroup per multibody
         // (lane 0 emits the metadata serially).
         if mb.has_joint_constraints {
@@ -318,6 +362,7 @@ impl GpuMultibodySolver {
                 &mut mb.joint_constraints,
                 &mut mb.joint_constraint_columns,
                 &mb.dof_couplings,
+                &mut mb.motor_delay_state,
                 &mb.constraint_softness,
                 args.batch_indices,
             )?;
@@ -585,8 +630,10 @@ impl GpuMultibodySolver {
         )?;
 
         // Recompute the dynamics (FK, mass matrices, LU, accelerations) for
-        // the next substep.
-        if !is_last_substep {
+        // the next substep. With implicit Coriolis off and the refresh cadence
+        // relaxed, the mass matrix is refreshed once per step instead, which is
+        // the main win of disabling implicit Coriolis in the first place.
+        if !is_last_substep && (mb.implicit_coriolis || mb.substep_refresh) {
             self.compute_dynamics(pass, mb, args)?;
         }
 
@@ -646,6 +693,31 @@ impl GpuMultibodySolver {
         }
 
         Ok(())
+    }
+
+    /// Contact force-sensor readout: folds each sensed link's normal-contact
+    /// impulses into `contact_sensor_out`. Run it once per step, after the last
+    /// substep's stabilization sweep and before [`Self::apply_restitution`], so
+    /// the value is the accumulated contact impulse rather than a
+    /// restitution-adjusted one. A no-op when no sensors are configured.
+    pub fn sense_contact_impulses(
+        &self,
+        pass: &mut GpuPass,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
+        if mb.is_empty() || mb.num_contact_sensors == 0 {
+            return Ok(());
+        }
+        self.sense_contact_impulses.call(
+            pass,
+            [mb.multibodies_per_batch, mb.num_batches, 1],
+            &mb.multibody_info,
+            &mb.contact_constraints,
+            &mb.contact_sensor_links,
+            &mut mb.contact_sensor_out,
+            args.batch_indices,
+        )
     }
 
     /// End-of-step restitution pass, run once after the last substep.

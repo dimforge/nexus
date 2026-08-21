@@ -255,6 +255,8 @@ impl RbdState {
             num_solver_iterations,
             sim_params: Tensor::vector(backend, &all_sim_params, BufferUsages::STORAGE).unwrap(),
             vels: Tensor::vector(backend, &all_vels, rw).unwrap(),
+            #[cfg(feature = "dim3")]
+            reset_templates_bodies: None,
             solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
             solver_vels_inc: Tensor::vector(backend, &all_vels, storage).unwrap(),
             joints,

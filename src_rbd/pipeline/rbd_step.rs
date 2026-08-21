@@ -18,6 +18,12 @@ use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuTimestamps
 use vortx::Reduce;
 use vortx::tensor::Tensor;
 
+/// Forces the fused colored-sweep kernels regardless of the estimated pair
+/// count: the programmatic twin of `NEXUS_FUSED_SWEEPS=1`, for targets without
+/// environment variables (wasm).
+pub static FORCE_FUSED_SWEEPS: core::sync::atomic::AtomicBool =
+    core::sync::atomic::AtomicBool::new(false);
+
 /// The main GPU physics pipeline coordinating all simulation stages.
 pub struct RbdPipeline {
     mprops_update: GpuMpropsUpdate,
@@ -68,8 +74,49 @@ impl RbdPipeline {
         &self,
         backend: &GpuBackend,
         state: &mut RbdState,
-        mut timestamps: Option<&mut GpuTimestamps>,
+        timestamps: Option<&mut GpuTimestamps>,
     ) -> Result<RunStats, GpuBackendError> {
+        let mut encoder = backend.begin_encoding();
+        let stats = self.step_impl(backend, state, timestamps, &mut encoder, true)?;
+        backend.submit(encoder)?;
+        Ok(stats)
+    }
+
+    /// Records one timestep into a caller-owned `encoder` instead of managing
+    /// (and submitting) its own. Nothing is submitted: the caller submits, so
+    /// its own dispatches can share the command buffer with the physics step.
+    ///
+    /// The intra-step submits `step` uses to overlap CPU encoding with GPU work
+    /// are skipped here; WebGPU guarantees dispatch-order visibility within a
+    /// single encoder, so the step stays correct without them.
+    pub fn step_encoded(
+        &self,
+        backend: &GpuBackend,
+        state: &mut RbdState,
+        timestamps: Option<&mut GpuTimestamps>,
+        encoder: &mut <GpuBackend as Backend>::Encoder,
+    ) -> Result<RunStats, GpuBackendError> {
+        self.step_impl(backend, state, timestamps, encoder, false)
+    }
+
+    fn step_impl(
+        &self,
+        backend: &GpuBackend,
+        state: &mut RbdState,
+        mut timestamps: Option<&mut GpuTimestamps>,
+        encoder: &mut <GpuBackend as Backend>::Encoder,
+        allow_splits: bool,
+    ) -> Result<RunStats, GpuBackendError> {
+        // Submit what is recorded so far and start a fresh encoder, so CPU
+        // encoding overlaps GPU work. A no-op in encoded mode, where everything
+        // stays in the caller's encoder.
+        let split = |enc: &mut <GpuBackend as Backend>::Encoder| -> Result<(), GpuBackendError> {
+            if allow_splits {
+                let done = std::mem::replace(enc, backend.begin_encoding());
+                backend.submit(done)?;
+            }
+            Ok(())
+        };
         let mut stats = RunStats::default();
 
         // Make sure the color index uniforms are up-to-date.
@@ -83,8 +130,6 @@ impl RbdPipeline {
             }
             state.ensure_color_uniforms(backend, needed);
         }
-
-        let mut encoder = backend.begin_encoding();
 
         // Phase 0: Multibody once-per-visible-step setup (3D only for now).
         #[cfg(feature = "dim3")]
@@ -103,7 +148,7 @@ impl RbdPipeline {
                     gravity: &state.gravity,
                 };
                 self.multibody_solver.init_step(
-                    &mut encoder,
+                    &mut *encoder,
                     timestamps.as_deref_mut(),
                     &mut state.multibodies,
                     &mut args,
@@ -164,12 +209,12 @@ impl RbdPipeline {
                     &state.prediction,
                 )?;
                 drop(pass);
-                backend.submit(encoder)?;
+                split(&mut *encoder)?;
             } else {
                 // Build LBVH and find collision pairs.
                 self.lbvh.update_tree(
                     backend,
-                    &mut encoder,
+                    &mut *encoder,
                     &mut state.lbvh,
                     state.collider_local_poses.len() as u32,
                     state.num_active_colliders,
@@ -182,8 +227,8 @@ impl RbdPipeline {
                 )?;
 
                 // Debug: validate LBVH topology after tree construction
-                if crate::VALIDATE_LBVH_TOPOLOGY {
-                    backend.submit(encoder)?;
+                if crate::VALIDATE_LBVH_TOPOLOGY && allow_splits {
+                    split(&mut *encoder)?;
 
                     let num_colliders = state.collider_world_poses.len() as u32;
                     let tree: Vec<LbvhNode> = futures::executor::block_on(
@@ -194,7 +239,6 @@ impl RbdPipeline {
                     )?;
                     validate_lbvh_topology(&tree, &sorted_colliders, num_colliders);
 
-                    encoder = backend.begin_encoding();
                     let _pass = encoder
                         .begin_pass("[RBD] broad-phase-find-pairs", timestamps.as_deref_mut());
                 }
@@ -215,7 +259,7 @@ impl RbdPipeline {
                 )?;
 
                 drop(pass);
-                backend.submit(encoder)?;
+                split(&mut *encoder)?;
             }
         }
 
@@ -228,9 +272,16 @@ impl RbdPipeline {
             state.collision_pairs_per_batch_cpu
         };
 
-        // Choose the kernel depending on the expected pairs count.
-        // Small pairs with many environment benefit from the fused kernels.
-        let fused_color_sweeps = est_pairs <= 128;
+        // Choose the kernel depending on the expected pairs count: small pair
+        // counts with many environments benefit from the fused kernels. The
+        // fused path can also be forced regardless of size (an A/B knob: an env
+        // var natively, [`FORCE_FUSED_SWEEPS`] on wasm where env vars do not
+        // exist). It is correct at any size, just serialized past ~64 lanes,
+        // which may still win where per-dispatch latency rules, i.e. small
+        // batch counts in the browser.
+        let fused_color_sweeps = est_pairs <= 128
+            || FORCE_FUSED_SWEEPS.load(core::sync::atomic::Ordering::Relaxed)
+            || std::env::var("NEXUS_FUSED_SWEEPS").as_deref() == Ok("1");
 
         // In small scenes, submit less frequently. In big scenes submit more
         // to overlap compute and encoding.
@@ -239,7 +290,6 @@ impl RbdPipeline {
         // Phase 2a: Narrow phase. Split out from solver-prep + coloring
         // so its CPU encoding overlaps with Phase 1's GPU work and its
         // own GPU work overlaps with Phase 2b's CPU encoding.
-        let mut encoder = backend.begin_encoding();
         {
             let mut pass = encoder.begin_pass("[RBD] narrow-phase", timestamps.as_deref_mut());
 
@@ -271,8 +321,7 @@ impl RbdPipeline {
 
             drop(pass);
             if !merge_submits {
-                backend.submit(encoder)?;
-                encoder = backend.begin_encoding();
+                split(&mut *encoder)?;
             }
         }
 
@@ -427,8 +476,7 @@ impl RbdPipeline {
                 drop(pass);
             }
             if !merge_submits {
-                backend.submit(encoder)?;
-                encoder = backend.begin_encoding();
+                split(&mut *encoder)?;
             }
         }
 
@@ -494,7 +542,7 @@ impl RbdPipeline {
                 Some((&self.multibody_solver, &mut state.multibodies))
             };
             self.solver.solve_tgs(
-                &mut encoder,
+                &mut *encoder,
                 timestamps.as_deref_mut(),
                 &self.joint_solver,
                 solver_args,
@@ -505,9 +553,9 @@ impl RbdPipeline {
 
             // Resolve all accumulated timestamps before the final submit.
             if let Some(ts) = &timestamps {
-                ts.resolve(&mut encoder);
+                ts.resolve(&mut *encoder);
             }
-            backend.submit(encoder)?;
+            split(&mut *encoder)?;
         }
 
         // Swap buffers for warm-starting next frame
