@@ -96,6 +96,11 @@ pub struct GpuMultibodySet {
     /// Per-body lookup `[multibody_idx, link_idx]` (`u32::MAX` sentinel for
     /// free / non-multibody bodies). Indexed by the per-batch local body id.
     pub(super) body_to_link: Tensor<[u32; 2]>,
+    /// CPU mirror of [`Self::body_to_link`], batch-major with a
+    /// `body_to_link_cap` stride. Backs [`Self::link_of_body`].
+    pub(super) body_to_link_host: Vec<[u32; 2]>,
+    /// Per-batch stride of [`Self::body_to_link_host`] (colliders per batch).
+    pub(super) body_to_link_cap: u32,
 
     /// Per-multibody bank of contact constraints (1 normal + 2 friction per
     /// touched contact point).
@@ -227,6 +232,15 @@ impl GpuMultibodySet {
     /// the first section.
     pub fn dof_state(&self) -> &Tensor<f32> {
         &self.dof_state
+    }
+
+    /// Mutable view of [`Self::dof_state`], for callers that push generalized
+    /// velocities straight into the buffer (e.g. an external RL env resetting
+    /// one environment). Section offsets are the ones documented on
+    /// [`Self::dof_state`]; writing past the velocity section overwrites the
+    /// damping, armature and spring parameters.
+    pub fn dof_state_mut(&mut self) -> &mut Tensor<f32> {
+        &mut self.dof_state
     }
 
     /// Per-batch stride of the DoF buffers (the length of each section of
@@ -442,6 +456,14 @@ impl GpuMultibodySet {
         &self.links_workspace
     }
 
+    /// Per-batch static link data (joint definitions, motors, limits, mass
+    /// properties), batch-interleaved like [`Self::links_workspace`]. Exposed
+    /// for diagnostics; use [`Self::set_motor`] / [`Self::set_motors`] to
+    /// mutate motors so the CPU mirror stays in sync.
+    pub fn links_static(&self) -> &Tensor<MultibodyLinkStatic> {
+        &self.links_static
+    }
+
     /// Number of link slots per environment (the stride of
     /// [`Self::links_workspace`] and `links_static`).
     pub fn links_per_batch(&self) -> u32 {
@@ -603,6 +625,27 @@ impl GpuMultibodySet {
     /// Per-batch stride of [`Self::contact_constraints`].
     pub fn contact_constraints_per_batch(&self) -> u32 {
         self.contact_constraints_per_batch
+    }
+
+    /// The per-multibody bank of unit (1-DoF) joint limit / motor constraints.
+    pub fn joint_constraints(&self) -> &Tensor<MultibodyJointConstraint> {
+        &self.joint_constraints
+    }
+
+    /// Per-batch stride of [`Self::joint_constraints`].
+    pub fn joint_constraints_per_batch(&self) -> u32 {
+        self.joint_constraints_per_batch
+    }
+
+    /// `[multibody_idx, link_idx]` of the local body / collider id
+    /// `local_body_id` within `batch`, or `[u32::MAX; 2]` when that body is not
+    /// a multibody link. Resolved on the CPU mirror, so it costs no readback.
+    pub fn link_of_body(&self, batch: u32, local_body_id: u32) -> [u32; 2] {
+        let idx = batch as usize * self.body_to_link_cap as usize + local_body_id as usize;
+        self.body_to_link_host
+            .get(idx)
+            .copied()
+            .unwrap_or([u32::MAX; 2])
     }
 
     /// Per-constraint `Jᵀ` rows of the contact constraints (`ndofs` floats each,

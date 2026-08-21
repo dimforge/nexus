@@ -586,6 +586,8 @@ impl GpuMultibodySet {
             dof_couplings: Tensor::vector(backend, &all_couplings, storage).unwrap(),
             couplings_per_batch: couplings_cap,
             body_to_link: Tensor::vector(backend, &all_body_to_link, storage).unwrap(),
+            body_to_link_host: all_body_to_link,
+            body_to_link_cap,
             contact_constraints: Tensor::vector(
                 backend,
                 vec![
