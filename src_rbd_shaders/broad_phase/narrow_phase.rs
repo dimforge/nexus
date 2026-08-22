@@ -72,14 +72,62 @@ pub fn gpu_narrow_phase_init_contacts_dispatch(
     }
 }
 
+/// Default cluster threshold: normals must agree within ~5.1 degrees,
+/// matching rapier's `contact_clustering::COS_MERGE_ANGLE`. Passed as a
+/// uniform so it can be loosened (`-1` merges every manifold of a pair,
+/// whatever its normal) to trade contact fidelity for solver cost.
+pub const COS_MERGE_ANGLE: f32 = 0.996;
+
+/// Pools `pt` into `cand`, deduplicating against points already there.
+///
+/// Composite shapes emit near-coincident points on both sides of a shared
+/// triangle edge; rapier's clustering collapses those within a quarter of the
+/// prediction distance, keeping the deeper one. Same rule here.
+#[cfg(feature = "dim3")]
+#[inline]
+fn pool_dedup(
+    cand: &mut [ContactPoint; 8],
+    num: &mut usize,
+    pt: ContactPoint,
+    dedup_eps_sq: f32,
+) {
+    let mut hit = false;
+    for k in 0..*num {
+        let d = cand.read(k).pt - pt.pt;
+        if !hit && d.dot(d) < dedup_eps_sq {
+            if pt.dist < cand.read(k).dist {
+                cand.write(k, pt);
+            }
+            hit = true;
+        }
+    }
+    if !hit && *num < 8 {
+        cand.write(*num, pt);
+        *num += 1;
+    }
+}
+
 /// Optional contact reduction: compacts each batch's contacts in place by
-/// merging all manifolds of a collider pair (e.g. per-triangle trimesh
-/// contacts, which share one `colliders` key and one collider-A local frame)
-/// into a single `MAX_MANIFOLD_POINTS` manifold via `manifold_reduction`,
-/// keeping the deeper manifold's normal. The first record of a pair is kept
-/// verbatim, so single-manifold pairs are bit-identical to the unreduced
-/// path. Approximations: one normal per merged manifold, greedy merging in
-/// emission order. Grid `[1, num_batches, 1]`, serial per batch.
+/// merging manifolds that share a collider pair AND a (nearly) parallel
+/// normal into a single `MAX_MANIFOLD_POINTS` manifold. This mirrors rapier's
+/// `cluster_manifolds_for_solver` + `reduce_manifold_naive`: cluster by
+/// normal, deduplicate near-coincident points, then keep the deepest point,
+/// the point furthest from it, and the two tangent extremes.
+///
+/// Per-triangle trimesh contacts share one `colliders` key and one collider-A
+/// local frame, so a flat patch collapses to one manifold while a ridge keeps
+/// one cluster per face. The first record of a cluster is kept verbatim, so
+/// single-manifold pairs are bit-identical to the unreduced path.
+///
+/// Two deliberate divergences from rapier. Clusters are reduced incrementally
+/// at each merge against an 8-point pool, where rapier accumulates every point
+/// (up to 255) and reduces once, so the selection here depends on manifold
+/// emission order. And the cluster's normal comes from the deepest point
+/// rather than from the manifold that opened it: identical in effect at the
+/// default threshold, where every member is within ~5.1 degrees, but it keeps
+/// the choice sane when `merge_cos` is loosened.
+///
+/// Grid `[1, num_batches, 1]`, serial per batch.
 #[cfg(feature = "dim3")]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
@@ -91,6 +139,9 @@ pub fn gpu_reduce_contacts(
     // Contact prediction distance: `manifold_reduction` only keeps candidates
     // within it, exactly as the narrow-phase passes that produced them.
     #[spirv(uniform, descriptor_set = 0, binding = 3)] prediction: &f32,
+    // Cosine of the maximum angle between two manifolds' normals for them to
+    // share a cluster. See [`COS_MERGE_ANGLE`].
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] merge_cos: &f32,
 ) {
     let batch_id = workgroup_id.y;
     let capacity = batch_ids.contacts_batch_capacity as usize;
@@ -103,18 +154,29 @@ pub fn gpu_reduce_contacts(
         let mut merged = false;
         for j in 0..w {
             let out = contacts[j];
-            if out.colliders.x == im.colliders.x && out.colliders.y == im.colliders.y {
-                // Pool the two manifolds' points (same collider-A local frame).
+            if out.colliders.x == im.colliders.x
+                && out.colliders.y == im.colliders.y
+                && out.contact.normal_a.dot(im.contact.normal_a) >= *merge_cos
+            {
+                // Pool the two manifolds' points (same collider-A local frame),
+                // dropping near-duplicates as rapier's clustering does.
                 let na = (out.contact.len as usize).min(MAX_MANIFOLD_POINTS);
                 let nb = (im.contact.len as usize).min(MAX_MANIFOLD_POINTS);
+                let dedup_eps = *prediction * 0.25;
+                let dedup_eps_sq = dedup_eps * dedup_eps;
                 let mut cand = [ContactPoint::default(); 8];
+                let mut num = 0usize;
                 for k in 0..na {
-                    cand.write(k, out.contact.points_a.read(k));
+                    pool_dedup(&mut cand, &mut num, out.contact.points_a.read(k), dedup_eps_sq);
                 }
                 for k in 0..nb {
-                    cand.write(na + k, im.contact.points_a.read(k));
+                    pool_dedup(&mut cand, &mut num, im.contact.points_a.read(k), dedup_eps_sq);
                 }
-                // Normal of whichever manifold holds the deepest point.
+                // Normal of whichever manifold holds the deepest point. rapier
+                // keeps the opener's normal instead, which it can afford
+                // because its ~5.1 degree cone makes every member equivalent;
+                // this degrades gracefully when `merge_cos` is loosened, and
+                // agrees with rapier's choice when it is not.
                 let mut deep_out = out.contact.points_a.at(0).dist;
                 for k in 1..na {
                     let d = out.contact.points_a.at(k).dist;
@@ -134,7 +196,7 @@ pub fn gpu_reduce_contacts(
                 } else {
                     out.contact.normal_a
                 };
-                let mut reduced = manifold_reduction(&cand, (na + nb) as u32, normal, *prediction);
+                let mut reduced = manifold_reduction(&cand, num as u32, normal, *prediction);
                 // `manifold_reduction` fills points/len only.
                 reduced.normal_a = normal;
                 let mut kept = out;

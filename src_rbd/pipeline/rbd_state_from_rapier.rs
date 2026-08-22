@@ -616,6 +616,12 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::UNIFORM,
         )
         .unwrap();
+        let contact_merge_cos = Tensor::scalar(
+            backend,
+            crate::shaders::broad_phase::COS_MERGE_ANGLE,
+            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        )
+        .unwrap();
         let prediction = Tensor::scalar(
             backend,
             all_sim_params[0].prediction_distance(),
@@ -833,6 +839,7 @@ impl RbdState {
             collision_pairs_len_max,
             num_batches_uniform,
             prediction,
+            contact_merge_cos,
             resize_readback,
             collision_pairs_indirect,
             contacts_per_batch_cpu,

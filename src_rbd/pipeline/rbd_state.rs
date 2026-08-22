@@ -167,6 +167,9 @@ pub struct RbdState {
     /// Contact prediction distance (`RbdSimParams::prediction_distance`),
     /// consumed by the narrow-phase kernels.
     pub(super) prediction: Tensor<f32>,
+    /// Cosine of the maximum angle between two contact normals for their
+    /// manifolds to be clustered together (see `gpu_reduce_contacts`).
+    pub(super) contact_merge_cos: Tensor<f32>,
     /// `num_batches` as a uniform, the scan length for the max reduction.
     pub(super) num_batches_uniform: Tensor<TensorShape>,
     /// Non-blocking readback of `[max collision_pairs_len, uncolored]` used by
@@ -374,6 +377,22 @@ impl RbdState {
     /// ignored.
     pub fn set_gravity(&mut self, backend: &GpuBackend, gravity: [f32; 3]) {
         self.gravity = Self::gravity_tensor(backend, gravity);
+    }
+
+    /// Sets how nearly parallel two contact normals must be for their
+    /// manifolds to be clustered by `gpu_reduce_contacts`, as a cosine.
+    ///
+    /// Defaults to [`COS_MERGE_ANGLE`](crate::shaders::broad_phase::COS_MERGE_ANGLE)
+    /// (~5.1 degrees), matching rapier. Pass `-1.0` to merge every manifold of
+    /// a collider pair regardless of normal: cheaper, but a single averaged
+    /// normal then stands in for a ridge or a step edge.
+    pub fn set_contact_merge_cos(&mut self, backend: &GpuBackend, cos: f32) {
+        self.contact_merge_cos = Tensor::scalar(
+            backend,
+            cos,
+            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        )
+        .unwrap();
     }
 
     /// The gravity uniform shared by every solver kernel.

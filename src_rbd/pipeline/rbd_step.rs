@@ -315,6 +315,7 @@ impl RbdPipeline {
                 &state.collider_materials,
                 &state.prediction,
                 self.contact_reduction,
+                &state.contact_merge_cos,
                 &mut state.pairs_flat_offsets,
                 &mut state.pfm_flat_offsets,
             )?;
