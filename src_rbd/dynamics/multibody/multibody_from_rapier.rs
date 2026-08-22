@@ -498,6 +498,7 @@ impl GpuMultibodySet {
             // falls back to a single plain matrix with explicit-only
             // coriolis/gyroscopic forces (cheaper, but less stable).
             implicit_coriolis: true,
+            coriolis_in_uniform: true,
             has_joint_constraints: all_infos.iter().any(|info| info.max_constraints > 0),
 
             multibody_info: Tensor::vector(backend, &all_infos, storage).unwrap(),

@@ -82,6 +82,11 @@ pub struct GpuMultibodySet {
     pub(super) coriolis_entries_per_batch: u32,
     pub(super) i_coriolis_dt_entries_per_batch: u32,
     pub(super) implicit_coriolis: bool,
+    /// What [`Self::implicit_coriolis`] was the last time the `batch_indices`
+    /// uniform was built. The kernels read the flag from that uniform, so the
+    /// two drifting apart silently changes which dynamics path runs; the
+    /// dispatch guard compares them.
+    pub(super) coriolis_in_uniform: bool,
     /// Rebuild the joint and contact constraints from scratch every substep.
     /// On (the default) this matches a per-substep constraint refresh; off, the
     /// full build runs once per step and each later substep only refreshes the
@@ -685,7 +690,8 @@ impl GpuMultibodySet {
     /// RBD-side fields (`colliders_batch_capacity`, `contacts_batch_capacity`,
     /// `collision_pairs_batch_capacity`, `impulse_joints_batch_capacity`,
     /// `color_groups_batch_capacity`) untouched — the caller fills those.
-    pub(crate) fn fill_batch_indices(&self, dst: &mut BatchIndices) {
+    pub(crate) fn fill_batch_indices(&mut self, dst: &mut BatchIndices) {
+        self.coriolis_in_uniform = self.implicit_coriolis;
         dst.multibodies_batch_capacity = self.multibodies_per_batch;
         dst.multibodies_len = self.num_active_multibodies;
         dst.links_batch_capacity = self.links_per_batch;

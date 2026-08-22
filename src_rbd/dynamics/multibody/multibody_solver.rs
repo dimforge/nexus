@@ -756,6 +756,15 @@ impl GpuMultibodySolver {
         // Fused FK + body-jacobians + velocity propagation + Mass-matrix
         // assembly. Packed: `64 / mb_pack_lanes` multibodies per workgroup,
         // flattened (multibody, batch) grid.
+        // The kernels read implicit-coriolis out of `batch_indices`, not off
+        // this struct, so a flag set without rebuilding that uniform silently
+        // keeps running the (much more expensive) Coriolis path.
+        // `RbdState::set_implicit_coriolis` keeps the two in step.
+        debug_assert_eq!(
+            mb.implicit_coriolis, mb.coriolis_in_uniform,
+            "implicit-coriolis changed without rebuilding batch_indices: use \
+             RbdState::set_implicit_coriolis, not GpuMultibodySet's"
+        );
         let pre_dispatch = mb.packed_wg_dispatch();
         self.compute_dynamics_pre.call(
             pass,

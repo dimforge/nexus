@@ -95,7 +95,7 @@ impl RbdState {
         let joints = GpuImpulseJointSet::from_rapier_filtered(backend, &joint_env_refs, &[], &[]);
 
         #[cfg(feature = "dim3")]
-        let multibodies = {
+        let mut multibodies = {
             let empty_mb = MultibodyJointSet::new();
             let empty_bodies = RigidBodySet::new();
             let mb_refs: Vec<_> = (0..num_batches as usize)

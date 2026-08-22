@@ -467,7 +467,7 @@ impl RbdState {
 
         // Convert multibodies (3D only).
         #[cfg(feature = "dim3")]
-        let multibodies = {
+        let mut multibodies = {
             let mb_refs: Vec<(
                 &MultibodyJointSet,
                 &HashMap<crate::rapier::dynamics::RigidBodyHandle, u32>,
