@@ -95,11 +95,15 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 [patch.crates-io]
 # Compare against the rapier checkout the reference example runs, not the
 # crates.io release (their solver defaults differ).
-#rapier2d = { path = "../rapier/crates/rapier2d" }
-#rapier3d = { path = "../rapier/crates/rapier3d" }
-#rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
-#rapier3d-urdf = { path = "../rapier/crates/rapier3d-urdf" }
-#rapier3d-meshloader = { path = "../rapier/crates/rapier3d-meshloader" }
+#
+# Also carries `Multibody::frictions` (MJCF `<joint frictionloss>`), which the
+# multibody build path reads into the GPU per-DoF friction section. All five
+# must be patched together so the rapier types unify.
+rapier2d = { path = "../rapier/crates/rapier2d" }
+rapier3d = { path = "../rapier/crates/rapier3d" }
+rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
+rapier3d-urdf = { path = "../rapier/crates/rapier3d-urdf" }
+rapier3d-meshloader = { path = "../rapier/crates/rapier3d-meshloader" }
 ## Local glam clone with SPIR-V vector-arithmetic intrinsics (Vec3 add/sub/mul/scale).
 #glam = { path = "../glam-rs" }
 # 30% faster for loop in P2G

@@ -74,3 +74,8 @@ required-features = ["metal"]
 name = "test_refresh_nan"
 path = "test_refresh_nan.rs"
 required-features = ["metal"]
+
+[[bin]]
+name = "test_frictionloss_mjcf"
+path = "test_frictionloss_mjcf.rs"
+required-features = ["metal"]
