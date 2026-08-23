@@ -57,7 +57,7 @@ impl GpuNarrowPhase {
         batch_indices: &Tensor<crate::shaders::utils::BatchIndices>,
         collider_parent: &Tensor<u32>,
         collider_materials: &Tensor<crate::shaders::queries::ColliderMaterial>,
-        prediction: &Tensor<f32>,
+        sim_params: &Tensor<crate::shaders::dynamics::RbdSimParams>,
         // Optional: merge each collider pair's manifolds into one before the
         // solvers see them. `false` skips the kernel entirely.
         reduce_contacts: bool,
@@ -93,7 +93,7 @@ impl GpuNarrowPhase {
             batch_indices,
             collider_parent,
             collider_materials,
-            prediction,
+            sim_params,
         )?;
 
         // Pass 2: defer the complex shape pairs into `pfm_pairs` (kept as a
@@ -108,7 +108,7 @@ impl GpuNarrowPhase {
             pfm_pairs,
             pfm_pairs_len,
             batch_indices,
-            prediction,
+            sim_params,
             vertices,
             indices,
         )?;
@@ -133,7 +133,7 @@ impl GpuNarrowPhase {
             indices,
             collider_parent,
             collider_materials,
-            prediction,
+            sim_params,
         )?;
         // Reduction rewrites `contacts_len`, so it has to run before the
         // indirect args are derived from it.
@@ -145,7 +145,7 @@ impl GpuNarrowPhase {
                 contacts,
                 contacts_len,
                 batch_indices,
-                prediction,
+                sim_params,
                 merge_cos,
             )?;
         }

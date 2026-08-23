@@ -164,9 +164,6 @@ pub struct RbdState {
     /// Single-element scratch holding the max of `collision_pairs_len` across all
     /// batches, computed on the GPU (only used when `num_batches > 1`).
     pub(super) collision_pairs_len_max: Tensor<u32>,
-    /// Contact prediction distance (`RbdSimParams::prediction_distance`),
-    /// consumed by the narrow-phase kernels.
-    pub(super) prediction: Tensor<f32>,
     /// Cosine of the maximum angle between two contact normals for their
     /// manifolds to be clustered together (see `gpu_reduce_contacts`).
     pub(super) contact_merge_cos: Tensor<f32>,

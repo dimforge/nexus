@@ -217,7 +217,7 @@ impl RbdPipeline {
                     &mut state.collision_pairs_indirect,
                     &state.collision_groups,
                     &state.pair_filter,
-                    &state.prediction,
+                    &state.sim_params,
                 )?;
                 drop(pass);
                 split(&mut *encoder)?;
@@ -324,7 +324,7 @@ impl RbdPipeline {
                 &state.batch_indices,
                 &state.collider_parent,
                 &state.collider_materials,
-                &state.prediction,
+                &state.sim_params,
                 self.contact_reduction,
                 &state.contact_merge_cos,
                 &mut state.pairs_flat_offsets,

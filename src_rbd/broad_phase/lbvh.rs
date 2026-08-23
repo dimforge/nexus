@@ -336,7 +336,7 @@ impl Lbvh {
         collision_pairs_indirect: &mut Tensor<[u32; 3]>,
         collision_groups: &Tensor<crate::rapier::geometry::InteractionGroups>,
         pair_filter: &Tensor<[u32; 2]>,
-        prediction: &Tensor<f32>,
+        sim_params: &Tensor<crate::shaders::dynamics::RbdSimParams>,
     ) -> Result<(), GpuBackendError> {
         state.resize_bf_buffers(backend, colliders_len);
 
@@ -361,7 +361,7 @@ impl Lbvh {
             collision_groups,
             batch_indices,
             pair_filter,
-            prediction,
+            sim_params,
         )?;
         // Single 256-lane workgroup: parallel max over the per-batch counts.
         self.shaders.lbvh_init_indirect_args.call(

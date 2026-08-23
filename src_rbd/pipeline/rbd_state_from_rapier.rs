@@ -622,12 +622,6 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         )
         .unwrap();
-        let prediction = Tensor::scalar(
-            backend,
-            all_sim_params[0].prediction_distance(),
-            BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        )
-        .unwrap();
         // Two-element readback: the (max) collision-pair count and the uncolored count.
         let resize_readback = GpuReadback::new(backend, 2).unwrap();
         let collision_pairs_indirect =
@@ -788,9 +782,13 @@ impl RbdState {
             num_batches,
             num_colliders_per_batch: num_colliders_per_batch as u32,
             num_solver_iterations,
-            sim_params: Tensor::vector(backend, &all_sim_params, BufferUsages::STORAGE).unwrap(),
-            vels: Tensor::vector(backend, &all_vels, storage | BufferUsages::COPY_DST)
-                .unwrap(),
+            sim_params: Tensor::vector(
+                backend,
+                &all_sim_params,
+                BufferUsages::STORAGE | BufferUsages::UNIFORM,
+            )
+            .unwrap(),
+            vels: Tensor::vector(backend, &all_vels, storage | BufferUsages::COPY_DST).unwrap(),
             #[cfg(feature = "dim3")]
             reset_templates_bodies: None,
             solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
@@ -838,7 +836,6 @@ impl RbdState {
             collision_pairs_len,
             collision_pairs_len_max,
             num_batches_uniform,
-            prediction,
             contact_merge_cos,
             resize_readback,
             collision_pairs_indirect,

@@ -10,6 +10,7 @@ use khal_std::sync::atomic_add_u32;
 
 use crate::bounding_volumes::Aabb;
 use crate::broad_phase::CollisionPair;
+use crate::dynamics::RbdSimParams;
 use crate::shapes::Shape;
 use crate::utils::BatchIndices;
 use crate::{PaddedVector, Pose, Vector};
@@ -57,8 +58,7 @@ pub fn gpu_bf_find_pairs(
     collision_groups: &[InteractionGroups],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pair_filter: &[[u32; 2]],
-    // Contact prediction distance (`RbdSimParams::prediction_distance`).
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] prediction: &f32,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] params: &RbdSimParams,
 ) {
     let n = batch_ids.colliders_len;
     let nn = n * n;
@@ -91,7 +91,7 @@ pub fn gpu_bf_find_pairs(
     let coll_start = batch_ids.coll_start(batch_id);
     // Dilate one side by the contact prediction distance.
     let mut aabb_i = aabbs.read(coll_start + i as usize);
-    let dilation = Vector::splat(*prediction);
+    let dilation = Vector::splat(params.prediction_distance());
     aabb_i.mins -= dilation;
     aabb_i.maxs += dilation;
     let aabb_j = aabbs.read(coll_start + j as usize);

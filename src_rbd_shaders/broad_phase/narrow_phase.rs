@@ -2,6 +2,7 @@
 //!
 //! Computes contact manifolds from collision pairs detected by the broad phase.
 
+use crate::dynamics::RbdSimParams;
 use crate::queries::{
     ColliderMaterial, ContactManifold, IndexedManifold, ball_ball, ball_convex, convex_ball,
     cuboid_cuboid, pfm_pfm,
@@ -85,12 +86,7 @@ pub const COS_MERGE_ANGLE: f32 = 0.996;
 /// prediction distance, keeping the deeper one. Same rule here.
 #[cfg(feature = "dim3")]
 #[inline]
-fn pool_dedup(
-    cand: &mut [ContactPoint; 8],
-    num: &mut usize,
-    pt: ContactPoint,
-    dedup_eps_sq: f32,
-) {
+fn pool_dedup(cand: &mut [ContactPoint; 8], num: &mut usize, pt: ContactPoint, dedup_eps_sq: f32) {
     let mut hit = false;
     for k in 0..*num {
         let d = cand.read(k).pt - pt.pt;
@@ -136,13 +132,12 @@ pub fn gpu_reduce_contacts(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &mut [IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
-    // Contact prediction distance: `manifold_reduction` only keeps candidates
-    // within it, exactly as the narrow-phase passes that produced them.
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] prediction: &f32,
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] params: &RbdSimParams,
     // Cosine of the maximum angle between two manifolds' normals for them to
     // share a cluster. See [`COS_MERGE_ANGLE`].
     #[spirv(uniform, descriptor_set = 0, binding = 4)] merge_cos: &f32,
 ) {
+    let prediction = params.prediction_distance();
     let batch_id = workgroup_id.y;
     let capacity = batch_ids.contacts_batch_capacity as usize;
     let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
@@ -162,15 +157,25 @@ pub fn gpu_reduce_contacts(
                 // dropping near-duplicates as rapier's clustering does.
                 let na = (out.contact.len as usize).min(MAX_MANIFOLD_POINTS);
                 let nb = (im.contact.len as usize).min(MAX_MANIFOLD_POINTS);
-                let dedup_eps = *prediction * 0.25;
+                let dedup_eps = prediction * 0.25;
                 let dedup_eps_sq = dedup_eps * dedup_eps;
                 let mut cand = [ContactPoint::default(); 8];
                 let mut num = 0usize;
                 for k in 0..na {
-                    pool_dedup(&mut cand, &mut num, out.contact.points_a.read(k), dedup_eps_sq);
+                    pool_dedup(
+                        &mut cand,
+                        &mut num,
+                        out.contact.points_a.read(k),
+                        dedup_eps_sq,
+                    );
                 }
                 for k in 0..nb {
-                    pool_dedup(&mut cand, &mut num, im.contact.points_a.read(k), dedup_eps_sq);
+                    pool_dedup(
+                        &mut cand,
+                        &mut num,
+                        im.contact.points_a.read(k),
+                        dedup_eps_sq,
+                    );
                 }
                 // Normal of whichever manifold holds the deepest point. rapier
                 // keeps the opener's normal instead, which it can afford
@@ -196,7 +201,7 @@ pub fn gpu_reduce_contacts(
                 } else {
                     out.contact.normal_a
                 };
-                let mut reduced = manifold_reduction(&cand, num as u32, normal, *prediction);
+                let mut reduced = manifold_reduction(&cand, num as u32, normal, prediction);
                 // `manifold_reduction` fills points/len only.
                 reduced.normal_a = normal;
                 let mut kept = out;
@@ -303,9 +308,9 @@ pub fn gpu_narrow_phase_shape_shape(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] collider_parent: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 8)]
     collider_materials: &[ColliderMaterial],
-    // Contact prediction distance (`RbdSimParams::prediction_distance`).
-    #[spirv(uniform, descriptor_set = 0, binding = 9)] prediction: &f32,
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] params: &RbdSimParams,
 ) {
+    let prediction = params.prediction_distance();
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
@@ -379,12 +384,12 @@ pub fn gpu_narrow_phase_shape_shape(
         if shape_ty1 == SHAPE_TYPE_CUBOID && shape_ty2 == SHAPE_TYPE_CUBOID {
             let cuboid1 = shape1.to_cuboid();
             let cuboid2 = shape2.to_cuboid();
-            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, *prediction);
+            manifold = cuboid_cuboid(pose12, &cuboid1, &cuboid2, prediction);
         }
 
         // Everything else (PFM / trimesh / polyline) is handled by the deferred
         // pass; `manifold.len` stays 0 here so nothing is written.
-        if manifold.len > 0 && manifold.points_a.at(0).dist < (*prediction) {
+        if manifold.len > 0 && manifold.points_a.at(0).dist < prediction {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed the contacts allocation size, just skip
@@ -429,8 +434,9 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     //       And we assume all batch dimensions are given the same buffer allocation sizes
     //       (i.e. the same `contacts_batch_capacity`).
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] prediction: &f32,
+    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &RbdSimParams,
 ) {
+    let prediction = params.prediction_distance();
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     // Every batch is allocated the same capacity, so this is batch-independent.
     let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
@@ -523,7 +529,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let mesh = shape1.to_trimesh();
             let convex = shape2;
             trimesh_convex(
-                *prediction,
+                prediction,
                 pose12,
                 &mesh,
                 convex,
@@ -542,7 +548,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let mesh = shape2.to_trimesh();
             // NOTE: pair indices are flipped.
             trimesh_convex(
-                *prediction,
+                prediction,
                 pose12.inverse(),
                 &mesh,
                 convex,
@@ -562,7 +568,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let pline = shape1.to_polyline();
             let convex = shape2;
             polyline_convex(
-                *prediction,
+                prediction,
                 pose12,
                 &pline,
                 convex,
@@ -581,7 +587,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             let pline = shape2.to_polyline();
             // NOTE: pair indices are flipped.
             polyline_convex(
-                *prediction,
+                prediction,
                 pose12.inverse(),
                 &pline,
                 convex,
@@ -791,8 +797,9 @@ pub fn gpu_narrow_phase_pfm_pfm(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] collider_parent: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 8)]
     collider_materials: &[ColliderMaterial],
-    #[spirv(uniform, descriptor_set = 0, binding = 9)] prediction: &f32,
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] params: &RbdSimParams,
 ) {
+    let prediction = params.prediction_distance();
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
@@ -825,13 +832,13 @@ pub fn gpu_narrow_phase_pfm_pfm(
             pair.thickness1,
             &pair.shape2,
             pair.thickness2,
-            *prediction,
+            prediction,
             vertices,
             #[cfg(feature = "dim3")]
             indices,
         );
 
-        if manifold.len > 0 && manifold.points_a.at(0).dist < (*prediction) {
+        if manifold.len > 0 && manifold.points_a.at(0).dist < prediction {
             let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
 
             // NOTE: if we exceed capacity, just skip the pair.
