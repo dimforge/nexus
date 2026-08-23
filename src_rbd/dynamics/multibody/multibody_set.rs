@@ -8,8 +8,8 @@ use crate::shaders::dynamics::{
     MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::BatchIndices;
-use khal::Shader;
 use khal::BufferUsages;
+use khal::Shader;
 use khal::backend::{Backend, GpuBackend, GpuBackendError};
 use rapier3d::prelude::JointAxis;
 use vortx::tensor::Tensor;
@@ -99,6 +99,14 @@ pub struct GpuMultibodySet {
     /// When `false` (no joint limits / motors anywhere), the joint constraint
     /// kernel chain is skipped on the host side.
     pub(super) has_joint_constraints: bool,
+    /// `true` once the joint-constraint bank has been grown to hold a
+    /// dry-friction row per DoF; see `reserve_frictionloss_slots`.
+    pub(super) frictionloss_slots_reserved: bool,
+    /// Set when a capacity edit here has invalidated the shared `BatchIndices`
+    /// uniform. The next `RbdPipeline` step re-uploads it and clears this;
+    /// without that the kernels would index the resized buffers with stale
+    /// per-batch capacities.
+    pub(crate) constraint_caps_dirty: bool,
 
     /// Per-batch multibody descriptors.
     pub(super) multibody_info: Tensor<MultibodyInfo>,
@@ -805,6 +813,11 @@ impl GpuMultibodySet {
         self.joint_constraints_per_batch
     }
 
+    /// Per-batch stride of the joint-constraint `M⁻¹` column buffer.
+    pub fn joint_constraint_columns_per_batch(&self) -> u32 {
+        self.joint_constraint_columns_per_batch
+    }
+
     /// Overwrites the per-DoF armature (reflected rotor inertia) section of
     /// [`Self::dof_state`]. `values` is `dofs_per_batch * num_batches` in
     /// env-major order (env outer, DoF inner) and is transposed here into the
@@ -817,12 +830,86 @@ impl GpuMultibodySet {
         self.write_dof_section(backend, 2, values, "armature");
     }
 
-    /// Overwrites the per-DoF Coulomb joint friction section of
-    /// [`Self::dof_state`] (MJCF `frictionloss`, N·m), applied by the gravity
-    /// kernels as `-fl·sign(q̇)`. Zero, the default, disables it. `values` uses
-    /// the same env-major layout as [`Self::set_dof_armature`].
+    /// Overwrites the per-DoF dry joint friction section of
+    /// [`Self::dof_state`] (MJCF `frictionloss`, N·m). Zero, the default,
+    /// disables it. `values` uses the same env-major layout as
+    /// [`Self::set_dof_armature`].
+    ///
+    /// Friction loss is a constraint, not a force: each DoF with a non-zero
+    /// loss gets a solver row driving its velocity to zero, with the impulse
+    /// bounded by `frictionloss · dt` (a load-independent bound, which is why
+    /// MuJoCo distinguishes it from Coulomb friction). The first non-zero call
+    /// reserves the extra constraint slots, which changes per-batch capacities
+    /// and so invalidates the shared `BatchIndices` uniform; the next
+    /// `RbdPipeline` step re-uploads it.
+    /// [`RbdState::set_dof_frictionloss`](crate::pipeline::RbdState::set_dof_frictionloss)
+    /// does it up front instead, if you would rather not carry a dirty uniform.
     pub fn set_dof_frictionloss(&mut self, backend: &GpuBackend, values: &[f32]) {
+        if values.iter().any(|v| *v > 0.0) {
+            self.reserve_frictionloss_slots(backend);
+        }
         self.write_dof_section(backend, 6, values, "frictionloss");
+    }
+
+    /// Grows the joint-constraint bank by one slot per DoF of every multibody,
+    /// the worst case for `gpu_mb_init_joint_constraints`' dry-friction rows
+    /// (emitted only for DoFs whose `frictionloss` is non-zero). Idempotent,
+    /// and never called unless some frictionloss is actually set, so scenes
+    /// without joint friction keep the tighter limit/motor-only capacity.
+    fn reserve_frictionloss_slots(&mut self, backend: &GpuBackend) {
+        if self.frictionloss_slots_reserved {
+            return;
+        }
+        self.frictionloss_slots_reserved = true;
+
+        let mb_cap = self.multibodies_per_batch as usize;
+        let nb = self.num_batches as usize;
+        let mut cons_cap = 0u32;
+        let mut max_constraints = 0u32;
+        for b in 0..nb {
+            let mut cons_off = 0u32;
+            for i in 0..mb_cap {
+                let info = &mut self.info_mirror[b * mb_cap + i];
+                // Padding slots stay untouched: they hold no links, so the
+                // kernels bail out before reading their offsets.
+                if info.num_links == 0 {
+                    continue;
+                }
+                info.first_constraint = cons_off;
+                info.max_constraints += info.ndofs;
+                cons_off += info.max_constraints;
+                max_constraints = max_constraints.max(info.max_constraints);
+            }
+            cons_cap = cons_cap.max(cons_off);
+        }
+        let cons_cap = cons_cap.max(1);
+        let cons_col_cap = cons_cap.saturating_mul(self.dofs_per_batch).max(1);
+
+        // Batch-interleaved (batch-minor) upload, matching the build path.
+        let mut interleaved = Vec::with_capacity(mb_cap * nb);
+        for k in 0..mb_cap {
+            for b in 0..nb {
+                interleaved.push(self.info_mirror[b * mb_cap + k]);
+            }
+        }
+        let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
+        self.multibody_info = Tensor::vector(backend, &interleaved, storage).unwrap();
+        self.joint_constraints = Tensor::vector(
+            backend,
+            vec![MultibodyJointConstraint::default(); cons_cap as usize * nb],
+            storage,
+        )
+        .unwrap();
+        self.joint_constraint_columns =
+            Tensor::vector(backend, vec![0.0f32; cons_col_cap as usize * nb], storage).unwrap();
+        self.joint_constraints_per_batch = cons_cap;
+        self.joint_constraint_columns_per_batch = cons_col_cap;
+        self.max_joint_constraints = max_constraints;
+        self.has_joint_constraints = max_constraints > 0;
+        // `BatchIndices` now disagrees with these capacities. `RbdState::
+        // set_dof_frictionloss` rebuilds it immediately; for callers who came
+        // in through `GpuMultibodySet` directly, the next step does.
+        self.constraint_caps_dirty = true;
     }
 
     /// Transposes an env-major `dofs_per_batch * num_batches` block into the

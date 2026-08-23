@@ -500,6 +500,8 @@ impl GpuMultibodySet {
             implicit_coriolis: true,
             coriolis_in_uniform: true,
             has_joint_constraints: all_infos.iter().any(|info| info.max_constraints > 0),
+            frictionloss_slots_reserved: false,
+            constraint_caps_dirty: false,
 
             multibody_info: Tensor::vector(backend, &all_infos, storage).unwrap(),
             max_contact_constraints: Tensor::scalar(
@@ -528,7 +530,7 @@ impl GpuMultibodySet {
                 // address section `s` at intra-batch offset
                 // `s · dof_batch_capacity`. Frictionloss has no rapier
                 // counterpart, so it starts at zero (off) and is filled in by
-                // `GpuMultibodySet::set_dof_frictionloss`.
+                // `RbdState::set_dof_frictionloss`.
                 let n = (dofs_cap * num_batches) as usize;
                 let mut buf = Vec::with_capacity(7 * n);
                 buf.extend_from_slice(&all_dof_vels);
@@ -616,8 +618,7 @@ impl GpuMultibodySet {
                 backend,
                 vec![
                     0.0f32;
-                    (mb_cap * num_batches * crate::shaders::dynamics::MAX_CONTACT_SENSORS)
-                        as usize
+                    (mb_cap * num_batches * crate::shaders::dynamics::MAX_CONTACT_SENSORS) as usize
                 ],
                 storage | BufferUsages::COPY_SRC,
             )

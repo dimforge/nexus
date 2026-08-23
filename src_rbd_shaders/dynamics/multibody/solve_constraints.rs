@@ -14,8 +14,8 @@ use crate::utils::linalg::MAX_MB_DOFS;
 
 use super::types::{
     MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_TANGENT, MB_JOINT_KIND_COUPLING,
-    MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_MOTOR, MultibodyContactConstraint, MultibodyInfo,
-    MultibodyJointConstraint,
+    MB_JOINT_KIND_FRICTION, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_MOTOR, MultibodyContactConstraint,
+    MultibodyInfo, MultibodyJointConstraint,
 };
 
 const LANES: u32 = 64;
@@ -177,7 +177,8 @@ pub fn gpu_mb_solve_constraints(
         let solve = slot_active
             && (cons.kind == MB_JOINT_KIND_LIMIT
                 || cons.kind == MB_JOINT_KIND_MOTOR
-                || cons.kind == MB_JOINT_KIND_COUPLING);
+                || cons.kind == MB_JOINT_KIND_COUPLING
+                || cons.kind == MB_JOINT_KIND_FRICTION);
         #[cfg(not(feature = "web-compat"))]
         if !solve {
             // Unused slot or inactive limit.
@@ -473,7 +474,8 @@ pub fn gpu_mb_solve_joints(
         let solve = slot_active
             && (cons.kind == MB_JOINT_KIND_LIMIT
                 || cons.kind == MB_JOINT_KIND_MOTOR
-                || cons.kind == MB_JOINT_KIND_COUPLING);
+                || cons.kind == MB_JOINT_KIND_COUPLING
+                || cons.kind == MB_JOINT_KIND_FRICTION);
         #[cfg(not(feature = "web-compat"))]
         if !solve {
             // Unused slot or inactive limit.

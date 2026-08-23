@@ -5,14 +5,16 @@ use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
-    GpuMbComputeSolveBounds, GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
-    GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16,
-    GpuMbGravityAndLuT32, GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
-    GpuMbIntegrateVelocities, GpuMbRemoveImpulseJointConstraintBias, GpuMbDelayTick, GpuMbRefreshJointConstraints, GpuMbSeedContactRestitution,
-    GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
-    GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbStashContactsLen,
-    GpuMbTransferContactWarmstart, GpuMbUpdateImpulseJointConstraints,
-    GpuMbWarmstartContactConstraints, Velocity, WorldMassProperties,
+    GpuMbComputeSolveBounds, GpuMbDelayTick, GpuMbFinalizeContactConstraints,
+    GpuMbFinalizeImpulseJointConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1,
+    GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
+    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
+    GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbSeedContactRestitution, GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart,
+    GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
+    GpuMbSolveJoints, GpuMbStashContactsLen, GpuMbTransferContactWarmstart,
+    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, Velocity,
+    WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -237,11 +239,7 @@ impl GpuMultibodySolver {
         // so the full build runs only on the first substep and each later one
         // just refreshes the joint rhs / limit activity / accumulated impulse
         // from the integrated joint positions.
-        if mb.implicit_coriolis
-            || mb.substep_refresh
-            || mb.substep_refresh_light
-            || first_substep
-        {
+        if mb.implicit_coriolis || mb.substep_refresh || mb.substep_refresh_light || first_substep {
             self.build_contact_constraints(
                 encoder,
                 timestamps.as_deref_mut(),
@@ -250,8 +248,7 @@ impl GpuMultibodySolver {
                 first_substep,
             )?;
         } else if mb.has_joint_constraints {
-            let mut pass =
-                encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
+            let mut pass = encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
             self.refresh_joint_constraints.call(
                 &mut pass,
                 [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1],
@@ -363,6 +360,7 @@ impl GpuMultibodySolver {
                 &mut mb.joint_constraint_columns,
                 &mb.dof_couplings,
                 &mut mb.motor_delay_state,
+                &mb.dof_state,
                 &mb.constraint_softness,
                 args.batch_indices,
             )?;

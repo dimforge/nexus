@@ -439,6 +439,19 @@ impl RbdState {
         self.rebuild_batch_indices(backend);
     }
 
+    /// Sets the per-DoF dry joint friction (MJCF `frictionloss`, N·m), in the
+    /// env-major `dofs_per_batch * num_batches` layout described on
+    /// [`GpuMultibodySet::set_dof_frictionloss`](crate::dynamics::GpuMultibodySet::set_dof_frictionloss).
+    ///
+    /// The first non-zero call grows the joint-constraint bank, so the shared
+    /// `BatchIndices` uniform is rebuilt here.
+    #[cfg(feature = "dim3")]
+    pub fn set_dof_frictionloss(&mut self, backend: &GpuBackend, values: &[f32]) {
+        self.multibodies.set_dof_frictionloss(backend, values);
+        self.rebuild_batch_indices(backend);
+        self.multibodies.constraint_caps_dirty = false;
+    }
+
     /// Returns a reference to the GPU buffer containing collision shapes.
     ///
     /// Each shape corresponds to one rigid body in the simulation.

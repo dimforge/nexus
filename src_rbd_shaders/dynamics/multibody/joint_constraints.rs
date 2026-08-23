@@ -18,8 +18,9 @@ use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{DIM, MAX_FLT};
 
 use super::types::{
-    MB_JOINT_KIND_COUPLING, MB_JOINT_KIND_LIMIT, MB_JOINT_KIND_LIMIT_INACTIVE, MB_JOINT_KIND_MOTOR,
-    MbDofCoupling, MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic,
+    MB_JOINT_KIND_COUPLING, MB_JOINT_KIND_FRICTION, MB_JOINT_KIND_LIMIT,
+    MB_JOINT_KIND_LIMIT_INACTIVE, MB_JOINT_KIND_MOTOR, MbDofCoupling, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic,
 };
 use super::ws_soa::{WsAddr, ws_coord};
 
@@ -109,6 +110,7 @@ fn emit_joint_constraints(
     links_workspace: &[Vec4],
     dof_couplings: &[MbDofCoupling],
     joint_constraints: &mut [MultibodyJointConstraint],
+    dof_state: &[f32],
     mb: &MultibodyInfo,
     cons_base: usize,
     batch_id: u32,
@@ -274,6 +276,29 @@ fn emit_joint_constraints(
         joint_constraints.write(cons_base + slot as usize, cons);
         slot += 1;
     }
+
+    // Joint dry friction (MJCF `frictionloss`): one box-bounded row per DoF
+    // that has a non-zero loss. Purely DoF-indexed, so no link walk is needed.
+    // The frictionloss section is all-zero unless the host reserved the extra
+    // slots through `RbdState::set_dof_frictionloss`, so this emits nothing
+    // (and cannot overflow `max_constraints`) by default.
+    let dof_cap = batch_ids.dof_batch_capacity as usize;
+    let frictionloss_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(6 * dof_cap + mb.first_dof as usize);
+    let kin_mask_slice = batch_ids
+        .ib(batch_id, dof_state)
+        .offset(5 * dof_cap + mb.first_dof as usize);
+    for d in 0..mb.ndofs {
+        let fl = frictionloss_slice.read(d as usize);
+        // Kinematic DoFs have a prescribed velocity; a friction row would
+        // fight it.
+        if fl > 0.0 && kin_mask_slice.read(d as usize) == 0.0 {
+            let cons = build_friction_constraint(d, fl, dt, joint_cfm_coeff);
+            joint_constraints.write(cons_base + slot as usize, cons);
+            slot += 1;
+        }
+    }
 }
 
 /// Solve `M · column = J` (writes the `M⁻¹·J` column) and return the raw
@@ -406,6 +431,49 @@ fn build_coupling_constraint(
     }
 }
 
+/// Initialize a single dry-friction constraint slot (MJCF `frictionloss`).
+///
+/// The row has no position residual: it simply drives the DoF velocity to zero
+/// with an impulse clamped to `±frictionloss·dt`, which is MuJoCo's friction
+/// loss (a load-independent force bound, unlike Coulomb friction).
+///
+/// `cfm_coeff` is the shared joint softness (rapier's
+/// `joint.softness.cfm_coeff(dt)`), the same compliance the limit rows use;
+/// it is MuJoCo's `solreffriction` knob. Only CFM applies here, never ERP:
+/// there is no position error for a bias to chase. With the default
+/// near-rigid joint softness the coefficient is ~0 and a DoF whose driving
+/// force stays under the bound sticks exactly; softening it lets the DoF
+/// creep under load instead.
+#[inline]
+fn build_friction_constraint(
+    dof_id: u32,
+    frictionloss: f32,
+    dt: f32,
+    cfm_coeff: f32,
+) -> MultibodyJointConstraint {
+    let max_impulse = frictionloss * dt;
+
+    MultibodyJointConstraint {
+        dof_id,
+        kind: MB_JOINT_KIND_FRICTION,
+        _kind_extra: 0,
+        dof2_id: 0,
+        rhs: 0.0,
+        rhs_wo_bias: 0.0,
+        inv_lhs: 0.0,
+        impulse: 0.0,
+        impulse_lo: -max_impulse,
+        impulse_hi: max_impulse,
+        cfm_coeff,
+        // Folded with the row's `lhs` by the finalize stage.
+        cfm_gain: 0.0,
+        coupling_coeff: 0.0,
+        coupling_offset: 0.0,
+        _kind_extra2: 0,
+        _pad1: 0,
+    }
+}
+
 /// Initialize a single motor constraint slot..
 #[inline]
 #[allow(clippy::too_many_arguments)]
@@ -496,10 +564,12 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_couplings: &[MbDofCoupling],
     // Actuator-delay state, per-batch `[tick, k, prev_target x links]`. Zeroed
     // (the default) means no delay; see `delayed_motor_target`.
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 8)]
-    motor_delay_state: &[f32],
-    #[spirv(uniform, descriptor_set = 0, binding = 9)] softness: &ConstraintSoftness,
-    #[spirv(uniform, descriptor_set = 0, binding = 10)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 8)] motor_delay_state: &[f32],
+    // Packed per-DoF sections; only the kinematic mask (5) and frictionloss
+    // (6) ones are read here.
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 9)] dof_state: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 10)] softness: &ConstraintSoftness,
+    #[spirv(uniform, descriptor_set = 0, binding = 11)] batch_ids: &BatchIndices,
 ) {
     const LANES: u32 = 64;
 
@@ -559,6 +629,7 @@ pub fn gpu_mb_init_joint_constraints(
             links_workspace,
             dof_couplings,
             joint_constraints,
+            dof_state,
             &mb,
             cons_base,
             batch_id,
@@ -631,8 +702,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     joint_constraints: &mut [MultibodyJointConstraint],
     // Actuator-delay state; see `gpu_mb_init_joint_constraints`.
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
-    motor_delay_state: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] motor_delay_state: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
@@ -659,6 +729,15 @@ pub fn gpu_mb_refresh_joint_constraints(
 
     for s in StepRng::new(lane..mb.max_constraints, LANES) {
         let old = joint_constraints.read(cons_base + s as usize);
+        // Friction rows are per-step constants except for the accumulated
+        // impulse, which must restart from zero so the `±frictionloss·dt`
+        // bound applies per substep rather than per step.
+        if old.kind == MB_JOINT_KIND_FRICTION {
+            let mut fresh = old;
+            fresh.impulse = 0.0;
+            joint_constraints.write(cons_base + s as usize, fresh);
+            continue;
+        }
         // Coupling rows are per-step constants; inactive slots stay inactive.
         if old.kind != MB_JOINT_KIND_MOTOR
             && old.kind != MB_JOINT_KIND_LIMIT

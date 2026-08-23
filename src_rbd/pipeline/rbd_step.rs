@@ -119,6 +119,17 @@ impl RbdPipeline {
         };
         let mut stats = RunStats::default();
 
+        // A multibody capacity edit (e.g. reserving the dry-friction
+        // constraint slots on the first `set_dof_frictionloss`) leaves the
+        // shared `BatchIndices` uniform describing the old buffer sizes, so
+        // the kernels would index the resized buffers with stale per-batch
+        // capacities. Re-upload it before anything reads it.
+        #[cfg(feature = "dim3")]
+        if state.multibodies.constraint_caps_dirty {
+            state.rebuild_batch_indices(backend);
+            state.multibodies.constraint_caps_dirty = false;
+        }
+
         // Make sure the color index uniforms are up-to-date.
         // This is the maximum over the colors needed for contacts, joints, and multibodies.
         {
