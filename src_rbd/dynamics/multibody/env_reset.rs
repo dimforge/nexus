@@ -15,8 +15,8 @@
 use super::multibody_set::GpuMultibodySet;
 use crate::math::Vector;
 use crate::shaders::dynamics::{
-    GpuMbEnvReset, GpuMbEnvResetBatch, MULTIBODY_ROOT, MultibodyLinkStatic,
-    MultibodyLinkWorkspace, WS_QUADS, ws_soa_from_structs, ws_soa_to_structs,
+    GpuMbEnvReset, GpuMbEnvResetBatch, MULTIBODY_ROOT, MultibodyLinkStatic, MultibodyLinkWorkspace,
+    WS_QUADS, ws_soa_from_structs, ws_soa_to_structs,
 };
 use glamx::{UVec4, Vec4};
 use khal::BufferUsages;
@@ -136,8 +136,12 @@ impl EnvResetBundle {
                 storage,
             )
             .unwrap(),
-            staging_dofs: Tensor::vector(backend, &vec![0.0f32; (2 * dpb).max(1) as usize], storage)
-                .unwrap(),
+            staging_dofs: Tensor::vector(
+                backend,
+                &vec![0.0f32; (2 * dpb).max(1) as usize],
+                storage,
+            )
+            .unwrap(),
             params: Tensor::scalar(backend, UVec4::new(0, 0, lpb, dpb), uniform).unwrap(),
         }
     }

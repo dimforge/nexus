@@ -57,7 +57,10 @@ pub fn gpu_mb_env_reset(
     }
     if i < dpb {
         dof_values.write((i * nb + env) as usize, staging_dofs.read(i as usize));
-        dof_state.write((i * nb + env) as usize, staging_dofs.read((dpb + i) as usize));
+        dof_state.write(
+            (i * nb + env) as usize,
+            staging_dofs.read((dpb + i) as usize),
+        );
     }
 }
 
@@ -141,7 +144,10 @@ pub fn gpu_mb_env_reset_batch(
             (i * nb + env) as usize,
             templates_dofs.read((t * 2 * dpb + i) as usize),
         );
-        dof_state.write((i * nb + env) as usize, dof_vels.read((r * dpb + i) as usize));
+        dof_state.write(
+            (i * nb + env) as usize,
+            dof_vels.read((r * dpb + i) as usize),
+        );
     }
 }
 

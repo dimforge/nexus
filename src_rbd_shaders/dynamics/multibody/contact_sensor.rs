@@ -1,7 +1,7 @@
 //! Contact "force sensor" readout for RL observations.
 
 use super::types::{
-    MB_CONTACT_KIND_NORMAL, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MultibodyContactConstraint,
+    MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_NORMAL, MultibodyContactConstraint,
     MultibodyInfo,
 };
 use crate::utils::BatchIndices;
