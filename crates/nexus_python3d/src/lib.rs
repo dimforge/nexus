@@ -13,6 +13,7 @@ pub mod math;
 pub mod mpm;
 pub mod nexus;
 pub mod rbd;
+pub mod robot;
 pub mod viewer;
 
 /// The `nexus3d` Python module.
@@ -61,6 +62,7 @@ fn nexus3d(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<loaders::UrdfLoaderOptions>()?;
     m.add_class::<loaders::UrdfRobotHandles>()?;
     m.add_class::<loaders::MjcfSceneInfo>()?;
+    m.add_class::<robot::Robot>()?;
 
     // MPM
     m.add_class::<mpm::SimulationParams>()?;

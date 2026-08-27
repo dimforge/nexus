@@ -53,6 +53,25 @@ pub struct RenderMaterial {
     pub emissive: [f32; 3],
 }
 
+/// Where a visual mesh's texture comes from.
+#[cfg(feature = "dim3")]
+#[derive(Copy, Clone, Debug)]
+pub enum VisualTexture<'a> {
+    /// No texture: the base color alone.
+    None,
+    /// An image file on disk, cached by path.
+    File(&'a Path),
+    /// Encoded image bytes (PNG, JPEG, ...), cached under `name`.
+    Bytes(&'a [u8], &'a str),
+}
+
+#[cfg(feature = "dim3")]
+impl<'a> VisualTexture<'a> {
+    pub fn is_some(&self) -> bool {
+        !matches!(self, VisualTexture::None)
+    }
+}
+
 /// A render-only mesh attached to a rigid body, rendered as its own kiss3d node
 /// (so it can carry a per-mesh texture and PBR material, which the instanced
 /// path can't). Its pose follows the body's world-origin pose each frame,
@@ -68,6 +87,12 @@ pub struct VisualNode {
     pub local_pose: Pose,
     /// Cached GPU pose slot (resolved lazily, like the instanced entries).
     pub pose_index: u32,
+    /// Scene generation this node belongs to (see `RenderContext::generation`).
+    /// Nodes of an inactive generation are detached from the scene graph and
+    /// never re-posed.
+    pub generation: u32,
+    /// Whether the node currently hangs off the scene root.
+    pub attached: bool,
     /// Single-entry GPU descriptor for the zero-readback path (the node is drawn
     /// as one compute-written instance). `None` until the first direct sync.
     desc: Option<Tensor<RbdInstanceDesc>>,
@@ -280,6 +305,21 @@ pub struct RenderContext {
     /// instanced. Driven by body-origin poses in [`Self::update_visual_nodes`].
     #[cfg(feature = "dim3")]
     pub visual_nodes: Vec<VisualNode>,
+    /// When set, [`Self::insert_shape`] registers one kiss3d node per body
+    /// (a [`VisualNode`]) instead of sharing an instanced node per shape type.
+    /// Slower to draw, but the per-object passes (depth, segmentation) and
+    /// per-body ids only see non-instanced nodes.
+    #[cfg(feature = "dim3")]
+    pub prefer_visual_nodes: bool,
+    /// Scene generation stamped on newly inserted visual nodes. Several
+    /// scenes can share one viewer over a process's lifetime (a state per
+    /// scene); bumping the generation and activating one keeps the others'
+    /// nodes hidden instead of following unrelated bodies.
+    #[cfg(feature = "dim3")]
+    pub generation: u32,
+    /// The generation whose visual nodes are drawn and re-posed.
+    #[cfg(feature = "dim3")]
+    pub active_generation: u32,
 }
 
 impl RenderContext {
@@ -290,6 +330,12 @@ impl RenderContext {
             instances: Vec::new(),
             #[cfg(feature = "dim3")]
             visual_nodes: Vec::new(),
+            #[cfg(feature = "dim3")]
+            prefer_visual_nodes: false,
+            #[cfg(feature = "dim3")]
+            generation: 0,
+            #[cfg(feature = "dim3")]
+            active_generation: 0,
         }
     }
 
@@ -367,6 +413,22 @@ impl RenderContext {
             _ => Vec3::new(255.0, 127.0, 0.0) * coeff,
         };
         let color = color.unwrap_or(Vec4::new(rgb.x, rgb.y, rgb.z, 1.0));
+        #[cfg(feature = "dim3")]
+        if self.prefer_visual_nodes {
+            self.insert_visual_mesh(
+                scene,
+                env,
+                handle,
+                shape,
+                local_pose,
+                [color.x, color.y, color.z, color.w],
+                None,
+                None,
+                VisualTexture::None,
+                None,
+            );
+            return;
+        }
         // Translucent instances must go to a dedicated node so they render in the
         // transparent (OIT) pass rather than the opaque one.
         let transparent = color.w < 1.0;
@@ -787,7 +849,7 @@ impl RenderContext {
         color: [f32; 4],
         uvs: Option<&[[f32; 2]]>,
         normals: Option<&[[f32; 3]]>,
-        texture: Option<&Path>,
+        texture: VisualTexture<'_>,
         material: Option<RenderMaterial>,
     ) {
         let Some(mut node) = build_visual_node(scene_3d, shape, uvs, normals, texture.is_some())
@@ -819,10 +881,16 @@ impl RenderContext {
         if color[3] < 1.0 {
             node.set_alpha_mode(kiss3d::scene::AlphaMode::Blend);
         }
-        if let Some(tex_path) = texture {
-            // Key the texture cache by the path so the same file uploads once.
-            let key = tex_path.to_string_lossy();
-            node.set_texture_from_file(tex_path, &key);
+        match texture {
+            VisualTexture::None => {}
+            VisualTexture::File(tex_path) => {
+                // Key the texture cache by the path so the same file uploads once.
+                let key = tex_path.to_string_lossy();
+                node.set_texture_from_file(tex_path, &key);
+            }
+            VisualTexture::Bytes(bytes, name) => {
+                node.set_texture_from_memory(bytes, name);
+            }
         }
 
         self.visual_nodes.push(VisualNode {
@@ -831,10 +899,46 @@ impl RenderContext {
             handle: handle.0,
             local_pose,
             pose_index: u32::MAX,
+            generation: self.generation,
+            attached: true,
             desc: None,
             count_buf: None,
             desc_resolved: false,
         });
+    }
+
+    /// Sets the segmentation id written by the segmentation pass for every
+    /// visual node of body `handle` in `env`. Returns how many nodes were
+    /// tagged; instanced shapes cannot carry an id and are not counted.
+    #[cfg(feature = "dim3")]
+    pub fn set_body_segmentation_id(
+        &mut self,
+        env: u32,
+        handle: RigidBodyHandle,
+        id: u32,
+    ) -> usize {
+        let mut count = 0;
+        for visual in &mut self.visual_nodes {
+            if visual.env == env && visual.handle == handle.0 {
+                visual
+                    .node
+                    .apply_to_objects_mut_recursive(&mut |o| o.set_segmentation_id(id));
+                count += 1;
+            }
+        }
+        count
+    }
+
+    /// Sets the base color of every visual node of body `handle` in `env`.
+    #[cfg(feature = "dim3")]
+    pub fn set_body_color(&mut self, env: u32, handle: RigidBodyHandle, color: [f32; 4]) {
+        for visual in &mut self.visual_nodes {
+            if visual.env == env && visual.handle == handle.0 {
+                visual
+                    .node
+                    .set_color(Color::new(color[0], color[1], color[2], color[3]));
+            }
+        }
     }
 
     /// Updates each visual node's transform from the body-origin poses (indexed
@@ -844,6 +948,9 @@ impl RenderContext {
     #[cfg(feature = "dim3")]
     pub fn update_visual_nodes(&mut self, state: &NexusState, body_poses: &[Pose]) {
         for visual in &mut self.visual_nodes {
+            if visual.generation != self.active_generation {
+                continue; // another scene's node: hidden, not re-posed
+            }
             if visual.pose_index == u32::MAX {
                 visual.pose_index = state
                     .rbd2gpu
@@ -879,6 +986,9 @@ impl RenderContext {
         encoder: &mut GpuEncoder,
     ) -> Result<(), GpuBackendError> {
         for visual in &mut self.visual_nodes {
+            if visual.generation != self.active_generation {
+                continue; // another scene's node: hidden, not re-posed
+            }
             if visual.pose_index == u32::MAX {
                 visual.pose_index = state
                     .rbd2gpu
@@ -937,6 +1047,25 @@ impl RenderContext {
     #[cfg(feature = "dim3")]
     pub fn has_visual_nodes(&self) -> bool {
         !self.visual_nodes.is_empty()
+    }
+
+    /// Starts a new scene generation: later visual nodes belong to it and it
+    /// becomes the active one, and every earlier generation's nodes are
+    /// detached from the scene graph for good (they would otherwise follow
+    /// unrelated bodies of the new state). Returns the generation id. Nodes
+    /// are never re-attached: kiss3d draws a node re-added to the graph once
+    /// per re-attachment, so a superseded scene cannot be rendered again.
+    #[cfg(feature = "dim3")]
+    pub fn next_generation(&mut self) -> u32 {
+        self.generation += 1;
+        self.active_generation = self.generation;
+        for visual in &mut self.visual_nodes {
+            if visual.generation != self.active_generation && visual.attached {
+                visual.node.detach();
+                visual.attached = false;
+            }
+        }
+        self.generation
     }
 }
 

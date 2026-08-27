@@ -784,6 +784,93 @@ impl GpuMultibodySet {
         Ok(())
     }
 
+    /// Host copy of the descriptor of multibody `mb_idx` in `batch_id` (link
+    /// and DoF offsets relative to the batch), or `None` when out of range.
+    pub fn multibody_layout(&self, batch_id: u32, mb_idx: u32) -> Option<MultibodyInfo> {
+        self.info_mirror
+            .get((batch_id * self.multibodies_per_batch + mb_idx) as usize)
+            .copied()
+    }
+
+    /// Overwrites the kinematic part of link slot `k` (per-batch link index) of
+    /// `batch_id`: joint rotation and generalized coordinates, local-to-parent
+    /// and local-to-world poses, the COM shifts and the world COM. The link's
+    /// joint, body and kinematic-acceleration velocities are zeroed; external
+    /// wrenches are untouched. This is the teleport primitive behind
+    /// joint-position resets: the next step's forward kinematics re-derives
+    /// the poses from the coordinates, the poses written here only keep
+    /// readbacks consistent until then.
+    #[cfg(feature = "dim3")]
+    pub fn set_link_kinematic_state(
+        &mut self,
+        backend: &GpuBackend,
+        batch_id: u32,
+        k: u32,
+        joint_rot: crate::math::Rotation,
+        coords: [f32; crate::shaders::dynamics::MAX_JOINT_DOFS],
+        local_to_parent: Pose,
+        local_to_world: Pose,
+        shift02: crate::math::Vector,
+        shift23: crate::math::Vector,
+        world_com: crate::math::Vector,
+    ) -> Result<(), GpuBackendError> {
+        use crate::shaders::dynamics::{
+            Velocity, WS_EXT_FORCE, WS_JOINT_ROT, WS_JOINT_VEL, WS_KIN_ACC, WS_LTP, WS_LTW,
+            WS_QUADS, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WS_WORLD_COM, WsAddr, ws_set_coord,
+            ws_set_pose, ws_set_rot, ws_set_vec, ws_set_vel,
+        };
+
+        // A link's quads are dense in the SoA buffer, so the record is built
+        // in a scratch one-link, one-batch view and uploaded as a prefix.
+        let mut quads = vec![glamx::Vec4::ZERO; WS_QUADS as usize];
+        let local = WsAddr::new(0, 1, 0);
+        let zero_vel = Velocity {
+            linear: crate::math::Vector::ZERO,
+            padding0: 0,
+            angular: crate::math::AngVector::ZERO,
+            padding1: 0,
+        };
+        ws_set_rot(&mut quads, local, 0, WS_JOINT_ROT, joint_rot);
+        for (i, c) in coords.iter().enumerate() {
+            ws_set_coord(&mut quads, local, 0, i as u32, *c);
+        }
+        ws_set_pose(&mut quads, local, 0, WS_LTP, local_to_parent);
+        ws_set_pose(&mut quads, local, 0, WS_LTW, local_to_world);
+        ws_set_vec(&mut quads, local, 0, WS_SHIFT02, shift02);
+        ws_set_vec(&mut quads, local, 0, WS_SHIFT23, shift23);
+        ws_set_vel(&mut quads, local, 0, WS_JOINT_VEL, zero_vel);
+        ws_set_vel(&mut quads, local, 0, WS_RB_VELS, zero_vel);
+        ws_set_vel(&mut quads, local, 0, WS_KIN_ACC, zero_vel);
+        ws_set_vec(&mut quads, local, 0, WS_WORLD_COM, world_com);
+
+        let a = WsAddr::new(0, self.num_batches, batch_id);
+        backend.write_buffer(
+            self.links_workspace.buffer_mut(),
+            a.at(k, 0) as u64,
+            &quads[..WS_EXT_FORCE as usize],
+        )
+    }
+
+    /// Zeroes the generalized velocities of the per-batch DoFs
+    /// `first_dof..first_dof + ndofs` of `batch_id` (one strided write per DoF).
+    pub fn zero_dof_velocities(
+        &mut self,
+        backend: &GpuBackend,
+        batch_id: u32,
+        first_dof: u32,
+        ndofs: u32,
+    ) -> Result<(), GpuBackendError> {
+        let nb = self.num_batches as u64;
+        for d in first_dof..first_dof + ndofs {
+            backend.write_buffer(
+                self.dof_state.buffer_mut(),
+                d as u64 * nb + batch_id as u64,
+                &[0.0f32],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Per-multibody descriptors (contact counts, dof offsets, ...).
     pub fn multibody_info(&self) -> &Tensor<MultibodyInfo> {
         &self.multibody_info

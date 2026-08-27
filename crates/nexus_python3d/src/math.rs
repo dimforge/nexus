@@ -155,6 +155,29 @@ impl Quat {
         Self(glamx::Quat::from_scaled_axis(axisangle.0))
     }
 
+    /// A (normalized) quaternion from its `x, y, z, w` components.
+    #[staticmethod]
+    fn from_xyzw(x: f32, y: f32, z: f32, w: f32) -> Self {
+        Self(glamx::Quat::from_xyzw(x, y, z, w).normalize())
+    }
+
+    #[getter]
+    fn x(&self) -> f32 {
+        self.0.x
+    }
+    #[getter]
+    fn y(&self) -> f32 {
+        self.0.y
+    }
+    #[getter]
+    fn z(&self) -> f32 {
+        self.0.z
+    }
+    #[getter]
+    fn w(&self) -> f32 {
+        self.0.w
+    }
+
     fn __mul__(&self, rhs: Quat) -> Quat {
         Quat(self.0 * rhs.0)
     }

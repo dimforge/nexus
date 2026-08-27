@@ -8,9 +8,10 @@ use crate::math::Pose;
 use crate::math::{Vec3, Vec4};
 use crate::nexus::{GpuTimestamps, NexusState};
 use crate::rbd::{RigidBodyHandle, SharedShape};
+use crate::robot::{pose_from_wxyz, to_wxyz};
 use khal::backend::GpuBackend;
-use nexus_viewer3d::NexusViewer as RViewer;
-use numpy::{IntoPyArray, PyArray3, PyArrayMethods};
+use nexus_viewer3d::{NexusViewer as RViewer, VisualTexture};
+use numpy::{IntoPyArray, PyArray2, PyArray3, PyArrayMethods};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -180,6 +181,213 @@ impl NexusViewer {
     ) {
         self.inner_mut()
             .insert_visual_shape(env, handle.0, &shape.0, local_pose.0);
+    }
+
+    // --- sensor cameras -----------------------------------------------------
+
+    /// Makes later `insert_shape*` calls register one render node per body
+    /// instead of GPU instances. Required for bodies that sensor cameras must
+    /// see in their depth and segmentation passes and for
+    /// `set_body_segmentation_id`. Call before inserting shapes.
+    fn set_sensor_rendering(&mut self, enabled: bool) {
+        self.inner_mut().set_sensor_rendering(enabled);
+    }
+
+    /// Adds an offscreen sensor camera (`width x height`, vertical field of
+    /// view `fov_y_deg` in degrees) and returns its id. It starts at the
+    /// identity pose.
+    #[pyo3(signature = (width, height, fov_y_deg, znear=0.01, zfar=100.0))]
+    fn add_sensor_camera(
+        &mut self,
+        width: u32,
+        height: u32,
+        fov_y_deg: f32,
+        znear: f32,
+        zfar: f32,
+    ) -> usize {
+        pollster::block_on(self.inner_mut().add_sensor_camera(
+            width,
+            height,
+            fov_y_deg.to_radians(),
+            znear,
+            zfar,
+        ))
+    }
+
+    /// Sets sensor camera `id`'s pose: position and `(w, x, y, z)` quaternion
+    /// of the OpenGL camera frame (looks down its -Z axis, +Y up).
+    fn set_sensor_camera_pose(&mut self, id: usize, pos: [f32; 3], quat: [f32; 4]) {
+        self.inner_mut()
+            .set_sensor_camera_pose(id, pose_from_wxyz(pos, quat));
+    }
+
+    /// Sensor camera `id`'s pose as `(position, (w, x, y, z))`, OpenGL frame.
+    fn sensor_camera_pose(&self, id: usize) -> Option<([f32; 3], [f32; 4])> {
+        let pose = self.inner().sensor_camera(id)?.pose();
+        let t = pose.translation;
+        Some(([t.x, t.y, t.z], to_wxyz(pose.rotation)))
+    }
+
+    /// Attaches sensor camera `id` to body `handle` of `env` with the mount
+    /// pose `pos` / `quat` (`w, x, y, z`, body frame to camera frame). The
+    /// camera follows the body at every `sync`.
+    fn attach_sensor_camera(
+        &mut self,
+        id: usize,
+        env: u32,
+        handle: RigidBodyHandle,
+        pos: [f32; 3],
+        quat: [f32; 4],
+        state: PyRef<NexusState>,
+    ) {
+        self.inner_mut().attach_sensor_camera(
+            id,
+            env,
+            handle.0,
+            pose_from_wxyz(pos, quat),
+            &state.0,
+        );
+    }
+
+    /// Ambient light level of sensor camera `id`'s shaded render.
+    fn set_sensor_camera_ambient(&mut self, id: usize, ambient: f32) {
+        if let Some(sensor) = self.inner_mut().sensor_camera_mut(id) {
+            sensor.set_ambient(ambient);
+        }
+    }
+
+    /// Background color of sensor camera `id`'s shaded render.
+    fn set_sensor_camera_background(&mut self, id: usize, rgba: [f32; 4]) {
+        if let Some(sensor) = self.inner_mut().sensor_camera_mut(id) {
+            sensor.set_background_color(rgba);
+        }
+    }
+
+    /// Renders sensor camera `id` and returns `(rgb, depth, segmentation)`:
+    /// `rgb` is `(H, W, 3)` uint8, `depth` `(H, W)` float32 linear metric depth
+    /// (`0.0` = background), `segmentation` `(H, W)` uint32 per-body ids (`0` =
+    /// background). Each is `None` unless requested.
+    #[pyo3(signature = (id, rgb=true, depth=false, segmentation=false))]
+    #[allow(clippy::type_complexity)]
+    fn render_sensor_camera<'py>(
+        &mut self,
+        py: Python<'py>,
+        id: usize,
+        rgb: bool,
+        depth: bool,
+        segmentation: bool,
+    ) -> PyResult<(
+        Option<Bound<'py, PyArray3<u8>>>,
+        Option<Bound<'py, PyArray2<f32>>>,
+        Option<Bound<'py, PyArray2<u32>>>,
+    )> {
+        let (w, h) = self
+            .inner()
+            .sensor_camera(id)
+            .map(|s| s.size())
+            .ok_or_else(|| PyRuntimeError::new_err(format!("no sensor camera {id}")))?;
+        let (w, h) = (w as usize, h as usize);
+        let rgb = if rgb {
+            let pixels = pollster::block_on(self.inner_mut().render_sensor_rgb(id))
+                .ok_or_else(|| PyRuntimeError::new_err("rgb render failed"))?;
+            Some(Self::to_array(py, w as u32, h as u32, pixels)?)
+        } else {
+            None
+        };
+        let depth = if depth {
+            let values = self
+                .inner_mut()
+                .render_sensor_depth(id)
+                .ok_or_else(|| PyRuntimeError::new_err("depth render failed"))?;
+            Some(
+                values
+                    .into_pyarray(py)
+                    .reshape([h, w])
+                    .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))?,
+            )
+        } else {
+            None
+        };
+        let segmentation = if segmentation {
+            let ids = self
+                .inner_mut()
+                .render_sensor_segmentation(id)
+                .ok_or_else(|| PyRuntimeError::new_err("segmentation render failed"))?;
+            Some(
+                ids.into_pyarray(py)
+                    .reshape([h, w])
+                    .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))?,
+            )
+        } else {
+            None
+        };
+        Ok((rgb, depth, segmentation))
+    }
+
+    /// Starts a new scene generation: render nodes and sensor cameras created
+    /// afterwards belong to it and it becomes the active one, and the previous
+    /// scene's nodes leave the graph for good. Use one generation per
+    /// `NexusState` sharing this viewer; only the latest can render.
+    fn begin_scene(&mut self) -> u32 {
+        self.inner_mut().begin_scene()
+    }
+
+    /// The active (most recently begun) scene generation.
+    fn active_scene(&self) -> u32 {
+        self.inner().active_scene()
+    }
+
+    /// Tags every render node of body `handle` in `env` with segmentation id
+    /// `id` (avoid `0`, the background). Returns the number of nodes tagged;
+    /// `0` means the body has no per-body node (see `set_sensor_rendering`).
+    fn set_body_segmentation_id(&mut self, env: u32, handle: RigidBodyHandle, id: u32) -> usize {
+        self.inner_mut().set_body_segmentation_id(env, handle.0, id)
+    }
+
+    /// Sets the base color (RGBA) of every render node of body `handle` in `env`.
+    fn set_body_color(&mut self, env: u32, handle: RigidBodyHandle, rgba: [f32; 4]) {
+        self.inner_mut().set_body_color(env, handle.0, rgba);
+    }
+
+    /// Ambient light level of the main window's shaded render.
+    fn set_ambient(&mut self, ambient: f32) {
+        self.inner_mut().set_ambient(ambient);
+    }
+
+    /// Registers one render node for body `handle` in `env` drawing `shape`
+    /// with base color `rgba`, optional per-vertex UVs (trimesh shapes only)
+    /// and an optional encoded image texture (`texture` bytes, PNG/JPEG,
+    /// cached under `texture_name`). Unlike `insert_visual_shape`, the node is
+    /// never instanced, so sensor cameras see it in every pass.
+    #[pyo3(signature = (env, handle, shape, local_pose, rgba, uvs=None, texture=None, texture_name=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn insert_sensor_shape(
+        &mut self,
+        env: u32,
+        handle: RigidBodyHandle,
+        shape: PyRef<SharedShape>,
+        local_pose: Pose,
+        rgba: [f32; 4],
+        uvs: Option<Vec<[f32; 2]>>,
+        texture: Option<Vec<u8>>,
+        texture_name: Option<String>,
+    ) {
+        let name = texture_name.unwrap_or_else(|| format!("sensor-texture-{env}-{:?}", handle.0));
+        let tex = match &texture {
+            Some(bytes) => VisualTexture::Bytes(bytes, &name),
+            None => VisualTexture::None,
+        };
+        self.inner_mut().insert_visual_mesh_textured(
+            env,
+            handle.0,
+            &shape.0,
+            local_pose.0,
+            rgba,
+            uvs.as_deref(),
+            None,
+            tex,
+            None,
+        );
     }
 
     // --- run loop ---------------------------------------------------------
