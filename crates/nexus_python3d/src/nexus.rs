@@ -1123,6 +1123,89 @@ impl NexusState {
         self.0.set_rbd_timestep(dt, substeps);
     }
 
+    /// Contact-solver parameters of every environment, applied at the next GPU
+    /// build (call before `finalize`). `None` leaves a value unchanged.
+    /// `contact_natural_frequency` / `contact_damping_ratio` shape the soft
+    /// contact model (higher frequency = stiffer contacts), the `static_*`
+    /// pair applies to contacts at rest, `allowed_linear_error` is the
+    /// tolerated penetration in length units, `max_corrective_velocity` caps
+    /// penetration recovery, `prediction_distance` is the contact detection
+    /// margin, and `internal_pgs_iterations` the multibody solver's PGS
+    /// iterations per substep.
+    #[pyo3(signature = (contact_natural_frequency=None, contact_damping_ratio=None, static_contact_natural_frequency=None, static_contact_damping_ratio=None, allowed_linear_error=None, max_corrective_velocity=None, prediction_distance=None, internal_pgs_iterations=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn set_rbd_solver_params(
+        &mut self,
+        contact_natural_frequency: Option<f32>,
+        contact_damping_ratio: Option<f32>,
+        static_contact_natural_frequency: Option<f32>,
+        static_contact_damping_ratio: Option<f32>,
+        allowed_linear_error: Option<f32>,
+        max_corrective_velocity: Option<f32>,
+        prediction_distance: Option<f32>,
+        internal_pgs_iterations: Option<u32>,
+    ) {
+        for env in 0..self.0.num_environments() {
+            let Some(mut params) = self.0.rbd_sim_params(env) else {
+                continue;
+            };
+            if let Some(v) = contact_natural_frequency {
+                params.contact_natural_frequency = v;
+            }
+            if let Some(v) = contact_damping_ratio {
+                params.contact_damping_ratio = v;
+            }
+            if let Some(v) = static_contact_natural_frequency {
+                params.static_contact_natural_frequency = v;
+            }
+            if let Some(v) = static_contact_damping_ratio {
+                params.static_contact_damping_ratio = v;
+            }
+            if let Some(v) = allowed_linear_error {
+                params.normalized_allowed_linear_error = v;
+            }
+            if let Some(v) = max_corrective_velocity {
+                params.normalized_max_corrective_velocity = v;
+            }
+            if let Some(v) = prediction_distance {
+                params.normalized_prediction_distance = v;
+            }
+            if let Some(v) = internal_pgs_iterations {
+                params.num_internal_pgs_iterations = v.max(1);
+            }
+            self.0.set_rbd_sim_params(env, params);
+        }
+    }
+
+    /// The contact-solver parameters of environment 0 as a dict (see
+    /// `set_rbd_solver_params`), for attestation.
+    fn rbd_solver_params<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        use pyo3::types::PyDict;
+        let dict = PyDict::new(py);
+        if let Some(p) = self.0.rbd_sim_params(0) {
+            dict.set_item("dt", p.dt)?;
+            dict.set_item("substeps", p.num_solver_iterations)?;
+            dict.set_item("contact_natural_frequency", p.contact_natural_frequency)?;
+            dict.set_item("contact_damping_ratio", p.contact_damping_ratio)?;
+            dict.set_item(
+                "static_contact_natural_frequency",
+                p.static_contact_natural_frequency,
+            )?;
+            dict.set_item(
+                "static_contact_damping_ratio",
+                p.static_contact_damping_ratio,
+            )?;
+            dict.set_item("allowed_linear_error", p.normalized_allowed_linear_error)?;
+            dict.set_item(
+                "max_corrective_velocity",
+                p.normalized_max_corrective_velocity,
+            )?;
+            dict.set_item("prediction_distance", p.normalized_prediction_distance)?;
+            dict.set_item("internal_pgs_iterations", p.num_internal_pgs_iterations)?;
+        }
+        Ok(dict)
+    }
+
     // --- rbd config -------------------------------------------------------
 
     fn set_rbd_steps_per_frame(&mut self, steps: u32) {
