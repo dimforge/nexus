@@ -1117,6 +1117,28 @@ impl NexusState {
             .map_err(gpu_err)
     }
 
+    /// Timing and solver statistics of the last `simulate` call as a dict:
+    /// `encoding_time_ms` (CPU command encoding), `gpu_total_time_ms` and
+    /// `gpu_pass_times` (`{pass label: ms}`) from the GPU timestamp queries
+    /// (only populated when a `GpuTimestamps` is passed to `simulate` and
+    /// harvested by `viewer.sync`, which lags a frame or two), plus the
+    /// constraint-coloring `num_colors` / `coloring_iterations`.
+    fn run_stats<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        use pyo3::types::PyDict;
+        let stats = &self.0.run_stats;
+        let dict = PyDict::new(py);
+        dict.set_item("encoding_time_ms", stats.encoding_time_ms())?;
+        dict.set_item("gpu_total_time_ms", stats.gpu_total_time_ms)?;
+        let passes = PyDict::new(py);
+        for (label, ms) in &stats.gpu_pass_times {
+            passes.set_item(label, *ms)?;
+        }
+        dict.set_item("gpu_pass_times", passes)?;
+        dict.set_item("num_colors", stats.num_colors)?;
+        dict.set_item("coloring_iterations", stats.coloring_iterations)?;
+        Ok(dict)
+    }
+
     /// Rigid-body timestep of every environment: `dt` seconds per `simulate`
     /// step, in `substeps` solver substeps. Call before `finalize`.
     fn set_rbd_timestep(&mut self, dt: f32, substeps: u32) {
