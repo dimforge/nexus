@@ -119,6 +119,45 @@ pub struct NexusCounts {
     pub particles: usize,
 }
 
+/// What [`NexusState::multibody_link_slots`] returns: the multibody's index in
+/// its environment, its GPU descriptor, and `(link body, GPU link slot)` per
+/// link in link order.
+#[cfg(feature = "dim3")]
+pub type MultibodySlots = (
+    u32,
+    crate::rbd::shaders::dynamics::MultibodyInfo,
+    Vec<(RigidBodyHandle, u32)>,
+);
+
+/// Failure of [`NexusState::set_multibody_joint_positions`].
+#[derive(Debug)]
+pub enum JointPositionsError {
+    /// The GPU write failed.
+    Gpu(GpuBackendError),
+    /// `qpos` did not have one entry per multibody DoF.
+    DofMismatch { expected: usize, got: usize },
+}
+
+impl From<GpuBackendError> for JointPositionsError {
+    fn from(e: GpuBackendError) -> Self {
+        JointPositionsError::Gpu(e)
+    }
+}
+
+impl core::fmt::Display for JointPositionsError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            JointPositionsError::Gpu(e) => write!(f, "{e:?}"),
+            JointPositionsError::DofMismatch { expected, got } => {
+                write!(
+                    f,
+                    "qpos has {got} entries but the multibody has {expected} DoFs"
+                )
+            }
+        }
+    }
+}
+
 /// High-level, GPU-resident state of a multiphysics simulation.
 ///
 /// Each sub-state (`rbd`/`mpm`) is lazily allocated the first time content
@@ -506,6 +545,35 @@ impl NexusState {
         Ok(())
     }
 
+    /// [`Self::control_multibody_motors`] for a single environment: runs `f` on
+    /// `env`'s rapier world, then pushes that environment's joint data (motor
+    /// targets and gains, limits) to the GPU. Cheaper than the all-environment
+    /// variant when only one environment retargets.
+    #[cfg(feature = "dim3")]
+    pub fn control_multibody_motors_env<F>(
+        &mut self,
+        backend: &GpuBackend,
+        env: usize,
+        f: F,
+    ) -> Result<(), GpuBackendError>
+    where
+        F: FnOnce(&mut PhysicsWorld),
+    {
+        let Some(world) = self.rbd_envs.get_mut(env) else {
+            return Ok(());
+        };
+        f(world);
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.multibodies_mut().sync_joint_data_from_rapier(
+                backend,
+                env as u32,
+                &world.multibody_joints,
+                &world.bodies,
+            )?;
+        }
+        Ok(())
+    }
+
     /// Reads every environment's multibody link workspace back from the GPU in
     /// one transfer: per link, the generalized joint coordinates, accumulated
     /// joint rotation, world pose and world-space velocity.
@@ -555,6 +623,321 @@ impl NexusState {
             .as_ref()
             .map(|rbd| rbd.multibodies().links_per_batch())
             .unwrap_or(0)
+    }
+
+    // --- rigid-body and multibody state access (between steps) -------------
+
+    /// GPU pose slot of `handle` in environment `env`: the index into
+    /// [`Self::read_rigid_body_poses`] and [`Self::read_rigid_body_velocities`].
+    /// `None` before `finalize` or for a handle this state does not know.
+    pub fn rigid_body_gpu_index(&self, env: usize, handle: RigidBodyHandle) -> Option<u32> {
+        self.rbd2gpu
+            .get(env)?
+            .get(handle.0)
+            .map(|r| r.gpu_id)
+            .filter(|id| *id != u32::MAX)
+    }
+
+    /// Reads every environment's rigid-body world-origin poses back from the
+    /// GPU, indexed by [`Self::rigid_body_gpu_index`]. Empty before `finalize`.
+    pub async fn read_rigid_body_poses(&self, backend: &GpuBackend) -> Vec<crate::rbd::math::Pose> {
+        let Some(rbd) = self.rbd.as_ref() else {
+            return Vec::new();
+        };
+        let mut out = vec![crate::rbd::math::Pose::default(); rbd.body_poses().len() as usize];
+        if backend
+            .slow_read_buffer(rbd.body_poses().buffer(), &mut out)
+            .await
+            .is_err()
+        {
+            return Vec::new();
+        }
+        out
+    }
+
+    /// Reads every environment's rigid-body world-space velocities back from
+    /// the GPU, indexed like [`Self::read_rigid_body_poses`].
+    #[cfg(feature = "dim3")]
+    pub async fn read_rigid_body_velocities(
+        &self,
+        backend: &GpuBackend,
+    ) -> Vec<crate::rbd::shaders::dynamics::Velocity> {
+        let Some(rbd) = self.rbd.as_ref() else {
+            return Vec::new();
+        };
+        let mut out = vec![Self::zero_velocity(); rbd.vels().len() as usize];
+        if backend
+            .slow_read_buffer(rbd.vels().buffer(), &mut out)
+            .await
+            .is_err()
+        {
+            return Vec::new();
+        }
+        out
+    }
+
+    #[cfg(feature = "dim3")]
+    fn zero_velocity() -> crate::rbd::shaders::dynamics::Velocity {
+        crate::rbd::shaders::dynamics::Velocity {
+            linear: crate::rbd::math::Vector::ZERO,
+            padding0: 0,
+            angular: crate::rbd::math::AngVector::ZERO,
+            padding1: 0,
+        }
+    }
+
+    /// Teleports a free rigid body: overwrites its world-origin pose on the GPU.
+    /// Valid between steps, after `finalize`. A multibody link's pose is
+    /// re-derived from its joint coordinates every step, so links go through
+    /// [`Self::set_multibody_joint_positions`] instead. Unknown handles are
+    /// ignored.
+    pub fn set_rigid_body_pose(
+        &mut self,
+        backend: &GpuBackend,
+        env: usize,
+        handle: RigidBodyHandle,
+        pose: crate::rbd::math::Pose,
+    ) -> Result<(), GpuBackendError> {
+        let Some(id) = self.rigid_body_gpu_index(env, handle) else {
+            return Ok(());
+        };
+        let Some(rbd) = self.rbd.as_mut() else {
+            return Ok(());
+        };
+        backend.write_buffer(rbd.body_poses_mut().buffer_mut(), id as u64, &[pose])
+    }
+
+    /// Overwrites a rigid body's world-space linear and angular velocity on the
+    /// GPU. Same validity rules as [`Self::set_rigid_body_pose`].
+    #[cfg(feature = "dim3")]
+    pub fn set_rigid_body_velocity(
+        &mut self,
+        backend: &GpuBackend,
+        env: usize,
+        handle: RigidBodyHandle,
+        linvel: crate::rbd::math::Vector,
+        angvel: crate::rbd::math::AngVector,
+    ) -> Result<(), GpuBackendError> {
+        let Some(id) = self.rigid_body_gpu_index(env, handle) else {
+            return Ok(());
+        };
+        let Some(rbd) = self.rbd.as_mut() else {
+            return Ok(());
+        };
+        let mut vel = Self::zero_velocity();
+        vel.linear = linvel;
+        vel.angular = angvel;
+        backend.write_buffer(rbd.vels_mut().buffer_mut(), id as u64, &[vel])
+    }
+
+    /// Sets the rigid-body timestep of every environment: `dt` seconds per
+    /// `simulate` step, split into `substeps` solver substeps. Environments must
+    /// share one parameter set, so this applies to all of them. Takes effect at
+    /// the next GPU build, so call it before `finalize`.
+    pub fn set_rbd_timestep(&mut self, dt: f32, substeps: u32) {
+        for params in &mut self.rbd_sim_params {
+            params.dt = dt;
+            params.num_solver_iterations = substeps.max(1);
+        }
+    }
+
+    /// The multibody rooted at (or containing) `body` in environment `env`, as
+    /// its index in the environment's multibody iteration order, the GPU
+    /// descriptor of that multibody, and every link's rigid body paired with its
+    /// per-environment GPU link slot (the stride unit of
+    /// [`Self::read_multibody_links`]), in link order. `None` when `body` is
+    /// not part of a multibody or before `finalize`.
+    #[cfg(feature = "dim3")]
+    pub fn multibody_link_slots(
+        &self,
+        env: usize,
+        body: RigidBodyHandle,
+    ) -> Option<MultibodySlots> {
+        let world = self.rbd_envs.get(env)?;
+        let link_id = world.multibody_joints.rigid_body_link(body)?;
+        let target = world.multibody_joints.get_multibody(link_id.multibody)?;
+        let mb_idx = world
+            .multibody_joints
+            .multibodies()
+            .position(|mb| core::ptr::eq(mb, target))? as u32;
+        let info = self
+            .rbd
+            .as_ref()?
+            .multibodies()
+            .multibody_layout(env as u32, mb_idx)?;
+        let links = target
+            .links()
+            .enumerate()
+            .map(|(i, link)| (link.rigid_body_handle(), info.first_link + i as u32))
+            .collect();
+        Some((mb_idx, info, links))
+    }
+
+    /// Generalized coordinates of the multibody containing `body` in environment
+    /// `env`, as last written to the CPU multibody (`finalize`'s authored state
+    /// or the last [`Self::set_multibody_joint_positions`]): assembly order,
+    /// i.e. links in order, each link's free linear then angular DoFs. The GPU's
+    /// current coordinates are in [`Self::read_multibody_links`].
+    #[cfg(feature = "dim3")]
+    pub fn multibody_joint_positions(&self, env: usize, body: RigidBodyHandle) -> Option<Vec<f32>> {
+        let world = self.rbd_envs.get(env)?;
+        let link_id = world.multibody_joints.rigid_body_link(body)?;
+        let mb = world.multibody_joints.get_multibody(link_id.multibody)?;
+        let root_fixed = Self::multibody_root_is_fixed(&world.bodies, mb);
+        let mut out = Vec::with_capacity(mb.ndofs());
+        for (i, link) in mb.links().enumerate() {
+            if i == 0 && root_fixed {
+                continue;
+            }
+            Self::push_free_coords(link.joint(), &mut out);
+        }
+        Some(out)
+    }
+
+    /// Whether the multibody's root body is not dynamic. rapier models such a
+    /// root with a free joint whose six coordinates the GPU build locks, so
+    /// they are excluded from the joint-position vectors.
+    #[cfg(feature = "dim3")]
+    pub fn multibody_root_is_fixed(
+        bodies: &crate::rapier::dynamics::RigidBodySet,
+        mb: &crate::rapier::dynamics::Multibody,
+    ) -> bool {
+        !bodies
+            .get(mb.root().rigid_body_handle())
+            .map(|rb| rb.is_dynamic())
+            .unwrap_or(false)
+    }
+
+    /// Appends the joint's free coordinates in rapier's assembly order (linear
+    /// axes first, then angular) to `out`.
+    #[cfg(feature = "dim3")]
+    fn push_free_coords(joint: &crate::rapier::dynamics::MultibodyJoint, out: &mut Vec<f32>) {
+        let coords = joint.coords();
+        let locked = joint.data.locked_axes.bits();
+        for (axis, coord) in coords.iter().enumerate().take(6) {
+            if locked & (1 << axis) == 0 {
+                out.push(*coord);
+            }
+        }
+    }
+
+    /// Sets the generalized coordinates of the multibody containing `body` in
+    /// environment `env` (same order as [`Self::multibody_joint_positions`]) and
+    /// zeroes its joint velocities, on the CPU multibody and on the GPU: link
+    /// workspaces, link body poses and velocities, and the generalized
+    /// velocities. Valid between steps, after `finalize`. Errors when `qpos`
+    /// does not have one entry per DoF; a `body` outside any multibody is
+    /// ignored.
+    #[cfg(feature = "dim3")]
+    pub fn set_multibody_joint_positions(
+        &mut self,
+        backend: &GpuBackend,
+        env: usize,
+        body: RigidBodyHandle,
+        qpos: &[f32],
+    ) -> Result<(), JointPositionsError> {
+        let Some((_, info, slots)) = self.multibody_link_slots(env, body) else {
+            return Ok(());
+        };
+        let Some(current) = self.multibody_joint_positions(env, body) else {
+            return Ok(());
+        };
+        if current.len() != qpos.len() {
+            return Err(JointPositionsError::DofMismatch {
+                expected: current.len(),
+                got: qpos.len(),
+            });
+        }
+        let world = &mut self.rbd_envs[env];
+        let PhysicsWorld {
+            bodies,
+            multibody_joints,
+            ..
+        } = world;
+        let link_id = *multibody_joints
+            .rigid_body_link(body)
+            .unwrap_or_else(|| unreachable!());
+        let mb = multibody_joints
+            .get_multibody_mut(link_id.multibody)
+            .unwrap_or_else(|| unreachable!());
+        // The displacement spans rapier's full assembly vector; a fixed root's
+        // (locked) coordinates stay put.
+        let root_fixed = Self::multibody_root_is_fixed(bodies, mb);
+        let mut disp = Vec::with_capacity(mb.ndofs());
+        let mut next = 0usize;
+        for (i, link) in mb.links().enumerate() {
+            let ndofs = link.joint().ndofs();
+            if i == 0 && root_fixed {
+                disp.extend(core::iter::repeat_n(0.0, ndofs));
+                continue;
+            }
+            for _ in 0..ndofs {
+                disp.push(qpos[next] - current[next]);
+                next += 1;
+            }
+        }
+        mb.apply_displacements(&disp);
+        mb.forward_kinematics(bodies, false);
+        mb.update_rigid_bodies(bodies, false);
+        mb.generalized_velocity_mut().fill(0.0);
+
+        let Some(rbd) = self.rbd.as_mut() else {
+            return Ok(());
+        };
+        let rbd2gpu = &self.rbd2gpu[env];
+        for (k, (link, (handle, slot))) in mb.links().zip(&slots).enumerate() {
+            let rb = &bodies[*handle];
+            let ltw = *link.local_to_world();
+            let ltp = *link.local_to_parent();
+            let world_com = ltw * rb.mass_properties().local_mprops.local_com;
+            // The COM shifts mirror the GPU forward-kinematics kernel: parent
+            // COM to the child anchor, then child anchor to the link COM.
+            let (shift02, shift23) = match link.parent_id() {
+                Some(parent_id) if k > 0 => {
+                    let parent = mb.link(parent_id).unwrap_or_else(|| unreachable!());
+                    let parent_rb = &bodies[parent.rigid_body_handle()];
+                    let parent_com = *parent.local_to_world()
+                        * parent_rb.mass_properties().local_mprops.local_com;
+                    let anchor = ltw * link.joint().data.local_frame2.translation;
+                    (anchor - parent_com, world_com - anchor)
+                }
+                _ => (
+                    crate::rbd::math::Vector::ZERO,
+                    crate::rbd::math::Vector::ZERO,
+                ),
+            };
+            rbd.multibodies_mut().set_link_kinematic_state(
+                backend,
+                env as u32,
+                *slot,
+                link.joint().joint_rot(),
+                link.joint().coords(),
+                ltp,
+                ltw,
+                shift02,
+                shift23,
+                world_com,
+            )?;
+            if let Some(id) = rbd2gpu
+                .get(handle.0)
+                .map(|r| r.gpu_id)
+                .filter(|id| *id != u32::MAX)
+            {
+                backend.write_buffer(rbd.body_poses_mut().buffer_mut(), id as u64, &[ltw])?;
+                backend.write_buffer(
+                    rbd.vels_mut().buffer_mut(),
+                    id as u64,
+                    &[Self::zero_velocity()],
+                )?;
+            }
+        }
+        rbd.multibodies_mut().zero_dof_velocities(
+            backend,
+            env as u32,
+            info.first_dof,
+            info.ndofs,
+        )?;
+        Ok(())
     }
 
     /// Mutable access to environment `env`'s rapier world that does **not** mark

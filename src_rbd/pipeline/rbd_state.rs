@@ -361,6 +361,17 @@ impl RbdState {
         &mut self.body_poses
     }
 
+    /// Per-body world-space velocities, indexed like [`Self::body_poses`].
+    pub fn vels(&self) -> &Tensor<GpuVelocity> {
+        &self.vels
+    }
+
+    /// Mutable access to the per-body velocities, for teleports and resets.
+    /// Only valid between steps, like [`Self::body_poses_mut`].
+    pub fn vels_mut(&mut self) -> &mut Tensor<GpuVelocity> {
+        &mut self.vels
+    }
+
     /// Live collision-pair count (total across all batches) most recently
     /// harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
     /// frame or two; `0` until the first readback completes.

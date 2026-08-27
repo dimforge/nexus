@@ -23,6 +23,9 @@ pub struct UrdfLoaderOptions {
     pub enable_joint_collisions: bool,
     pub scale: f32,
     pub shift: Option<Pose>,
+    /// Replace every mesh collider by its convex hull (`False` keeps the
+    /// triangle mesh).
+    pub convex_hull: bool,
 }
 
 #[pymethods]
@@ -36,7 +39,9 @@ impl UrdfLoaderOptions {
         enable_joint_collisions=false,
         scale=1.0,
         shift=None,
+        convex_hull=false,
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         create_colliders_from_collision_shapes: bool,
         create_colliders_from_visual_shapes: bool,
@@ -45,6 +50,7 @@ impl UrdfLoaderOptions {
         enable_joint_collisions: bool,
         scale: f32,
         shift: Option<Pose>,
+        convex_hull: bool,
     ) -> Self {
         Self {
             create_colliders_from_collision_shapes,
@@ -54,6 +60,7 @@ impl UrdfLoaderOptions {
             enable_joint_collisions,
             scale,
             shift,
+            convex_hull,
         }
     }
 }
@@ -68,6 +75,12 @@ impl UrdfLoaderOptions {
             enable_joint_collisions: self.enable_joint_collisions,
             scale: self.scale,
             shift: self.shift.map(|p| p.0).unwrap_or(rp::Pose::IDENTITY),
+            mesh_converter: self
+                .convex_hull
+                .then_some(rapier3d::prelude::MeshConverter::ConvexHull),
+            // Keep every URDF link so `UrdfRobot::links` stays index-aligned
+            // with `urdf_rs::Robot::links` (link and joint names).
+            squeeze_empty_fixed_links: false,
             ..Default::default()
         }
     }

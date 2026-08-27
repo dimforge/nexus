@@ -54,6 +54,10 @@ use rapier::prelude::{RigidBodyHandle, SharedShape};
 
 use crate::backend::BackendType;
 use crate::graphics::RenderContext;
+#[cfg(feature = "dim3")]
+use crate::graphics::VisualTexture;
+#[cfg(feature = "dim3")]
+use crate::sensors::SensorCamera;
 use crate::{DemoKind, RunState, Transition, UiSections};
 
 /// Per-particle coloring mode for MPM rendering, written into the
@@ -233,6 +237,15 @@ pub struct NexusViewer {
     /// frames so samples keep accumulating while the scene is static.
     #[cfg(feature = "dim3")]
     raytracer: Option<RayTracer>,
+    /// Offscreen sensor cameras (see [`crate::sensors`]). While any exists,
+    /// `sync` takes the readback path so attached cameras can follow their body
+    /// and the per-object passes see world-posed nodes.
+    #[cfg(feature = "dim3")]
+    sensors: Vec<SensorCamera>,
+    /// Body-origin poses from the last readback sync, indexed by GPU pose slot.
+    /// Empty on the zero-readback path.
+    #[cfg(feature = "dim3")]
+    body_pose_cache: Vec<Pose>,
     pub ui: UiState,
 }
 
@@ -333,6 +346,10 @@ impl NexusViewer {
             draw_ui: true,
             #[cfg(feature = "dim3")]
             raytracer: None,
+            #[cfg(feature = "dim3")]
+            sensors: Vec::new(),
+            #[cfg(feature = "dim3")]
+            body_pose_cache: Vec::new(),
             ui: UiState {
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
@@ -446,6 +463,7 @@ impl NexusViewer {
     fn direct_render_path(&self) -> bool {
         self.webgpu_shared
             && !self.rt_active()
+            && !self.sensors_active()
             && self.ui.backend_type == BackendType::Gpu
             && matches!(self.webgpu, Some(KhalGpuBackend::WebGpu(_)))
     }
@@ -458,6 +476,20 @@ impl NexusViewer {
         #[cfg(feature = "dim3")]
         {
             self.raytracer.is_some()
+        }
+        #[cfg(not(feature = "dim3"))]
+        {
+            false
+        }
+    }
+
+    /// Whether sensor cameras exist. Attached cameras need the CPU body poses
+    /// and the depth/segmentation passes need world-posed nodes, both of which
+    /// only the readback path provides.
+    fn sensors_active(&self) -> bool {
+        #[cfg(feature = "dim3")]
+        {
+            !self.sensors.is_empty()
         }
         #[cfg(not(feature = "dim3"))]
         {
@@ -658,6 +690,30 @@ impl NexusViewer {
         texture: Option<&std::path::Path>,
         material: Option<crate::graphics::RenderMaterial>,
     ) {
+        let texture = match texture {
+            Some(path) => VisualTexture::File(path),
+            None => VisualTexture::None,
+        };
+        self.insert_visual_mesh_textured(
+            env, handle, shape, local_pose, color, uvs, normals, texture, material,
+        );
+    }
+
+    /// [`Self::insert_visual_mesh`] with any texture source, including encoded
+    /// image bytes generated at runtime.
+    #[cfg(feature = "dim3")]
+    pub fn insert_visual_mesh_textured(
+        &mut self,
+        env: u32,
+        handle: RigidBodyHandle,
+        shape: &SharedShape,
+        local_pose: Pose,
+        color: [f32; 4],
+        uvs: Option<&[[f32; 2]]>,
+        normals: Option<&[[f32; 3]]>,
+        texture: VisualTexture<'_>,
+        material: Option<crate::graphics::RenderMaterial>,
+    ) {
         self.nexus_render.insert_visual_mesh(
             &mut self.scene3d,
             env,
@@ -670,6 +726,192 @@ impl NexusViewer {
             texture,
             material,
         );
+    }
+
+    // --- sensor cameras -----------------------------------------------------
+
+    /// Makes every later `insert_shape*` register one node per body instead of
+    /// GPU instances (see `RenderContext::prefer_visual_nodes`). Required for
+    /// bodies that sensor cameras must see in their depth and segmentation
+    /// passes, and for [`Self::set_body_segmentation_id`]. Call before
+    /// inserting the shapes.
+    #[cfg(feature = "dim3")]
+    pub fn set_sensor_rendering(&mut self, enabled: bool) {
+        self.nexus_render.prefer_visual_nodes = enabled;
+    }
+
+    /// Adds an offscreen sensor camera of `width x height` pixels with a
+    /// vertical field of view `fov_y` (radians) and the given clip planes, and
+    /// returns its index. The camera starts at the identity pose; position it
+    /// with [`Self::set_sensor_camera_pose`] or [`Self::attach_sensor_camera`].
+    #[cfg(feature = "dim3")]
+    pub async fn add_sensor_camera(
+        &mut self,
+        width: u32,
+        height: u32,
+        fov_y: f32,
+        znear: f32,
+        zfar: f32,
+    ) -> usize {
+        let mut sensor = SensorCamera::new(width, height, fov_y, znear, zfar).await;
+        sensor.generation = self.nexus_render.generation;
+        self.sensors.push(sensor);
+        self.sensors.len() - 1
+    }
+
+    /// Starts a new scene generation (see `RenderContext::next_generation`):
+    /// visual nodes and sensor cameras created afterwards belong to it, and it
+    /// becomes the active one; the previous scene's nodes leave the graph and
+    /// its attached cameras stop tracking. Call when a new simulation state is
+    /// built on a viewer that already showed another.
+    #[cfg(feature = "dim3")]
+    pub fn begin_scene(&mut self) -> u32 {
+        self.nexus_render.next_generation()
+    }
+
+    /// The active (most recently begun) scene generation.
+    #[cfg(feature = "dim3")]
+    pub fn active_scene(&self) -> u32 {
+        self.nexus_render.active_generation
+    }
+
+    /// Number of sensor cameras.
+    #[cfg(feature = "dim3")]
+    pub fn num_sensor_cameras(&self) -> usize {
+        self.sensors.len()
+    }
+
+    /// The sensor camera at `id`.
+    #[cfg(feature = "dim3")]
+    pub fn sensor_camera(&self, id: usize) -> Option<&SensorCamera> {
+        self.sensors.get(id)
+    }
+
+    /// The sensor camera at `id`, mutably (pose, attachment, ambient, ...).
+    #[cfg(feature = "dim3")]
+    pub fn sensor_camera_mut(&mut self, id: usize) -> Option<&mut SensorCamera> {
+        self.sensors.get_mut(id)
+    }
+
+    /// Sets sensor camera `id`'s pose (OpenGL convention: looking down local
+    /// -Z, +Y up). Overridden at the next `sync` while the camera is attached.
+    #[cfg(feature = "dim3")]
+    pub fn set_sensor_camera_pose(&mut self, id: usize, pose: Pose) {
+        if let Some(sensor) = self.sensors.get_mut(id) {
+            sensor.set_pose(pose);
+        }
+    }
+
+    /// Attaches sensor camera `id` to body `handle` of environment `env` with
+    /// the mount pose `local_pose` (body frame to camera frame). The camera pose
+    /// is refreshed from the readback body poses at every `sync`, and once
+    /// right away if a readback already happened.
+    #[cfg(feature = "dim3")]
+    pub fn attach_sensor_camera(
+        &mut self,
+        id: usize,
+        env: u32,
+        handle: RigidBodyHandle,
+        local_pose: Pose,
+        state: &NexusState,
+    ) {
+        if let Some(sensor) = self.sensors.get_mut(id) {
+            sensor.attach(env, handle.0, local_pose);
+        }
+        self.update_sensor_attachments(state);
+    }
+
+    /// Body-origin pose of `handle` in `env` from the last readback `sync`.
+    #[cfg(feature = "dim3")]
+    pub fn cached_body_pose(
+        &self,
+        state: &NexusState,
+        env: u32,
+        handle: RigidBodyHandle,
+    ) -> Option<Pose> {
+        let slot = state
+            .rbd2gpu
+            .get(env as usize)?
+            .get(handle.0)
+            .map(|r| r.gpu_id)?;
+        self.body_pose_cache.get(slot as usize).copied()
+    }
+
+    /// Re-poses every attached sensor camera from the cached body poses.
+    #[cfg(feature = "dim3")]
+    fn update_sensor_attachments(&mut self, state: &NexusState) {
+        if self.body_pose_cache.is_empty() {
+            return;
+        }
+        let active = self.nexus_render.active_generation;
+        for sensor in &mut self.sensors {
+            if sensor.generation != active {
+                continue;
+            }
+            let Some(att) = sensor.attachment() else {
+                continue;
+            };
+            let slot = state
+                .rbd2gpu
+                .get(att.env as usize)
+                .and_then(|env| env.get(att.handle))
+                .map(|r| r.gpu_id);
+            if let Some(body_pose) = slot.and_then(|s| self.body_pose_cache.get(s as usize)) {
+                sensor.set_pose(*body_pose * att.local_pose);
+            }
+        }
+    }
+
+    /// Renders sensor camera `id`'s shaded RGB image (row-major, top-left
+    /// origin, `width * height * 3` bytes).
+    #[cfg(feature = "dim3")]
+    pub async fn render_sensor_rgb(&mut self, id: usize) -> Option<Vec<u8>> {
+        let sensor = self.sensors.get_mut(id)?;
+        Some(sensor.render_rgb(&mut self.scene3d).await)
+    }
+
+    /// Renders sensor camera `id`'s linear metric depth (`0.0` = background).
+    #[cfg(feature = "dim3")]
+    pub fn render_sensor_depth(&mut self, id: usize) -> Option<Vec<f32>> {
+        let sensor = self.sensors.get_mut(id)?;
+        Some(sensor.render_depth(&mut self.scene3d))
+    }
+
+    /// Renders sensor camera `id`'s per-pixel segmentation ids (`0` = background).
+    #[cfg(feature = "dim3")]
+    pub fn render_sensor_segmentation(&mut self, id: usize) -> Option<Vec<u32>> {
+        let sensor = self.sensors.get_mut(id)?;
+        Some(sensor.render_segmentation(&mut self.scene3d))
+    }
+
+    /// Tags every visual node of body `handle` in `env` with segmentation id
+    /// `id` (avoid `0`, the background). Returns the number of nodes tagged.
+    #[cfg(feature = "dim3")]
+    pub fn set_body_segmentation_id(
+        &mut self,
+        env: u32,
+        handle: RigidBodyHandle,
+        id: u32,
+    ) -> usize {
+        self.nexus_render.set_body_segmentation_id(env, handle, id)
+    }
+
+    /// Sets the base color of every visual node of body `handle` in `env`.
+    #[cfg(feature = "dim3")]
+    pub fn set_body_color(&mut self, env: u32, handle: RigidBodyHandle, color: [f32; 4]) {
+        self.nexus_render.set_body_color(env, handle, color)
+    }
+
+    /// Ambient light level of the main window's shaded render.
+    pub fn set_ambient(&mut self, ambient: f32) {
+        self.window.set_ambient(ambient);
+    }
+
+    /// Adds a directional light to the 3D scene, shared by the window and
+    /// every sensor camera.
+    #[cfg(feature = "dim3")]
+    pub fn add_directional_light(&mut self, direction: glamx::Vec3) {
+        self.scene3d.add_directional_light(direction);
     }
 
     async fn sync_timestamps(&mut self, timestamps: Option<&mut GpuTimestamps>) {
@@ -708,9 +950,10 @@ impl NexusViewer {
             self.nexus_render.update_instances_from_poses(state, &cache);
 
             // Body-attached visual meshes follow the body-origin poses, since
-            // their local poses are body-relative.
+            // their local poses are body-relative. Attached sensor cameras use
+            // the same poses.
             #[cfg(feature = "dim3")]
-            if self.nexus_render.has_visual_nodes() {
+            if self.nexus_render.has_visual_nodes() || !self.sensors.is_empty() {
                 let body_poses = rbd.body_poses();
                 let mut body_cache = vec![Pose::default(); body_poses.len() as usize];
                 let _ = self
@@ -718,6 +961,8 @@ impl NexusViewer {
                     .slow_read_buffer(body_poses.buffer(), &mut body_cache)
                     .await;
                 self.nexus_render.update_visual_nodes(state, &body_cache);
+                self.body_pose_cache = body_cache;
+                self.update_sensor_attachments(state);
             }
         }
 

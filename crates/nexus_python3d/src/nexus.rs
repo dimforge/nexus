@@ -8,6 +8,7 @@ use crate::rbd::{
     Collider, ImpulseJointHandle, JointArg, JointAxis, MultibodyJointHandle, RigidBody,
     RigidBodyHandle, SharedShape,
 };
+use crate::robot::{Robot, build_robot, free_axes, joint_axis, pose_from_wxyz, to_wxyz};
 use crate::viewer::NexusViewer;
 use khal::backend::GpuTimestamps as RGpuTimestamps;
 use nexus3d::mpm::solver::BoundaryCondition as RBoundaryCondition;
@@ -15,10 +16,11 @@ use nexus3d::prelude::{
     NexusPipeline as RNexusPipeline, NexusPipelineMask, NexusState as RNexusState,
     RbdCoupling as RRbdCoupling,
 };
-use numpy::PyArray2;
+use numpy::{PyArray1, PyArray2};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use rapier3d::prelude as rp;
+use std::collections::HashMap;
 
 /// Maps a GPU backend error to a Python exception.
 fn gpu_err<E: std::fmt::Debug>(e: E) -> PyErr {
@@ -466,6 +468,661 @@ impl NexusState {
         self.0.multibody_links_per_env()
     }
 
+    // --- robots -------------------------------------------------------------
+
+    /// Loads a URDF robot into environment `env` as one multibody and returns
+    /// its [`Robot`] (names, DoF layout, limits, render shapes). Register the
+    /// render shapes with `viewer.insert_visual_shape(env, body, shape, pose)`.
+    #[pyo3(signature = (env, path, options))]
+    fn load_urdf_robot(
+        &mut self,
+        env: usize,
+        path: std::path::PathBuf,
+        options: PyRef<UrdfLoaderOptions>,
+    ) -> PyResult<Robot> {
+        use rapier3d_urdf::{UrdfMultibodyOptions, UrdfRobot};
+        let opts = options.to_rapier();
+        let (robot, urdf) = UrdfRobot::from_file(&path, opts, None).map_err(|e| {
+            PyRuntimeError::new_err(format!("failed to load URDF {}: {e}", path.display()))
+        })?;
+        if env >= self.0.num_environments() {
+            return Err(PyRuntimeError::new_err(format!(
+                "environment {env} does not exist"
+            )));
+        }
+        let world = self.0.rbd_world_mut(env);
+        let handles = robot.insert_using_multibody_joints(
+            &mut world.bodies,
+            &mut world.colliders,
+            &mut world.multibody_joints,
+            UrdfMultibodyOptions::DISABLE_SELF_CONTACTS,
+        );
+        let mut body_names = HashMap::new();
+        let mut child_joint_names = HashMap::new();
+        for (link, urdf_link) in handles.links.iter().zip(&urdf.links) {
+            body_names.insert(link.body, urdf_link.name.clone());
+        }
+        for (joint, urdf_joint) in handles.joints.iter().zip(&urdf.joints) {
+            child_joint_names.insert(joint.link2, urdf_joint.name.clone());
+        }
+        let mut render_shapes = Vec::new();
+        for link in &handles.links {
+            for collider in &link.colliders {
+                let (shape, local_pose) = match &collider.visual {
+                    Some(v) => (v.shape.clone(), v.local_pose),
+                    None => (
+                        world.colliders[collider.handle].shared_shape().clone(),
+                        rp::Pose::IDENTITY,
+                    ),
+                };
+                render_shapes.push((
+                    RigidBodyHandle(link.body),
+                    SharedShape(shape),
+                    Pose(local_pose),
+                ));
+            }
+        }
+        let root = handles
+            .links
+            .first()
+            .map(|l| l.body)
+            .ok_or_else(|| PyRuntimeError::new_err("URDF has no links"))?;
+        build_robot(
+            world,
+            env,
+            root,
+            &body_names,
+            &child_joint_names,
+            render_shapes,
+        )
+    }
+
+    /// Loads an MJCF robot into environment `env` as one multibody, registers
+    /// its visual meshes with `viewer` (environment 0 only) and returns its
+    /// [`Robot`]. Unlike `insert_mjcf` this adds no floor and moves no camera.
+    /// Joints driven by MJCF position actuators start with those gains as
+    /// their PD defaults.
+    #[pyo3(signature = (viewer, env, path, register_visuals=true))]
+    fn load_mjcf_robot(
+        &mut self,
+        mut viewer: PyRefMut<NexusViewer>,
+        env: usize,
+        path: std::path::PathBuf,
+        register_visuals: bool,
+    ) -> PyResult<Robot> {
+        use rapier3d_mjcf::{MjcfLoaderOptions, MjcfMultibodyOptions, MjcfRobot};
+        let options = MjcfLoaderOptions {
+            skip_plane_geoms: true,
+            make_roots_fixed: false,
+            create_colliders_from_visual_shapes: false,
+            collider_blueprint: rp::ColliderBuilder::default().density(0.0),
+            ..Default::default()
+        };
+        let (robot, _model) = MjcfRobot::from_file(&path, options).map_err(|e| {
+            PyRuntimeError::new_err(format!("failed to load MJCF {}: {e}", path.display()))
+        })?;
+        if env >= self.0.num_environments() {
+            return Err(PyRuntimeError::new_err(format!(
+                "environment {env} does not exist"
+            )));
+        }
+        let world = self.0.rbd_world_mut(env);
+        let handles = robot.clone().insert_using_multibody_joints(
+            &mut world.bodies,
+            &mut world.colliders,
+            &mut world.multibody_joints,
+            &mut world.impulse_joints,
+            MjcfMultibodyOptions::DISABLE_SELF_CONTACTS,
+        );
+        // Position servos hold their neutral target from the start.
+        let ctrl = vec![0.0; handles.actuators.len()];
+        handles.apply_controls_multibody(&mut world.bodies, &mut world.multibody_joints, &ctrl);
+
+        let mut body_names = HashMap::new();
+        let mut child_joint_names = HashMap::new();
+        let mut root = None;
+        for (i, bh) in handles.bodies.iter().enumerate() {
+            let Some(bh) = bh else { continue };
+            root.get_or_insert(bh.body);
+            let name = robot.bodies[i]
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("body_{i}"));
+            body_names.insert(bh.body, name);
+        }
+        for (jh, mj) in handles.joints.iter().zip(&robot.joints) {
+            if let Some(name) = &mj.name {
+                child_joint_names.insert(jh.link2, name.clone());
+            }
+        }
+        let root = root.ok_or_else(|| PyRuntimeError::new_err("MJCF has no bodies"))?;
+
+        if register_visuals && env == 0 {
+            let v = viewer.rust_mut();
+            for (i, bh) in handles.bodies.iter().enumerate() {
+                let Some(bh) = bh else { continue };
+                let mjcf_body = &robot.bodies[i];
+                if mjcf_body.visual_meshes.is_empty() {
+                    for collider in &bh.colliders {
+                        let c = &world.colliders[collider.handle];
+                        let local_pose = c
+                            .position_wrt_parent()
+                            .copied()
+                            .unwrap_or(rp::Pose::IDENTITY);
+                        v.insert_visual_shape(0, bh.body, c.shared_shape(), local_pose);
+                    }
+                    continue;
+                }
+                for vm in &mjcf_body.visual_meshes {
+                    let textured = vm.texture.is_some();
+                    let color = vm.rgba.unwrap_or(if textured {
+                        [1.0, 1.0, 1.0, 1.0]
+                    } else {
+                        [0.7, 0.7, 0.75, 1.0]
+                    });
+                    let material = vm
+                        .material
+                        .as_ref()
+                        .map(|m| nexus_viewer3d::RenderMaterial {
+                            metallic: m.metallic,
+                            roughness: m.roughness,
+                            reflectance: m.reflectance,
+                            emissive: m.emissive,
+                        });
+                    v.insert_visual_mesh(
+                        0,
+                        bh.body,
+                        &vm.shape,
+                        vm.local_pose,
+                        color,
+                        vm.uvs.as_deref(),
+                        vm.normals.as_deref(),
+                        vm.texture.as_deref(),
+                        material,
+                    );
+                }
+            }
+        }
+        build_robot(
+            world,
+            env,
+            root,
+            &body_names,
+            &child_joint_names,
+            Vec::new(),
+        )
+    }
+
+    /// Sets the per-DoF reflected rotor inertia (`armature`, added to the
+    /// mass-matrix diagonal) and viscous joint damping of `robot`, one value
+    /// per robot DoF each (`None` leaves that quantity unchanged). Both are
+    /// read at the next GPU build, so call before `finalize`. MJCF robots
+    /// carry theirs from the model; URDF robots start at zero, which leaves a
+    /// light arm without the stabilizing inertia its servos assume.
+    #[pyo3(signature = (robot, armature=None, damping=None))]
+    fn set_robot_joint_dynamics(
+        &mut self,
+        robot: PyRef<Robot>,
+        armature: Option<Vec<f32>>,
+        damping: Option<Vec<f32>>,
+    ) -> PyResult<()> {
+        let robot = robot.clone();
+        let n = robot.dof_axes.len();
+        for (name, values) in [("armature", &armature), ("damping", &damping)] {
+            if let Some(v) = values
+                && v.len() != n
+            {
+                return Err(PyRuntimeError::new_err(format!(
+                    "{name} has {} entries for {n} dofs",
+                    v.len()
+                )));
+            }
+        }
+        let world = self.0.rbd_world_mut(robot.env);
+        let rp::PhysicsWorld {
+            bodies,
+            multibody_joints,
+            ..
+        } = world;
+        let link_id = *multibody_joints
+            .rigid_body_link(robot.root)
+            .ok_or_else(|| PyRuntimeError::new_err("robot is not a multibody"))?;
+        let mb = multibody_joints
+            .get_multibody_mut(link_id.multibody)
+            .ok_or_else(|| PyRuntimeError::new_err("robot multibody not found"))?;
+        let map = assembly_dof_map(mb, bodies);
+        if let Some(values) = armature {
+            let full = to_assembly(&values, &map);
+            let target = mb.armature_mut();
+            for (i, v) in full.iter().enumerate() {
+                if i < target.len() {
+                    target[i] = *v;
+                }
+            }
+        }
+        if let Some(values) = damping {
+            let full = to_assembly(&values, &map);
+            let target = mb.damping_mut();
+            for (i, v) in full.iter().enumerate() {
+                if i < target.len() {
+                    target[i] = *v;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Current per-DoF `(armature, damping)` of `robot` on the CPU model.
+    fn robot_joint_dynamics(&self, robot: PyRef<Robot>) -> PyResult<(Vec<f32>, Vec<f32>)> {
+        let world = self.0.rbd_world(robot.env);
+        let link_id = world
+            .multibody_joints
+            .rigid_body_link(robot.root)
+            .ok_or_else(|| PyRuntimeError::new_err("robot is not a multibody"))?;
+        let mb = world
+            .multibody_joints
+            .get_multibody(link_id.multibody)
+            .ok_or_else(|| PyRuntimeError::new_err("robot multibody not found"))?;
+        let map = assembly_dof_map(mb, &world.bodies);
+        let pick = |v: &[f32]| -> Vec<f32> {
+            map.iter()
+                .enumerate()
+                .filter_map(|(i, d)| d.map(|_| v.get(i).copied().unwrap_or(0.0)))
+                .collect()
+        };
+        Ok((
+            pick(mb.armature().as_slice()),
+            pick(mb.damping().as_slice()),
+        ))
+    }
+
+    /// Generalized coordinates of `robot` as the CPU multibody last saw them
+    /// (the authored pose, or the last `set_robot_qpos`). For the simulated
+    /// values use `robot_qpos`.
+    fn robot_cpu_qpos(&self, robot: PyRef<Robot>) -> Vec<f32> {
+        self.0
+            .multibody_joint_positions(robot.env, robot.root)
+            .unwrap_or_default()
+    }
+
+    /// Per-link GPU slots of `robot` (indices into `read_multibody_links` rows,
+    /// before the `env * multibody_links_per_env()` offset), in link order.
+    fn robot_link_slots(&self, robot: PyRef<Robot>) -> Vec<u32> {
+        self.link_slots(&robot)
+    }
+
+    /// Reads `robot`'s simulated state back from the GPU: generalized
+    /// coordinates `qpos (n_dofs,)`, link positions `(n_links, 3)`, link
+    /// quaternions `(n_links, 4)` as `(w, x, y, z)`, and link linear and
+    /// angular velocities `(n_links, 3)`.
+    #[allow(clippy::type_complexity)]
+    fn robot_state<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+        robot: PyRef<Robot>,
+    ) -> PyResult<(
+        Bound<'py, PyArray1<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+    )> {
+        let links = pollster::block_on(self.0.read_multibody_links(viewer.backend()));
+        let per_env = self.0.multibody_links_per_env() as usize;
+        let slots = self.link_slots(&robot);
+        if slots.len() != robot.link_names.len() {
+            return Err(PyRuntimeError::new_err(
+                "robot state unavailable: call finalize() first",
+            ));
+        }
+        let mut qpos = Vec::with_capacity(robot.dof_axes.len());
+        let mut pos = Vec::with_capacity(slots.len());
+        let mut quat = Vec::with_capacity(slots.len());
+        let mut linvel = Vec::with_capacity(slots.len());
+        let mut angvel = Vec::with_capacity(slots.len());
+        for (link_idx, slot) in slots.iter().enumerate() {
+            let ws = links
+                .get(robot.env * per_env + *slot as usize)
+                .ok_or_else(|| PyRuntimeError::new_err("multibody readback too short"))?;
+            for (d, axis) in robot.dof_axes.iter().enumerate() {
+                if robot.dof_links[d] == link_idx {
+                    qpos.push(ws.coords[*axis as usize]);
+                }
+            }
+            let t = ws.local_to_world.translation;
+            pos.push(vec![t.x, t.y, t.z]);
+            quat.push(to_wxyz(ws.local_to_world.rotation).to_vec());
+            let (l, a) = (ws.rb_vels.linear, ws.rb_vels.angular);
+            linvel.push(vec![l.x, l.y, l.z]);
+            angvel.push(vec![a.x, a.y, a.z]);
+        }
+        Ok((
+            PyArray1::from_vec(py, qpos),
+            PyArray2::from_vec2(py, &pos).unwrap(),
+            PyArray2::from_vec2(py, &quat).unwrap(),
+            PyArray2::from_vec2(py, &linvel).unwrap(),
+            PyArray2::from_vec2(py, &angvel).unwrap(),
+        ))
+    }
+
+    /// Sets `robot`'s generalized coordinates and zeroes its joint velocities
+    /// on the GPU (between steps, after `finalize`).
+    fn set_robot_qpos(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        robot: PyRef<Robot>,
+        qpos: Vec<f32>,
+    ) -> PyResult<()> {
+        self.0
+            .set_multibody_joint_positions(viewer.backend(), robot.env, robot.root, &qpos)
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    }
+
+    /// Drives `robot`'s DoFs toward `targets` with the robot's per-DoF PD
+    /// gains (`robot.kp`, `robot.kv`, `robot.max_force`; force-based motors).
+    /// `dofs` selects a subset (default: all, in which case `targets` has one
+    /// entry per DoF). Motors of unselected DoFs keep their current target.
+    #[pyo3(signature = (viewer, robot, targets, dofs=None))]
+    fn set_robot_targets(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        robot: PyRef<Robot>,
+        targets: Vec<f32>,
+        dofs: Option<Vec<usize>>,
+    ) -> PyResult<()> {
+        let dofs = dofs.unwrap_or_else(|| (0..robot.dof_axes.len()).collect());
+        if dofs.len() != targets.len() {
+            return Err(PyRuntimeError::new_err(format!(
+                "{} targets for {} dofs",
+                targets.len(),
+                dofs.len()
+            )));
+        }
+        let robot = robot.clone();
+        self.0
+            .control_multibody_motors_env(viewer.backend(), robot.env, |world| {
+                let Some(link_id) = world.multibody_joints.rigid_body_link(robot.root).copied()
+                else {
+                    return;
+                };
+                let Some(mb) = world.multibody_joints.get_multibody_mut(link_id.multibody) else {
+                    return;
+                };
+                for (d, target) in dofs.iter().zip(&targets) {
+                    let (Some(link_idx), Some(axis)) =
+                        (robot.dof_links.get(*d), robot.dof_axes.get(*d))
+                    else {
+                        continue;
+                    };
+                    let Some(link) = mb.link_mut(*link_idx) else {
+                        continue;
+                    };
+                    let axis = joint_axis(*axis);
+                    link.joint
+                        .data
+                        .set_motor_model(axis, rp::MotorModel::ForceBased);
+                    link.joint
+                        .data
+                        .set_motor_position(axis, *target, robot.kp[*d], robot.kv[*d]);
+                    link.joint
+                        .data
+                        .set_motor_max_force(axis, robot.max_force[*d]);
+                }
+            })
+            .map_err(gpu_err)
+    }
+
+    /// Pose of link `link` of `robot` at coordinates `qpos`, from the CPU
+    /// kinematic model (no GPU access): `(position, (w, x, y, z))`. Leaves the
+    /// CPU multibody at `qpos`.
+    fn robot_forward_kinematics(
+        &mut self,
+        robot: PyRef<Robot>,
+        qpos: Vec<f32>,
+        link: &str,
+    ) -> PyResult<([f32; 3], [f32; 4])> {
+        let link_idx = robot.link_index(link)?;
+        let robot = robot.clone();
+        let world = self.0.rbd_world_mut_untracked(robot.env);
+        let mb = cpu_multibody_at(world, &robot, &qpos)?;
+        let pose = mb
+            .link(link_idx)
+            .map(|l| *l.local_to_world())
+            .ok_or_else(|| PyRuntimeError::new_err("link index out of range"))?;
+        let t = pose.translation;
+        Ok(([t.x, t.y, t.z], to_wxyz(pose.rotation)))
+    }
+
+    /// Damped-least-squares inverse kinematics on the CPU model, from
+    /// `init_qpos`, for link `link` to reach `target_pos` (of `local_point` in
+    /// the link frame) with orientation `target_quat` (`w, x, y, z`).
+    /// `constrained_axes` are `[lin_x, lin_y, lin_z, ang_x, ang_y, ang_z]`
+    /// world-frame error components the solver drives to zero; `dofs`
+    /// restricts which DoFs may move (default: all). Coordinates are clamped
+    /// to the joint limits after every iteration. Returns `(qpos, error)`
+    /// where `error` is `[lin(3), ang(3)]` with unconstrained components zeroed.
+    #[pyo3(signature = (robot, link, target_pos, target_quat, init_qpos, local_point=None, constrained_axes=None, dofs=None, max_iters=100, damping=0.05, pos_tol=1.0e-4, rot_tol=1.0e-3))]
+    #[allow(clippy::too_many_arguments)]
+    fn robot_inverse_kinematics(
+        &mut self,
+        robot: PyRef<Robot>,
+        link: &str,
+        target_pos: [f32; 3],
+        target_quat: [f32; 4],
+        init_qpos: Vec<f32>,
+        local_point: Option<[f32; 3]>,
+        constrained_axes: Option<[bool; 6]>,
+        dofs: Option<Vec<usize>>,
+        max_iters: usize,
+        damping: f32,
+        pos_tol: f32,
+        rot_tol: f32,
+    ) -> PyResult<(Vec<f32>, [f32; 6])> {
+        use rapier3d::dynamics::InverseKinematicsOption;
+        let link_idx = robot.link_index(link)?;
+        let robot = robot.clone();
+        let constrained = constrained_axes.unwrap_or([true; 6]);
+        let mut mask = rp::JointAxesMask::empty();
+        for (axis, on) in constrained.iter().enumerate() {
+            if *on {
+                mask |= rp::JointAxesMask::from_bits_truncate(1 << axis);
+            }
+        }
+        let target = pose_from_wxyz(target_pos, target_quat);
+        let target = match local_point {
+            // Aim the link origin so that `local_point` lands on `target_pos`.
+            Some(p) => rp::Pose::from_parts(
+                target.translation - target.rotation * glamx::Vec3::from(p),
+                target.rotation,
+            ),
+            None => target,
+        };
+        let movable: Vec<bool> = {
+            let mut m = vec![dofs.is_none(); robot.link_names.len()];
+            if let Some(dofs) = &dofs {
+                for d in dofs {
+                    if let Some(l) = robot.dof_links.get(*d) {
+                        m[*l] = true;
+                    }
+                }
+            }
+            m
+        };
+        let options = InverseKinematicsOption {
+            damping,
+            max_iters: 1,
+            constrained_axes: mask,
+            epsilon_linear: pos_tol,
+            epsilon_angular: rot_tol,
+        };
+
+        let world = self.0.rbd_world_mut_untracked(robot.env);
+        let root = robot.root;
+        cpu_multibody_at(world, &robot, &init_qpos)?;
+        let rp::PhysicsWorld {
+            bodies,
+            multibody_joints,
+            ..
+        } = world;
+        let link_id = *multibody_joints
+            .rigid_body_link(root)
+            .ok_or_else(|| PyRuntimeError::new_err("robot is not a multibody"))?;
+        let mut error = [0.0f32; 6];
+        let (map, root_fixed) = {
+            let mb = multibody_joints
+                .get_multibody(link_id.multibody)
+                .unwrap_or_else(|| unreachable!());
+            (
+                assembly_dof_map(mb, bodies),
+                RNexusState::multibody_root_is_fixed(bodies, mb),
+            )
+        };
+        for _ in 0..max_iters {
+            let mb = multibody_joints
+                .get_multibody_mut(link_id.multibody)
+                .unwrap_or_else(|| unreachable!());
+            let mut disp = rapier3d::na::DVector::zeros(mb.ndofs());
+            mb.inverse_kinematics(
+                bodies,
+                link_idx,
+                &options,
+                &target,
+                |l| {
+                    if l.link_id() == 0 && root_fixed {
+                        return false;
+                    }
+                    movable.get(l.link_id()).copied().unwrap_or(true)
+                },
+                &mut disp,
+            );
+            // Clamp to the joint limits: rapier's solver is unaware of them.
+            let current = to_assembly(&cpu_qpos(mb, bodies), &map);
+            let mut disp_vec: Vec<f32> = disp.as_slice().to_vec();
+            for (a, (q, delta)) in current.iter().zip(disp_vec.iter_mut()).enumerate() {
+                match map[a] {
+                    Some(d) => {
+                        let clamped = (q + *delta).clamp(robot.dof_lower[d], robot.dof_upper[d]);
+                        *delta = clamped - q;
+                    }
+                    None => *delta = 0.0,
+                }
+            }
+            mb.apply_displacements(&disp_vec);
+            mb.forward_kinematics(bodies, false);
+            let pose = *mb
+                .link(link_idx)
+                .unwrap_or_else(|| unreachable!())
+                .local_to_world();
+            let lin = target.translation - pose.translation;
+            let ang = (target.rotation * pose.rotation.inverse()).to_scaled_axis();
+            let raw = [lin.x, lin.y, lin.z, ang.x, ang.y, ang.z];
+            for (i, e) in raw.iter().enumerate() {
+                error[i] = if constrained[i] { *e } else { 0.0 };
+            }
+            let lin_err = (error[0] * error[0] + error[1] * error[1] + error[2] * error[2]).sqrt();
+            let ang_err = (error[3] * error[3] + error[4] * error[4] + error[5] * error[5]).sqrt();
+            if lin_err <= pos_tol && ang_err <= rot_tol {
+                break;
+            }
+        }
+        let mb = multibody_joints
+            .get_multibody(link_id.multibody)
+            .unwrap_or_else(|| unreachable!());
+        Ok((cpu_qpos(mb, bodies), error))
+    }
+
+    // --- rigid-body state ---------------------------------------------------
+
+    /// GPU pose slot of `handle` in `env`: the row of `read_body_poses` /
+    /// `read_body_velocities`. `None` before `finalize`.
+    fn body_gpu_index(&self, env: usize, handle: RigidBodyHandle) -> Option<u32> {
+        self.0.rigid_body_gpu_index(env, handle.0)
+    }
+
+    /// Reads every body's world-origin pose from the GPU: positions `(n, 3)`
+    /// and quaternions `(n, 4)` as `(w, x, y, z)`, rows indexed by
+    /// `body_gpu_index`.
+    fn read_body_poses<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+    ) -> (Bound<'py, PyArray2<f32>>, Bound<'py, PyArray2<f32>>) {
+        let poses = pollster::block_on(self.0.read_rigid_body_poses(viewer.backend()));
+        let mut pos = Vec::with_capacity(poses.len());
+        let mut quat = Vec::with_capacity(poses.len());
+        for p in &poses {
+            let t = p.translation;
+            pos.push(vec![t.x, t.y, t.z]);
+            quat.push(to_wxyz(p.rotation).to_vec());
+        }
+        (
+            PyArray2::from_vec2(py, &pos).unwrap(),
+            PyArray2::from_vec2(py, &quat).unwrap(),
+        )
+    }
+
+    /// Reads every body's world-space linear `(n, 3)` and angular `(n, 3)`
+    /// velocity from the GPU, rows indexed by `body_gpu_index`.
+    fn read_body_velocities<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+    ) -> (Bound<'py, PyArray2<f32>>, Bound<'py, PyArray2<f32>>) {
+        let vels = pollster::block_on(self.0.read_rigid_body_velocities(viewer.backend()));
+        let mut lin = Vec::with_capacity(vels.len());
+        let mut ang = Vec::with_capacity(vels.len());
+        for v in &vels {
+            lin.push(vec![v.linear.x, v.linear.y, v.linear.z]);
+            ang.push(vec![v.angular.x, v.angular.y, v.angular.z]);
+        }
+        (
+            PyArray2::from_vec2(py, &lin).unwrap(),
+            PyArray2::from_vec2(py, &ang).unwrap(),
+        )
+    }
+
+    /// Teleports free body `handle` of `env` to `pos` / `quat` (`w, x, y, z`)
+    /// between steps. Multibody links go through `set_robot_qpos`.
+    fn set_body_pose(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        env: usize,
+        handle: RigidBodyHandle,
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> PyResult<()> {
+        self.0
+            .set_rigid_body_pose(viewer.backend(), env, handle.0, pose_from_wxyz(pos, quat))
+            .map_err(gpu_err)
+    }
+
+    /// Sets body `handle`'s world-space linear and angular velocity.
+    fn set_body_velocity(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        env: usize,
+        handle: RigidBodyHandle,
+        linvel: [f32; 3],
+        angvel: [f32; 3],
+    ) -> PyResult<()> {
+        self.0
+            .set_rigid_body_velocity(
+                viewer.backend(),
+                env,
+                handle.0,
+                glamx::Vec3::from(linvel),
+                glamx::Vec3::from(angvel),
+            )
+            .map_err(gpu_err)
+    }
+
+    /// Rigid-body timestep of every environment: `dt` seconds per `simulate`
+    /// step, in `substeps` solver substeps. Call before `finalize`.
+    fn set_rbd_timestep(&mut self, dt: f32, substeps: u32) {
+        self.0.set_rbd_timestep(dt, substeps);
+    }
+
     // --- rbd config -------------------------------------------------------
 
     fn set_rbd_steps_per_frame(&mut self, steps: u32) {
@@ -606,5 +1263,96 @@ impl NexusPipeline {
         let backend = viewer.backend();
         let ts = timestamps.as_deref_mut().map(|t| &mut t.0);
         pollster::block_on(self.0.simulate(backend, &mut state.0, ts)).map_err(gpu_err)
+    }
+}
+
+/// Generalized coordinates of `mb` in assembly order, without a fixed root's
+/// locked coordinates (the GPU build's DoF vector, see `Robot`).
+fn cpu_qpos(mb: &rapier3d::dynamics::Multibody, bodies: &rp::RigidBodySet) -> Vec<f32> {
+    let root_fixed = RNexusState::multibody_root_is_fixed(bodies, mb);
+    let mut out = Vec::with_capacity(mb.ndofs());
+    for (i, link) in mb.links().enumerate() {
+        if i == 0 && root_fixed {
+            continue;
+        }
+        let coords = link.joint().coords();
+        for axis in free_axes(&link.joint().data) {
+            out.push(coords[axis as usize]);
+        }
+    }
+    out
+}
+
+/// For each entry of rapier's full assembly displacement vector, the robot DoF
+/// it maps to (`None` for a fixed root's locked coordinates).
+fn assembly_dof_map(
+    mb: &rapier3d::dynamics::Multibody,
+    bodies: &rp::RigidBodySet,
+) -> Vec<Option<usize>> {
+    let root_fixed = RNexusState::multibody_root_is_fixed(bodies, mb);
+    let mut out = Vec::with_capacity(mb.ndofs());
+    let mut next = 0usize;
+    for (i, link) in mb.links().enumerate() {
+        for _ in 0..link.joint().ndofs() {
+            if i == 0 && root_fixed {
+                out.push(None);
+            } else {
+                out.push(Some(next));
+                next += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Expands a robot DoF vector into rapier's full assembly vector (zeros for a
+/// fixed root's locked coordinates).
+fn to_assembly(values: &[f32], map: &[Option<usize>]) -> Vec<f32> {
+    map.iter()
+        .map(|d| d.map(|i| values[i]).unwrap_or(0.0))
+        .collect()
+}
+
+/// Moves `robot`'s CPU multibody to `qpos` (forward kinematics included) and
+/// returns it. The CPU model is a scratch kinematic model once the GPU owns the
+/// simulation, so this never touches the simulated state.
+fn cpu_multibody_at<'a>(
+    world: &'a mut rp::PhysicsWorld,
+    robot: &Robot,
+    qpos: &[f32],
+) -> PyResult<&'a rapier3d::dynamics::Multibody> {
+    let rp::PhysicsWorld {
+        bodies,
+        multibody_joints,
+        ..
+    } = world;
+    let link_id = *multibody_joints
+        .rigid_body_link(robot.root)
+        .ok_or_else(|| PyRuntimeError::new_err("robot is not a multibody"))?;
+    let mb = multibody_joints
+        .get_multibody_mut(link_id.multibody)
+        .ok_or_else(|| PyRuntimeError::new_err("robot multibody not found"))?;
+    let current = cpu_qpos(mb, bodies);
+    if current.len() != qpos.len() {
+        return Err(PyRuntimeError::new_err(format!(
+            "qpos has {} entries but the robot has {} DoFs",
+            qpos.len(),
+            current.len()
+        )));
+    }
+    let map = assembly_dof_map(mb, bodies);
+    let delta: Vec<f32> = qpos.iter().zip(&current).map(|(q, c)| q - c).collect();
+    mb.apply_displacements(&to_assembly(&delta, &map));
+    mb.forward_kinematics(bodies, false);
+    Ok(&*mb)
+}
+
+impl NexusState {
+    /// Per-link GPU slots of `robot`, in link order (empty before `finalize`).
+    fn link_slots(&self, robot: &Robot) -> Vec<u32> {
+        self.0
+            .multibody_link_slots(robot.env, robot.root)
+            .map(|(_, _, links)| links.into_iter().map(|(_, slot)| slot).collect())
+            .unwrap_or_default()
     }
 }

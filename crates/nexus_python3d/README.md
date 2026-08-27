@@ -39,6 +39,44 @@ pip install target/wheels/dimforge_nexus3d-*.whl
 > so a single wheel works across all supported Python versions — you don't need
 > to match the build interpreter to the run interpreter.
 
+## Robots, state access and sensor cameras
+
+Beyond the demo-oriented API, the module exposes what a robotics environment
+needs to drive Nexus as its physics engine (the AISLE bridge is the first
+consumer):
+
+- `NexusState.load_urdf_robot(env, path, options)` / `load_mjcf_robot(viewer,
+  env, path)` return a `Robot`: link and joint names in the multibody's own
+  order, per-DoF limits, and the PD gains (`kp`, `kv`, `max_force`) that
+  `set_robot_targets` applies as force-based position motors. MJCF position
+  actuators seed the gains; URDF joints start at zero, and
+  `set_robot_joint_dynamics` gives them armature and damping before
+  `finalize`.
+- `robot_state(viewer, robot)` reads joint coordinates and link poses and
+  velocities back from the GPU; `set_robot_qpos` teleports the joints (and
+  zeroes their velocities) between steps.
+- `robot_forward_kinematics` / `robot_inverse_kinematics` run on the CPU
+  kinematic model (damped least squares, joint limits clamped, a per-axis
+  world-frame constraint mask).
+- `read_body_poses` / `read_body_velocities` / `set_body_pose` /
+  `set_body_velocity` do the same for free rigid bodies; `set_rbd_timestep`
+  fixes the step and substep count before `finalize`.
+- `NexusViewer.add_sensor_camera(w, h, fov_y_deg)` creates an offscreen
+  camera; `set_sensor_camera_pose` (OpenGL frame: -Z forward, +Y up) or
+  `attach_sensor_camera` (follow a body with a mount pose) place it, and
+  `render_sensor_camera(id, rgb, depth, segmentation)` returns an RGB image,
+  linear metric depth and per-body segmentation ids. Call
+  `set_sensor_rendering(True)` before inserting shapes so every body gets its
+  own render node (the depth and segmentation passes ignore GPU instances),
+  and `set_body_segmentation_id` to choose the ids. `insert_sensor_shape`
+  registers a per-body node with an optional UV-mapped texture.
+- Several `NexusState`s can share one viewer: `begin_scene()` opens a render
+  generation for the next scene and `set_active_scene(gen)` switches which
+  scene's nodes and cameras are live.
+
+The URDF loader relies on the rapier3d-urdf roll-pitch-yaw fix on the rapier
+`fix-urdf-rpy` branch (patched in the workspace `Cargo.toml`).
+
 ## Examples
 
 [`examples/`](examples) contains Python ports of the 3D Rust demos in

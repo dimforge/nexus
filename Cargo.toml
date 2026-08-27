@@ -93,11 +93,14 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [patch.crates-io]
-#rapier2d = { path = "../rapier/crates/rapier2d" }
-#rapier3d = { path = "../rapier/crates/rapier3d" }
-#rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
-#rapier3d-urdf = { path = "../rapier/crates/rapier3d-urdf" }
-#rapier3d-meshloader = { path = "../rapier/crates/rapier3d-meshloader" }
+# rapier3d-urdf's URDF roll-pitch-yaw fix (fix-urdf-rpy branch), pending a
+# rapier release; every rapier crate rides the same source so there is one
+# `rapier3d` in the graph.
+rapier2d = { path = "../rapier/crates/rapier2d" }
+rapier3d = { path = "../rapier/crates/rapier3d" }
+rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
+rapier3d-urdf = { path = "../rapier/crates/rapier3d-urdf" }
+rapier3d-meshloader = { path = "../rapier/crates/rapier3d-meshloader" }
 ## Local glam clone with SPIR-V vector-arithmetic intrinsics (Vec3 add/sub/mul/scale).
 #glam = { path = "../glam-rs" }
 # 30% faster for loop in P2G
@@ -115,7 +118,9 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 #vortx-shaders = { git = "https://github.com/dimforge/vortx", branch = "int-reduce" }
 
 #glamx = { path = "../glamx" }
-#kiss3d = { path = "../kiss3d" }
+# kiss3d's shared-manager fix for a second offscreen surface (branch
+# fix-shared-window-managers), pending a kiss3d release.
+kiss3d = { path = "../kiss3d" }
 #parry2d = { path = "../parry/crates/parry2d" }
 #parry3d = { path = "../parry/crates/parry3d" }
 #rapier2d = { path = "../rapier/crates/rapier2d" }
