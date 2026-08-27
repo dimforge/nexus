@@ -492,6 +492,12 @@ impl NexusState {
     /// Marks the rbd state dirty so [`Self::finalize`] rebuilds with them.
     /// Mainly for tests that need to match an external engine's
     /// `IntegrationParameters` exactly (e.g. `num_solver_iterations = 1`).
+    /// The rigid-body simulation parameters of environment `env` (applied at
+    /// the next GPU build).
+    pub fn rbd_sim_params(&self, env: usize) -> Option<RbdSimParams> {
+        self.rbd_sim_params.get(env).copied()
+    }
+
     pub fn set_rbd_sim_params(&mut self, env: usize, params: RbdSimParams) {
         self.rbd_sim_params[env] = params;
         self.rbd_dirty = true;
