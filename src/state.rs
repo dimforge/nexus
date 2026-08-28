@@ -12,7 +12,9 @@ use crate::rbd::dynamics::{
     body::{BodyCoupling, RapierBodyCouplingEntry},
 };
 use crate::rbd::pipeline::{RbdCapacities, RbdResizePolicy, RbdState, RunStats};
-use khal::backend::{Backend, GpuBackend, GpuBackendError};
+#[cfg(feature = "dim3")]
+use khal::backend::Backend;
+use khal::backend::{GpuBackend, GpuBackendError};
 
 /// Handle referencing a rigid-body managed by a [`NexusState`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -450,6 +452,7 @@ impl NexusState {
     /// [`Self::rbd_world_mut`] this does not mark the world dirty: motor
     /// updates are per-step control, not a topology change, so they trigger no
     /// GPU rebuild. Call after [`Self::finalize`]; a no-op before it.
+    #[cfg(feature = "dim3")]
     pub fn control_multibody_motors<F>(
         &mut self,
         backend: &GpuBackend,
