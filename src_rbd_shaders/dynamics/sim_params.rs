@@ -70,7 +70,7 @@ impl ConstraintSoftness {
 }
 
 /// Parameters for a time-step of the physics engine.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 pub struct RbdSimParams {

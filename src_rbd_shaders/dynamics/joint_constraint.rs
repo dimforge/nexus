@@ -17,7 +17,6 @@ use khal_std::macros::{spirv, spirv_bindgen};
 
 use crate::Pose;
 use crate::utils::{BatchIndices, Slice};
-use khal_std::index::MaybeIndexUnchecked;
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
 use super::joint::ImpulseJoint;
@@ -223,12 +222,11 @@ pub fn gpu_update_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints: &mut [JointConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mprops: &[WorldMassProperties],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] all_params: &[RbdSimParams],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
-    let params = all_params.at(batch_id as usize);
 
     let builders = batch_ids.impulse_joints_batch(batch_id, builders);
     let mut constraints = batch_ids.impulse_joints_batch_mut(batch_id, constraints);

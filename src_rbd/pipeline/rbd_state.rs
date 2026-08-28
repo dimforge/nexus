@@ -125,7 +125,7 @@ pub struct RbdState {
     pub(super) sim_params: Tensor<RbdSimParams>,
     /// CPU mirror of `sim_params`, so runtime setters can patch one field and
     /// re-upload without rebuilding the whole state.
-    pub(super) all_sim_params: Vec<RbdSimParams>,
+    pub(super) sim_params_cpu: RbdSimParams,
     /// Per-body world-origin pose (matches rapier's `RigidBody::position`).
     pub(super) body_poses: Tensor<Pose>,
     /// Per-body COM-centered pose (rapier's `SolverPose`) used temporarily by
@@ -380,12 +380,10 @@ impl RbdState {
     /// a collider pair regardless of normal: cheaper, but a single averaged
     /// normal then stands in for a ridge or a step edge.
     pub fn set_contact_merge_cos(&mut self, backend: &GpuBackend, cos: f32) {
-        let mut params = self.all_sim_params.clone();
-        for p in &mut params {
-            p.contact_merge_cos = cos;
-        }
-        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &params);
-        self.all_sim_params = params;
+        let mut params = self.sim_params_cpu;
+        params.contact_merge_cos = cos;
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
+        self.sim_params_cpu = params;
     }
 
     /// The gravity uniform shared by every solver kernel.

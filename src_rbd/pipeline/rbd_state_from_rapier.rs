@@ -87,6 +87,11 @@ impl RbdState {
                      (env 0 has {}, env {env} has {})",
                     sp0.num_solver_iterations, sp.num_solver_iterations
                 );
+                assert!(
+                    sp == sp0,
+                    "batched rbd requires identical simulation parameters in every \
+                     environment (env {env} differs from env 0)"
+                );
             }
         }
 
@@ -156,20 +161,24 @@ impl RbdState {
             HashMap<crate::rapier::dynamics::RigidBodyHandle, u32>,
         )> = Vec::new();
 
-        // Collect per-batch sim params, adjusting dt for substeps.
-        let num_solver_iterations = environments
-            .iter()
-            .map(|(_, _, _, _, sp)| sp.num_solver_iterations)
-            .max()
-            .unwrap_or(4);
-        let all_sim_params: Vec<RbdSimParams> = environments
-            .iter()
+        // Simulation parameters are global: every batch shares one struct,
+        // bound as a uniform. Identical across environments by the invariant
+        // asserted above, so the first environment's is authoritative.
+        let sim_params = environments
+            .first()
             .map(|(_, _, _, _, sp)| {
                 let mut sp = **sp;
                 sp.dt /= sp.num_solver_iterations as f32;
                 sp
             })
-            .collect();
+            .unwrap_or_else(|| {
+                let mut sp = RbdSimParams::default();
+                sp.dt /= sp.num_solver_iterations as f32;
+                sp
+            });
+        // Unchanged by the dt division above, so this is every environment's
+        // solver-iteration count (and 4, the default, when there are none).
+        let num_solver_iterations = sim_params.num_solver_iterations;
         // Pick representative dt (outer dt, not the per-substep one) from any batch.
         #[cfg(feature = "dim3")]
         let multibody_dt = environments
@@ -484,7 +493,7 @@ impl RbdState {
             // Soft contact coefficients (rapier TGS-soft) from the substep sim
             // params, so multibody-vs-floor contacts use the same soft ERP + CFM
             // as the free-body path (and as rapier) instead of a rigid `1/dt`.
-            mb.set_constraint_softness(backend, &all_sim_params[0]);
+            mb.set_constraint_softness(backend, &sim_params);
 
             // Route MB-touching impulse joints (those skipped by the
             // regular `GpuImpulseJointSet`) to the multibody generic
@@ -772,13 +781,13 @@ impl RbdState {
             num_batches,
             num_colliders_per_batch: num_colliders_per_batch as u32,
             num_solver_iterations,
-            sim_params: Tensor::vector(
+            sim_params: Tensor::scalar(
                 backend,
-                &all_sim_params,
-                BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                sim_params,
+                BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             )
             .unwrap(),
-            all_sim_params,
+            sim_params_cpu: sim_params,
             vels: Tensor::vector(backend, &all_vels, storage | BufferUsages::COPY_DST).unwrap(),
             #[cfg(feature = "dim3")]
             reset_templates_bodies: None,
