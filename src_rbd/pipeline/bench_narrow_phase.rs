@@ -9,6 +9,20 @@ use crate::rapier::prelude::*;
 use crate::shaders::dynamics::RbdSimParams;
 use khal::backend::{Backend, GpuBackend};
 
+/// Metal when it is available, else the default WebGPU device. Note that the
+/// WebGPU path currently trips the 8-storage-buffer limit in
+/// `gpu_mb_init_joint_constraints` when the pipeline is created.
+async fn bench_backend() -> GpuBackend {
+    #[cfg(feature = "metal")]
+    {
+        GpuBackend::Metal(khal::backend::metal::Metal::new().unwrap())
+    }
+    #[cfg(not(feature = "metal"))]
+    {
+        GpuBackend::WebGpu(khal::backend::WebGpu::default().await.unwrap())
+    }
+}
+
 /// One environment: a ground cuboid plus `num_boxes` stacked dynamic cuboids.
 fn build_env(num_boxes: usize) -> (RigidBodySet, ColliderSet) {
     let mut bodies = RigidBodySet::new();
@@ -27,9 +41,7 @@ fn build_env(num_boxes: usize) -> (RigidBodySet, ColliderSet) {
 }
 
 async fn run_bench(num_envs: u32, num_boxes: usize, num_steps: u32) {
-    // Metal, not WebGPU: `gpu_mb_init_joint_constraints` currently binds 10
-    // storage buffers, over WebGPU's per-stage limit of 8.
-    let backend = GpuBackend::Metal(khal::backend::metal::Metal::new().unwrap());
+    let backend = bench_backend().await;
 
     let envs: Vec<_> = (0..num_envs).map(|_| build_env(num_boxes)).collect();
     let joints = ImpulseJointSet::new();
