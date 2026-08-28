@@ -12,9 +12,7 @@ use crate::rbd::dynamics::{
     body::{BodyCoupling, RapierBodyCouplingEntry},
 };
 use crate::rbd::pipeline::{RbdCapacities, RbdResizePolicy, RbdState, RunStats};
-#[cfg(feature = "dim3")]
-use khal::backend::Backend;
-use khal::backend::{GpuBackend, GpuBackendError};
+use khal::backend::{Backend, GpuBackend, GpuBackendError};
 
 /// Handle referencing a rigid-body managed by a [`NexusState`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -377,8 +375,8 @@ impl NexusState {
         }
     }
 
-    /// Sets how many PGS iterations the multibody solver's biased pass runs per
-    /// substep.
+    /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
+    /// and multibody sweeps alike).
     #[cfg(all(feature = "rbd", feature = "dim3"))]
     pub fn set_rbd_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
         for params in &mut self.rbd_sim_params {

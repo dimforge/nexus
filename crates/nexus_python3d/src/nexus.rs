@@ -10,7 +10,7 @@ use crate::rbd::{
 };
 use crate::robot::{Robot, build_robot, free_axes, joint_axis, pose_from_wxyz, to_wxyz};
 use crate::viewer::NexusViewer;
-use khal::backend::GpuTimestamps as RGpuTimestamps;
+use khal::backend::{Backend, GpuTimestamps as RGpuTimestamps};
 use nexus3d::mpm::solver::BoundaryCondition as RBoundaryCondition;
 use nexus3d::prelude::{
     NexusPipeline as RNexusPipeline, NexusPipelineMask, NexusState as RNexusState,
@@ -1152,9 +1152,13 @@ impl NexusState {
     /// pair applies to contacts at rest, `allowed_linear_error` is the
     /// tolerated penetration in length units, `max_corrective_velocity` caps
     /// penetration recovery, `prediction_distance` is the contact detection
-    /// margin, and `internal_pgs_iterations` the multibody solver's PGS
-    /// iterations per substep.
-    #[pyo3(signature = (contact_natural_frequency=None, contact_damping_ratio=None, static_contact_natural_frequency=None, static_contact_damping_ratio=None, allowed_linear_error=None, max_corrective_velocity=None, prediction_distance=None, internal_pgs_iterations=None))]
+    /// margin, `internal_pgs_iterations` the biased-pass PGS iterations per
+    /// substep (rigid-body and multibody sweeps alike), and `friction_in_bias_pass` whether friction
+    /// rows are solved in every biased PGS iteration instead of only in the
+    /// per-substep stabilization sweep (rapier's default, `False`); `True`
+    /// gives friction as many iterations as the normal rows, which holds
+    /// grasps and resting contacts far more firmly.
+    #[pyo3(signature = (contact_natural_frequency=None, contact_damping_ratio=None, static_contact_natural_frequency=None, static_contact_damping_ratio=None, allowed_linear_error=None, max_corrective_velocity=None, prediction_distance=None, internal_pgs_iterations=None, friction_in_bias_pass=None))]
     #[allow(clippy::too_many_arguments)]
     fn set_rbd_solver_params(
         &mut self,
@@ -1166,6 +1170,7 @@ impl NexusState {
         max_corrective_velocity: Option<f32>,
         prediction_distance: Option<f32>,
         internal_pgs_iterations: Option<u32>,
+        friction_in_bias_pass: Option<bool>,
     ) {
         for env in 0..self.0.num_environments() {
             let Some(mut params) = self.0.rbd_sim_params(env) else {
@@ -1194,6 +1199,9 @@ impl NexusState {
             }
             if let Some(v) = internal_pgs_iterations {
                 params.num_internal_pgs_iterations = v.max(1);
+            }
+            if let Some(v) = friction_in_bias_pass {
+                params.friction_in_bias_pass = v as u32;
             }
             self.0.set_rbd_sim_params(env, params);
         }
@@ -1224,8 +1232,150 @@ impl NexusState {
             )?;
             dict.set_item("prediction_distance", p.normalized_prediction_distance)?;
             dict.set_item("internal_pgs_iterations", p.num_internal_pgs_iterations)?;
+            dict.set_item("friction_in_bias_pass", p.friction_in_bias_pass != 0)?;
         }
         Ok(dict)
+    }
+
+    /// Debug readback of the live contact manifolds, one dict per active
+    /// manifold: `collider_a` / `collider_b` and `body_a` / `body_b` (GPU
+    /// indices), the combined `friction`, `normal_a` and the `points` as
+    /// `[x, y, z, dist]` rows, both in collider A's local frame. Blocks on
+    /// the GPU; for diagnostics, not for control loops.
+    fn debug_contacts<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+    ) -> PyResult<Vec<Bound<'py, pyo3::types::PyDict>>> {
+        use pyo3::types::PyDict;
+        let Some(rbd) = self.0.rbd.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let contacts: Vec<nexus3d::rbd::queries::GpuIndexedContact> =
+            pollster::block_on(viewer.backend().slow_read_vec(rbd.contacts().buffer()))
+                .map_err(gpu_err)?;
+        let mut out = Vec::new();
+        for c in contacts.iter().filter(|c| c.contact.len > 0) {
+            let dict = PyDict::new(py);
+            dict.set_item("collider_a", c.colliders.x)?;
+            dict.set_item("collider_b", c.colliders.y)?;
+            dict.set_item("body_a", c.bodies.x)?;
+            dict.set_item("body_b", c.bodies.y)?;
+            dict.set_item("friction", c.friction)?;
+            let n = c.contact.normal_a;
+            dict.set_item("normal_a", [n.x, n.y, n.z])?;
+            let points: Vec<[f32; 4]> = (0..c.contact.len as usize)
+                .map(|k| {
+                    let p = c.contact.points_a[k];
+                    [p.pt.x, p.pt.y, p.pt.z, p.dist]
+                })
+                .collect();
+            dict.set_item("points", points)?;
+            out.push(dict);
+        }
+        Ok(out)
+    }
+
+    /// Debug readback of the multibody contact constraints as left by the
+    /// last step, one dict per active slot: `multibody` and `link` (batch
+    /// local), `free_body` (GPU index, `None` for a self-contact), `kind`
+    /// (`"normal"` or `"tangent"`), `friction`, the accumulated per-substep
+    /// `impulse` and the free-body jacobian direction `dir`. Blocks on the
+    /// GPU; for diagnostics only.
+    fn debug_multibody_contact_impulses<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+    ) -> PyResult<Vec<Bound<'py, pyo3::types::PyDict>>> {
+        use nexus3d::rbd::shaders::dynamics::{
+            MB_CONTACT_KIND_NORMAL, MB_CONTACT_KIND_TANGENT, MultibodyContactConstraint,
+            MultibodyInfo,
+        };
+        use pyo3::types::PyDict;
+        let Some(rbd) = self.0.rbd.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let backend = viewer.backend();
+        let mb = rbd.multibodies();
+        let cons: Vec<MultibodyContactConstraint> =
+            pollster::block_on(backend.slow_read_vec(mb.contact_constraints().buffer()))
+                .map_err(gpu_err)?;
+        let infos: Vec<MultibodyInfo> =
+            pollster::block_on(backend.slow_read_vec(mb.multibody_info().buffer()))
+                .map_err(gpu_err)?;
+        let mut out = Vec::new();
+        for info in infos.iter().filter(|i| i.ndofs > 0) {
+            let start = info.contact_constraint_start as usize;
+            let end = start + info.contact_constraint_count as usize;
+            for c in cons.iter().take(end.min(cons.len())).skip(start) {
+                let kind = match c.kind {
+                    MB_CONTACT_KIND_NORMAL => "normal",
+                    MB_CONTACT_KIND_TANGENT => "tangent",
+                    _ => continue,
+                };
+                let dict = PyDict::new(py);
+                dict.set_item("multibody", c.multibody_id)?;
+                dict.set_item("link", c.link_id)?;
+                dict.set_item(
+                    "free_body",
+                    (c.free_body_id != u32::MAX).then_some(c.free_body_id),
+                )?;
+                dict.set_item("kind", kind)?;
+                dict.set_item("friction", c.friction_coeff)?;
+                dict.set_item("impulse", c.impulse)?;
+                dict.set_item("dir", [c.lin_jac.x, c.lin_jac.y, c.lin_jac.z])?;
+                dict.set_item("free_body_inv_mass", c.free_body_im)?;
+                out.push(dict);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Debug readback of the rigid-body (two-body) contact constraints as
+    /// left by the last step, one dict per active manifold: `body_a` /
+    /// `body_b` (GPU indices), `dir_a` (world normal force direction on
+    /// body A), the combined `friction`, and per point the accumulated
+    /// per-substep `normal_impulse` and `tangent_impulse` pair. Blocks on
+    /// the GPU; for diagnostics only.
+    fn debug_rigid_contact_impulses<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+    ) -> PyResult<Vec<Bound<'py, pyo3::types::PyDict>>> {
+        use nexus3d::rbd::shaders::dynamics::TwoBodyConstraint;
+        use pyo3::types::PyDict;
+        let Some(rbd) = self.0.rbd.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let cons: Vec<TwoBodyConstraint> = pollster::block_on(
+            viewer
+                .backend()
+                .slow_read_vec(rbd.rigid_contact_constraints().buffer()),
+        )
+        .map_err(gpu_err)?;
+        let mut out = Vec::new();
+        for c in cons.iter().filter(|c| c.len > 0) {
+            let dict = PyDict::new(py);
+            dict.set_item("body_a", c.solver_body_a)?;
+            dict.set_item("body_b", c.solver_body_b)?;
+            dict.set_item("dir_a", [c.dir_a.x, c.dir_a.y, c.dir_a.z])?;
+            dict.set_item("friction", c.limit)?;
+            dict.set_item("inv_mass_a", c.im_a.x)?;
+            dict.set_item("inv_mass_b", c.im_b.x)?;
+            let normal: Vec<f32> = (0..c.len as usize)
+                .map(|k| c.elements[k].normal_part.impulse)
+                .collect();
+            let tangent: Vec<[f32; 2]> = (0..c.len as usize)
+                .map(|k| {
+                    let t = c.elements[k].tangent_part.impulse;
+                    [t.x, t.y]
+                })
+                .collect();
+            dict.set_item("normal_impulse", normal)?;
+            dict.set_item("tangent_impulse", tangent)?;
+            out.push(dict);
+        }
+        Ok(out)
     }
 
     // --- rbd config -------------------------------------------------------
