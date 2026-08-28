@@ -3,12 +3,6 @@
 //! Copies one environment's carry-over multibody state (SoA link workspace,
 //! static link descriptors, generalized coordinates and velocities) from a
 //! compact contiguous staging blob into the batch-interleaved live buffers.
-//! That is one staging upload plus one dispatch per reset, instead of the
-//! hundreds of strided `write_buffer`s the interleaved layout would otherwise
-//! force: an env's data is strided across the whole buffer (element `intra` of
-//! batch `b` lives at `intra · num_batches + b`, workspace quads at
-//! `(link · WS_QUADS + q) · num_batches + b`). The staging blob is exactly the
-//! `num_batches = 1` interleaving, so its source indices are the flat `0..len`.
 
 use glamx::{UVec4, Vec4};
 use khal_std::glamx::UVec3;

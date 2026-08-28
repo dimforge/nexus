@@ -432,12 +432,7 @@ impl RbdState {
         self.rebuild_batch_indices(backend);
     }
 
-    /// Sets the per-DoF dry joint friction (MJCF `frictionloss`, N·m), in the
-    /// env-major `dofs_per_batch * num_batches` layout described on
-    /// [`GpuMultibodySet::set_dof_frictionloss`](crate::dynamics::GpuMultibodySet::set_dof_frictionloss).
-    ///
-    /// The first non-zero call grows the joint-constraint bank, so the shared
-    /// `BatchIndices` uniform is rebuilt here.
+    /// Sets the per-DoF dry joint friction (N·m).
     #[cfg(feature = "dim3")]
     pub fn set_dof_frictionloss(&mut self, backend: &GpuBackend, values: &[f32]) {
         self.multibodies.set_dof_frictionloss(backend, values);
@@ -675,9 +670,7 @@ impl RbdState {
         }
     }
 
-    /// Resets env `dst_env` from a CPU snapshot using `write_buffer` only, with
-    /// no GPU to CPU readback. This is what removes the handful of per-reset
-    /// sync stalls that otherwise dominate reset cost on the WebGPU backend.
+    /// Resets env `dst_env` from a CPU snapshot using `write_buffer` only.
     pub fn reset_env_from_snapshot(
         &mut self,
         backend: &GpuBackend,

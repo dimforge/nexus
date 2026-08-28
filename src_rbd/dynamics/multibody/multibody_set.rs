@@ -818,30 +818,12 @@ impl GpuMultibodySet {
 
     /// Overwrites the per-DoF armature (reflected rotor inertia) section of
     /// [`Self::dof_state`]. `values` is `dofs_per_batch * num_batches` in
-    /// env-major order (env outer, DoF inner) and is transposed here into the
-    /// batch-interleaved layout the kernels index.
-    ///
-    /// A post-build override for callers whose rapier scenes carry no armature,
-    /// or that randomize it per environment; the build path already seeds this
-    /// section from `mb.armature()`.
+    /// env-major order (env outer, DoF inner).
     pub fn set_dof_armature(&mut self, backend: &GpuBackend, values: &[f32]) {
         self.write_dof_section(backend, 2, values, "armature");
     }
 
-    /// Overwrites the per-DoF dry joint friction section of
-    /// [`Self::dof_state`] (MJCF `frictionloss`, N·m). Zero, the default,
-    /// disables it. `values` uses the same env-major layout as
-    /// [`Self::set_dof_armature`].
-    ///
-    /// Friction loss is a constraint, not a force: each DoF with a non-zero
-    /// loss gets a solver row driving its velocity to zero, with the impulse
-    /// bounded by `frictionloss · dt` (a load-independent bound, which is why
-    /// MuJoCo distinguishes it from Coulomb friction). The first non-zero call
-    /// reserves the extra constraint slots, which changes per-batch capacities
-    /// and so invalidates the shared `BatchIndices` uniform; the next
-    /// `RbdPipeline` step re-uploads it.
-    /// [`RbdState::set_dof_frictionloss`](crate::pipeline::RbdState::set_dof_frictionloss)
-    /// does it up front instead, if you would rather not carry a dirty uniform.
+    /// Overwrites the per-DoF dry joint friction coefficients.
     pub fn set_dof_frictionloss(&mut self, backend: &GpuBackend, values: &[f32]) {
         if values.iter().any(|v| *v > 0.0) {
             self.reserve_frictionloss_slots(backend);

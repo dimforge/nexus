@@ -62,13 +62,7 @@ pub const MB_JOINT_KIND_LIMIT_INACTIVE: u32 = 3;
 /// `J = e_{dof_id} − coeff·e_{dof2_id}` and a bias pulling the position drift
 /// back to zero.
 pub const MB_JOINT_KIND_COUPLING: u32 = 4;
-/// Joint-constraint `kind`: dry joint friction (MJCF `frictionloss`). A row
-/// with jacobian `J = e_{dof_id}`, zero target velocity and no position
-/// residual, whose impulse is clamped to `±frictionloss·dt` and which carries
-/// the shared joint CFM softness. MuJoCo models friction loss this way rather
-/// than as a `-f·sign(q̇)` force: the bound is load-independent (not Coulomb
-/// friction), and only a constraint can hold a DoF at rest instead of
-/// chattering around zero velocity.
+/// Joint-constraint `kind`: dry joint friction.
 pub const MB_JOINT_KIND_FRICTION: u32 = 5;
 
 /// Sentinel marking a link with no parent (the root).

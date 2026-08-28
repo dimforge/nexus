@@ -64,11 +64,7 @@ impl GpuMultibodySet {
         let mut global_max_cons = 0u32;
         let mut global_max_couplings = 0u32;
 
-        // Whether any multibody anywhere declares dry joint friction. The
-        // constraint-slot reservation below is all-or-nothing, matching
-        // `GpuMultibodySet::reserve_frictionloss_slots`: reserving for only the
-        // multibodies that currently have friction would leave a later
-        // `set_dof_frictionloss` on a different one with nowhere to emit.
+        // Whether any multibody anywhere declares dry joint friction.
         let scene_has_joint_friction = environments.iter().any(|(set, _, _)| {
             set.multibodies()
                 .any(|mb| mb.frictions().iter().any(|f| *f > 0.0))
@@ -200,7 +196,7 @@ impl GpuMultibodySet {
                 // `assembly_counter` (which drops the fixed root's DoFs).
                 let mb_damping = mb.damping();
                 let mb_armature = mb.armature();
-                // Per-DoF dry joint friction (MJCF `<joint frictionloss>`).
+                // Per-DoF dry joint friction.
                 let mb_friction = mb.frictions();
                 let mut rapier_assembly = 0usize;
                 let mb_statics_start = statics.len();

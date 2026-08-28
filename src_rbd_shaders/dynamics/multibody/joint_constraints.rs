@@ -437,13 +437,7 @@ fn build_coupling_constraint(
 /// with an impulse clamped to `±frictionloss·dt`, which is MuJoCo's friction
 /// loss (a load-independent force bound, unlike Coulomb friction).
 ///
-/// `cfm_coeff` is the shared joint softness (rapier's
-/// `joint.softness.cfm_coeff(dt)`), the same compliance the limit rows use;
-/// it is MuJoCo's `solreffriction` knob. Only CFM applies here, never ERP:
-/// there is no position error for a bias to chase. With the default
-/// near-rigid joint softness the coefficient is ~0 and a DoF whose driving
-/// force stays under the bound sticks exactly; softening it lets the DoF
-/// creep under load instead.
+/// `cfm_coeff` is the shared joint softness (rapier's `joint.softness.cfm_coeff(dt)`).
 #[inline]
 fn build_friction_constraint(
     dof_id: u32,
@@ -681,13 +675,6 @@ pub fn gpu_mb_init_joint_constraints(
 
 /// Per-substep refresh of the joint limit / motor slots, the cheap alternative
 /// to a full rebuild.
-///
-/// When the constraint columns and `inv_lhs` are per-step constants (no
-/// implicit Coriolis, no per-substep mass-matrix refresh), the only things that
-/// change between substeps are the rhs, the limit activity and the accumulated
-/// impulse. This recomputes exactly those from the slot's stashed `(link,
-/// axis)`, so the full emission walk and the LU back-solves run once per step
-/// instead of once per substep.
 ///
 /// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
 #[spirv_bindgen]

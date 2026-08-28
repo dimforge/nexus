@@ -16,8 +16,6 @@
 mod compute_dynamics_pre;
 mod contact_constraints;
 mod contact_sensor;
-// The RL env-reset primitives (terrain teleport offsets, template blobs)
-// are 3D-only, like the RbdSnapshot host API on top of them.
 #[cfg(feature = "dim3")]
 mod env_reset;
 mod gravity_and_lu;

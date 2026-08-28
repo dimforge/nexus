@@ -203,8 +203,7 @@ impl GpuMultibodySet {
         }
     }
 
-    /// Resets env `dst_env` from a CPU snapshot: one staging upload and one
-    /// scatter dispatch, with no readback and no per-element strided writes.
+    /// Resets env `dst_env` from a CPU snapshot.
     pub fn reset_env_from_snapshot(
         &mut self,
         backend: &GpuBackend,
