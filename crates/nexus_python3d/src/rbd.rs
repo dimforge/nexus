@@ -221,6 +221,14 @@ impl ColliderBuilder {
     fn friction(&self, friction: f32) -> Self {
         Self(self.0.clone().friction(friction))
     }
+    /// How this collider's friction merges with the other collider's:
+    /// `"average"` (default), `"min"`, `"multiply"`, `"max"` or `"sum"`
+    /// (clamped to `[0, 1]`). The stronger rule of the two colliders wins.
+    fn friction_combine_rule(&self, rule: &str) -> PyResult<Self> {
+        Ok(Self(
+            self.0.clone().friction_combine_rule(combine_rule(rule)?),
+        ))
+    }
     fn restitution(&self, restitution: f32) -> Self {
         Self(self.0.clone().restitution(restitution))
     }
@@ -459,4 +467,20 @@ impl JointArg {
             JointArg::Prismatic(b) => b.0.into(),
         }
     }
+}
+
+/// Parses a `CoefficientCombineRule` name (see `ColliderBuilder.friction_combine_rule`).
+fn combine_rule(rule: &str) -> PyResult<rp::CoefficientCombineRule> {
+    Ok(match rule {
+        "average" => rp::CoefficientCombineRule::Average,
+        "min" => rp::CoefficientCombineRule::Min,
+        "multiply" => rp::CoefficientCombineRule::Multiply,
+        "max" => rp::CoefficientCombineRule::Max,
+        "sum" => rp::CoefficientCombineRule::ClampedSum,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "unknown combine rule {other:?} (expected average, min, multiply, max or sum)"
+            )));
+        }
+    })
 }
