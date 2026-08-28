@@ -54,7 +54,9 @@ async fn run_bench(num_envs: u32, num_boxes: usize, num_steps: u32) {
 
     let capacities = RbdCapacities {
         batches: num_envs,
-        collisions_capacity: 256,
+        // ~5 colliders per env: keep the pair-keyed buffers small enough
+        // to stay under wgpu's 256 MiB max-buffer-size at 4096 envs.
+        collisions_capacity: 32,
         ..Default::default()
     };
     let mut state = RbdState::from_rapier(&backend, &refs, capacities);
@@ -85,7 +87,14 @@ async fn run_bench(num_envs: u32, num_boxes: usize, num_steps: u32) {
 #[serial_test::serial]
 #[ignore]
 async fn bench_narrow_phase_sweep() {
-    for envs in [1u32, 64, 256, 1024, 4096] {
+    // The 4096-env rung needs a buffer past wgpu's default 256 MiB cap, so it
+    // only runs on backends with a higher limit.
+    #[cfg(feature = "metal")]
+    let sweep: &[u32] = &[1, 64, 256, 1024, 4096];
+    #[cfg(not(feature = "metal"))]
+    let sweep: &[u32] = &[1, 64, 256, 1024];
+
+    for &envs in sweep {
         run_bench(envs, 4, 200).await;
     }
 }
