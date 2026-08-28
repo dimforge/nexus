@@ -54,28 +54,3 @@ path = "all_examples3.rs"
 #[[bin]]
 #name = "bench_joints3"
 #path = "bench_joints3.rs"
-
-[[bin]]
-name = "test_frictionloss"
-path = "test_frictionloss.rs"
-required-features = ["metal"]
-
-[[bin]]
-name = "test_frictionloss_stress"
-path = "test_frictionloss_stress.rs"
-required-features = ["metal"]
-
-[[bin]]
-name = "test_frictionloss_caps"
-path = "test_frictionloss_caps.rs"
-required-features = ["metal"]
-
-[[bin]]
-name = "test_refresh_nan"
-path = "test_refresh_nan.rs"
-required-features = ["metal"]
-
-[[bin]]
-name = "test_frictionloss_mjcf"
-path = "test_frictionloss_mjcf.rs"
-required-features = ["metal"]
