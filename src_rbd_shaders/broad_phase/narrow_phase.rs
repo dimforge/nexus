@@ -101,7 +101,7 @@ fn pool_dedup(cand: &mut [ContactPoint; 8], num: &mut usize, pt: ContactPoint, d
 }
 
 /// Optional contact reduction: compacts each batch's contacts in place by
-/// merging manifolds that share a collider pair AND a (nearly) parallel
+/// merging manifolds that share both a collider pair and a (nearly) parallel
 /// normal into a single `MAX_MANIFOLD_POINTS` manifold. This mirrors rapier's
 /// `cluster_manifolds_for_solver` + `reduce_manifold_naive`: cluster by
 /// normal, deduplicate near-coincident points, then keep the deepest point,
@@ -138,7 +138,8 @@ pub fn gpu_reduce_contacts(
     let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
     let n = (contacts_len.read(batch_id as usize) as usize).min(capacity);
 
-    let mut w = 0usize; // write cursor — always ≤ read cursor, in-place safe
+    // Write cursor: always <= the read cursor, so compacting in place is safe.
+    let mut w = 0usize;
     for i in 0..n {
         let im = contacts[i];
         let mut merged = false;
@@ -267,10 +268,8 @@ pub fn gpu_narrow_phase_shape_shape(
         let pair = collision_pairs[i as usize];
         // Resolve the parent rigid-bodies here (the broad phase no longer does)
         // and skip pairs whose colliders share the same body. Pair ids are
-        // env-local, and `collider_parent` is batch-strided like the other
-        // per-collider buffers — an unsliced read here silently returned
-        // batch 0's parents for every batch (masked whenever all envs are
-        // identical, wrong the moment they aren't).
+        // env-local and `collider_parent` is batch-strided, so the stride is
+        // required: without it every batch reads batch 0's parents.
         let coll_base = batch_ids.coll_start(batch_id);
         let body1 = collider_parent.read(coll_base + pair.colliders.x as usize);
         let body2 = collider_parent.read(coll_base + pair.colliders.y as usize);

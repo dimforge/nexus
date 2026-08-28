@@ -652,11 +652,9 @@ impl GpuMultibodySet {
     /// buffer in one write.
     ///
     /// This is the per-step control path for actuated robots: mutate the motors
-    /// on the CPU rapier joints (e.g. via `rapier3d-mjcf`'s
-    /// `apply_controls_multibody`, which implements the MJCF actuator
-    /// semantics), then call this to push the new motor state to the GPU. Only
-    /// joint data is refreshed — coordinates, velocities and mass properties are
-    /// untouched, so this cannot be used to teleport links.
+    /// on the CPU rapier joints, then call this to push them to the GPU. Only
+    /// joint data is refreshed (coordinates, velocities and mass properties are
+    /// untouched), so this cannot teleport links.
     pub fn sync_joint_data_from_rapier(
         &mut self,
         backend: &GpuBackend,

@@ -325,9 +325,9 @@ impl NexusState {
         })
     }
 
-    /// Per-environment collision-pair capacity (default 4096). Lower this
-    /// before `finalize` when batching many small environments — pair-keyed
-    /// GPU workspaces scale with `capacity x num_envs`.
+    /// Per-environment collision-pair capacity (default 4096). Lower it before
+    /// `finalize` when batching many small environments: pair-keyed GPU
+    /// workspaces scale with `capacity x num_envs`.
     fn set_rbd_collisions_capacity(&mut self, capacity: u32) {
         self.0.set_rbd_collisions_capacity(capacity);
     }

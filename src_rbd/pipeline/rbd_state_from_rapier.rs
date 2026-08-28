@@ -147,9 +147,9 @@ impl RbdState {
         // the equal-topology invariant and to set `BatchIndices::bodies_len`.
         let mut all_env_body_counts: Vec<usize> = Vec::new();
         let mut shape_buffers = ShapeBuffers::default();
-        // TriMesh dedupe: a `SharedShape` cloned across envs (e.g. shared
-        // terrain) is serialized into `shape_buffers` once and its `Shape`
-        // descriptor reused — keyed by the parry shape data pointer.
+        // A `SharedShape` cloned across envs (e.g. shared terrain) is
+        // serialized into `shape_buffers` once, keyed by its parry data
+        // pointer, and every clone reuses the resulting `Shape` descriptor.
         let mut trimesh_cache: HashMap<usize, crate::shaders::shapes::Shape> = HashMap::new();
         let mut joint_envs: Vec<(
             &ImpulseJointSet,
