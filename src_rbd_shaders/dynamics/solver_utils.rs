@@ -536,13 +536,16 @@ impl TwoBodyConstraint {
         }
     }
 
-    /// Main constraint solver iteration (Projected Gauss-Seidel).
+    /// Main constraint solver iteration (Projected Gauss-Seidel). `solve_friction`
+    /// gates the tangent rows: the stabilization sweep always solves them, the
+    /// biased pass only when `RbdSimParams::friction_in_bias_pass` is set.
     #[inline(always)]
     pub fn solve_constraint_gauss_seidel(
         &mut self,
         solver_vel1: &mut Velocity,
         solver_vel2: &mut Velocity,
         use_bias: bool,
+        solve_friction: bool,
     ) {
         let dir_a = self.dir_a;
         let friction_coeff = self.limit;
@@ -576,8 +579,9 @@ impl TwoBodyConstraint {
             solver_vel2.angular += ii_torque_dir_b * delta_impulse;
         }
 
-        // Friction is only solved during the stabilization sweep.
-        if use_bias {
+        // Friction is solved during the stabilization sweep, and during the
+        // biased pass only when `friction_in_bias_pass` is set.
+        if !solve_friction {
             return;
         }
 
