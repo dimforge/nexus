@@ -1,3 +1,30 @@
+## Unreleased
+
+### Added
+
+- `RbdSimParams::friction_in_bias_pass`: also solve the contact friction rows during the biased
+  PGS pass, instead of only during the once-per-substep stabilization sweep (rapier's
+  `friction_in_bias_pass`). Off by default; on, friction gets as many iterations as the normal
+  rows, which keeps pinch grasps and resting stacks from drifting.
+- Python: `NexusState.set_rbd_solver_params(friction_in_bias_pass=...)`,
+  `ColliderBuilder.friction_combine_rule`, and the `debug_contacts` /
+  `debug_multibody_contact_impulses` GPU readbacks for contact diagnostics.
+
+### Fixed
+
+- Contacts between a multibody link and a rigid body were solved twice: by the multibody
+  contact solver and, again, by the rigid-body solver against a zero-inverse-mass copy of the
+  link. The second copy saw the link as never moving, so a robot lifting a grasped object had
+  its friction cancelled by a "ghost" of its own fingers. The rigid-body constraint builder now
+  leaves multibody-owned manifolds to the multibody solver.
+
+### Modified
+
+- `RbdSimParams::num_internal_pgs_iterations` now also drives the rigid-body contact and joint
+  sweeps of the biased pass, interleaved one iteration at a time with the multibody sweeps (it
+  used to loop the multibody solver alone, leaving a box pinched by a robot against a board with
+  eight multibody iterations against one rigid-body iteration per substep).
+
 ## v0.5.0 (16 August 2026)
 
 ### Breaking changes

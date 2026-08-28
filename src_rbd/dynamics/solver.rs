@@ -12,6 +12,7 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::broad_phase::ContactPlan;
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
+use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize, GpuSolverInitConstraints,
@@ -139,8 +140,14 @@ pub struct SolverArgs<'a> {
     pub prefix_sum: &'a GpuPrefixSum,
     /// Number of solver iterations (max across all environments).
     pub num_solver_iterations: u32,
+    /// PGS iterations of the biased pass per substep, shared by the
+    /// rigid-body and multibody sweeps (`RbdSimParams::num_internal_pgs_iterations`).
+    pub num_internal_pgs_iterations: u32,
     /// Per-body graph-coloring group id (multibody-aware).
     pub body_group: &'a Tensor<u32>,
+    /// Per-body flag, 1 for multibody links, whose contacts the rigid-body
+    /// pipeline leaves to the multibody solver.
+    pub body_is_multibody: &'a Tensor<u32>,
     /// When `true` (no multibody in the scene), warmstart uses the single
     /// gather-per-body dispatch instead of one scatter dispatch per color.
     /// The gather variant looks bodies up by their own id, which is only
@@ -154,6 +161,9 @@ pub struct SolverArgs<'a> {
     pub fused_color_sweeps: bool,
     /// `true` when every rigid-body contact constraint is provably a no-op.
     pub rb_contacts_inert: bool,
+    /// Solve friction rows during the biased pass too
+    /// (`RbdSimParams::friction_in_bias_pass`).
+    pub friction_in_bias_pass: bool,
     /// Shared per-batch indices.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
     /// The one gravity uniform every rigid-body and multibody kernel reads.
@@ -208,6 +218,7 @@ impl GpuSolver {
             args.constraints,
             args.constraint_builders,
             args.contact_plan,
+            args.body_is_multibody,
             args.collider_world_poses,
             args.solver_body_poses,
             args.vels,
@@ -222,7 +233,7 @@ impl GpuSolver {
             args.contacts_len_indirect,
             args.contacts,
             args.body_constraint_counts,
-            args.body_group,
+            args.body_is_multibody,
             args.mprops,
             args.contact_plan,
         )?;
@@ -245,7 +256,7 @@ impl GpuSolver {
             args.contacts,
             args.contact_plan,
             args.body_constraint_ids,
-            args.body_group,
+            args.body_is_multibody,
         )?;
 
         Ok(())
@@ -311,6 +322,7 @@ impl GpuSolver {
                     gravity: args.gravity,
                     color_uniforms: args.color_uniforms,
                     mb_sweep_indirect: args.mb_sweep_indirect,
+                    friction_in_bias_pass: args.friction_in_bias_pass,
                 };
                 solver.layout_contact_constraints(&mut pass, state, &mut mb_args)?;
             }
@@ -338,11 +350,19 @@ impl GpuSolver {
                         gravity: args.gravity,
                         color_uniforms: args.color_uniforms,
                         mb_sweep_indirect: args.mb_sweep_indirect,
+                        friction_in_bias_pass: args.friction_in_bias_pass,
                     };
                     solver.$method(&mut pass, state, &mut mb_args $(, $extra)*)?;
                 }
             }};
         }
+
+        // Bias-mode uniform of the biased pass (see `decode_bias_mode`).
+        let bias_mode = if args.friction_in_bias_pass {
+            BIAS_MODE_BIAS_FRICTION as usize
+        } else {
+            BIAS_MODE_BIAS as usize
+        };
 
         for substep_id in 0..num_substeps {
             let is_last_substep = substep_id == num_substeps - 1;
@@ -385,6 +405,7 @@ impl GpuSolver {
                         gravity: args.gravity,
                         color_uniforms: args.color_uniforms,
                         mb_sweep_indirect: args.mb_sweep_indirect,
+                        friction_in_bias_pass: args.friction_in_bias_pass,
                     };
                     solver.substep_build_constraints(
                         encoder,
@@ -456,43 +477,56 @@ impl GpuSolver {
             }
 
             /*
-             * Solve all joints + contacts with bias.
+             * Solve all joints + contacts with bias. The multibody and
+             * rigid-body sweeps interleave, one iteration each, so a body
+             * squeezed between a multibody link and a rigid body sees both
+             * sides converge at the same rate.
              */
-            mb_phase!("[RBD] slv/mb-solve-bias", substep_solve_with_bias);
-            if !skip_rb || !joints_empty {
-                let mut pass =
-                    encoder.begin_pass("[RBD] slv/rb-solve-bias", timestamps.as_deref_mut());
-                let pass = &mut pass;
-                joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
-                if skip_rb {
-                    // Contact sweeps skipped (inert constraints).
-                } else if args.fused_color_sweeps {
-                    self.step_gauss_seidel_fused.call(
-                        pass,
-                        [64, args.num_batches, 1],
-                        args.constraints,
-                        args.solver_vels,
-                        args.color_buckets,
-                        args.color_sorted_ids,
-                        &args.color_uniforms[args.num_colors as usize],
-                        args.batch_indices,
-                        // use_bias = 1 (the `color_uniform[1]` contains the value 1)
-                        &args.color_uniforms[1],
-                    )?;
-                } else {
-                    for c in 1..=args.num_colors {
-                        self.step_gauss_seidel.call(
+            for iteration in 0..args.num_internal_pgs_iterations.max(1) {
+                let first_iteration = iteration == 0;
+                // Only consumed by the dim3-only multibody phase.
+                #[cfg(not(feature = "dim3"))]
+                let _ = first_iteration;
+                mb_phase!(
+                    "[RBD] slv/mb-solve-bias",
+                    substep_solve_with_bias,
+                    first_iteration
+                );
+                if !skip_rb || !joints_empty {
+                    let mut pass =
+                        encoder.begin_pass("[RBD] slv/rb-solve-bias", timestamps.as_deref_mut());
+                    let pass = &mut pass;
+                    joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
+                    if skip_rb {
+                        // Contact sweeps skipped (inert constraints).
+                    } else if args.fused_color_sweeps {
+                        self.step_gauss_seidel_fused.call(
                             pass,
-                            args.contacts_len_indirect,
+                            [64, args.num_batches, 1],
                             args.constraints,
                             args.solver_vels,
                             args.color_buckets,
                             args.color_sorted_ids,
-                            &args.color_uniforms[c as usize],
+                            &args.color_uniforms[args.num_colors as usize],
                             args.batch_indices,
-                            // use_bias = 1 (the `color_uniform[1]` contains the value 1)
-                            &args.color_uniforms[1],
+                            // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
+                            &args.color_uniforms[bias_mode],
                         )?;
+                    } else {
+                        for c in 1..=args.num_colors {
+                            self.step_gauss_seidel.call(
+                                pass,
+                                args.contacts_len_indirect,
+                                args.constraints,
+                                args.solver_vels,
+                                args.color_buckets,
+                                args.color_sorted_ids,
+                                &args.color_uniforms[c as usize],
+                                args.batch_indices,
+                                // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
+                                &args.color_uniforms[bias_mode],
+                            )?;
+                        }
                     }
                 }
             }

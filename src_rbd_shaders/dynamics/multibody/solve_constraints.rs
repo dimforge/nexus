@@ -8,6 +8,7 @@ use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
 use crate::dynamics::body::Velocity;
+use crate::dynamics::decode_bias_mode;
 use crate::gdot;
 use crate::utils::BatchIndices;
 use crate::utils::linalg::MAX_MB_DOFS;
@@ -117,7 +118,7 @@ pub fn gpu_mb_solve_constraints(
     if ndofs == 0 {
         return;
     }
-    let use_bias = *use_bias != 0;
+    let (use_bias, solve_friction) = decode_bias_mode(*use_bias);
 
     let v_base = mb.first_dof as usize;
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
@@ -232,14 +233,15 @@ pub fn gpu_mb_solve_constraints(
         };
         let cons = contact_constraints.read(cons_idx);
         let is_tangent = cons.kind == MB_CONTACT_KIND_TANGENT;
-        // Friction is only solved during the relaxation phase, and in 3D a
-        // tangent pair is solved by its first row only.
+        // Friction is solved during the relaxation phase (and during the
+        // biased pass when `friction_in_bias_pass` is set); in 3D a tangent
+        // pair is solved by its first row only.
         #[cfg(feature = "dim3")]
         let solve = slot_active
-            && !(use_bias && is_tangent)
+            && !(is_tangent && !solve_friction)
             && !(is_tangent && s != cons.normal_constraint_slot + 1);
         #[cfg(feature = "dim2")]
-        let solve = slot_active && !(use_bias && is_tangent);
+        let solve = slot_active && !(is_tangent && !solve_friction);
         #[cfg(not(feature = "web-compat"))]
         if !solve {
             continue;
@@ -310,7 +312,12 @@ pub fn gpu_mb_solve_constraints(
                 }
             }
 
-            let cfm_factor = if use_bias { cons.cfm_factor } else { 1.0 };
+            // Compliance only softens the normal rows; friction stays rigid.
+            let cfm_factor = if use_bias && !is_tangent {
+                cons.cfm_factor
+            } else {
+                1.0
+            };
             let impulse0 = cons.impulse;
             let rhs0 = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
             let raw0 = cfm_factor * (impulse0 - cons.inv_lhs * (j_dot_v0 + rhs0));
@@ -636,7 +643,7 @@ pub fn gpu_mb_solve_contacts_delassus(
         return;
     }
     let active = in_range && ndofs != 0 && count != 0;
-    let use_bias = *use_bias != 0;
+    let (use_bias, solve_friction) = decode_bias_mode(*use_bias);
 
     let v_base = mb.first_dof as usize;
     let cons_base = mb.contact_constraint_start as usize;
@@ -667,7 +674,9 @@ pub fn gpu_mb_solve_contacts_delassus(
                 if use_bias { cons.rhs } else { cons.rhs_wo_bias },
             );
             inv_lhs_shared.write(s as usize, cons.inv_lhs);
-            cfm_shared.write(s as usize, if use_bias { cons.cfm_factor } else { 1.0 });
+            // Compliance only softens the normal rows; friction stays rigid.
+            let soft = use_bias && cons.kind != MB_CONTACT_KIND_TANGENT;
+            cfm_shared.write(s as usize, if soft { cons.cfm_factor } else { 1.0 });
             friction_shared.write(s as usize, cons.friction_coeff);
             let is_self = cons.free_body_id == u32::MAX;
             let free_active = !is_self
@@ -723,13 +732,15 @@ pub fn gpu_mb_solve_contacts_delassus(
         let free_active = (meta >> 24) != 0;
         let is_tangent = kind == MB_CONTACT_KIND_TANGENT;
 
-        // Friction is only solved during the stabilization sweep, and in 3D a
-        // tangent pair is solved by its first row only.
+        // Friction is solved during the stabilization sweep (and during the
+        // biased pass when `friction_in_bias_pass` is set); in 3D a tangent
+        // pair is solved by its first row only.
         #[cfg(feature = "dim3")]
-        let solve =
-            slot_active && !(use_bias && is_tangent) && !(is_tangent && s != normal_slot + 1);
+        let solve = slot_active
+            && !(is_tangent && !solve_friction)
+            && !(is_tangent && s != normal_slot + 1);
         #[cfg(feature = "dim2")]
-        let solve = slot_active && !(use_bias && is_tangent);
+        let solve = slot_active && !(is_tangent && !solve_friction);
         #[cfg(not(feature = "web-compat"))]
         if !solve {
             continue;

@@ -69,6 +69,21 @@ impl ConstraintSoftness {
     }
 }
 
+/// Bias-mode uniform handed to the constraint solve kernels: the unbiased
+/// stabilization sweep, the biased pass with friction rows skipped (rapier's
+/// default scheduling), or the biased pass with friction rows solved
+/// (`RbdSimParams::friction_in_bias_pass`). The values double as indices into
+/// the solver's constant uniforms (`color_uniforms[c] == c`).
+pub const BIAS_MODE_NONE: u32 = 0;
+pub const BIAS_MODE_BIAS: u32 = 1;
+pub const BIAS_MODE_BIAS_FRICTION: u32 = 2;
+
+/// Decodes a bias-mode uniform into `(use_bias, solve_friction)`.
+#[inline(always)]
+pub fn decode_bias_mode(mode: u32) -> (bool, bool) {
+    (mode != BIAS_MODE_NONE, mode != BIAS_MODE_BIAS)
+}
+
 /// Parameters for a time-step of the physics engine.
 #[derive(Clone, Copy, PartialEq)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
@@ -168,11 +183,28 @@ pub struct RbdSimParams {
     /// cheaper, but one averaged normal then stands in for a ridge or a step.
     pub contact_merge_cos: f32,
 
-    /// Multibody only: PGS iterations over the joint + contact constraints run
-    /// per substep, in the biased pass (default: `1`).
+    /// PGS iterations over the joint + contact constraints run per substep in
+    /// the biased pass (default: `1`). The rigid-body and multibody sweeps
+    /// interleave, one iteration each, so both sides of a rigid-body/multibody
+    /// contact converge at the same rate.
     ///
     /// Host-side only: it is a dispatch count, never read by a shader.
     pub num_internal_pgs_iterations: u32,
+
+    /// Nonzero: friction rows are also solved during the biased pass instead
+    /// of only during the unbiased stabilization sweep (default: `0`, matching
+    /// rapier's `friction_in_bias_pass`). Turning it on gives friction as many
+    /// PGS iterations as the normal rows, which stiffens grasps and resting
+    /// contacts at a small cost per iteration.
+    ///
+    /// Host-side only: it selects the bias-mode uniform passed to the solve
+    /// kernels, never read by a shader.
+    pub friction_in_bias_pass: u32,
+    // Uniform-layout padding to a 16-byte multiple (scalars: an array member
+    // here would itself need 16-byte alignment).
+    pub _padding0: u32,
+    pub _padding1: u32,
+    pub _padding2: u32,
 }
 
 impl RbdSimParams {
@@ -198,6 +230,10 @@ impl RbdSimParams {
             normalized_max_linear_velocity: 400.0,
             length_unit: 1.0,
             num_internal_pgs_iterations: 1,
+            friction_in_bias_pass: 0,
+            _padding0: 0,
+            _padding1: 0,
+            _padding2: 0,
         }
     }
 }

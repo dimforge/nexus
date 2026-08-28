@@ -726,10 +726,12 @@ pub fn gpu_mb_init_contact_constraints(
                     }
                 };
 
-                // Positional bias along the tangent: pull the two anchors back
-                // together so friction sticks instead of drifting. No surface
-                // velocity yet (TODO: conveyor belts), so `rhs_wo_bias` is 0.
-                let tang_bias = (p1 - p2).dot(mb_tangent) * inv_dt;
+                // Friction stays velocity-level, as in rapier: no positional
+                // anchoring term. A rigid tangent anchor over-constrains a
+                // pinch pressed against a resting surface (fingers, box and
+                // board all welded together) and locks up the grasp. Surface
+                // velocity (conveyor belts) would go here; `rhs_wo_bias` is 0.
+                let tang_bias = 0.0f32;
                 #[cfg(feature = "dim3")]
                 let tang_cons = MultibodyContactConstraint {
                     multibody_id: mb_idx,

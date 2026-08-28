@@ -130,7 +130,8 @@ impl RbdPipeline {
         // Make sure the color index uniforms are up-to-date.
         // This is the maximum over the colors needed for contacts, joints, and multibodies.
         {
-            let mut needed = state.max_colors + 2;
+            // At least 3: the bias-mode constants 0..=2 (see `decode_bias_mode`).
+            let mut needed = (state.max_colors + 2).max(3);
             needed = needed.max(state.joints.num_colors() + 1);
             #[cfg(feature = "dim3")]
             {
@@ -156,6 +157,7 @@ impl RbdPipeline {
                     color_uniforms: &state.color_uniforms,
                     mb_sweep_indirect: &state.mb_sweep_indirect,
                     gravity: &state.gravity,
+                    friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
                 };
                 self.multibody_solver.init_step(
                     &mut *encoder,
@@ -374,12 +376,15 @@ impl RbdPipeline {
                 num_batches: state.num_batches,
                 num_colliders: state.num_colliders_per_batch,
                 num_solver_iterations: state.num_solver_iterations,
+                num_internal_pgs_iterations: state.sim_params_cpu.num_internal_pgs_iterations,
                 body_group: &state.body_group,
+                body_is_multibody: &state.body_is_multibody,
                 batch_indices: &state.batch_indices,
                 mb_sweep_indirect: &state.mb_sweep_indirect,
                 colorless_warmstart: false,
                 fused_color_sweeps,
                 rb_contacts_inert: state.rb_contacts_inert,
+                friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
                 gravity: &state.gravity,
             };
             self.solver.prepare(
@@ -525,7 +530,9 @@ impl RbdPipeline {
             num_batches: state.num_batches,
             num_colliders: state.num_colliders_per_batch,
             num_solver_iterations: state.num_solver_iterations,
+            num_internal_pgs_iterations: state.sim_params_cpu.num_internal_pgs_iterations,
             body_group: &state.body_group,
+            body_is_multibody: &state.body_is_multibody,
             batch_indices: &state.batch_indices,
             mb_sweep_indirect: &state.mb_sweep_indirect,
             // The gather warmstart is only valid without multibody grouping;
@@ -536,6 +543,7 @@ impl RbdPipeline {
             colorless_warmstart: true,
             fused_color_sweeps,
             rb_contacts_inert: state.rb_contacts_inert,
+            friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
             gravity: &state.gravity,
         };
 

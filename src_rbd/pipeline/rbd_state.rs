@@ -257,6 +257,10 @@ pub struct RbdState {
     /// contacts touching different bodies of the same multibody can never be
     /// assigned the same color.
     pub(super) body_group: Tensor<u32>,
+    /// Per-body flag, 1 for the links of a multibody. The rigid-body contact
+    /// pipeline skips every manifold touching such a body: the multibody
+    /// solver owns those contacts.
+    pub(super) body_is_multibody: Tensor<u32>,
     pub(super) prefix_sum_workspace: PrefixSumWorkspace,
     /// Separate workspace for the color-bucket prefix scan (different length
     /// than the body-count scan, so sharing one workspace would thrash its
@@ -418,8 +422,8 @@ impl RbdState {
         self.sim_params_cpu = params;
     }
 
-    /// Sets how many PGS iterations the multibody solver's biased pass runs per
-    /// substep, without rebuilding the GPU state.
+    /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
+    /// and multibody sweeps alike), without rebuilding the GPU state.
     #[cfg(feature = "dim3")]
     pub fn set_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
         let n = n.max(1);
@@ -432,7 +436,7 @@ impl RbdState {
         self.sim_params_cpu = params;
     }
 
-    /// PGS iterations per substep in the multibody solver's biased pass.
+    /// PGS iterations per substep in the biased pass.
     #[cfg(feature = "dim3")]
     pub fn num_internal_pgs_iterations(&self) -> u32 {
         self.multibodies.num_internal_pgs_iterations()
@@ -521,6 +525,12 @@ impl RbdState {
     /// GPU buffer holding the contact manifolds.
     pub fn contacts(&self) -> &Tensor<GpuIndexedContact> {
         &self.contacts
+    }
+
+    /// GPU buffer holding the rigid-body contact constraints of the current
+    /// step (impulses included). For debugging.
+    pub fn rigid_contact_constraints(&self) -> &Tensor<TwoBodyConstraint> {
+        &self.new_constraints
     }
 
     /// Debug: read back active contacts as `(collider_a, collider_b, body_a,
