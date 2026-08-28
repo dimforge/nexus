@@ -15,6 +15,7 @@ use nexus3d::prelude::{
     NexusPipeline as RNexusPipeline, NexusPipelineMask, NexusState as RNexusState,
     RbdCoupling as RRbdCoupling,
 };
+use numpy::PyArray2;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use rapier3d::prelude as rp;
@@ -373,20 +374,18 @@ impl NexusState {
     }
 
     /// Applies one MJCF control vector (one entry per actuator, in
-    /// `actuator_names` order) to the robot loaded by `insert_mjcf`, with full
-    /// MJCF actuator semantics (`<position>` servos with kp/kv, `<motor>`
-    /// force/gear, force limits), and pushes the resulting joint-motor state to
-    /// the GPU in one buffer write.
+    /// `actuator_names` order) to every environment's copy of the robot loaded
+    /// by `insert_mjcf`, with full MJCF actuator semantics (`<position>` servos
+    /// with kp/kv, `<motor>` force/gear, force limits), and pushes the resulting
+    /// joint-motor state to the GPU.
     ///
     /// Call once per control step, after `finalize`; the next
-    /// `NexusPipeline.simulate` steps the solver against the new targets. This
-    /// is the GPU counterpart of stepping rapier natively with actuators.
-    #[pyo3(signature = (viewer, ctrl, env=0))]
+    /// `NexusPipeline.simulate` steps the solver against the new targets.
+    #[pyo3(signature = (viewer, ctrl))]
     fn apply_actuator_controls(
         &mut self,
         viewer: PyRef<NexusViewer>,
         ctrl: Vec<f32>,
-        env: usize,
     ) -> PyResult<()> {
         let Some(handles) = self.1.as_ref() else {
             return Err(PyRuntimeError::new_err(
@@ -402,7 +401,7 @@ impl NexusState {
         }
         let handles = handles.clone();
         self.0
-            .control_multibody_motors(viewer.backend(), env, |world| {
+            .control_multibody_motors(viewer.backend(), |_, world| {
                 handles.apply_controls_multibody(
                     &mut world.bodies,
                     &mut world.multibody_joints,
@@ -410,6 +409,61 @@ impl NexusState {
                 );
             })
             .map_err(gpu_err)
+    }
+
+    /// Reads every environment's multibody link states back from the GPU in one
+    /// transfer. Returns five float32 numpy arrays with
+    /// `num_environments * multibody_links_per_env` rows, environment-major;
+    /// links follow the GPU build's traversal order (multibodies, then links,
+    /// parent before child), the same order `apply_actuator_controls` drives:
+    ///
+    /// - `coords (n, 6)`: generalized joint coordinates (only the joint's DOF
+    ///   count is meaningful; a revolute joint's angle is `coords[5]`),
+    /// - `positions (n, 3)` / `quats (n, 4)`: link world pose (`w, x, y, z`),
+    /// - `linvels (n, 3)` / `angvels (n, 3)`: world-space velocities, valid
+    ///   after the first simulated step.
+    ///
+    /// Use `multibody_links_per_env()` to slice a single environment out.
+    #[allow(clippy::type_complexity)]
+    fn read_multibody_links<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+    ) -> (
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+    ) {
+        let links = pollster::block_on(self.0.read_multibody_links(viewer.backend()));
+        let mut coords = Vec::with_capacity(links.len());
+        let mut positions = Vec::with_capacity(links.len());
+        let mut quats = Vec::with_capacity(links.len());
+        let mut linvels = Vec::with_capacity(links.len());
+        let mut angvels = Vec::with_capacity(links.len());
+        for ws in &links {
+            coords.push(ws.coords.to_vec());
+            let (t, q) = (ws.local_to_world.translation, ws.local_to_world.rotation);
+            positions.push(vec![t.x, t.y, t.z]);
+            quats.push(vec![q.w, q.x, q.y, q.z]);
+            let (l, a) = (ws.rb_vels.linear, ws.rb_vels.angular);
+            linvels.push(vec![l.x, l.y, l.z]);
+            angvels.push(vec![a.x, a.y, a.z]);
+        }
+        (
+            PyArray2::from_vec2(py, &coords).unwrap(),
+            PyArray2::from_vec2(py, &positions).unwrap(),
+            PyArray2::from_vec2(py, &quats).unwrap(),
+            PyArray2::from_vec2(py, &linvels).unwrap(),
+            PyArray2::from_vec2(py, &angvels).unwrap(),
+        )
+    }
+
+    /// Number of link slots per environment, the stride of
+    /// `read_multibody_links`.
+    fn multibody_links_per_env(&self) -> u32 {
+        self.0.multibody_links_per_env()
     }
 
     // --- rbd config -------------------------------------------------------

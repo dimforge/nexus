@@ -12,7 +12,7 @@ use crate::rbd::dynamics::{
     body::{BodyCoupling, RapierBodyCouplingEntry},
 };
 use crate::rbd::pipeline::{RbdCapacities, RbdResizePolicy, RbdState, RunStats};
-use khal::backend::{GpuBackend, GpuBackendError};
+use khal::backend::{Backend, GpuBackend, GpuBackendError};
 
 /// Handle referencing a rigid-body managed by a [`NexusState`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -441,36 +441,86 @@ impl NexusState {
         &mut self.rbd_envs[env]
     }
 
-    /// Runtime actuation entry point: mutates environment `env`'s rapier
-    /// multibody joints through `f` (e.g. `rapier3d-mjcf`'s
-    /// `apply_controls_multibody`, which implements MJCF actuator semantics),
-    /// then pushes the refreshed joint data — motor targets/gains, limits — to
-    /// the GPU multibody links in one buffer write.
+    /// Runtime actuation entry point: mutates every environment's rapier
+    /// multibody joints through `f`, then pushes the refreshed joint data
+    /// (motor targets and gains, limits) to the GPU.
     ///
-    /// Unlike [`Self::rbd_world_mut`] this does NOT mark the world dirty: motor
-    /// updates are per-step control, not a topology change, so no GPU rebuild
-    /// is triggered. Call after [`Self::finalize`]; a no-op before it.
-    #[cfg(all(feature = "dim3", feature = "rbd"))]
+    /// `f` receives each environment in turn, so one control vector can drive
+    /// the whole batch or `f` can pick per-environment targets. Unlike
+    /// [`Self::rbd_world_mut`] this does not mark the world dirty: motor
+    /// updates are per-step control, not a topology change, so they trigger no
+    /// GPU rebuild. Call after [`Self::finalize`]; a no-op before it.
     pub fn control_multibody_motors<F>(
         &mut self,
         backend: &GpuBackend,
-        env: usize,
-        f: F,
+        mut f: F,
     ) -> Result<(), GpuBackendError>
     where
-        F: FnOnce(&mut PhysicsWorld),
+        F: FnMut(usize, &mut PhysicsWorld),
     {
-        let world = &mut self.rbd_envs[env];
-        f(world);
-        if let Some(rbd) = self.rbd.as_mut() {
-            rbd.multibodies_mut().sync_joint_data_from_rapier(
-                backend,
-                env as u32,
-                &world.multibody_joints,
-                &world.bodies,
-            )?;
+        for (env, world) in self.rbd_envs.iter_mut().enumerate() {
+            f(env, world);
+            if let Some(rbd) = self.rbd.as_mut() {
+                rbd.multibodies_mut().sync_joint_data_from_rapier(
+                    backend,
+                    env as u32,
+                    &world.multibody_joints,
+                    &world.bodies,
+                )?;
+            }
         }
         Ok(())
+    }
+
+    /// Reads every environment's multibody link workspace back from the GPU in
+    /// one transfer: per link, the generalized joint coordinates, accumulated
+    /// joint rotation, world pose and world-space velocity.
+    ///
+    /// The result is `num_environments() * multibody_links_per_env()` entries,
+    /// environment-major. Links follow the GPU build's traversal order
+    /// (multibodies, then links, parent before child), the same order
+    /// [`Self::control_multibody_motors`] targets. Empty when there is no
+    /// multibody state.
+    ///
+    /// Velocities only become meaningful after the first simulated step; the
+    /// coordinates and poses are valid from `finalize` on.
+    #[cfg(feature = "dim3")]
+    pub async fn read_multibody_links(
+        &self,
+        backend: &GpuBackend,
+    ) -> Vec<crate::rbd::shaders::dynamics::MultibodyLinkWorkspace> {
+        let Some(rbd) = self.rbd.as_ref() else {
+            return Vec::new();
+        };
+        let mbs = rbd.multibodies();
+        if mbs.links_per_batch() == 0 {
+            return Vec::new();
+        }
+        // The workspace is batch-interleaved SoA quads, so read the raw buffer
+        // and decode it back into one struct per link.
+        let mut raw = vec![crate::rbd::glamx::Vec4::ZERO; mbs.links_workspace().len() as usize];
+        if backend
+            .slow_read_buffer(mbs.links_workspace().buffer(), &mut raw)
+            .await
+            .is_err()
+        {
+            return Vec::new();
+        }
+        crate::rbd::shaders::dynamics::ws_soa_to_structs(
+            &raw,
+            mbs.links_per_batch(),
+            mbs.num_batches(),
+        )
+    }
+
+    /// Number of link slots per environment, the stride of
+    /// [`Self::read_multibody_links`].
+    #[cfg(feature = "dim3")]
+    pub fn multibody_links_per_env(&self) -> u32 {
+        self.rbd
+            .as_ref()
+            .map(|rbd| rbd.multibodies().links_per_batch())
+            .unwrap_or(0)
     }
 
     /// Mutable access to environment `env`'s rapier world that does **not** mark

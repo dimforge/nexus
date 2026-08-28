@@ -390,7 +390,7 @@ impl RbdState {
         for p in &mut params {
             p.contact_merge_cos = cos;
         }
-        backend.write_buffer(self.sim_params.buffer_mut(), 0, &params);
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &params);
         self.all_sim_params = params;
     }
 
