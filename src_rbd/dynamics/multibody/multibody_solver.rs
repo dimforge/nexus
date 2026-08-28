@@ -6,10 +6,10 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::dynamics::{
     GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
     GpuMbComputeSolveBounds, GpuMbDelayTick, GpuMbFinalizeContactConstraints,
-    GpuMbFinalizeImpulseJointConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1,
-    GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
-    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
-    GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbFinalizeImpulseJointConstraints, GpuMbFinalizeJointConstraints, GpuMbGravityAndLu,
+    GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32,
+    GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
+    GpuMbIntegrateVelocities, GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
     GpuMbSeedContactRestitution, GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart,
     GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
     GpuMbSolveJoints, GpuMbStashContactsLen, GpuMbTransferContactWarmstart,
@@ -34,6 +34,9 @@ pub struct GpuMultibodySolver {
     gravity_and_lu_t32: GpuMbGravityAndLuT32,
     compute_dynamics_pre: GpuMbComputeDynamicsPre,
     init_joint_with_bias: GpuMbInitJointConstraints,
+    /// M⁻¹-column back-solve for the joint constraints, split from the build
+    /// pass so each fits 8 storage buffers.
+    finalize_joint_constraints: GpuMbFinalizeJointConstraints,
     init_contact_constraints: GpuMbInitContactConstraints,
     /// Cheap per-substep refresh of the joint rhs / limit activity, used when
     /// the full build runs only once per step.
@@ -354,14 +357,28 @@ impl GpuMultibodySolver {
                 &mb.multibody_info,
                 &mb.links_static,
                 &mb.links_workspace,
-                &mb.mass_matrices,
-                &mb.lu_pivots,
                 &mut mb.joint_constraints,
-                &mut mb.joint_constraint_columns,
                 &mb.dof_couplings,
                 &mb.motor_delay_state,
                 &mb.dof_state,
                 &mb.constraint_softness,
+                args.batch_indices,
+            )?;
+            drop(pass);
+
+            // The M⁻¹-column back-solve is a separate dispatch: one kernel
+            // binding both the emission inputs and the LU factors would exceed
+            // the 8-storage-buffer budget.
+            let mut pass =
+                encoder.begin_pass("[RBD] mbb/finalize-joint", timestamps.as_deref_mut());
+            self.finalize_joint_constraints.call(
+                &mut pass,
+                init_joint_dispatch,
+                &mb.multibody_info,
+                &mut mb.joint_constraints,
+                &mut mb.joint_constraint_columns,
+                &mb.mass_matrices,
+                &mb.lu_pivots,
                 args.batch_indices,
             )?;
         }
