@@ -410,13 +410,3 @@ impl GpuMultibodySet {
         self.reset_templates = Some(tpl);
     }
 }
-
-/// Builds both env-reset shader bundles, so the pipeline-limit smoke test can
-/// reach them without making the private bundle types public.
-#[cfg(test)]
-pub(crate) fn env_reset_shaders_for_test(backend: &GpuBackend) {
-    use khal::Shader;
-    EnvResetShader::from_backend(backend).expect("env-reset shader exceeds the WebGPU limits");
-    EnvResetBatchShader::from_backend(backend)
-        .expect("batched env-reset shader exceeds the WebGPU limits");
-}
