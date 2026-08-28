@@ -61,7 +61,6 @@ impl GpuNarrowPhase {
         // Optional: merge each collider pair's manifolds into one before the
         // solvers see them. `false` skips the kernel entirely.
         reduce_contacts: bool,
-        merge_cos: &Tensor<f32>,
         pairs_offsets: &mut Tensor<u32>,
         pfm_offsets: &mut Tensor<u32>,
     ) -> Result<(), GpuBackendError> {
@@ -146,11 +145,10 @@ impl GpuNarrowPhase {
                 contacts_len,
                 batch_indices,
                 sim_params,
-                merge_cos,
             )?;
         }
         #[cfg(not(feature = "dim3"))]
-        let _ = (reduce_contacts, merge_cos);
+        let _ = reduce_contacts;
         self.init_contacts_indirect_args.call(
             pass,
             256u32,

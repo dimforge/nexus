@@ -160,6 +160,13 @@ pub struct RbdSimParams {
 
     /// The number of solver iterations run by the constraints solver for calculating forces (default: `4`).
     pub num_solver_iterations: u32,
+
+    /// Minimum cosine between two manifold normals for the contact-reduction
+    /// pass to cluster them (default: `0.996`, ~5.1 degrees, matching rapier).
+    ///
+    /// `-1.0` merges every manifold of a collider pair regardless of normal:
+    /// cheaper, but one averaged normal then stands in for a ridge or a step.
+    pub contact_merge_cos: f32,
 }
 
 impl RbdSimParams {
@@ -181,6 +188,7 @@ impl RbdSimParams {
             normalized_allowed_linear_error: 0.005,
             normalized_max_corrective_velocity: 3.0,
             normalized_prediction_distance: 0.02,
+            contact_merge_cos: crate::broad_phase::COS_MERGE_ANGLE,
             normalized_max_linear_velocity: 400.0,
             length_unit: 1.0,
         }

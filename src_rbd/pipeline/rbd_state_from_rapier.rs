@@ -616,12 +616,6 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::UNIFORM,
         )
         .unwrap();
-        let contact_merge_cos = Tensor::scalar(
-            backend,
-            crate::shaders::broad_phase::COS_MERGE_ANGLE,
-            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        )
-        .unwrap();
         // Two-element readback: the (max) collision-pair count and the uncolored count.
         let resize_readback = GpuReadback::new(backend, 2).unwrap();
         let collision_pairs_indirect =
@@ -785,9 +779,10 @@ impl RbdState {
             sim_params: Tensor::vector(
                 backend,
                 &all_sim_params,
-                BufferUsages::STORAGE | BufferUsages::UNIFORM,
+                BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             )
             .unwrap(),
+            all_sim_params,
             vels: Tensor::vector(backend, &all_vels, storage | BufferUsages::COPY_DST).unwrap(),
             #[cfg(feature = "dim3")]
             reset_templates_bodies: None,
@@ -836,7 +831,6 @@ impl RbdState {
             collision_pairs_len,
             collision_pairs_len_max,
             num_batches_uniform,
-            contact_merge_cos,
             resize_readback,
             collision_pairs_indirect,
             contacts_per_batch_cpu,

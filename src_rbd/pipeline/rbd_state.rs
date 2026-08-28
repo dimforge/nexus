@@ -123,6 +123,9 @@ pub struct RbdState {
     pub(super) num_colliders_per_batch: u32,
     pub(super) num_solver_iterations: u32,
     pub(super) sim_params: Tensor<RbdSimParams>,
+    /// CPU mirror of `sim_params`, so runtime setters can patch one field and
+    /// re-upload without rebuilding the whole state.
+    pub(super) all_sim_params: Vec<RbdSimParams>,
     /// Per-body world-origin pose (matches rapier's `RigidBody::position`).
     pub(super) body_poses: Tensor<Pose>,
     /// Per-body COM-centered pose (rapier's `SolverPose`) used temporarily by
@@ -166,7 +169,6 @@ pub struct RbdState {
     pub(super) collision_pairs_len_max: Tensor<u32>,
     /// Cosine of the maximum angle between two contact normals for their
     /// manifolds to be clustered together (see `gpu_reduce_contacts`).
-    pub(super) contact_merge_cos: Tensor<f32>,
     /// `num_batches` as a uniform, the scan length for the max reduction.
     pub(super) num_batches_uniform: Tensor<TensorShape>,
     /// Non-blocking readback of `[max collision_pairs_len, uncolored]` used by
@@ -384,12 +386,12 @@ impl RbdState {
     /// a collider pair regardless of normal: cheaper, but a single averaged
     /// normal then stands in for a ridge or a step edge.
     pub fn set_contact_merge_cos(&mut self, backend: &GpuBackend, cos: f32) {
-        self.contact_merge_cos = Tensor::scalar(
-            backend,
-            cos,
-            BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        )
-        .unwrap();
+        let mut params = self.all_sim_params.clone();
+        for p in &mut params {
+            p.contact_merge_cos = cos;
+        }
+        backend.write_buffer(self.sim_params.buffer_mut(), 0, &params);
+        self.all_sim_params = params;
     }
 
     /// The gravity uniform shared by every solver kernel.

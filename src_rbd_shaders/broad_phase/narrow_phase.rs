@@ -133,11 +133,9 @@ pub fn gpu_reduce_contacts(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 3)] params: &RbdSimParams,
-    // Cosine of the maximum angle between two manifolds' normals for them to
-    // share a cluster. See [`COS_MERGE_ANGLE`].
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] merge_cos: &f32,
 ) {
     let prediction = params.prediction_distance();
+    let merge_cos = params.contact_merge_cos;
     let batch_id = workgroup_id.y;
     let capacity = batch_ids.contacts_batch_capacity as usize;
     let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
@@ -151,7 +149,7 @@ pub fn gpu_reduce_contacts(
             let out = contacts[j];
             if out.colliders.x == im.colliders.x
                 && out.colliders.y == im.colliders.y
-                && out.contact.normal_a.dot(im.contact.normal_a) >= *merge_cos
+                && out.contact.normal_a.dot(im.contact.normal_a) >= merge_cos
             {
                 // Pool the two manifolds' points (same collider-A local frame),
                 // dropping near-duplicates as rapier's clustering does.
