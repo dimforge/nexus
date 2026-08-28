@@ -651,10 +651,6 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
-        let pairs_flat_offsets =
-            Tensor::vector_uninit(backend, num_batches + 1, BufferUsages::STORAGE).unwrap();
-        let pfm_flat_offsets =
-            Tensor::vector_uninit(backend, num_batches + 1, BufferUsages::STORAGE).unwrap();
         let old_constraints = Tensor::vector_uninit(
             backend,
             capacities.collisions_capacity * num_batches,
@@ -844,8 +840,6 @@ impl RbdState {
             pfm_pairs,
             pfm_pairs_len,
             pfm_pairs_indirect,
-            pairs_flat_offsets,
-            pfm_flat_offsets,
             old_constraints,
             old_constraint_builders,
             old_constraints_counts,

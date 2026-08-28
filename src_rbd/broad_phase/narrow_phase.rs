@@ -6,9 +6,9 @@ use crate::shaders::PaddedVector;
 #[cfg(feature = "dim3")]
 use crate::shaders::broad_phase::GpuReduceContacts;
 use crate::shaders::broad_phase::{
-    CollisionPair, GpuFlattenBatchesDispatch, GpuNarrowPhaseInitContactsDispatch,
-    GpuNarrowPhasePfmPfm, GpuNarrowPhaseShapeShape, GpuNarrowPhaseShapeShapeDeferred,
-    GpuResetNarrowPhase, NarrowPhasePfmPair,
+    CollisionPair, GpuInitPfmPfmDispatch, GpuNarrowPhaseInitContactsDispatch, GpuNarrowPhasePfmPfm,
+    GpuNarrowPhaseShapeShape, GpuNarrowPhaseShapeShapeDeferred, GpuResetNarrowPhase,
+    NarrowPhasePfmPair,
 };
 use crate::shaders::shapes::Shape;
 use khal::Shader;
@@ -26,11 +26,7 @@ pub struct GpuNarrowPhase {
     narrow_phase_pfm_pfm: GpuNarrowPhasePfmPfm,
     #[cfg(feature = "dim3")]
     reduce_contacts: GpuReduceContacts,
-    /// Builds the flat 1-D dispatch grid + prefix offsets for a per-batch
-    /// work-list (used for both the collision pairs and the PFM pairs), so the
-    /// kernels pack items from many batches into full warps instead of one
-    /// mostly-idle workgroup per batch.
-    flatten_batches: GpuFlattenBatchesDispatch,
+    init_pfm_pfm_indirect_args: GpuInitPfmPfmDispatch,
     init_contacts_indirect_args: GpuNarrowPhaseInitContactsDispatch,
 }
 
@@ -45,8 +41,8 @@ impl GpuNarrowPhase {
         vertices: &Tensor<PaddedVector>,
         indices: &Tensor<u32>,
         collision_pairs: &Tensor<CollisionPair>,
-        collision_pairs_len: &mut Tensor<u32>,
-        collision_pairs_indirect: &mut Tensor<[u32; 3]>,
+        collision_pairs_len: &Tensor<u32>,
+        collision_pairs_indirect: &Tensor<[u32; 3]>,
         contacts: &mut Tensor<GpuIndexedContact>,
         contacts_len: &mut Tensor<u32>,
         contacts_indirect: &mut Tensor<[u32; 3]>,
@@ -61,30 +57,16 @@ impl GpuNarrowPhase {
         // Optional: merge each collider pair's manifolds into one before the
         // solvers see them. `false` skips the kernel entirely.
         reduce_contacts: bool,
-        pairs_offsets: &mut Tensor<u32>,
-        pfm_offsets: &mut Tensor<u32>,
     ) -> Result<(), GpuBackendError> {
         let num_batches = contacts_len.len() as u32;
         self.reset_narrow_phase
             .call(pass, [num_batches, 1, 1], contacts_len, pfm_pairs_len)?;
 
-        // The broad phase wrote a `[max/64, num_batches, 1]` grid into
-        // `collision_pairs_indirect`; rewrite it (and derive the offsets) for
-        // the flat layout. Nothing else consumes the batched form.
-        self.flatten_batches.call(
-            pass,
-            1u32,
-            collision_pairs_len,
-            pairs_offsets,
-            collision_pairs_indirect,
-            batch_indices,
-        )?;
-
         self.narrow_phase.call(
             pass,
-            &*collision_pairs_indirect,
+            collision_pairs_indirect,
             collision_pairs,
-            pairs_offsets,
+            collision_pairs_len,
             poses,
             shapes,
             contacts,
@@ -99,9 +81,9 @@ impl GpuNarrowPhase {
         // separate dispatch so each pass fits 8 storage buffers).
         self.narrow_phase_deferred.call(
             pass,
-            &*collision_pairs_indirect,
+            collision_pairs_indirect,
             collision_pairs,
-            pairs_offsets,
+            collision_pairs_len,
             poses,
             shapes,
             pfm_pairs,
@@ -112,21 +94,15 @@ impl GpuNarrowPhase {
             indices,
         )?;
 
-        self.flatten_batches.call(
-            pass,
-            1u32,
-            pfm_pairs_len,
-            pfm_offsets,
-            pfm_pairs_indirect,
-            batch_indices,
-        )?;
+        self.init_pfm_pfm_indirect_args
+            .call(pass, 256u32, pfm_pairs_len, pfm_pairs_indirect)?;
         self.narrow_phase_pfm_pfm.call(
             pass,
             &*pfm_pairs_indirect,
             contacts,
             contacts_len,
             pfm_pairs,
-            pfm_offsets,
+            pfm_pairs_len,
             batch_indices,
             vertices,
             indices,
