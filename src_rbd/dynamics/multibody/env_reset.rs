@@ -126,22 +126,18 @@ impl EnvResetBundle {
             shader: EnvResetShader::from_backend(backend).unwrap(),
             staging_ws: Tensor::vector(
                 backend,
-                &vec![Vec4::ZERO; (lpb * WS_QUADS).max(1) as usize],
+                vec![Vec4::ZERO; (lpb * WS_QUADS).max(1) as usize],
                 storage,
             )
             .unwrap(),
             staging_links: Tensor::vector(
                 backend,
-                &vec![<MultibodyLinkStatic as bytemuck::Zeroable>::zeroed(); lpb.max(1) as usize],
+                vec![<MultibodyLinkStatic as bytemuck::Zeroable>::zeroed(); lpb.max(1) as usize],
                 storage,
             )
             .unwrap(),
-            staging_dofs: Tensor::vector(
-                backend,
-                &vec![0.0f32; (2 * dpb).max(1) as usize],
-                storage,
-            )
-            .unwrap(),
+            staging_dofs: Tensor::vector(backend, vec![0.0f32; (2 * dpb).max(1) as usize], storage)
+                .unwrap(),
             params: Tensor::scalar(backend, UVec4::new(0, 0, lpb, dpb), uniform).unwrap(),
         }
     }

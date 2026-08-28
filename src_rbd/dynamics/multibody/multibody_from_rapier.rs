@@ -632,7 +632,7 @@ impl GpuMultibodySet {
             delay_update_cache: None,
             contact_sensor_links: Tensor::vector(
                 backend,
-                &[u32::MAX; crate::shaders::dynamics::MAX_CONTACT_SENSORS as usize],
+                [u32::MAX; crate::shaders::dynamics::MAX_CONTACT_SENSORS as usize],
                 storage,
             )
             .unwrap(),

@@ -256,7 +256,7 @@ impl GpuMultibodySolver {
                 &mb.links_static,
                 &mb.links_workspace,
                 &mut mb.joint_constraints,
-                &mut mb.motor_delay_state,
+                &mb.motor_delay_state,
                 &mb.constraint_softness,
                 args.batch_indices,
             )?;
@@ -359,7 +359,7 @@ impl GpuMultibodySolver {
                 &mut mb.joint_constraints,
                 &mut mb.joint_constraint_columns,
                 &mb.dof_couplings,
-                &mut mb.motor_delay_state,
+                &mb.motor_delay_state,
                 &mb.dof_state,
                 &mb.constraint_softness,
                 args.batch_indices,
