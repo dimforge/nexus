@@ -15,8 +15,8 @@
 use super::multibody_set::GpuMultibodySet;
 use crate::math::Vector;
 use crate::shaders::dynamics::{
-    GpuMbEnvReset, GpuMbEnvResetBatch, MULTIBODY_ROOT, MultibodyLinkStatic, MultibodyLinkWorkspace,
-    WS_QUADS, ws_soa_from_structs, ws_soa_to_structs,
+    GpuMbEnvReset, GpuMbEnvResetBatch, GpuMbEnvResetBatchDofs, MULTIBODY_ROOT, MultibodyLinkStatic,
+    MultibodyLinkWorkspace, WS_QUADS, ws_soa_from_structs, ws_soa_to_structs,
 };
 use glamx::{UVec4, Vec4};
 use khal::BufferUsages;
@@ -105,6 +105,8 @@ struct EnvResetShader {
 #[derive(Shader)]
 struct EnvResetBatchShader {
     kernel: GpuMbEnvResetBatch,
+    /// Static-link and DoF half, split off so each pass fits 8 storage buffers.
+    dofs: GpuMbEnvResetBatchDofs,
 }
 
 /// Shader bundle plus persistent staging buffers for the per-env reset
@@ -382,13 +384,22 @@ impl GpuMultibodySet {
                     &mut pass,
                     [lpb * WS_QUADS, n, 1],
                     &tpl.ws,
-                    &tpl.links,
-                    &tpl.dofs,
                     &tpl.flags,
                     &t_resets,
                     &t_offs,
-                    &t_vels,
                     &mut self.links_workspace,
+                    &params,
+                )
+                .unwrap();
+            tpl.shader
+                .dofs
+                .call(
+                    &mut pass,
+                    [lpb.max(dpb), n, 1],
+                    &tpl.links,
+                    &tpl.dofs,
+                    &t_resets,
+                    &t_vels,
                     &mut self.links_static,
                     &mut self.dof_values,
                     &mut self.dof_state,
@@ -398,4 +409,14 @@ impl GpuMultibodySet {
         }
         self.reset_templates = Some(tpl);
     }
+}
+
+/// Builds both env-reset shader bundles, so the pipeline-limit smoke test can
+/// reach them without making the private bundle types public.
+#[cfg(test)]
+pub(crate) fn env_reset_shaders_for_test(backend: &GpuBackend) {
+    use khal::Shader;
+    EnvResetShader::from_backend(backend).expect("env-reset shader exceeds the WebGPU limits");
+    EnvResetBatchShader::from_backend(backend)
+        .expect("batched env-reset shader exceeds the WebGPU limits");
 }

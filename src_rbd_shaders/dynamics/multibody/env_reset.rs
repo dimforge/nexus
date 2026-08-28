@@ -63,9 +63,11 @@ pub fn gpu_mb_env_reset(
 /// (uploaded once at build) instead of a per-reset staging upload. A terrain
 /// teleport offset is applied in-kernel to the free root's world position
 /// (local-to-world / local-to-parent translations plus coords c0..c2), so the
-/// host never clones and translates a snapshot per reset. The DoF velocity
-/// section comes from `dof_vels` (host-randomized reset velocities, or zeros),
-/// replacing a per-DoF strided `write_buffer` loop.
+/// host never clones and translates a snapshot per reset.
+///
+/// This pass writes the link workspace only; [`gpu_mb_env_reset_batch_dofs`]
+/// writes the static links and the DoF sections. They are split so each fits
+/// the 8-storage-buffer WebGPU limit.
 ///
 /// Dispatch `[lpb · WS_QUADS, num_resets, 1]` threads.
 ///
@@ -77,26 +79,17 @@ pub fn gpu_mb_env_reset(
 pub fn gpu_mb_env_reset_batch(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] templates_ws: &[Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    templates_links: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] templates_dofs: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] link_flags: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] resets: &[UVec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] offsets: &[Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] dof_vels: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] links_workspace: &mut [Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 8)]
-    links_static: &mut [MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 9)] dof_values: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 10)] dof_state: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] link_flags: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] resets: &[UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] offsets: &[Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] links_workspace: &mut [Vec4],
     // x = num_batches, y = links_per_batch, z = dofs_per_batch, w = num_resets.
-    #[spirv(uniform, descriptor_set = 0, binding = 11)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] params: &UVec4,
 ) {
     let i = invocation_id.x;
     let r = invocation_id.y;
     let nb = params.x;
     let lpb = params.y;
-    let dpb = params.z;
     if r >= params.w {
         return;
     }
@@ -125,6 +118,44 @@ pub fn gpu_mb_env_reset_batch(
         }
         links_workspace.write((i * nb + env) as usize, v);
     }
+}
+
+/// Static-link and DoF half of the batched reset, split from
+/// [`gpu_mb_env_reset_batch`] so each pass fits 8 storage buffers.
+///
+/// The teleport offset is not needed here: static links carry no world
+/// position, and generalized coords are translation-invariant (the free root's
+/// world position lives in the workspace coords quad the other pass handles).
+///
+/// Dispatch `[max(lpb, dpb), num_resets, 1]` threads.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_env_reset_batch_dofs(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    templates_links: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] templates_dofs: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] resets: &[UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_vels: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
+    links_static: &mut [MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] dof_values: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] dof_state: &mut [f32],
+    // x = num_batches, y = links_per_batch, z = dofs_per_batch, w = num_resets.
+    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &UVec4,
+) {
+    let i = invocation_id.x;
+    let r = invocation_id.y;
+    let nb = params.x;
+    let lpb = params.y;
+    let dpb = params.z;
+    if r >= params.w {
+        return;
+    }
+    let meta = resets.read(r as usize);
+    let env = meta.x;
+    let t = meta.y;
+
     if i < lpb {
         links_static.write(
             (i * nb + env) as usize,
@@ -132,8 +163,6 @@ pub fn gpu_mb_env_reset_batch(
         );
     }
     if i < dpb {
-        // Generalized coords are translation-invariant: the free root's world
-        // position lives in the workspace coords quad handled above.
         dof_values.write(
             (i * nb + env) as usize,
             templates_dofs.read((t * 2 * dpb + i) as usize),
