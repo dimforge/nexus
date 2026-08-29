@@ -121,8 +121,6 @@ pub struct GpuMultibodySet {
     pub(super) info_mirror: Vec<MultibodyInfo>,
     /// Per-batch per-step link workspace, SoA quad layout.
     pub(super) links_workspace: Tensor<glamx::Vec4>,
-    /// Generalized coordinates (flat).
-    pub(super) dof_values: Tensor<f32>,
     /// Packed buffer holding generalized velocities (offset 0) and per-DOF
     /// damping coefficients (offset `damping_section_offset`). Callers reading
     /// velocities should use only the velocity section.
@@ -336,11 +334,6 @@ impl GpuMultibodySet {
     /// [`Self::dof_state`]).
     pub fn dofs_per_batch(&self) -> u32 {
         self.dofs_per_batch
-    }
-
-    /// GPU buffer for generalized coordinates.
-    pub fn dof_values(&self) -> &Tensor<f32> {
-        &self.dof_values
     }
 
     /// GPU buffer for the last-computed generalized accelerations (populated by

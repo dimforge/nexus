@@ -67,10 +67,9 @@ pub fn gpu_mb_integrate(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     links_static: &[MultibodyLinkStatic],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_values: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dof_state: &[f32],
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] dt_uniform: &f32,
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_state: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] dt_uniform: &f32,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_mb = batch_ids.multibodies_len;
     if invocation_id.x >= num_mb * batch_ids.num_batches {
@@ -87,9 +86,6 @@ pub fn gpu_mb_integrate(
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
-    let dof_val = batch_ids
-        .ib_mut(batch_id, dof_values)
-        .offset(mb.first_dof as usize);
     let dof_vel = batch_ids
         .ib(batch_id, dof_state)
         .offset(mb.first_dof as usize);
@@ -174,7 +170,4 @@ pub fn gpu_mb_integrate(
         // num_ang == 0: no-op.
     }
 
-    // Silence dof_val unused warning — it will be used once we also support
-    // setting coords directly (e.g. user-controlled kinematic DOFs).
-    let _ = dof_val.buf;
 }

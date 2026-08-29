@@ -40,7 +40,6 @@ impl GpuMultibodySet {
             Vec::with_capacity(num_batches as usize);
         let mut per_env_links_workspace: Vec<Vec<MultibodyLinkWorkspace>> =
             Vec::with_capacity(num_batches as usize);
-        let mut per_env_dof_values: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_vels: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_damping: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_armature: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
@@ -75,7 +74,6 @@ impl GpuMultibodySet {
             let mut infos = Vec::new();
             let mut statics = Vec::new();
             let mut workspaces = Vec::new();
-            let mut dof_vals = Vec::new();
             let mut dof_vels = Vec::new();
             let mut dof_damping = Vec::new();
             let mut dof_armature = Vec::new();
@@ -304,7 +302,6 @@ impl GpuMultibodySet {
                         }
                     }
                     for d in 0..link_ndofs as usize {
-                        dof_vals.push(0.0);
                         dof_vels.push(0.0);
                         dof_damping.push(mb_damping[rapier_assembly + d]);
                         dof_armature.push(mb_armature[rapier_assembly + d]);
@@ -347,7 +344,7 @@ impl GpuMultibodySet {
 
             global_max_mb = global_max_mb.max(infos.len() as u32);
             global_max_links = global_max_links.max(statics.len() as u32);
-            global_max_dofs = global_max_dofs.max(dof_vals.len() as u32);
+            global_max_dofs = global_max_dofs.max(dof_vels.len() as u32);
             global_max_jac = global_max_jac.max(jac_off);
             global_max_mm = global_max_mm.max(mm_off);
             global_max_cor = global_max_cor.max(cor_off);
@@ -358,7 +355,6 @@ impl GpuMultibodySet {
             per_env_infos.push(infos);
             per_env_links_static.push(statics);
             per_env_links_workspace.push(workspaces);
-            per_env_dof_values.push(dof_vals);
             per_env_dof_vels.push(dof_vels);
             per_env_dof_damping.push(dof_damping);
             per_env_dof_armature.push(dof_armature);
@@ -414,7 +410,6 @@ impl GpuMultibodySet {
             Vec::with_capacity((links_cap * num_batches) as usize);
         let mut all_ws: Vec<MultibodyLinkWorkspace> =
             Vec::with_capacity((links_cap * num_batches) as usize);
-        let mut all_dof_vals: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_vels: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_damping: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_armature: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
@@ -468,9 +463,6 @@ impl GpuMultibodySet {
                 all_ws.push(dummy_ws);
             }
 
-            all_dof_vals.extend_from_slice(&per_env_dof_values[i]);
-            let pad = (dofs_cap as usize).saturating_sub(per_env_dof_values[i].len());
-            all_dof_vals.resize(all_dof_vals.len() + pad, 0.0);
             all_dof_vels.extend_from_slice(&per_env_dof_vels[i]);
             let pad = (dofs_cap as usize).saturating_sub(per_env_dof_vels[i].len());
             all_dof_vels.resize(all_dof_vels.len() + pad, 0.0);
@@ -515,7 +507,6 @@ impl GpuMultibodySet {
         let info_mirror = all_infos.clone();
         let all_infos = interleave(&all_infos, mb_cap, nb);
         let all_statics = interleave(&all_statics, links_cap, nb);
-        let all_dof_vals = interleave(&all_dof_vals, dofs_cap, nb);
         let all_dof_vels = interleave(&all_dof_vels, dofs_cap, nb);
         let all_dof_damping = interleave(&all_dof_damping, dofs_cap, nb);
         let all_dof_armature = interleave(&all_dof_armature, dofs_cap, nb);
@@ -563,7 +554,6 @@ impl GpuMultibodySet {
                 storage | BufferUsages::COPY_SRC,
             )
             .unwrap(),
-            dof_values: Tensor::vector(backend, &all_dof_vals, storage).unwrap(),
             dof_state: {
                 // Pack [velocities, damping, armature, spring stiffness,
                 // spring rest, kinematic mask, frictionloss] back-to-back,

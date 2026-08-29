@@ -32,10 +32,9 @@ pub fn gpu_mb_env_reset(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     links_static: &mut [MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] dof_values: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] dof_state: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] dof_state: &mut [f32],
     // x = dst_env, y = num_batches, z = links_per_batch, w = dofs_per_batch.
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] params: &UVec4,
 ) {
     let i = invocation_id.x;
     let env = params.x;
@@ -55,11 +54,7 @@ pub fn gpu_mb_env_reset(
         links_static.write((i * nb + env) as usize, staging_links.read(i as usize));
     }
     if i < dpb {
-        dof_values.write((i * nb + env) as usize, staging_dofs.read(i as usize));
-        dof_state.write(
-            (i * nb + env) as usize,
-            staging_dofs.read((dpb + i) as usize),
-        );
+        dof_state.write((i * nb + env) as usize, staging_dofs.read(i as usize));
     }
 }
 
@@ -139,15 +134,13 @@ pub fn gpu_mb_env_reset_batch_dofs(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     templates_links: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] templates_dofs: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] resets: &[UVec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_vels: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] resets: &[UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] dof_vels: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     links_static: &mut [MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] dof_values: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] dof_state: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dof_state: &mut [f32],
     // x = num_batches, y = links_per_batch, z = dofs_per_batch, w = num_resets.
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] params: &UVec4,
 ) {
     let i = invocation_id.x;
     let r = invocation_id.y;
@@ -168,10 +161,6 @@ pub fn gpu_mb_env_reset_batch_dofs(
         );
     }
     if i < dpb {
-        dof_values.write(
-            (i * nb + env) as usize,
-            templates_dofs.read((t * 2 * dpb + i) as usize),
-        );
         dof_state.write(
             (i * nb + env) as usize,
             dof_vels.read((r * dpb + i) as usize),
