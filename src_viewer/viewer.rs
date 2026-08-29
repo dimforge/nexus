@@ -169,6 +169,15 @@ pub type SceneNode = SceneNode3d;
 /// the freeze; rendering a few real frames first forces the paint.
 const COMPILE_BANNER_PRESENT_FRAMES: u32 = 10;
 
+/// MSAA sample count of new sensor cameras.
+#[cfg(feature = "dim3")]
+const DEFAULT_SENSOR_SAMPLES: u32 = 4;
+/// Shadow-edge softness of the window and of new sensor cameras (hard edges).
+const DEFAULT_SHADOW_SOFTNESS: f32 = 0.0;
+/// Far bound (meters) of the highest-resolution directional shadow cascade of
+/// the window and of new sensor cameras: desk-sized scenes, not landscapes.
+const DEFAULT_SHADOW_FIRST_CASCADE: f32 = 3.0;
+
 pub struct NexusViewer {
     window: Window,
     scene2d: SceneNode2d,
@@ -242,6 +251,17 @@ pub struct NexusViewer {
     /// and the per-object passes see world-posed nodes.
     #[cfg(feature = "dim3")]
     sensors: Vec<SensorCamera>,
+    /// MSAA sample count given to every new sensor camera (default 4).
+    #[cfg(feature = "dim3")]
+    sensor_samples: u32,
+    /// Shadow-edge softness given to every new sensor camera (default 0.0,
+    /// hard edges; 1.0 is kiss3d's default penumbra).
+    #[cfg(feature = "dim3")]
+    sensor_shadow_softness: f32,
+    /// Directional-shadow cascade layout given to every new sensor camera:
+    /// `(first cascade far bound, shadow distance)` in meters.
+    #[cfg(feature = "dim3")]
+    sensor_shadow_range: (f32, f32),
     /// Body-origin poses from the last readback sync, indexed by GPU pose slot.
     /// Empty on the zero-readback path.
     #[cfg(feature = "dim3")]
@@ -290,6 +310,10 @@ impl NexusViewer {
         // Disable MSAA, this puts extra load on the GPU that ends up
         // falsifying the gpu physics timestamps.
         window.set_samples(NumSamples::One);
+        // Hard shadow edges and a short first cascade: crisper contact shadows
+        // on the small geometry physics scenes are made of.
+        window.set_shadow_softness(DEFAULT_SHADOW_SOFTNESS);
+        window.set_first_cascade_far_bound(DEFAULT_SHADOW_FIRST_CASCADE);
 
         #[cfg(feature = "dim2")]
         let (camera2d, camera3d) = {
@@ -348,6 +372,12 @@ impl NexusViewer {
             raytracer: None,
             #[cfg(feature = "dim3")]
             sensors: Vec::new(),
+            #[cfg(feature = "dim3")]
+            sensor_samples: DEFAULT_SENSOR_SAMPLES,
+            #[cfg(feature = "dim3")]
+            sensor_shadow_softness: DEFAULT_SHADOW_SOFTNESS,
+            #[cfg(feature = "dim3")]
+            sensor_shadow_range: (DEFAULT_SHADOW_FIRST_CASCADE, f32::INFINITY),
             #[cfg(feature = "dim3")]
             body_pose_cache: Vec::new(),
             ui: UiState {
@@ -755,8 +785,59 @@ impl NexusViewer {
     ) -> usize {
         let mut sensor = SensorCamera::new(width, height, fov_y, znear, zfar).await;
         sensor.generation = self.nexus_render.generation;
+        sensor.set_samples(self.sensor_samples);
+        sensor.set_shadow_softness(self.sensor_shadow_softness);
+        sensor.set_shadow_range(self.sensor_shadow_range.0, self.sensor_shadow_range.1);
         self.sensors.push(sensor);
         self.sensors.len() - 1
+    }
+
+    /// MSAA sample count of the sensor cameras' shaded renders, existing and
+    /// future ones (`1` disables antialiasing, `4` is the default).
+    #[cfg(feature = "dim3")]
+    pub fn set_sensor_antialiasing(&mut self, samples: u32) {
+        self.sensor_samples = samples.max(1);
+        for sensor in &mut self.sensors {
+            sensor.set_samples(self.sensor_samples);
+        }
+    }
+
+    /// Shadow-edge softness of the sensor cameras' shaded renders, existing
+    /// and future ones (`0.0` hard edges, the default; `1.0` kiss3d's PCF
+    /// penumbra).
+    #[cfg(feature = "dim3")]
+    pub fn set_sensor_shadow_softness(&mut self, softness: f32) {
+        self.sensor_shadow_softness = softness.max(0.0);
+        for sensor in &mut self.sensors {
+            sensor.set_shadow_softness(self.sensor_shadow_softness);
+        }
+    }
+
+    /// Shadow-edge softness of the main window's shaded render (`0.0` hard
+    /// edges, the default; `1.0` kiss3d's PCF penumbra).
+    pub fn set_shadow_softness(&mut self, softness: f32) {
+        self.window.set_shadow_softness(softness.max(0.0));
+    }
+
+    /// Directional-shadow cascade layout of the sensor cameras' renders,
+    /// existing and future ones: the highest-resolution cascade covers the
+    /// camera's first `first_cascade_far_bound` meters (default 3) and shadows
+    /// stop at `shadow_distance` (default: the camera far plane). A short first
+    /// cascade keeps hard shadow edges crisp on a desk-sized scene.
+    #[cfg(feature = "dim3")]
+    pub fn set_sensor_shadow_range(&mut self, first_cascade_far_bound: f32, shadow_distance: f32) {
+        self.sensor_shadow_range = (first_cascade_far_bound.max(0.01), shadow_distance.max(0.0));
+        for sensor in &mut self.sensors {
+            sensor.set_shadow_range(self.sensor_shadow_range.0, self.sensor_shadow_range.1);
+        }
+    }
+
+    /// Directional-shadow cascade layout of the main window's render (see
+    /// [`Self::set_sensor_shadow_range`]).
+    pub fn set_shadow_range(&mut self, first_cascade_far_bound: f32, shadow_distance: f32) {
+        self.window
+            .set_first_cascade_far_bound(first_cascade_far_bound.max(0.01));
+        self.window.set_shadow_distance(shadow_distance.max(0.0));
     }
 
     /// Starts a new scene generation (see `RenderContext::next_generation`):
@@ -900,6 +981,14 @@ impl NexusViewer {
     #[cfg(feature = "dim3")]
     pub fn set_body_color(&mut self, env: u32, handle: RigidBodyHandle, color: [f32; 4]) {
         self.nexus_render.set_body_color(env, handle, color)
+    }
+
+    /// Whether body `handle`'s visual nodes cast shadows (default `true`).
+    /// Turn it off for a floor slab so the shadow map covers only the objects
+    /// above it.
+    #[cfg(feature = "dim3")]
+    pub fn set_body_casts_shadows(&mut self, env: u32, handle: RigidBodyHandle, casts: bool) {
+        self.nexus_render.set_body_casts_shadows(env, handle, casts)
     }
 
     /// Ambient light level of the main window's shaded render.

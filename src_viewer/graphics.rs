@@ -941,6 +941,18 @@ impl RenderContext {
         }
     }
 
+    /// Whether body `handle`'s visual nodes cast shadows. Turning it off for a
+    /// large floor keeps the directional shadow frustum fit to the objects
+    /// that matter, so shadow texels stay small.
+    #[cfg(feature = "dim3")]
+    pub fn set_body_casts_shadows(&mut self, env: u32, handle: RigidBodyHandle, casts: bool) {
+        for visual in &mut self.visual_nodes {
+            if visual.env == env && visual.handle == handle.0 {
+                let _ = visual.node.set_casts_shadows(casts);
+            }
+        }
+    }
+
     /// Updates each visual node's transform from the body-origin poses (indexed
     /// by the body's GPU pose slot). Visual-mesh local poses are body-relative,
     /// so they compose with `body_poses` (not the collider world poses the
