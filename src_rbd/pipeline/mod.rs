@@ -6,6 +6,8 @@
 
 #[cfg(all(test, feature = "dim3"))]
 mod bench_narrow_phase;
+#[cfg(all(test, feature = "dim3"))]
+mod test_batched_stacks;
 mod insertion_removal;
 mod lbvh_validation;
 mod rbd_state;
