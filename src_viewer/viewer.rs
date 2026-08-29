@@ -172,8 +172,9 @@ const COMPILE_BANNER_PRESENT_FRAMES: u32 = 10;
 /// MSAA sample count of new sensor cameras.
 #[cfg(feature = "dim3")]
 const DEFAULT_SENSOR_SAMPLES: u32 = 4;
-/// Shadow-edge softness of the window and of new sensor cameras (hard edges).
-const DEFAULT_SHADOW_SOFTNESS: f32 = 0.0;
+/// Shadow-edge softness of the window and of new sensor cameras: kiss3d's
+/// default PCF penumbra (about five shadow texels wide).
+const DEFAULT_SHADOW_SOFTNESS: f32 = 1.0;
 /// Far bound (meters) of the highest-resolution directional shadow cascade of
 /// the window and of new sensor cameras: desk-sized scenes, not landscapes.
 const DEFAULT_SHADOW_FIRST_CASCADE: f32 = 3.0;
@@ -259,8 +260,8 @@ pub struct NexusViewer {
     /// MSAA sample count given to every new sensor camera (default 4).
     #[cfg(feature = "dim3")]
     sensor_samples: u32,
-    /// Shadow-edge softness given to every new sensor camera (default 0.0,
-    /// hard edges; 1.0 is kiss3d's default penumbra).
+    /// Shadow-edge softness given to every new sensor camera (default 1.0,
+    /// kiss3d's PCF penumbra; 0.0 gives hard edges).
     #[cfg(feature = "dim3")]
     sensor_shadow_softness: f32,
     /// Directional-shadow cascade layout given to every new sensor camera:
@@ -318,14 +319,20 @@ impl NexusViewer {
         // Disable MSAA, this puts extra load on the GPU that ends up
         // falsifying the gpu physics timestamps.
         window.set_samples(NumSamples::One);
-        // Hard shadow edges and a short first cascade: crisper contact shadows
-        // on the small geometry physics scenes are made of.
+        // A short first cascade: crisper contact shadows on the small geometry
+        // physics scenes are made of.
         window.set_shadow_softness(DEFAULT_SHADOW_SOFTNESS);
         window.set_first_cascade_far_bound(DEFAULT_SHADOW_FIRST_CASCADE);
         // Physics scenes light with directional lights only: four cascade
         // layers instead of kiss3d's sixteen pay for a finer shadow map.
         window.set_shadow_atlas_layers(DEFAULT_SHADOW_ATLAS_LAYERS);
         window.set_shadow_resolution(DEFAULT_SHADOW_RESOLUTION);
+        // Textures (visual meshes, labels, floors) get mip chains and
+        // anisotropic filtering so they stay sharp at grazing angles.
+        kiss3d::resource::TextureManager::get_global_manager(|tm| {
+            tm.set_generate_mipmaps(true);
+            tm.set_anisotropy(16);
+        });
 
         #[cfg(feature = "dim2")]
         let (camera2d, camera3d) = {
@@ -821,8 +828,8 @@ impl NexusViewer {
     }
 
     /// Shadow-edge softness of the sensor cameras' shaded renders, existing
-    /// and future ones (`0.0` hard edges, the default; `1.0` kiss3d's PCF
-    /// penumbra).
+    /// and future ones (`1.0` kiss3d's PCF penumbra, the default; `0.0` hard
+    /// edges).
     #[cfg(feature = "dim3")]
     pub fn set_sensor_shadow_softness(&mut self, softness: f32) {
         self.sensor_shadow_softness = softness.max(0.0);
@@ -831,8 +838,8 @@ impl NexusViewer {
         }
     }
 
-    /// Shadow-edge softness of the main window's shaded render (`0.0` hard
-    /// edges, the default; `1.0` kiss3d's PCF penumbra).
+    /// Shadow-edge softness of the main window's shaded render (`1.0`
+    /// kiss3d's PCF penumbra, the default; `0.0` hard edges).
     pub fn set_shadow_softness(&mut self, softness: f32) {
         self.window.set_shadow_softness(softness.max(0.0));
     }

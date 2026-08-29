@@ -369,14 +369,14 @@ impl NexusViewer {
     }
 
     /// Shadow-edge softness of the sensor cameras' shaded renders, existing
-    /// and future ones (`0.0` hard edges, the default; `1.0` the PCF
-    /// penumbra).
+    /// and future ones (`1.0` the PCF penumbra, the default; `0.0` hard
+    /// edges).
     fn set_sensor_shadow_softness(&mut self, softness: f32) {
         self.inner_mut().set_sensor_shadow_softness(softness);
     }
 
-    /// Shadow-edge softness of the main window's shaded render (`0.0` hard
-    /// edges, the default; `1.0` the PCF penumbra).
+    /// Shadow-edge softness of the main window's shaded render (`1.0` the
+    /// PCF penumbra, the default; `0.0` hard edges).
     fn set_shadow_softness(&mut self, softness: f32) {
         self.inner_mut().set_shadow_softness(softness);
     }
