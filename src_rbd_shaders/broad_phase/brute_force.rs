@@ -35,9 +35,9 @@ pub fn gpu_bf_compute_aabbs(
     let batch_id = invocation_id.x / n;
     let i = invocation_id.x % n;
 
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let out = batch_ids.coll_start(batch_id) + i as usize;
+    let poses = batch_ids.ib(batch_id, poses);
+    let shapes = batch_ids.ib(batch_id, shapes);
+    let out = (crate::broad_phase::scratch_start(batch_ids, batch_id) + i) as usize;
     aabbs.write(
         out,
         shapes[i as usize].compute_aabb(poses[i as usize], vertices),
@@ -73,8 +73,8 @@ pub fn gpu_bf_find_pairs(
         return;
     }
 
-    let collision_groups = batch_ids.coll_batch(batch_id, collision_groups);
-    let pair_filter = batch_ids.coll_batch(batch_id, pair_filter);
+    let collision_groups = batch_ids.ib(batch_id, collision_groups);
+    let pair_filter = batch_ids.ib(batch_id, pair_filter);
 
     // Skip pairs whose collision groups don't authorize an interaction.
     if !collision_groups[i as usize].test(collision_groups[j as usize]) {
@@ -88,7 +88,7 @@ pub fn gpu_bf_find_pairs(
         return;
     }
 
-    let coll_start = batch_ids.coll_start(batch_id);
+    let coll_start = crate::broad_phase::scratch_start(batch_ids, batch_id) as usize;
     // Dilate one side by the contact prediction distance.
     let mut aabb_i = aabbs.read(coll_start + i as usize);
     let dilation = Vector::splat(params.prediction_distance());
@@ -99,13 +99,18 @@ pub fn gpu_bf_find_pairs(
         return;
     }
 
-    let target_pair_index = atomic_add_u32(collision_pairs_len.at_mut(batch_id as usize), 1);
+    let target_pair_index = atomic_add_u32(collision_pairs_len.at_mut(0), 1);
 
     // If we exceed capacity, keep counting the pairs but don’t store any more to avoid overflow.
-    if target_pair_index < batch_ids.collision_pairs_batch_capacity {
-        let mut collision_pairs = batch_ids.collision_pairs_batch_mut(batch_id, collision_pairs);
-        collision_pairs[target_pair_index as usize] = CollisionPair {
-            colliders: UVec2::new(i, j),
-        };
+    if target_pair_index < batch_ids.collision_pairs_capacity {
+        collision_pairs.write(
+            target_pair_index as usize,
+            CollisionPair {
+                colliders: UVec2::new(
+                    batch_ids.body_global(batch_id, i) as u32,
+                    batch_ids.body_global(batch_id, j) as u32,
+                ),
+            },
+        );
     }
 }

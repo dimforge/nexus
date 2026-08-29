@@ -6,9 +6,10 @@ use crate::shaders::PaddedVector;
 #[cfg(feature = "dim3")]
 use crate::shaders::broad_phase::GpuReduceContacts;
 use crate::shaders::broad_phase::{
-    CollisionPair, GpuInitPfmPfmDispatch, GpuNarrowPhaseInitContactsDispatch, GpuNarrowPhasePfmPfm,
+    CollisionPair, GpuContactOffsetsScan, GpuCountPairsPerBatch, GpuCountPfmPerBatch,
+    GpuFlatListDispatch, GpuNarrowPhaseInitContactsDispatch, GpuNarrowPhasePfmPfm,
     GpuNarrowPhaseShapeShape, GpuNarrowPhaseShapeShapeDeferred, GpuResetNarrowPhase,
-    NarrowPhasePfmPair,
+    GpuZeroContactLens, NarrowPhasePfmPair,
 };
 use crate::shaders::shapes::Shape;
 use khal::Shader;
@@ -26,7 +27,11 @@ pub struct GpuNarrowPhase {
     narrow_phase_pfm_pfm: GpuNarrowPhasePfmPfm,
     #[cfg(feature = "dim3")]
     reduce_contacts: GpuReduceContacts,
-    init_pfm_pfm_indirect_args: GpuInitPfmPfmDispatch,
+    count_pairs_per_batch: GpuCountPairsPerBatch,
+    count_pfm_per_batch: GpuCountPfmPerBatch,
+    contact_offsets_scan: GpuContactOffsetsScan,
+    zero_contact_lens: GpuZeroContactLens,
+    flat_list_dispatch: GpuFlatListDispatch,
     init_contacts_indirect_args: GpuNarrowPhaseInitContactsDispatch,
 }
 
@@ -41,11 +46,13 @@ impl GpuNarrowPhase {
         vertices: &Tensor<PaddedVector>,
         indices: &Tensor<u32>,
         collision_pairs: &Tensor<CollisionPair>,
-        collision_pairs_len: &Tensor<u32>,
-        collision_pairs_indirect: &Tensor<[u32; 3]>,
+        collision_pairs_len: &mut Tensor<u32>,
         contacts: &mut Tensor<GpuIndexedContact>,
         contacts_len: &mut Tensor<u32>,
         contacts_indirect: &mut Tensor<[u32; 3]>,
+        contact_offsets: &mut Tensor<u32>,
+        pair_batch_counts: &mut Tensor<u32>,
+        pfm_batch_counts: &mut Tensor<u32>,
         mb_sweep_indirect: &mut Tensor<[u32; 3]>,
         pfm_pairs: &mut Tensor<NarrowPhasePfmPair>,
         pfm_pairs_len: &mut Tensor<u32>,
@@ -57,24 +64,16 @@ impl GpuNarrowPhase {
         // Optional: merge each collider pair's manifolds into one before the
         // solvers see them. `false` skips the kernel entirely.
         reduce_contacts: bool,
+        collision_pairs_indirect: &Tensor<[u32; 3]>,
     ) -> Result<(), GpuBackendError> {
         let num_batches = contacts_len.len() as u32;
-        self.reset_narrow_phase
-            .call(pass, [num_batches, 1, 1], contacts_len, pfm_pairs_len)?;
-
-        self.narrow_phase.call(
+        self.reset_narrow_phase.call(
             pass,
-            collision_pairs_indirect,
-            collision_pairs,
-            collision_pairs_len,
-            poses,
-            shapes,
-            contacts,
+            [num_batches, 1, 1],
             contacts_len,
-            batch_indices,
-            collider_parent,
-            collider_materials,
-            sim_params,
+            pfm_pairs_len,
+            pair_batch_counts,
+            pfm_batch_counts,
         )?;
 
         // Pass 2: defer the complex shape pairs into `pfm_pairs` (kept as a
@@ -94,15 +93,64 @@ impl GpuNarrowPhase {
             indices,
         )?;
 
-        self.init_pfm_pfm_indirect_args
-            .call(pass, 256u32, pfm_pairs_len, pfm_pairs_indirect)?;
+        self.count_pairs_per_batch.call(
+            pass,
+            collision_pairs_indirect,
+            collision_pairs,
+            collision_pairs_len,
+            pair_batch_counts,
+            batch_indices,
+        )?;
+        self.flat_list_dispatch
+            .call(pass, 1u32, pfm_pairs_len, pfm_pairs_indirect, batch_indices)?;
+        self.count_pfm_per_batch.call(
+            pass,
+            &*pfm_pairs_indirect,
+            pfm_pairs,
+            pfm_pairs_len,
+            pfm_batch_counts,
+            batch_indices,
+        )?;
+        self.contact_offsets_scan.call(
+            pass,
+            1u32,
+            pair_batch_counts,
+            pfm_batch_counts,
+            collision_pairs_len,
+            pfm_pairs_len,
+            contact_offsets,
+            contacts_indirect,
+            batch_indices,
+        )?;
+        self.zero_contact_lens.call(
+            pass,
+            &*contacts_indirect,
+            contacts,
+            contact_offsets,
+            batch_indices,
+        )?;
+
+        self.narrow_phase.call(
+            pass,
+            collision_pairs_indirect,
+            collision_pairs,
+            contact_offsets,
+            poses,
+            shapes,
+            contacts,
+            contacts_len,
+            batch_indices,
+            collider_parent,
+            collider_materials,
+            sim_params,
+        )?;
         self.narrow_phase_pfm_pfm.call(
             pass,
             &*pfm_pairs_indirect,
             contacts,
             contacts_len,
             pfm_pairs,
-            pfm_pairs_len,
+            contact_offsets,
             batch_indices,
             vertices,
             indices,
@@ -110,8 +158,6 @@ impl GpuNarrowPhase {
             collider_materials,
             sim_params,
         )?;
-        // Reduction rewrites `contacts_len`, so it has to run before the
-        // indirect args are derived from it.
         #[cfg(feature = "dim3")]
         if reduce_contacts {
             self.reduce_contacts.call(
@@ -119,6 +165,7 @@ impl GpuNarrowPhase {
                 [1u32, num_batches, 1],
                 contacts,
                 contacts_len,
+                contact_offsets,
                 batch_indices,
                 sim_params,
             )?;
@@ -129,7 +176,6 @@ impl GpuNarrowPhase {
             pass,
             256u32,
             contacts_len,
-            contacts_indirect,
             mb_sweep_indirect,
             batch_indices,
         )?;

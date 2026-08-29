@@ -11,7 +11,7 @@ use super::sim_params::{RbdSimParams, TWO_PI};
 use crate::Rotation;
 #[cfg(feature = "dim2")]
 use crate::rotation_angle;
-use crate::utils::{Slice, SliceMut};
+use crate::utils::{ISlice, ISliceMut};
 use crate::{AngVector, ColumnIndex, MAX_FLT, Pose, Vector, gdot, rotation_to_matrix};
 use khal_std::index::MaybeIndexUnchecked;
 
@@ -344,7 +344,7 @@ impl JointConstraintHelper {
 
 impl JointConstraint {
     /// Solves a joint constraint.
-    pub fn solve_joint_constraint(&mut self, solver_vels: &mut SliceMut<Velocity>, use_bias: bool) {
+    pub fn solve_joint_constraint(&mut self, solver_vels: &mut ISliceMut<Velocity>, use_bias: bool) {
         let mut solver_vel1 = solver_vels[self.solver_vel_a as usize];
         let mut solver_vel2 = solver_vels[self.solver_vel_b as usize];
 
@@ -710,8 +710,8 @@ impl JointConstraintBuilder {
     pub fn update_constraint(
         &self,
         constraint: &mut JointConstraint,
-        poses: &Slice<Pose>,
-        mprops: &Slice<WorldMassProperties>,
+        poses: &ISlice<Pose>,
+        mprops: &ISlice<WorldMassProperties>,
         params: &RbdSimParams,
     ) {
         // NOTE: right now, the "update", is basically reconstructing all the

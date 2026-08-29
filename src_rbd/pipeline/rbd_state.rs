@@ -20,7 +20,6 @@ use crate::utils::PrefixSumWorkspace;
 use khal::BufferUsages;
 use khal::backend::{Backend, GpuBackend, GpuReadback};
 use std::time::Duration;
-use vortx::shaders::linalg::Shape as TensorShape;
 use vortx::tensor::Tensor;
 
 /// Performance statistics collected during a physics simulation step.
@@ -59,6 +58,7 @@ pub struct RbdCapacities {
     ///
     /// This may or may not be automatically resized depending on [`Self::collisions_resize_policy`].
     pub collisions_capacity: u32,
+    pub mb_contact_constraints_capacity: u32,
     /// How internal collision buffers gets automatically resized (or not).
     ///
     /// Note that setting both [`Self::collisions_resize_policy`] and
@@ -89,6 +89,7 @@ impl Default for RbdCapacities {
             batches: 1,
             body_capacity: 65536,
             collisions_capacity: 4096,
+            mb_contact_constraints_capacity: 256,
             collisions_resize_policy: RbdResizePolicy::Grow,
             solver_colors: 8,
             solver_colors_resize_policy: RbdResizePolicy::Grow,
@@ -164,14 +165,6 @@ pub struct RbdState {
     pub(super) collision_pairs: Tensor<CollisionPair>,
     /// Per-batch live collision-pair counts (length `num_batches`).
     pub(super) collision_pairs_len: Tensor<u32>,
-    /// Single-element scratch holding the max of `collision_pairs_len` across all
-    /// batches, computed on the GPU (only used when `num_batches > 1`).
-    pub(super) collision_pairs_len_max: Tensor<u32>,
-    /// Cosine of the maximum angle between two contact normals for their
-    /// manifolds to be clustered together (see `gpu_reduce_contacts`).
-    /// `num_batches` as a uniform, the scan length for the max reduction.
-    pub(super) num_batches_uniform: Tensor<TensorShape>,
-    /// Non-blocking readback of `[max collision_pairs_len, uncolored]` used by
     /// [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers)
     /// to grow buffers without stalling.
     pub(super) resize_readback: GpuReadback<u32>,
@@ -179,12 +172,12 @@ pub struct RbdState {
     /// CPU-side mirrors of the dynamic batch capacities. The capacity values
     /// live in the [`BatchIndices`] uniform; these mirrors let
     /// [`Self::rebuild_batch_indices`] re-emit it whenever a buffer grows.
-    pub(super) contacts_per_batch_cpu: u32,
-    pub(super) collision_pairs_per_batch_cpu: u32,
-    /// Most recently read live collision-pair count — the max across all batches,
-    /// harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers).
+    pub(super) contacts_capacity_cpu: u32,
+    pub(super) collision_pairs_capacity_cpu: u32,
     /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize.
     pub(super) collision_pairs_len_cpu: u32,
+    #[cfg(feature = "dim3")]
+    pub(super) mb_cons_demand_cpu: u32,
     /// Single uniform aggregating every per-batch capacity and packed-buffer
     /// section offset consumed by the compute kernels (multibody and RBD
     /// sides). Rebuilt by [`Self::rebuild_batch_indices`] whenever any of its
@@ -196,6 +189,9 @@ pub struct RbdState {
     pub(super) contacts: Tensor<GpuIndexedContact>,
     pub(super) contacts_len: Tensor<u32>,
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
+    pub(super) contact_offsets: Tensor<u32>,
+    pub(super) pair_batch_counts: Tensor<u32>,
+    pub(super) pfm_batch_counts: Tensor<u32>,
     /// Workgroup grid for the per-multibody contact-constraint dispatches:
     /// `[multibodies_batch_capacity, num_batches, 1]`.
     pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
@@ -211,15 +207,7 @@ pub struct RbdState {
     pub(super) old_constraints_colors: Tensor<u32>,
     pub(super) colored: Tensor<u32>,
     pub(super) constraints_rands: Tensor<u32>,
-    /// Per-batch per-color constraint counts (stride `max_colors + 3`), see
-    /// the `gpu_color_buckets_*` kernels.
-    pub(super) color_bucket_counts: Tensor<u32>,
-    /// Per-batch per-color exclusive prefix sums over the counts: color `c`
-    /// owns `color_sorted_ids[starts[c]..starts[c + 1]]`.
-    pub(super) color_bucket_starts: Tensor<u32>,
-    /// Scatter cursors (seeded from the starts each step).
-    pub(super) color_bucket_cursors: Tensor<u32>,
-    /// Constraint indices bucket-sorted by color (contacts layout).
+    pub(super) color_buckets: Tensor<u32>,
     pub(super) color_sorted_ids: Tensor<u32>,
     pub(super) curr_color: Tensor<u32>,
     /// Pre-built per-color-index uniforms: `color_uniforms[c] == c`.
@@ -240,6 +228,7 @@ pub struct RbdState {
     /// assigned the same color.
     pub(super) body_group: Tensor<u32>,
     pub(super) prefix_sum_workspace: PrefixSumWorkspace,
+    pub(super) bucket_prefix_workspace: PrefixSumWorkspace,
     /// Maximum number of constraint colors the solver will iterate.
     pub(super) max_colors: u32,
     /// `true` when every body is either non-dynamic or multibody-controlled
@@ -270,9 +259,8 @@ impl RbdState {
             colliders_batch_capacity: self.num_colliders_per_batch,
             colliders_len: self.num_active_colliders,
             bodies_len: self.num_active_bodies,
-            collision_pairs_batch_capacity: self.collision_pairs_per_batch_cpu,
-            contacts_batch_capacity: self.contacts_per_batch_cpu,
-            impulse_joints_batch_capacity: self.joints.joints_per_batch(),
+            collision_pairs_capacity: self.collision_pairs_capacity_cpu,
+            contacts_capacity: self.contacts_capacity_cpu,
             impulse_joints_len: self.joints.num_active_joints(),
             solver_color_buckets_stride: self.max_colors + 3,
             ..Default::default()
@@ -415,6 +403,14 @@ impl RbdState {
     #[cfg(feature = "dim3")]
     pub fn multibodies_mut(&mut self) -> &mut crate::dynamics::GpuMultibodySet {
         &mut self.multibodies
+    }
+    #[cfg(feature = "dim3")]
+    pub fn mb_contact_constraints_len(&self) -> u32 {
+        self.mb_cons_demand_cpu
+    }
+    #[cfg(feature = "dim3")]
+    pub fn mb_contact_constraints_capacity(&self) -> u32 {
+        self.multibodies.contact_constraints_capacity()
     }
 
     /// Immutable access to the multibody set (e.g. to read back `dof_state`).
@@ -628,6 +624,10 @@ pub struct RbdSnapshot {
 
 #[cfg(feature = "dim3")]
 impl RbdSnapshot {
+    pub fn debug_body_pose(&self, body_id: usize) -> Pose {
+        self.body_poses[body_id]
+    }
+
     /// A copy with every floating-base multibody translated by `offset`: the
     /// affected links' `body_poses` plus the multibody workspace (root
     /// free-joint coords, local-to-parent, per-link local-to-world). Fixed
@@ -650,16 +650,21 @@ impl RbdState {
     /// Call it once per template at setup and pass the result to
     /// [`Self::reset_env_from_snapshot`] for readback-free per-env resets.
     pub async fn snapshot(&self, backend: &GpuBackend) -> RbdSnapshot {
-        let mut body_poses = bytemuck::zeroed_vec(self.body_poses.len() as usize);
+        let nb = self.num_batches as usize;
+        let mut all_poses: Vec<Pose> = bytemuck::zeroed_vec(self.body_poses.len() as usize);
         backend
-            .slow_read_buffer(self.body_poses.buffer(), &mut body_poses)
+            .slow_read_buffer(self.body_poses.buffer(), &mut all_poses)
             .await
             .unwrap();
-        let mut vels = bytemuck::zeroed_vec(self.vels.len() as usize);
+        let mut all_vels: Vec<GpuVelocity> = bytemuck::zeroed_vec(self.vels.len() as usize);
         backend
-            .slow_read_buffer(self.vels.buffer(), &mut vels)
+            .slow_read_buffer(self.vels.buffer(), &mut all_vels)
             .await
             .unwrap();
+        let bps = all_poses.len() / nb;
+        let body_poses = (0..bps).map(|i| all_poses[i * nb]).collect();
+        let vs = all_vels.len() / nb;
+        let vels = (0..vs).map(|i| all_vels[i * nb]).collect();
         let mb = self.multibodies.snapshot(backend).await;
         RbdSnapshot {
             body_poses,
@@ -677,21 +682,25 @@ impl RbdState {
     ) {
         let nb = self.num_batches as u64;
         let bps = (self.body_poses.len() / nb) as usize;
-        backend
-            .write_buffer(
-                self.body_poses.buffer_mut(),
-                dst_env as u64 * bps as u64,
-                &snap.body_poses[..bps],
-            )
-            .unwrap();
+        for (i, pose) in snap.body_poses[..bps].iter().enumerate() {
+            backend
+                .write_buffer(
+                    self.body_poses.buffer_mut(),
+                    i as u64 * nb + dst_env as u64,
+                    core::slice::from_ref(pose),
+                )
+                .unwrap();
+        }
         let vs = (self.vels.len() / nb) as usize;
-        backend
-            .write_buffer(
-                self.vels.buffer_mut(),
-                dst_env as u64 * vs as u64,
-                &snap.vels[..vs],
-            )
-            .unwrap();
+        for (i, vel) in snap.vels[..vs].iter().enumerate() {
+            backend
+                .write_buffer(
+                    self.vels.buffer_mut(),
+                    i as u64 * nb + dst_env as u64,
+                    core::slice::from_ref(vel),
+                )
+                .unwrap();
+        }
         self.multibodies
             .reset_env_from_snapshot(backend, dst_env, &snap.mb);
     }
@@ -798,7 +807,7 @@ impl RbdState {
         let t_offs = Tensor::vector(backend, &offs, storage).unwrap();
         let params = Tensor::scalar(
             backend,
-            UVec4::new(bps, vs, n, 0),
+            UVec4::new(bps, vs, n, nb),
             BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         )
         .unwrap();

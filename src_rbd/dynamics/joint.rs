@@ -309,12 +309,11 @@ impl GpuImpulseJointSet {
 
         // Build flat joint buffer [num_batches * max_joints], padded with zeroed joints.
         let dummy_joint = ImpulseJoint::zeroed();
-        let mut all_joints = Vec::with_capacity(num_batches as usize * max_joints as usize);
-        for sorted_joints in &per_env_sorted_joints {
-            all_joints.extend_from_slice(sorted_joints);
-            // Pad to max_joints.
-            for _ in sorted_joints.len()..max_joints as usize {
-                all_joints.push(dummy_joint);
+        let mut all_joints =
+            vec![dummy_joint; num_batches as usize * max_joints as usize];
+        for (batch, sorted_joints) in per_env_sorted_joints.iter().enumerate() {
+            for (j, joint) in sorted_joints.iter().enumerate() {
+                all_joints[j * num_batches as usize + batch] = *joint;
             }
         }
 
@@ -407,7 +406,7 @@ impl GpuJointSolver {
 
         self.init_joint_constraints.call(
             pass,
-            [args.joints.len, args.num_batches, 1],
+            args.joints.len * args.num_batches,
             &args.joints.joints,
             &mut args.joints.builders,
             &mut args.joints.constraints,
@@ -430,7 +429,7 @@ impl GpuJointSolver {
 
         self.update_joint_constraints.call(
             pass,
-            [args.joints.len, args.num_batches, 1],
+            args.joints.len * args.num_batches,
             &args.joints.builders,
             &mut args.joints.constraints,
             poses,
@@ -472,7 +471,7 @@ impl GpuJointSolver {
             }
             self.solve_joint_constraints.call(
                 pass,
-                [group_len, args.num_batches, 1],
+                group_len * args.num_batches,
                 &mut args.joints.constraints,
                 solver_vels,
                 &args.joints.color_groups,

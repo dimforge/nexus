@@ -8,7 +8,7 @@ pub mod radix_sort;
 mod slice;
 
 pub use basis::orthonormal_basis3;
-pub use indices::BatchIndices;
+pub use indices::{BatchIndices, BodyIx};
 pub use slice::{ISlice, ISliceMut, Slice, SliceMut};
 
 /// Division with ceiling (signed).

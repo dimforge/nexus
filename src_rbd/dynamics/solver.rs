@@ -78,7 +78,7 @@ pub struct SolverArgs<'a> {
     pub contacts: &'a Tensor<GpuIndexedContact>,
     /// Number of contacts (per batch).
     pub contacts_len: &'a Tensor<u32>,
-    /// Indirect dispatch arguments based on contact count.
+    pub contact_offsets: &'a Tensor<u32>,
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Solver constraints (output from constraint initialization).
     pub constraints: &'a mut Tensor<TwoBodyConstraint>,
@@ -120,10 +120,7 @@ pub struct SolverArgs<'a> {
     /// All constraints of all the bodies part of the same multibody are in the same list associated
     /// to the multibody’s root.
     pub body_constraint_ids: &'a mut Tensor<u32>,
-    /// Per-batch per-color exclusive prefix sums over the color-bucketed
-    /// constraint ids (stride `BatchIndices::solver_color_buckets_stride`).
-    pub color_bucket_starts: &'a Tensor<u32>,
-    /// Constraint ids bucket-sorted by color (contacts layout).
+    pub color_buckets: &'a Tensor<u32>,
     pub color_sorted_ids: &'a Tensor<u32>,
     /// Per-color-index uniform tensors: `color_uniforms[c] == c`.
     pub color_uniforms: &'a [Tensor<u32>],
@@ -167,7 +164,7 @@ impl GpuSolver {
         // Cleanup zeroes body_constraint_counts, solver_vels, vels, mprops.
         self.cleanup.call(
             pass,
-            [args.num_colliders, args.num_batches, 1],
+            args.num_colliders * args.num_batches,
             args.body_constraint_counts,
             args.solver_vels,
             args.vels,
@@ -182,7 +179,7 @@ impl GpuSolver {
         // below reads `solver_body_poses` so we barrier before it.
         self.init_solver_bodies.call(
             pass,
-            [args.num_colliders, args.num_batches, 1],
+            args.num_colliders * args.num_batches,
             args.body_poses,
             args.local_mprops,
             args.solver_body_poses,
@@ -199,6 +196,7 @@ impl GpuSolver {
             args.contacts,
             args.constraints,
             args.constraint_builders,
+            args.contact_offsets,
             args.collider_world_poses,
             args.solver_body_poses,
             args.vels,
@@ -216,7 +214,7 @@ impl GpuSolver {
             args.body_constraint_counts,
             args.body_group,
             args.mprops,
-            args.contacts_len,
+            args.contact_offsets,
             args.batch_indices,
         )?;
 
@@ -225,7 +223,7 @@ impl GpuSolver {
             pass,
             prefix_sum_workspace,
             args.body_constraint_counts,
-            args.num_batches,
+            1,
         )?;
 
         self.sort_constraints.call(
@@ -234,7 +232,7 @@ impl GpuSolver {
             args.body_constraint_counts,
             args.mprops,
             args.contacts,
-            args.contacts_len,
+            args.contact_offsets,
             args.body_constraint_ids,
             args.body_group,
             args.batch_indices,
@@ -274,7 +272,7 @@ impl GpuSolver {
             if !skip_rb {
                 self.init_solver_vels_inc.call(
                     &mut pass,
-                    [args.num_colliders, args.num_batches, 1],
+                    args.num_colliders * args.num_batches,
                     args.solver_vels_inc,
                     args.mprops,
                     args.sim_params,
@@ -295,6 +293,7 @@ impl GpuSolver {
                     mprops: args.mprops,
                     contacts: args.contacts,
                     contacts_len: args.contacts_len,
+                    contact_offsets: args.contact_offsets,
                     solver_vels: &mut *args.solver_vels,
                     batch_indices: args.batch_indices,
                     gravity: args.gravity,
@@ -320,6 +319,7 @@ impl GpuSolver {
                         mprops: args.mprops,
                         contacts: args.contacts,
                         contacts_len: args.contacts_len,
+                        contact_offsets: args.contact_offsets,
                         solver_vels: &mut *args.solver_vels,
                         batch_indices: args.batch_indices,
                         gravity: args.gravity,
@@ -346,7 +346,7 @@ impl GpuSolver {
                     encoder.begin_pass("[RBD] slv/rb-apply-inc", timestamps.as_deref_mut());
                 self.apply_solver_vels_inc.call(
                     &mut pass,
-                    [args.num_colliders, args.num_batches, 1],
+                    args.num_colliders * args.num_batches,
                     args.solver_vels,
                     args.solver_vels_inc,
                     args.batch_indices,
@@ -365,6 +365,7 @@ impl GpuSolver {
                         mprops: args.mprops,
                         contacts: args.contacts,
                         contacts_len: args.contacts_len,
+                        contact_offsets: args.contact_offsets,
                         solver_vels: &mut *args.solver_vels,
                         batch_indices: args.batch_indices,
                         gravity: args.gravity,
@@ -390,7 +391,7 @@ impl GpuSolver {
                         args.contacts_len_indirect,
                         args.constraints,
                         args.constraint_builders,
-                        args.contacts_len,
+                        args.contact_offsets,
                         args.solver_body_poses,
                         args.sim_params,
                         args.batch_indices,
@@ -403,7 +404,7 @@ impl GpuSolver {
                 } else if args.colorless_warmstart {
                     self.warmstart_without_colors.call(
                         pass,
-                        [args.num_colliders, args.num_batches, 1],
+                        args.num_colliders * args.num_batches,
                         args.body_constraint_counts,
                         args.body_constraint_ids,
                         args.constraints,
@@ -419,7 +420,7 @@ impl GpuSolver {
                         [64, args.num_batches, 1],
                         args.constraints,
                         args.solver_vels,
-                        args.color_bucket_starts,
+                        args.color_buckets,
                         args.color_sorted_ids,
                         &args.color_uniforms[args.num_colors as usize],
                         args.batch_indices,
@@ -432,7 +433,7 @@ impl GpuSolver {
                             args.contacts_len_indirect,
                             args.constraints,
                             args.solver_vels,
-                            args.color_bucket_starts,
+                            args.color_buckets,
                             args.color_sorted_ids,
                             &args.color_uniforms[c as usize],
                             args.batch_indices,
@@ -458,7 +459,7 @@ impl GpuSolver {
                         [64, args.num_batches, 1],
                         args.constraints,
                         args.solver_vels,
-                        args.color_bucket_starts,
+                        args.color_buckets,
                         args.color_sorted_ids,
                         &args.color_uniforms[args.num_colors as usize],
                         args.batch_indices,
@@ -472,7 +473,7 @@ impl GpuSolver {
                             args.contacts_len_indirect,
                             args.constraints,
                             args.solver_vels,
-                            args.color_bucket_starts,
+                            args.color_buckets,
                             args.color_sorted_ids,
                             &args.color_uniforms[c as usize],
                             args.batch_indices,
@@ -496,7 +497,7 @@ impl GpuSolver {
                     encoder.begin_pass("[RBD] slv/rb-integrate", timestamps.as_deref_mut());
                 self.integrate_linearized.call(
                     &mut pass,
-                    [args.num_colliders, args.num_batches, 1],
+                    args.num_colliders * args.num_batches,
                     args.solver_body_poses,
                     args.solver_vels,
                     args.sim_params,
@@ -518,7 +519,7 @@ impl GpuSolver {
                         args.contacts_len_indirect,
                         args.constraints,
                         args.constraint_builders,
-                        args.contacts_len,
+                        args.contact_offsets,
                         args.solver_body_poses,
                         args.sim_params,
                         args.batch_indices,
@@ -533,7 +534,7 @@ impl GpuSolver {
                         [64, args.num_batches, 1],
                         args.constraints,
                         args.solver_vels,
-                        args.color_bucket_starts,
+                        args.color_buckets,
                         args.color_sorted_ids,
                         &args.color_uniforms[args.num_colors as usize],
                         args.batch_indices,
@@ -547,7 +548,7 @@ impl GpuSolver {
                             args.contacts_len_indirect,
                             args.constraints,
                             args.solver_vels,
-                            args.color_bucket_starts,
+                            args.color_buckets,
                             args.color_sorted_ids,
                             &args.color_uniforms[c as usize],
                             args.batch_indices,
@@ -570,7 +571,7 @@ impl GpuSolver {
             let mut pass = encoder.begin_pass("[RBD] slv/finalize", timestamps);
             self.finalize.call(
                 &mut pass,
-                [args.num_colliders, args.num_batches, 1],
+                args.num_colliders * args.num_batches,
                 args.vels,
                 args.solver_vels,
                 args.body_poses,

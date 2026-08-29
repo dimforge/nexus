@@ -12,11 +12,12 @@ use glamx::Vec2;
 use glamx::{Mat4, Vec2};
 
 use khal_std::glamx::UVec3;
+use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use crate::Pose;
-use crate::utils::{BatchIndices, Slice};
+use crate::utils::{BatchIndices, ISlice, ISliceMut, Slice};
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
 use super::joint::ImpulseJoint;
@@ -174,18 +175,17 @@ pub fn gpu_init_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
+    let nb = batch_ids.num_batches;
 
-    let joints = batch_ids.impulse_joints_batch(batch_id, joints);
-    let mut builders = batch_ids.impulse_joints_batch_mut(batch_id, builders);
-    let mut constraints = batch_ids.impulse_joints_batch_mut(batch_id, constraints);
-    let local_mprops = batch_ids.coll_batch(batch_id, local_mprops);
+    let total = batch_ids.impulse_joints_len * nb;
 
-    let len = batch_ids.impulse_joints_len;
-
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
-        let idx = i as usize;
-        let joint = &joints[idx];
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let idx = t as usize;
+        let batch_id = t % nb;
+        let bix = batch_ids.body_ix(batch_id);
+        let joint = joints.at(idx);
+        let body_a = bix.at(joint.body_a) as u32;
+        let body_b = bix.at(joint.body_b) as u32;
 
         // Mirror rapier `GenericJoint::transform_to_solver_body_space`: the
         // joint's local anchor frames are expressed relative to the body's
@@ -193,22 +193,26 @@ pub fn gpu_init_joint_constraints(
         // body local center of mass from each anchor's translation.
         // TODO: handle the rapier "is_fixed" branch (`local_frame = body_pose * local_frame`).
         let mut joint_data = joint.data;
-        joint_data.local_frame_a.translation -= local_mprops[joint.body_a as usize].com;
-        joint_data.local_frame_b.translation -= local_mprops[joint.body_b as usize].com;
+        joint_data.local_frame_a.translation -= local_mprops.at(body_a as usize).com;
+        joint_data.local_frame_b.translation -= local_mprops.at(body_b as usize).com;
 
-        builders[idx] = JointConstraintBuilder {
-            body1: joint.body_a,
-            body2: joint.body_b,
-            joint_id: i,
-            joint: joint_data,
-            constraint_id: i,
-        };
+        builders.write(
+            idx,
+            JointConstraintBuilder {
+                body1: body_a,
+                body2: body_b,
+                joint_id: t,
+                joint: joint_data,
+                constraint_id: t,
+            },
+        );
 
-        constraints[idx].solver_vel_a = joint.body_a;
-        constraints[idx].solver_vel_b = joint.body_b;
-        constraints[idx].im_a = local_mprops[joint.body_a as usize].inv_mass;
-        constraints[idx].im_b = local_mprops[joint.body_b as usize].inv_mass;
-        constraints[idx].len = 0; // Constraint elements will be filled later.
+        let cons = constraints.at_mut(idx);
+        cons.solver_vel_a = body_a;
+        cons.solver_vel_b = body_b;
+        cons.im_a = local_mprops.at(body_a as usize).inv_mass;
+        cons.im_b = local_mprops.at(body_b as usize).inv_mass;
+        cons.len = 0;
     }
 }
 
@@ -226,18 +230,26 @@ pub fn gpu_update_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
 
-    let builders = batch_ids.impulse_joints_batch(batch_id, builders);
-    let mut constraints = batch_ids.impulse_joints_batch_mut(batch_id, constraints);
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let mprops = batch_ids.coll_batch(batch_id, mprops);
+    let total = batch_ids.impulse_joints_len * batch_ids.num_batches;
+    let poses = ISlice {
+        buf: poses,
+        base: 0,
+        stride: 1,
+        shift: 0,
+    };
+    let mprops = ISlice {
+        buf: mprops,
+        base: 0,
+        stride: 1,
+        shift: 0,
+    };
 
-    let len = batch_ids.impulse_joints_len;
-
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
-        let idx = i as usize;
-        builders[idx].update_constraint(&mut constraints[idx], &poses, &mprops, params);
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let idx = t as usize;
+        builders
+            .at(idx)
+            .update_constraint(constraints.at_mut(idx), &poses, &mprops, params);
     }
 }
 
@@ -255,10 +267,13 @@ pub fn gpu_solve_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 5)] use_bias: &u32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-
-    let mut constraints = batch_ids.impulse_joints_batch_mut(batch_id, constraints);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let nb = batch_ids.num_batches;
+    let mut solver_vels = ISliceMut {
+        buf: solver_vels,
+        base: 0,
+        stride: 1,
+        shift: 0,
+    };
     let use_bias = *use_bias != 0;
 
     let color = *curr_color as usize;
@@ -273,7 +288,9 @@ pub fn gpu_solve_joint_constraints(
     };
     let end = color_groups[color];
 
-    for i in StepRng::new(start + invocation_id.x..end, num_threads) {
-        constraints[i as usize].solve_joint_constraint(&mut solver_vels, use_bias);
+    for t in StepRng::new(start * nb + invocation_id.x..end * nb, num_threads) {
+        constraints
+            .at_mut(t as usize)
+            .solve_joint_constraint(&mut solver_vels, use_bias);
     }
 }

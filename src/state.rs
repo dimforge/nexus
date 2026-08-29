@@ -64,6 +64,11 @@ impl NexusCapacities {
         self
     }
 
+    pub fn rbd_mb_contact_constraints(mut self, capacity: u32) -> Self {
+        self.rbd.mb_contact_constraints_capacity = capacity;
+        self
+    }
+
     #[cfg(feature = "mpm")]
     pub fn mpm_grid_size(mut self, num_chunks: u32) -> Self {
         self.mpm.grid_size = num_chunks;
@@ -109,6 +114,8 @@ pub struct NexusCounts {
     pub multibody_dofs: usize,
     pub collision_pairs: usize,
     pub collision_pairs_capacity: usize,
+    pub mb_contact_constraints: usize,
+    pub mb_contact_constraints_capacity: usize,
     pub particles: usize,
 }
 
@@ -342,6 +349,10 @@ impl NexusState {
         self.capacities.rbd.collisions_capacity = capacity.max(1);
     }
 
+    pub fn set_rbd_mb_contact_constraints_capacity(&mut self, capacity: u32) {
+        self.capacities.rbd.mb_contact_constraints_capacity = capacity.max(1);
+    }
+
     /// Sets the number of rigid-body solver steps advanced per
     /// [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call (default 1). Acts as a simulation-speed control.
     pub fn set_rbd_steps_per_frame(&mut self, steps: u32) {
@@ -373,6 +384,12 @@ impl NexusState {
         if let Some(rbd) = self.rbd.as_ref() {
             c.collision_pairs = rbd.collision_pairs_len() as usize;
             c.collision_pairs_capacity = rbd.collision_pairs_capacity() as usize;
+            #[cfg(feature = "dim3")]
+            {
+                c.mb_contact_constraints = rbd.mb_contact_constraints_len() as usize;
+                c.mb_contact_constraints_capacity =
+                    rbd.mb_contact_constraints_capacity() as usize;
+            }
         }
         #[cfg(feature = "mpm")]
         if let Some(mpm) = self.mpm.as_ref() {
@@ -640,13 +657,13 @@ impl NexusState {
                     <= rbd.num_colliders_per_batch() as usize =>
             {
                 let range = rbd.append_bodies(backend, &gpu_pairs)?;
-                // Single environment: the per-batch local slot is the gpu_id.
+                let nb = rbd.num_batches();
                 for (i, (&handle, &coupling)) in handles.iter().zip(&couplings).enumerate() {
                     self.rbd2gpu[0].insert(
                         handle.0,
                         GpuRigidBodyRef {
                             coupling,
-                            gpu_id: range.start + i as u32,
+                            gpu_id: (range.start + i as u32) * nb,
                         },
                     );
                 }
@@ -981,9 +998,7 @@ impl NexusState {
             // `gpu_id` is its *body* slot, not a collider slot, since a body may
             // own several colliders. Body slots are assigned in the order
             // `from_rapier` uses (the first time each parent body is seen while
-            // iterating colliders) and are laid out env-major with stride
-            // `num_colliders_per_batch`.
-            let stride = rbd_state.num_colliders_per_batch();
+            let nb = rbd_state.num_batches();
             for (env_idx, world) in self.rbd_envs.iter().enumerate() {
                 let mut body_slot: std::collections::HashMap<_, u32> =
                     std::collections::HashMap::new();
@@ -1012,7 +1027,7 @@ impl NexusState {
                         body_handle.0,
                         GpuRigidBodyRef {
                             coupling,
-                            gpu_id: env_idx as u32 * stride + slot,
+                            gpu_id: slot * nb + env_idx as u32,
                         },
                     );
                 }
@@ -1038,7 +1053,7 @@ impl NexusState {
                             body_handle.0,
                             GpuRigidBodyRef {
                                 coupling,
-                                gpu_id: env_idx as u32 * stride + slot,
+                                gpu_id: slot * nb + env_idx as u32,
                             },
                         );
                     }

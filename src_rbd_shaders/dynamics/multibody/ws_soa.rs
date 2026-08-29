@@ -114,8 +114,9 @@ impl WsAddr {
     /// link `k` (relative to `base`).
     #[inline]
     pub fn at(&self, k: u32, quad: u32) -> usize {
-        ((self.base + k as usize) * WS_QUADS as usize + quad as usize) * self.stride as usize
-            + self.shift as usize
+        ((self.base + k as usize) * self.stride as usize + self.shift as usize)
+            * WS_QUADS as usize
+            + quad as usize
     }
 }
 
@@ -453,7 +454,7 @@ pub fn ws_soa_from_structs(
 /*
  * Host-side conversion of the SoA buffer back into the AoS structs, the inverse
  * of `ws_soa_from_structs`. Used by observation readbacks, which want one struct
- * per link rather than the interleaved quads the kernels index.
+ * per link rather than the record-interleaved quads the kernels index.
  */
 #[cfg(not(target_arch_is_gpu))]
 pub fn ws_soa_to_structs(

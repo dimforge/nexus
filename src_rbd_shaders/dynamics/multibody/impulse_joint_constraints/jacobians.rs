@@ -1,6 +1,7 @@
 //! Jacobian packing helpers shared by the multibody impulse-joint kernels:
 //! per-side spatial-velocity access and `J` / `W·J` row construction.
 
+use crate::utils::BodyIx;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
@@ -72,7 +73,7 @@ pub(super) fn side_dot_vel_par(
     dof_vels: &[f32],
     dof_base_for_mb: VSlice,
     solver_vels: &[Velocity],
-    colliders_start: usize,
+    bix: BodyIx,
     lane: u32,
     partial: &mut [f32; LANES as usize],
 ) -> f32 {
@@ -84,7 +85,7 @@ pub(super) fn side_dot_vel_par(
         0.0f32
     } else if kind == SIDE_KIND_BODY {
         if lane < SPATIAL_DIM as u32 {
-            let v = solver_vels.read(colliders_start + body_id as usize);
+            let v = solver_vels.read(bix.at(body_id));
             jacobians.read(j_id as usize + lane as usize) * spatial_component(v, lane)
         } else {
             0.0f32
@@ -132,7 +133,7 @@ pub(super) fn side_apply_impulse_par(
     dof_vels: &mut [f32],
     dof_base_for_mb: VSlice,
     solver_vels: &mut [Velocity],
-    colliders_start: usize,
+    bix: BodyIx,
     lane: u32,
 ) {
     // All operands are workgroup-uniform, so this early-out is uniform.
@@ -143,7 +144,7 @@ pub(super) fn side_apply_impulse_par(
     let scaled = sign * delta;
     if kind == SIDE_KIND_BODY {
         if lane == 0 {
-            let coll_idx = colliders_start + body_id as usize;
+            let coll_idx = bix.at(body_id);
             let mut v = solver_vels.read(coll_idx);
             #[cfg(feature = "dim3")]
             {
@@ -190,9 +191,9 @@ pub(super) fn fill_body_jacobians(
     unit_force: Vector,
     unit_torque: AngVector,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
-    let mp = mprops.read(colliders_start + body_id as usize);
+    let mp = mprops.read(bix.at(body_id));
     let im = mp.inv_mass;
 
     let base = j_id as usize;
@@ -247,14 +248,12 @@ pub(super) fn fill_mb_jacobians(
     il: VSlice,
 ) {
     let ndofs = mb.ndofs;
-    let mb_jac_base = mb.jacobian_offset as usize;
-    let link_jac_base = mb_jac_base + (link_id as usize) * SPATIAL_DIM * (ndofs as usize);
-    let link_j = MatSlice::interleaved(
-        link_jac_base,
+    let jac0 = mb.jacobian_offset as usize * il.stride as usize
+        + il.shift as usize * (mb.num_links * SPATIAL_DIM as u32 * ndofs) as usize;
+    let link_j = MatSlice::dense(
+        jac0 + (link_id as usize) * SPATIAL_DIM * (ndofs as usize),
         SPATIAL_DIM as u32,
         ndofs,
-        il.stride,
-        il.shift,
     );
     let (link_j_v, link_j_w) = link_j.rows_range_pair(0, DIM, DIM, ANG_DIM);
 
@@ -319,11 +318,12 @@ pub(super) fn fill_relative_mb_jacobians(
     il: VSlice,
 ) {
     let ndofs = mb.ndofs;
-    let mb_jac_base = mb.jacobian_offset as usize;
-    let la_base = mb_jac_base + (link_a as usize) * SPATIAL_DIM * (ndofs as usize);
-    let lb_base = mb_jac_base + (link_b as usize) * SPATIAL_DIM * (ndofs as usize);
-    let la = MatSlice::interleaved(la_base, SPATIAL_DIM as u32, ndofs, il.stride, il.shift);
-    let lb = MatSlice::interleaved(lb_base, SPATIAL_DIM as u32, ndofs, il.stride, il.shift);
+    let jac0 = mb.jacobian_offset as usize * il.stride as usize
+        + il.shift as usize * (mb.num_links * SPATIAL_DIM as u32 * ndofs) as usize;
+    let la_base = jac0 + (link_a as usize) * SPATIAL_DIM * (ndofs as usize);
+    let lb_base = jac0 + (link_b as usize) * SPATIAL_DIM * (ndofs as usize);
+    let la = MatSlice::dense(la_base, SPATIAL_DIM as u32, ndofs);
+    let lb = MatSlice::dense(lb_base, SPATIAL_DIM as u32, ndofs);
     let (la_v, la_w) = la.rows_range_pair(0, DIM, DIM, ANG_DIM);
     let (lb_v, lb_w) = lb.rows_range_pair(0, DIM, DIM, ANG_DIM);
 

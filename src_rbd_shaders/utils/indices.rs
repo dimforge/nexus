@@ -1,5 +1,4 @@
-use crate::utils::linalg::{MatSlice, VSlice};
-use crate::utils::{ISlice, ISliceMut, Slice, SliceMut};
+use crate::utils::{ISlice, ISliceMut};
 
 /// Per-batch capacities and packed-buffer section offsets, shared by every
 /// kernel that needs to slice a flat tensor into its batch's slot.
@@ -21,11 +20,8 @@ pub struct BatchIndices {
     pub colliders_len: u32,
     /// Number of *active* rigid bodies per batch.
     pub bodies_len: u32,
-    pub collision_pairs_batch_capacity: u32,
-    pub contacts_batch_capacity: u32,
-    /// Free-body impulse joints — buffer stride (capacity) per batch.
-    pub impulse_joints_batch_capacity: u32,
-    /// Number of *active* free-body impulse joints per batch (the loop bound).
+    pub collision_pairs_capacity: u32,
+    pub contacts_capacity: u32,
     pub impulse_joints_len: u32,
 
     /*
@@ -36,10 +32,7 @@ pub struct BatchIndices {
     /// per-multibody kernels).
     pub multibodies_len: u32,
     pub links_batch_capacity: u32,
-    pub jacobians_batch_capacity: u32,
-    pub mass_matrix_batch_capacity: u32,
     pub coriolis_batch_capacity: u32,
-    pub i_coriolis_dt_batch_capacity: u32,
     pub dof_batch_capacity: u32,
 
     /*
@@ -47,16 +40,8 @@ pub struct BatchIndices {
      */
     pub mb_joint_constraints_batch_capacity: u32,
     pub mb_joint_constraint_columns_batch_capacity: u32,
-    pub mb_contact_constraints_batch_capacity: u32,
-    pub mb_contact_constraint_columns_batch_capacity: u32,
+    pub mb_contact_constraints_capacity: u32,
     pub mb_imp_joints_batch_capacity: u32,
-    pub mb_imp_joint_constraints_batch_capacity: u32,
-    pub mb_imp_joint_jacobians_batch_capacity: u32,
-    /// Multibody-touching impulse-joint color-group slab (per-batch stride
-    /// = number of colors). The free-body impulse-joint color groups, by
-    /// contrast, are stored single-batch (identical coloring across batches)
-    /// and read at offset 0.
-    pub mb_imp_joint_color_groups_batch_capacity: u32,
     /// Actual max `ndofs` across every multibody in every batch (often smaller
     /// than the fixed `MAX_MB_DOFS` limit).
     pub mb_max_ndofs: u32,
@@ -77,9 +62,6 @@ pub struct BatchIndices {
      * These are buffers that were combined into a single storage
      * buffer to comply with the 10 storage buffers limit on the web.
      */
-    pub coriolis_w_section_offset: u32,
-    pub i_coriolis_dt_section_offset: u32,
-    pub dof_damping_section_offset: u32,
     /// Offset (in f32 entries, within a batch's `mass_matrices` view) of the
     /// section holding the coriolis-aware "acceleration" mass matrix
     /// (rapier's `acc_augmented_mass`).
@@ -100,8 +82,15 @@ impl BatchIndices {
      * `MatSlice::dense(base, ...)`).
      */
     #[inline]
-    pub fn coll_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.colliders_batch_capacity as usize
+    pub fn body_global(&self, batch_id: u32, local: u32) -> usize {
+        local as usize * self.num_batches as usize + batch_id as usize
+    }
+    #[inline]
+    pub fn body_ix(&self, batch_id: u32) -> BodyIx {
+        BodyIx {
+            stride: self.num_batches,
+            shift: batch_id,
+        }
     }
 
     /// Interleaved flat index for the multibody dynamics buffers.
@@ -135,29 +124,14 @@ impl BatchIndices {
 
     /// Interleaved dense matrix view at intra-batch element offset `offset`.
     #[inline]
-    pub fn imat(&self, batch_id: u32, offset: usize, rows: u32, cols: u32) -> MatSlice {
-        MatSlice::interleaved(offset, rows, cols, self.num_batches, batch_id)
+    pub fn mb_region(&self, batch_id: u32, offset: u32, len: u32) -> usize {
+        offset as usize * self.num_batches as usize + batch_id as usize * len as usize
     }
 
     /// Interleaved vector view at intra-batch element offset `offset`.
     #[inline]
-    pub fn ivec(&self, batch_id: u32, offset: usize) -> VSlice {
-        VSlice::interleaved(offset, self.num_batches, batch_id)
-    }
-
-    #[inline]
-    pub fn collision_pairs_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.collision_pairs_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn contacts_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.contacts_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn impulse_joints_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.impulse_joints_batch_capacity as usize
+    pub fn collider_batch(&self, collider_id: u32) -> u32 {
+        collider_id % self.num_batches
     }
 
     #[inline]
@@ -171,162 +145,20 @@ impl BatchIndices {
     }
 
     #[inline]
-    pub fn mb_contact_constraints_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.mb_contact_constraints_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn mb_contact_constraint_columns_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.mb_contact_constraint_columns_batch_capacity as usize
-    }
-
-    #[inline]
     pub fn mb_dof_couplings_start(&self, batch_id: u32) -> usize {
         batch_id as usize * self.mb_dof_couplings_batch_capacity as usize
     }
+}
 
-    #[inline]
-    pub fn mb_imp_joints_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.mb_imp_joints_batch_capacity as usize
-    }
+#[derive(Copy, Clone)]
+pub struct BodyIx {
+    pub stride: u32,
+    pub shift: u32,
+}
 
-    #[inline]
-    pub fn mb_imp_joint_constraints_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.mb_imp_joint_constraints_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn mb_imp_joint_jacobians_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.mb_imp_joint_jacobians_batch_capacity as usize
-    }
-
-    #[inline]
-    pub fn mb_imp_joint_color_groups_start(&self, batch_id: u32) -> usize {
-        batch_id as usize * self.mb_imp_joint_color_groups_batch_capacity as usize
-    }
-
-    /*
-     * Typed batch slices — for buffers consumed via `Slice<T>` / `SliceMut<T>`
-     * wrappers rather than as raw f32 arrays.
-     */
-    #[inline]
-    pub fn coll_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.coll_start(batch_id))
-    }
-
-    #[inline]
-    pub fn coll_batch_mut<'s, T>(&self, batch_id: u32, slice: &'s mut [T]) -> SliceMut<'s, T> {
-        SliceMut(slice, self.coll_start(batch_id))
-    }
-
-    #[inline]
-    pub fn collision_pairs_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.collision_pairs_start(batch_id))
-    }
-
-    #[inline]
-    pub fn collision_pairs_batch_mut<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s mut [T],
-    ) -> SliceMut<'s, T> {
-        SliceMut(slice, self.collision_pairs_start(batch_id))
-    }
-
-    #[inline]
-    pub fn contact_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.contacts_start(batch_id))
-    }
-
-    #[inline]
-    pub fn contact_batch_mut<'s, T>(&self, batch_id: u32, slice: &'s mut [T]) -> SliceMut<'s, T> {
-        SliceMut(slice, self.contacts_start(batch_id))
-    }
-
-    #[inline]
-    pub fn impulse_joints_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.impulse_joints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn impulse_joints_batch_mut<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s mut [T],
-    ) -> SliceMut<'s, T> {
-        SliceMut(slice, self.impulse_joints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_joint_constraints_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.mb_joint_constraints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_joint_constraints_batch_mut<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s mut [T],
-    ) -> SliceMut<'s, T> {
-        SliceMut(slice, self.mb_joint_constraints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_contact_constraints_batch<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s [T],
-    ) -> Slice<'s, T> {
-        Slice(slice, self.mb_contact_constraints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_contact_constraints_batch_mut<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s mut [T],
-    ) -> SliceMut<'s, T> {
-        SliceMut(slice, self.mb_contact_constraints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_imp_joints_batch<'s, T>(&self, batch_id: u32, slice: &'s [T]) -> Slice<'s, T> {
-        Slice(slice, self.mb_imp_joints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_imp_joints_batch_mut<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s mut [T],
-    ) -> SliceMut<'s, T> {
-        SliceMut(slice, self.mb_imp_joints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_imp_joint_constraints_batch<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s [T],
-    ) -> Slice<'s, T> {
-        Slice(slice, self.mb_imp_joint_constraints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_imp_joint_constraints_batch_mut<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s mut [T],
-    ) -> SliceMut<'s, T> {
-        SliceMut(slice, self.mb_imp_joint_constraints_start(batch_id))
-    }
-
-    #[inline]
-    pub fn mb_imp_joint_color_groups_batch<'s, T>(
-        &self,
-        batch_id: u32,
-        slice: &'s [T],
-    ) -> Slice<'s, T> {
-        Slice(slice, self.mb_imp_joint_color_groups_start(batch_id))
+impl BodyIx {
+    #[inline(always)]
+    pub fn at(self, id: u32) -> usize {
+        id as usize * self.stride as usize + self.shift as usize
     }
 }

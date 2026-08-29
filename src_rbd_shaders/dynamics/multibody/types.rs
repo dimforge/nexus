@@ -35,6 +35,7 @@ pub const CONTACT_CONSTRAINTS_PER_POINT: u32 = 3;
 /// Total constraint slots reserved per multibody (= contact points × DIM).
 pub const MAX_MB_CONTACT_CONSTRAINTS_PER_MB: u32 =
     MAX_MB_CONTACTS_PER_MB * CONTACT_CONSTRAINTS_PER_POINT;
+pub const MB_CONS_SLOT_RESERVE: u32 = 8 * CONTACT_CONSTRAINTS_PER_POINT;
 
 /// `kind` value: inactive / unused slot.
 pub const MB_CONTACT_KIND_INACTIVE: u32 = 0;
@@ -446,9 +447,11 @@ pub struct MultibodyInfo {
     /// multibody. Written by `gpu_mb_init_contact_constraints`, read by the
     /// warmstart / finalize / solve / remove-bias contact kernels.
     pub contact_constraint_count: u32,
-    /// Per-step copy of `contacts_len[batch]` (to work around the web 8 storage
-    /// bindings count limit).
+    pub contact_constraint_start: u32,
+    pub old_contact_constraint_start: u32,
+    pub old_contact_constraint_count: u32,
     pub batch_contacts_len: u32,
+    pub batch_contacts_start: u32,
     /// First entry of this multibody's DoF couplings in the `dof_couplings`
     /// buffer (relative to the batch's coupling slice).
     pub first_coupling: u32,

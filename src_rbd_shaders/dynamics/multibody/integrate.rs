@@ -6,6 +6,7 @@
 
 use glamx::Vec4;
 use khal_std::glamx::UVec3;
+use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 #[cfg(feature = "dim2")]
@@ -50,13 +51,11 @@ pub fn gpu_mb_integrate_velocities(
     let mut dof_vel = batch_ids
         .ib_mut(batch_id, dof_state)
         .offset(mb.first_dof as usize);
-    let acc = batch_ids
-        .ib(batch_id, gen_accelerations)
-        .offset(mb.first_dof as usize);
+    let acc0 = batch_ids.mb_region(batch_id, mb.first_dof, mb.ndofs);
 
     for d in 0..mb.ndofs {
         let di = d as usize;
-        dof_vel[di] += acc[di] * dt;
+        dof_vel[di] += gen_accelerations.read(acc0 + di) * dt;
     }
 }
 

@@ -37,6 +37,7 @@ pub fn gpu_solver_init_constraints(
     constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     constraint_builders: &mut [TwoBodyConstraintBuilder],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_offsets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] collider_world_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] vels: &[Velocity],
@@ -45,20 +46,18 @@ pub fn gpu_solver_init_constraints(
     #[spirv(uniform, descriptor_set = 1, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
 
-    let contacts = batch_ids.contact_batch(batch_id, contacts);
-    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
-    let mut constraint_builders = batch_ids.contact_batch_mut(batch_id, constraint_builders);
-    let collider_world_poses = batch_ids.coll_batch(batch_id, collider_world_poses);
-    let solver_body_poses = batch_ids.coll_batch(batch_id, solver_body_poses);
-    let vels = batch_ids.coll_batch(batch_id, vels);
-    let mprops = batch_ids.coll_batch(batch_id, mprops);
-    let cap = batch_ids.contacts_batch_capacity.min(num_threads);
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let collider_world_poses = Slice(collider_world_poses, 0);
+    let solver_body_poses = Slice(solver_body_poses, 0);
+    let vels = Slice(vels, 0);
+    let mprops = Slice(mprops, 0);
 
-    for i in StepRng::new(invocation_id.x..cap, num_threads) {
-        let im = &contacts[i as usize];
+    for i in StepRng::new(invocation_id.x..total, num_threads) {
+        let i = i as usize;
+        let im = contacts.at(i);
         if im.contact.len == 0 {
+            constraints.at_mut(i).len = 0;
             continue;
         }
         im.contact_to_constraint(
@@ -67,8 +66,8 @@ pub fn gpu_solver_init_constraints(
             &solver_body_poses,
             &vels,
             params,
-            &mut constraints[i as usize],
-            &mut constraint_builders[i as usize],
+            constraints.at_mut(i),
+            constraint_builders.at_mut(i),
         );
     }
 }
@@ -84,20 +83,22 @@ pub fn gpu_solver_count_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_group: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mprops: &[WorldMassProperties],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contacts_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_offsets: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
 
-    let contacts = batch_ids.contact_batch(batch_id, contacts);
-    let mut body_constraint_counts = batch_ids.coll_batch_mut(batch_id, body_constraint_counts);
-    let body_group = batch_ids.coll_batch(batch_id, body_group);
-    let mprops = batch_ids.coll_batch(batch_id, mprops);
-    let len = contacts_len.read(batch_id as usize);
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let contacts = Slice(contacts, 0);
+    let mut body_constraint_counts = SliceMut(body_constraint_counts, 0);
+    let body_group = Slice(body_group, 0);
+    let mprops = Slice(mprops, 0);
 
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
+    for i in StepRng::new(invocation_id.x..total, num_threads) {
         let im = &contacts[i as usize];
+        if im.contact.len == 0 {
+            continue;
+        }
         let body1 = im.bodies.x;
         let body2 = im.bodies.y;
         let group1 = body_group[body1 as usize];
@@ -129,20 +130,22 @@ pub fn gpu_solver_update_constraints(
     constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
     #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
 
-    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
-    let constraint_builders = batch_ids.contact_batch(batch_id, constraint_builders);
-    let solver_body_poses = batch_ids.coll_batch(batch_id, solver_body_poses);
-    let len = contacts_len.read(batch_id as usize);
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let mut constraints = SliceMut(constraints, 0);
+    let constraint_builders = Slice(constraint_builders, 0);
+    let solver_body_poses = Slice(solver_body_poses, 0);
 
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
+    for i in StepRng::new(invocation_id.x..total, num_threads) {
+        if constraints[i as usize].len == 0 {
+            continue;
+        }
         constraints[i as usize].update_constraint(
             &constraint_builders[i as usize],
             &solver_body_poses,
@@ -162,20 +165,22 @@ pub fn gpu_solver_refresh_rhs_wo_bias(
     constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
     #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
 
-    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
-    let constraint_builders = batch_ids.contact_batch(batch_id, constraint_builders);
-    let solver_body_poses = batch_ids.coll_batch(batch_id, solver_body_poses);
-    let len = contacts_len.read(batch_id as usize);
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let mut constraints = SliceMut(constraints, 0);
+    let constraint_builders = Slice(constraint_builders, 0);
+    let solver_body_poses = Slice(solver_body_poses, 0);
 
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
+    for i in StepRng::new(invocation_id.x..total, num_threads) {
+        if constraints[i as usize].len == 0 {
+            continue;
+        }
         constraints[i as usize].refresh_rhs_wo_bias(
             &constraint_builders[i as usize],
             &solver_body_poses,
@@ -192,23 +197,24 @@ pub fn gpu_solver_sort_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mprops: &[WorldMassProperties],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts: &[IndexedManifold],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contacts_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_offsets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_constraint_ids: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] body_group: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let bci_start = batch_id as usize * 2 * batch_ids.contacts_batch_capacity as usize;
 
-    let contacts = batch_ids.contact_batch(batch_id, contacts);
-    let mut body_constraint_counts = batch_ids.coll_batch_mut(batch_id, body_constraint_counts);
-    let body_group = batch_ids.coll_batch(batch_id, body_group);
-    let mprops = batch_ids.coll_batch(batch_id, mprops);
-    let mut body_constraint_ids = SliceMut(body_constraint_ids, bci_start);
-    let len = contacts_len.read(batch_id as usize);
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let contacts = Slice(contacts, 0);
+    let mut body_constraint_counts = SliceMut(body_constraint_counts, 0);
+    let body_group = Slice(body_group, 0);
+    let mprops = Slice(mprops, 0);
+    let mut body_constraint_ids = SliceMut(body_constraint_ids, 0);
 
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
+    for i in StepRng::new(invocation_id.x..total, num_threads) {
+        if contacts[i as usize].contact.len == 0 {
+            continue;
+        }
         let body1 = contacts[i as usize].bodies.x as usize;
         let body2 = contacts[i as usize].bodies.y as usize;
         let group1 = body_group[body1] as usize;
@@ -241,25 +247,19 @@ pub fn gpu_solver_cleanup(
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let num_bodies = batch_ids.colliders_len;
+    let num_slots = batch_ids.colliders_batch_capacity * batch_ids.num_batches;
 
-    let mut body_constraint_counts = batch_ids.coll_batch_mut(batch_id, body_constraint_counts);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
-    let vels = batch_ids.coll_batch(batch_id, vels);
-    let mprops = batch_ids.coll_batch(batch_id, mprops);
-
-    for i in StepRng::new(invocation_id.x..num_bodies, num_threads) {
+    for i in StepRng::new(invocation_id.x..num_slots, num_threads) {
         let idx = i as usize;
-        body_constraint_counts[idx] = 0;
+        body_constraint_counts.write(idx, 0);
 
         // HACK: to handle static bodies.
-        if mprops[idx].inv_mass != Vector::ZERO {
-            solver_vels[idx].linear = vels[idx].linear;
-            solver_vels[idx].angular = vels[idx].angular;
+        if mprops.at(idx).inv_mass != Vector::ZERO {
+            solver_vels.at_mut(idx).linear = vels.at(idx).linear;
+            solver_vels.at_mut(idx).angular = vels.at(idx).angular;
         } else {
-            solver_vels[idx].linear = Vector::ZERO;
-            solver_vels[idx].angular = AngVector::default();
+            solver_vels.at_mut(idx).linear = Vector::ZERO;
+            solver_vels.at_mut(idx).angular = AngVector::default();
         }
     }
 }
@@ -275,26 +275,23 @@ pub fn gpu_init_solver_vels_inc(
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 4)] gravity: &glamx::Vec4,
 ) {
-    let batch_id = invocation_id.y;
     let i = invocation_id.x;
 
-    let num_bodies = batch_ids.bodies_len;
-    let mut solver_vels_inc = batch_ids.coll_batch_mut(batch_id, solver_vels_inc);
-    let mprops = batch_ids.coll_batch(batch_id, mprops);
+    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
 
     if i < num_bodies {
         let idx = i as usize;
-        solver_vels_inc[idx].linear = Vector::ZERO;
-        solver_vels_inc[idx].angular = AngVector::default();
+        solver_vels_inc.at_mut(idx).linear = Vector::ZERO;
+        solver_vels_inc.at_mut(idx).angular = AngVector::default();
 
         // TODO: this isn't a very pretty way of detecting static bodies.
-        if mprops[idx].inv_mass != Vector::ZERO {
+        if mprops.at(idx).inv_mass != Vector::ZERO {
             // TODO: this currently only handles gravity (no user forces yet).
             #[cfg(feature = "dim3")]
             let g = Vector::new(gravity.x, gravity.y, gravity.z);
             #[cfg(feature = "dim2")]
             let g = Vector::new(gravity.x, gravity.y);
-            solver_vels_inc[idx].linear = g * params.dt;
+            solver_vels_inc.at_mut(idx).linear = g * params.dt;
         }
     }
 }
@@ -308,17 +305,14 @@ pub fn gpu_apply_solver_vels_inc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels_inc: &[Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
     let i = invocation_id.x;
 
-    let num_bodies = batch_ids.bodies_len;
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
-    let solver_vels_inc = batch_ids.coll_batch(batch_id, solver_vels_inc);
+    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
 
     if i < num_bodies {
         let idx = i as usize;
-        solver_vels[idx].linear += solver_vels_inc[idx].linear;
-        solver_vels[idx].angular += solver_vels_inc[idx].angular;
+        solver_vels.at_mut(idx).linear += solver_vels_inc.at(idx).linear;
+        solver_vels.at_mut(idx).angular += solver_vels_inc.at(idx).angular;
     }
 }
 
@@ -335,14 +329,12 @@ pub fn gpu_warmstart_without_colors(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let bci_start = batch_id as usize * 2 * batch_ids.contacts_batch_capacity as usize;
-    let num_bodies = batch_ids.bodies_len;
+    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
 
-    let body_constraint_counts = batch_ids.coll_batch(batch_id, body_constraint_counts);
-    let body_constraint_ids = Slice(body_constraint_ids, bci_start);
-    let constraints = batch_ids.contact_batch(batch_id, constraints);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let body_constraint_counts = Slice(body_constraint_counts, 0);
+    let body_constraint_ids = Slice(body_constraint_ids, 0);
+    let constraints = Slice(constraints, 0);
+    let mut solver_vels = SliceMut(solver_vels, 0);
 
     for body_id in StepRng::new(invocation_id.x..num_bodies, num_threads) {
         let mut solver_vel = solver_vels[body_id as usize];
@@ -371,17 +363,15 @@ pub fn gpu_warmstart(
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let stride = batch_ids.solver_color_buckets_stride;
+    let nb = batch_ids.num_batches;
 
-    let constraints = batch_ids.contact_batch(batch_id, constraints);
-    let color_sorted_ids = batch_ids.contact_batch(batch_id, color_sorted_ids);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let constraints = Slice(constraints, 0);
+    let color_sorted_ids = Slice(color_sorted_ids, 0);
+    let mut solver_vels = SliceMut(solver_vels, 0);
     let color = *curr_color;
 
-    let bucket = (batch_id * stride + color) as usize;
-    let start = color_starts.read(bucket);
-    let end = color_starts.read(bucket + 1);
+    let start = color_starts.read((color * nb - 1) as usize);
+    let end = color_starts.read(((color + 1) * nb - 1) as usize);
 
     for k in StepRng::new(start + invocation_id.x..end, num_threads) {
         let i = color_sorted_ids[k as usize];
@@ -415,18 +405,16 @@ pub fn gpu_step_gauss_seidel(
     #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let stride = batch_ids.solver_color_buckets_stride;
+    let nb = batch_ids.num_batches;
 
-    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
-    let color_sorted_ids = batch_ids.contact_batch(batch_id, color_sorted_ids);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let mut constraints = SliceMut(constraints, 0);
+    let color_sorted_ids = Slice(color_sorted_ids, 0);
+    let mut solver_vels = SliceMut(solver_vels, 0);
     let color = *curr_color;
     let use_bias = *use_bias != 0;
 
-    let bucket = (batch_id * stride + color) as usize;
-    let start = color_starts.read(bucket);
-    let end = color_starts.read(bucket + 1);
+    let start = color_starts.read((color * nb - 1) as usize);
+    let end = color_starts.read(((color + 1) * nb - 1) as usize);
 
     for k in StepRng::new(start + invocation_id.x..end, num_threads) {
         let i = color_sorted_ids[k as usize];
@@ -464,32 +452,24 @@ pub fn gpu_warmstart_fused(
 ) {
     let lane = invocation_id.x;
     let batch_id = invocation_id.y;
-    let stride = batch_ids.solver_color_buckets_stride;
+    let nb = batch_ids.num_batches;
 
-    let constraints = batch_ids.contact_batch(batch_id, constraints);
-    let color_sorted_ids = batch_ids.contact_batch(batch_id, color_sorted_ids);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let constraints = Slice(constraints, 0);
+    let color_sorted_ids = Slice(color_sorted_ids, 0);
+    let mut solver_vels = SliceMut(solver_vels, 0);
     let num_colors = *num_colors;
 
-    let base = (batch_id * stride) as usize;
-    let any_work = color_starts.read(base + 1) != color_starts.read(base + num_colors as usize + 1);
-    #[cfg(not(feature = "web-compat"))]
-    if !any_work {
-        // Every color bucket is empty.
-        return;
-    }
-
     for color in 1..=num_colors {
-        let bucket = base + color as usize;
-        let start = color_starts.read(bucket);
-        let end = color_starts.read(bucket + 1);
+        let bucket = (color * nb + batch_id) as usize;
+        let start = color_starts.read(bucket - 1);
+        let end = color_starts.read(bucket);
         #[cfg(not(feature = "web-compat"))]
         if start == end {
             // Empty color.
             continue;
         }
 
-        if any_work && start != end {
+        if start != end {
             for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
                 let i = color_sorted_ids[k as usize];
                 let constraint = &constraints[i as usize];
@@ -536,32 +516,24 @@ pub fn gpu_step_gauss_seidel_fused(
 ) {
     let lane = invocation_id.x;
     let batch_id = invocation_id.y;
-    let stride = batch_ids.solver_color_buckets_stride;
+    let nb = batch_ids.num_batches;
 
-    let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
-    let color_sorted_ids = batch_ids.contact_batch(batch_id, color_sorted_ids);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let mut constraints = SliceMut(constraints, 0);
+    let color_sorted_ids = Slice(color_sorted_ids, 0);
+    let mut solver_vels = SliceMut(solver_vels, 0);
     let num_colors = *num_colors;
     let use_bias = *use_bias != 0;
 
-    // Early-out / empty-color skip: see `gpu_warmstart_fused`.
-    let base = (batch_id * stride) as usize;
-    let any_work = color_starts.read(base + 1) != color_starts.read(base + num_colors as usize + 1);
-    #[cfg(not(feature = "web-compat"))]
-    if !any_work {
-        return;
-    }
-
     for color in 1..=num_colors {
-        let bucket = base + color as usize;
-        let start = color_starts.read(bucket);
-        let end = color_starts.read(bucket + 1);
+        let bucket = (color * nb + batch_id) as usize;
+        let start = color_starts.read(bucket - 1);
+        let end = color_starts.read(bucket);
         #[cfg(not(feature = "web-compat"))]
         if start == end {
             continue;
         }
 
-        if any_work && start != end {
+        if start != end {
             for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
                 let i = color_sorted_ids[k as usize];
                 let solver_id1 = constraints[i as usize].solver_body_a as usize;
@@ -602,16 +574,13 @@ pub fn gpu_integrate_linearized(
     #[spirv(uniform, descriptor_set = 0, binding = 2)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
     let i = invocation_id.x;
 
-    let num_bodies = batch_ids.bodies_len;
-    let mut poses = batch_ids.coll_batch_mut(batch_id, poses);
-    let mut solver_vels = batch_ids.coll_batch_mut(batch_id, solver_vels);
+    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
 
     if i < num_bodies {
         let idx = i as usize;
-        let mut vels = solver_vels[idx];
+        let mut vels = solver_vels.read(idx);
 
         let max_lin = params.max_linear_velocity();
         let lin_norm = vels.linear.length();
@@ -640,8 +609,8 @@ pub fn gpu_integrate_linearized(
             }
         }
 
-        solver_vels[idx] = vels;
-        let pose = &mut poses[idx];
+        solver_vels.write(idx, vels);
+        let pose = poses.at_mut(idx);
         vels.integrate_linearized(params.dt, &mut pose.translation, &mut pose.rotation);
     }
 }
@@ -660,17 +629,16 @@ pub fn gpu_init_solver_bodies(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] solver_body_poses: &mut [Pose],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
     let i = invocation_id.x;
 
-    let num_bodies = batch_ids.bodies_len;
-    let body_poses = batch_ids.coll_batch(batch_id, body_poses);
-    let local_mprops = batch_ids.coll_batch(batch_id, local_mprops);
-    let mut solver_body_poses = batch_ids.coll_batch_mut(batch_id, solver_body_poses);
+    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
 
     if i < num_bodies {
         let idx = i as usize;
-        solver_body_poses[idx] = body_poses[idx].prepend_translation(local_mprops[idx].com);
+        solver_body_poses.write(
+            idx,
+            body_poses.read(idx).prepend_translation(local_mprops.at(idx).com),
+        );
     }
 }
 
@@ -691,20 +659,19 @@ pub fn gpu_solver_finalize(
     local_mprops: &[LocalMassProperties],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
     let i = invocation_id.x;
 
-    let num_bodies = batch_ids.bodies_len;
-    let mut vels = batch_ids.coll_batch_mut(batch_id, vels);
-    let solver_vels = batch_ids.coll_batch(batch_id, solver_vels);
-    let mut body_poses = batch_ids.coll_batch_mut(batch_id, body_poses);
-    let solver_body_poses = batch_ids.coll_batch(batch_id, solver_body_poses);
-    let local_mprops = batch_ids.coll_batch(batch_id, local_mprops);
+    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
 
     if i < num_bodies {
         let idx = i as usize;
-        vels[idx].linear = solver_vels[idx].linear;
-        vels[idx].angular = solver_vels[idx].angular;
-        body_poses[idx] = solver_body_poses[idx].prepend_translation(-local_mprops[idx].com);
+        vels.at_mut(idx).linear = solver_vels.at(idx).linear;
+        vels.at_mut(idx).angular = solver_vels.at(idx).angular;
+        body_poses.write(
+            idx,
+            solver_body_poses
+                .read(idx)
+                .prepend_translation(-local_mprops.at(idx).com),
+        );
     }
 }

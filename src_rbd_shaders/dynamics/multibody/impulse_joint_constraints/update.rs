@@ -6,7 +6,7 @@ use khal_std::index::MaybeIndexUnchecked;
 
 use crate::dynamics::body::WorldMassProperties;
 use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK, SPATIAL_DIM};
-use crate::utils::ISlice;
+use crate::utils::{ISlice, BodyIx};
 use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
 use crate::{DIM, Pose};
 
@@ -41,14 +41,15 @@ pub(super) fn solve_mb_wj(
         let v = jacobians.read(j_id as usize + k as usize);
         jacobians.write(wj_base + k as usize, v);
     }
-    let m = MatSlice::interleaved(
-        mb.mass_matrix_offset as usize,
+    let m = MatSlice::dense(
+        mb.mass_matrix_offset as usize * il.stride as usize
+            + il.shift as usize * (ndofs * ndofs) as usize,
         ndofs,
         ndofs,
-        il.stride,
-        il.shift,
     );
-    let piv = VSlice::interleaved(mb.first_dof as usize, il.stride, il.shift);
+    let piv = VSlice::dense(
+        mb.first_dof as usize * il.stride as usize + il.shift as usize * ndofs as usize,
+    );
     lu_solve_in_place(
         mass_matrices,
         m,
@@ -73,9 +74,7 @@ impl MbImpulseJointBuilder {
     pub(super) fn update_one_joint(
         &self,
         constraints: &mut [MbImpulseJointConstraint],
-        cons_start: usize,
         jacobians: &mut [f32],
-        jac_buf_start: usize,
         multibody_info: &[MultibodyInfo],
         links_workspace: &[Vec4],
         body_jacobians: &[f32],
@@ -83,23 +82,23 @@ impl MbImpulseJointBuilder {
         // batch_id`).
         il: VSlice,
         poses: &[Pose],
-        colliders_start: usize,
+        bix: BodyIx,
         mprops: &[WorldMassProperties],
         dt: f32,
         lock_erp_inv_dt: f32,
         lock_cfm_coeff: f32,
         max_corr_velocity: f32,
     ) {
-        let cons_base = cons_start + self.constraint_id as usize;
+        let cons_base = self.constraint_id as usize;
         // Mark all axis-constraint slots inactive up-front; the active branches
         // below overwrite the live ones (rapier rebuilds the entire
         // `out[start..len]` slab each `update` call, so unfilled slots are
         // guaranteed inactive).
         for s in 0..MAX_AXIS_CONSTRAINTS {
-            let mut cz = constraints.read(cons_base + s as usize);
+            let mut cz = constraints.read(il.atz(cons_base + s as usize));
             cz.kind = 0;
             cz.impulse = 0.0;
-            constraints.write(cons_base + s as usize, cz);
+            constraints.write(il.atz(cons_base + s as usize), cz);
         }
 
         // Resolve per-side multibody descriptors (read by value to avoid
@@ -124,7 +123,7 @@ impl MbImpulseJointBuilder {
             links_workspace,
             il,
             poses,
-            colliders_start,
+            bix,
         );
         let pose_b = side_world_pose(
             self.side_b_kind,
@@ -134,7 +133,7 @@ impl MbImpulseJointBuilder {
             links_workspace,
             il,
             poses,
-            colliders_start,
+            bix,
         );
 
         let frame1 = pose_a * self.joint.local_frame_a;
@@ -193,7 +192,8 @@ impl MbImpulseJointBuilder {
             mb: mb_b,
         };
         let stride = axis_stride(ndofs_a, ndofs_b);
-        let j_base = jac_buf_start + self.jacobian_offset as usize;
+        let j_base = self.jacobian_offset as usize * il.stride as usize
+            + il.shift as usize * self.jacobian_capacity as usize;
 
         // `lock_erp_inv_dt` / `lock_cfm_coeff` are passed in from the configurable
         // joint softness (rapier's `joint.softness.{erp_inv_dt,cfm_coeff}(dt)`).
@@ -213,7 +213,7 @@ impl MbImpulseJointBuilder {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
                 }
-                let mut c = constraints.read(cons_base + len as usize);
+                let mut c = constraints.read(il.atz(cons_base + len as usize));
                 let j_id_a = j_off;
                 let j_id_b = j_off + 2 * ndofs_a;
                 motor_angular_generic(
@@ -231,9 +231,9 @@ impl MbImpulseJointBuilder {
                     body_jacobians,
                     il,
                     mprops,
-                    colliders_start,
+                    bix,
                 );
-                constraints.write(cons_base + len as usize, c);
+                constraints.write(il.atz(cons_base + len as usize), c);
                 len += 1;
                 j_off += stride;
             }
@@ -245,7 +245,7 @@ impl MbImpulseJointBuilder {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
                 }
-                let mut c = constraints.read(cons_base + len as usize);
+                let mut c = constraints.read(il.atz(cons_base + len as usize));
                 let j_id_a = j_off;
                 let j_id_b = j_off + 2 * ndofs_a;
                 motor_linear_generic(
@@ -263,9 +263,9 @@ impl MbImpulseJointBuilder {
                     body_jacobians,
                     il,
                     mprops,
-                    colliders_start,
+                    bix,
                 );
-                constraints.write(cons_base + len as usize, c);
+                constraints.write(il.atz(cons_base + len as usize), c);
                 len += 1;
                 j_off += stride;
             }
@@ -277,7 +277,7 @@ impl MbImpulseJointBuilder {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
                 }
-                let mut c = constraints.read(cons_base + len as usize);
+                let mut c = constraints.read(il.atz(cons_base + len as usize));
                 let j_id_a = j_off;
                 let j_id_b = j_off + 2 * ndofs_a;
                 lock_angular_generic(
@@ -295,9 +295,9 @@ impl MbImpulseJointBuilder {
                     body_jacobians,
                     il,
                     mprops,
-                    colliders_start,
+                    bix,
                 );
-                constraints.write(cons_base + len as usize, c);
+                constraints.write(il.atz(cons_base + len as usize), c);
                 len += 1;
                 j_off += stride;
             }
@@ -309,7 +309,7 @@ impl MbImpulseJointBuilder {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
                 }
-                let mut c = constraints.read(cons_base + len as usize);
+                let mut c = constraints.read(il.atz(cons_base + len as usize));
                 let j_id_a = j_off;
                 let j_id_b = j_off + 2 * ndofs_a;
                 lock_linear_generic(
@@ -327,9 +327,9 @@ impl MbImpulseJointBuilder {
                     body_jacobians,
                     il,
                     mprops,
-                    colliders_start,
+                    bix,
                 );
-                constraints.write(cons_base + len as usize, c);
+                constraints.write(il.atz(cons_base + len as usize), c);
                 len += 1;
                 j_off += stride;
             }
@@ -341,7 +341,7 @@ impl MbImpulseJointBuilder {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
                 }
-                let mut c = constraints.read(cons_base + len as usize);
+                let mut c = constraints.read(il.atz(cons_base + len as usize));
                 let j_id_a = j_off;
                 let j_id_b = j_off + 2 * ndofs_a;
                 let lim = self.joint.limits.at(i as usize);
@@ -362,9 +362,9 @@ impl MbImpulseJointBuilder {
                     body_jacobians,
                     il,
                     mprops,
-                    colliders_start,
+                    bix,
                 );
-                constraints.write(cons_base + len as usize, c);
+                constraints.write(il.atz(cons_base + len as usize), c);
                 len += 1;
                 j_off += stride;
             }
@@ -376,7 +376,7 @@ impl MbImpulseJointBuilder {
                 if len >= MAX_AXIS_CONSTRAINTS {
                     break;
                 }
-                let mut c = constraints.read(cons_base + len as usize);
+                let mut c = constraints.read(il.atz(cons_base + len as usize));
                 let j_id_a = j_off;
                 let j_id_b = j_off + 2 * ndofs_a;
                 let lim = self.joint.limits.at(i as usize);
@@ -397,9 +397,9 @@ impl MbImpulseJointBuilder {
                     body_jacobians,
                     il,
                     mprops,
-                    colliders_start,
+                    bix,
                 );
-                constraints.write(cons_base + len as usize, c);
+                constraints.write(il.atz(cons_base + len as usize), c);
                 len += 1;
                 j_off += stride;
             }
@@ -446,13 +446,13 @@ pub(super) fn side_world_pose(
     links_workspace: &[Vec4],
     il: VSlice,
     poses: &[Pose],
-    colliders_start: usize,
+    bix: BodyIx,
 ) -> Pose {
     if side_kind == SIDE_KIND_FIXED {
         return Pose::IDENTITY;
     }
     if side_kind == SIDE_KIND_BODY {
-        return poses.read(colliders_start + side_id as usize);
+        return poses.read(bix.at(side_id));
     }
     let wa = WsAddr::new(mb.first_link as usize, il.stride, il.shift);
     ws_pose(links_workspace, wa, side_link, WS_LTW)

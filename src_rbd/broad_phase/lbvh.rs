@@ -7,8 +7,8 @@ use crate::math::Pose;
 use crate::shaders::PaddedVector;
 use crate::shaders::bounding_volumes::Aabb;
 use crate::shaders::broad_phase::{
-    CollisionPair, GpuBfComputeAabbs, GpuBfFindPairs, GpuLbvhBuild, GpuLbvhComputeDomain,
-    GpuLbvhComputeMorton, GpuLbvhFindCollisionPairs, GpuLbvhInitDispatch, GpuLbvhRefitInternal,
+    CollisionPair, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch, GpuLbvhBuild,
+    GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhFindCollisionPairs, GpuLbvhRefitInternal,
     GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs, LbvhNode,
 };
 use crate::shaders::shapes::Shape;
@@ -32,7 +32,7 @@ pub struct GpuLbvh {
     refit_internal: GpuLbvhRefitInternal,
     reset_collision_pairs: GpuLbvhResetCollisionPairs,
     find_collision_pairs: GpuLbvhFindCollisionPairs,
-    lbvh_init_indirect_args: GpuLbvhInitDispatch,
+    flat_list_dispatch: GpuFlatListDispatch,
     // Kernels for brute-force broad-phase for small scenes
     // (typically, small scenes but many batches).
     bf_compute_aabbs: GpuBfComputeAabbs,
@@ -294,7 +294,7 @@ impl Lbvh {
 
         self.shaders
             .reset_collision_pairs
-            .call(pass, [num_batches, 1, 1], collision_pairs_len)?;
+            .call(pass, [1u32, 1, 1], collision_pairs_len)?;
         self.shaders.find_collision_pairs.call(
             pass,
             [colliders_per_batch, num_batches, 1],
@@ -305,11 +305,12 @@ impl Lbvh {
             batch_indices,
             pair_filter,
         )?;
-        self.shaders.lbvh_init_indirect_args.call(
+        self.shaders.flat_list_dispatch.call(
             pass,
-            256u32,
+            1u32,
             collision_pairs_len,
             collision_pairs_indirect,
+            batch_indices,
         )?;
         Ok(())
     }
@@ -351,7 +352,7 @@ impl Lbvh {
         )?;
         self.shaders
             .reset_collision_pairs
-            .call(pass, [num_batches, 1, 1], collision_pairs_len)?;
+            .call(pass, [1u32, 1, 1], collision_pairs_len)?;
         self.shaders.bf_find_pairs.call(
             pass,
             [active_per_batch * active_per_batch * num_batches, 1, 1],
@@ -363,12 +364,12 @@ impl Lbvh {
             pair_filter,
             sim_params,
         )?;
-        // Single 256-lane workgroup: parallel max over the per-batch counts.
-        self.shaders.lbvh_init_indirect_args.call(
+        self.shaders.flat_list_dispatch.call(
             pass,
-            256u32,
+            1u32,
             collision_pairs_len,
             collision_pairs_indirect,
+            batch_indices,
         )?;
         Ok(())
     }

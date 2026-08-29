@@ -1,6 +1,7 @@
 //! `JointConstraintHelper` and the generic per-axis constraint builders
 //! (lock / limit / motor, linear and angular) mirroring rapier.
 
+use crate::utils::BodyIx;
 #[cfg(feature = "dim3")]
 use glamx::{Mat3, Quat, Vec3};
 
@@ -220,7 +221,7 @@ pub(super) fn lock_jacobians_generic(
     body_jacobians: &[f32],
     il: VSlice,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
     // Loop-closure path: both attachment links are in the SAME multibody. Fold
     // the two sides into a single relative jacobian `J_rel = J_b - J_a` on the
@@ -284,7 +285,7 @@ pub(super) fn lock_jacobians_generic(
             lin_jac,
             ang_jac1,
             mprops,
-            colliders_start,
+            bix,
         );
     } else if a.side_kind == SIDE_KIND_MB {
         fill_mb_jacobians(
@@ -312,7 +313,7 @@ pub(super) fn lock_jacobians_generic(
             lin_jac,
             ang_jac2,
             mprops,
-            colliders_start,
+            bix,
         );
     } else if b.side_kind == SIDE_KIND_MB {
         fill_mb_jacobians(
@@ -461,7 +462,7 @@ pub(super) fn lock_linear_generic(
     body_jacobians: &[f32],
     il: VSlice,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
     let lin_jac = helper.basis.col(locked_axis);
     #[cfg(feature = "dim2")]
@@ -486,7 +487,7 @@ pub(super) fn lock_linear_generic(
         body_jacobians,
         il,
         mprops,
-        colliders_start,
+        bix,
     );
     out.joint_id = joint_id;
     out.writeback_kind = 0;
@@ -514,7 +515,7 @@ pub(super) fn lock_angular_generic(
     body_jacobians: &[f32],
     il: VSlice,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
     let ang_jac = helper.ang_jac_for_axis(locked_axis);
     lock_jacobians_generic(
@@ -530,7 +531,7 @@ pub(super) fn lock_angular_generic(
         body_jacobians,
         il,
         mprops,
-        colliders_start,
+        bix,
     );
     out.joint_id = joint_id;
     out.writeback_kind = 0;
@@ -560,7 +561,7 @@ pub(super) fn limit_linear_generic(
     body_jacobians: &[f32],
     il: VSlice,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
     let lin_jac = helper.basis.col(limited_axis);
     #[cfg(feature = "dim2")]
@@ -585,7 +586,7 @@ pub(super) fn limit_linear_generic(
         body_jacobians,
         il,
         mprops,
-        colliders_start,
+        bix,
     );
     out.joint_id = joint_id;
     out.writeback_kind = 1;
@@ -625,7 +626,7 @@ pub(super) fn limit_angular_generic(
     body_jacobians: &[f32],
     il: VSlice,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
     // The row measures the wrapped angle from the middle of the allowed range;
     // its gradient is the plain joint axis, like the angular motor row.
@@ -644,7 +645,7 @@ pub(super) fn limit_angular_generic(
         body_jacobians,
         il,
         mprops,
-        colliders_start,
+        bix,
     );
     out.joint_id = joint_id;
     out.writeback_kind = 1;
@@ -684,7 +685,7 @@ pub(super) fn motor_linear_generic(
     body_jacobians: &[f32],
     il: VSlice,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
     let mp = motor.motor_params(dt);
     let lin_jac = helper.basis.col(motor_axis);
@@ -710,7 +711,7 @@ pub(super) fn motor_linear_generic(
         body_jacobians,
         il,
         mprops,
-        colliders_start,
+        bix,
     );
     out.joint_id = joint_id;
     out.writeback_kind = 2;
@@ -748,7 +749,7 @@ pub(super) fn motor_angular_generic(
     body_jacobians: &[f32],
     il: VSlice,
     mprops: &[WorldMassProperties],
-    colliders_start: usize,
+    bix: BodyIx,
 ) {
     let mp = motor.motor_params(dt);
     let ang_jac = helper.axis_ang_jac(motor_axis);
@@ -765,7 +766,7 @@ pub(super) fn motor_angular_generic(
         body_jacobians,
         il,
         mprops,
-        colliders_start,
+        bix,
     );
     out.joint_id = joint_id;
     out.writeback_kind = 2;

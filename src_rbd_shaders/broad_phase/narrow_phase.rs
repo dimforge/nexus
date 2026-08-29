@@ -17,9 +17,12 @@ use crate::{PaddedVector, Pose, Vector};
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::{iter::StepRng, sync::atomic_add_u32};
+use khal_std::{
+    iter::StepRng,
+    sync::{atomic_add_u32, atomic_load_u32},
+};
 
-use super::lbvh::{MAX_REDUCE_LANES, max_len_indirect_args};
+use super::lbvh::{MAX_REDUCE_LANES, reduce_max_lens};
 use crate::broad_phase::CollisionPair;
 use crate::utils::{BatchIndices, SliceMut};
 use glamx::UVec2;
@@ -33,17 +36,110 @@ pub fn gpu_reset_narrow_phase(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] pfm_pairs_len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] pair_batch_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] pfm_batch_counts: &mut [u32],
 ) {
-    let batch_id = invocation_id.x as usize;
-    if batch_id < contacts_len.len() {
-        contacts_len.write(batch_id, 0);
-        pfm_pairs_len.write(batch_id, 0);
+    let i = invocation_id.x as usize;
+    if i < contacts_len.len() {
+        contacts_len.write(i, 0);
+    }
+    if i < pfm_pairs_len.len() {
+        pfm_pairs_len.write(i, 0);
+    }
+    if i < pair_batch_counts.len() {
+        pair_batch_counts.write(i, 0);
+    }
+    if i < pfm_batch_counts.len() {
+        pfm_batch_counts.write(i, 0);
     }
 }
 
-/// Initializes indirect dispatch arguments for constraint solver.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_count_pairs_per_batch(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs: &[CollisionPair],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] collision_pairs_len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] pair_batch_counts: &mut [u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let total =
+        atomic_load_u32(collision_pairs_len.at_mut(0)).min(batch_ids.collision_pairs_capacity);
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let pair = collision_pairs.read(t as usize);
+        let batch_id = batch_ids.collider_batch(pair.colliders.x);
+        atomic_add_u32(pair_batch_counts.at_mut(batch_id as usize), 1);
+    }
+}
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_count_pfm_per_batch(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] pfm_pairs: &[NarrowPhasePfmPair],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] pfm_pairs_len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] pfm_batch_counts: &mut [u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let total = atomic_load_u32(pfm_pairs_len.at_mut(0)).min(batch_ids.collision_pairs_capacity);
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let pair = pfm_pairs.read(t as usize);
+        let batch_id = batch_ids.collider_batch(pair.colliders.x);
+        atomic_add_u32(pfm_batch_counts.at_mut(batch_id as usize), 1);
+    }
+}
 ///
-/// Also inits `mb_sweep_indirect`, the workgroup grid for the per-multibody
+#[spirv_bindgen]
+#[spirv(compute(threads(1)))]
+pub fn gpu_contact_offsets_scan(
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] pair_batch_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] pfm_batch_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] collision_pairs_len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] pfm_pairs_len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_offsets: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] indirect_args: &mut [u32; 3],
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
+) {
+    let num_batches = batch_ids.num_batches as usize;
+    let capacity = batch_ids.contacts_capacity;
+    let mut total = 0u32;
+    for b in 0..num_batches {
+        contact_offsets.write(b, total);
+        let bound = atomic_load_u32(pair_batch_counts.at_mut(b))
+            + atomic_load_u32(pfm_batch_counts.at_mut(b));
+        total = (total + bound).min(capacity);
+    }
+    contact_offsets.write(num_batches, total);
+    contact_offsets.write(
+        num_batches + 1,
+        atomic_load_u32(collision_pairs_len.at_mut(0)).min(batch_ids.collision_pairs_capacity),
+    );
+    contact_offsets.write(
+        num_batches + 2,
+        atomic_load_u32(pfm_pairs_len.at_mut(0)).min(batch_ids.collision_pairs_capacity),
+    );
+    *indirect_args.at_mut(0) = total.div_ceil(WORKGROUP_SIZE);
+    *indirect_args.at_mut(1) = 1;
+    *indirect_args.at_mut(2) = 1;
+}
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_zero_contact_lens(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &mut [IndexedManifold],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        contacts.at_mut(t as usize).contact.len = 0;
+    }
+}
 /// contact-constraint dispatches (`[multibodies_batch_capacity, num_batches,
 /// 1]`).
 #[spirv_bindgen]
@@ -51,12 +147,11 @@ pub fn gpu_reset_narrow_phase(
 pub fn gpu_narrow_phase_init_contacts_dispatch(
     #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts_len: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] mb_sweep_indirect: &mut [u32; 3],
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mb_sweep_indirect: &mut [u32; 3],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
     #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
 ) {
-    max_len_indirect_args(lid.x, contacts_len, indirect_args, partial);
+    reduce_max_lens(lid.x, contacts_len, partial);
     // `partial[0]` holds the max after the reduction (all lanes synced).
     if lid.x == 0 {
         let any_contacts = partial.read(0) > 0;
@@ -128,15 +223,19 @@ pub fn gpu_reduce_contacts(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &mut [IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &mut [u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] params: &RbdSimParams,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
+    #[allow(unused_variables)]
+    #[spirv(uniform, descriptor_set = 0, binding = 3)]
+    batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] params: &RbdSimParams,
 ) {
     let prediction = params.prediction_distance();
     let merge_cos = params.contact_merge_cos;
     let batch_id = workgroup_id.y;
-    let capacity = batch_ids.contacts_batch_capacity as usize;
-    let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
-    let n = (contacts_len.read(batch_id as usize) as usize).min(capacity);
+    let seg_start = contact_offsets.read(batch_id as usize) as usize;
+    let seg_end = contact_offsets.read(batch_id as usize + 1) as usize;
+    let mut contacts = SliceMut(contacts, seg_start);
+    let n = (contacts_len.read(batch_id as usize) as usize).min(seg_end - seg_start);
 
     // Write cursor: always <= the read cursor, so compacting in place is safe.
     let mut w = 0usize;
@@ -212,11 +311,10 @@ pub fn gpu_reduce_contacts(
             w += 1;
         }
     }
-    // Compacted count; plain store, single writer per batch. (Loop shell per
-    // the `gpu_reset_narrow_phase` rustgpu-triviality workaround.)
-    for _ in 0..1 {
-        contacts_len.write(batch_id as usize, w as u32);
+    for i in w..n {
+        contacts[i].contact.len = 0;
     }
+    contacts_len.write(batch_id as usize, w as u32);
 }
 
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
@@ -230,7 +328,7 @@ pub fn gpu_narrow_phase_shape_shape(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs: &[CollisionPair],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] collision_pairs_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contact_offsets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] shapes: &[Shape],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contacts: &mut [IndexedManifold],
@@ -246,38 +344,27 @@ pub fn gpu_narrow_phase_shape_shape(
 ) {
     let prediction = params.prediction_distance();
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
-    let collision_pairs = batch_ids.contact_batch(batch_id, collision_pairs);
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
-    let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
-    let contacts_len = contacts_len.at_mut(batch_id as usize);
+    let total = contact_offsets.read(batch_ids.num_batches as usize + 1);
 
-    // NOTE: `collision_pairs_len` might be greater than `contacts_batch_apacity` if the
-    //       narrow-phase found more pairs than the buffer can contain.
-    let len = collision_pairs_len
-        .read(batch_id as usize)
-        .min(contacts_batch_capacity as u32);
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let pair = collision_pairs.read(t as usize);
+        let batch_id = batch_ids.collider_batch(pair.colliders.x);
+        let seg_start = contact_offsets.read(batch_id as usize);
+        let seg_end = contact_offsets.read(batch_id as usize + 1);
+        let contacts_len = contacts_len.at_mut(batch_id as usize);
 
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
-        let pair = collision_pairs[i as usize];
         // Resolve the parent rigid-bodies here (the broad phase no longer does)
         // and skip pairs whose colliders share the same body. Pair ids are
-        // env-local and `collider_parent` is batch-strided, so the stride is
-        // required: without it every batch reads batch 0's parents.
-        let coll_base = batch_ids.coll_start(batch_id);
-        let body1 = collider_parent.read(coll_base + pair.colliders.x as usize);
-        let body2 = collider_parent.read(coll_base + pair.colliders.y as usize);
+        let body1 = collider_parent.read(pair.colliders.x as usize);
+        let body2 = collider_parent.read(pair.colliders.y as usize);
         if body1 == body2 {
             continue;
         }
-        let pose1 = poses[pair.colliders.x as usize];
-        let pose2 = poses[pair.colliders.y as usize];
-        let shape1 = &shapes[pair.colliders.x as usize];
-        let shape2 = &shapes[pair.colliders.y as usize];
+        let pose1 = poses.read(pair.colliders.x as usize);
+        let pose2 = poses.read(pair.colliders.y as usize);
+        let shape1 = shapes.at(pair.colliders.x as usize);
+        let shape2 = shapes.at(pair.colliders.y as usize);
         let shape_ty1 = shape1.shape_type();
         let shape_ty2 = shape2.shape_type();
         let mut manifold = ContactManifold::default();
@@ -320,21 +407,22 @@ pub fn gpu_narrow_phase_shape_shape(
         // Everything else (PFM / trimesh / polyline) is handled by the deferred
         // pass; `manifold.len` stays 0 here so nothing is written.
         if manifold.len > 0 && manifold.points_a.at(0).dist < prediction {
-            let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
+            let idx = seg_start + atomic_add_u32(contacts_len, 1);
 
-            // NOTE: if we exceed the contacts allocation size, just skip
-            //       the contact.
-            if target_contact_index < contacts_batch_capacity {
-                let mat1 = collider_materials[pair.colliders.x as usize];
-                let mat2 = collider_materials[pair.colliders.y as usize];
-                contacts[target_contact_index] = IndexedManifold {
-                    contact: manifold,
-                    colliders: pair.colliders,
-                    bodies: UVec2::new(body1, body2),
-                    friction: mat1.combined_friction(&mat2),
-                    restitution: mat1.combined_restitution(&mat2),
-                    _padding: [0.0; 2],
-                };
+            if idx < seg_end {
+                let mat1 = collider_materials.read(pair.colliders.x as usize);
+                let mat2 = collider_materials.read(pair.colliders.y as usize);
+                contacts.write(
+                    idx as usize,
+                    IndexedManifold {
+                        contact: manifold,
+                        colliders: pair.colliders,
+                        bodies: UVec2::new(body1, body2),
+                        friction: mat1.combined_friction(&mat2),
+                        restitution: mat1.combined_restitution(&mat2),
+                        _padding: [0.0; 2],
+                    },
+                );
             }
         }
     }
@@ -351,7 +439,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs: &[CollisionPair],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] collision_pairs_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] collision_pairs_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] shapes: &[Shape],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
@@ -367,28 +455,21 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
 ) {
     let prediction = params.prediction_distance();
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
+    let pfm_capacity = batch_ids.collision_pairs_capacity as usize;
 
-    let collision_pairs = batch_ids.contact_batch(batch_id, collision_pairs);
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let mut pfm_pairs = batch_ids.contact_batch_mut(batch_id, pfm_pairs);
-    let pfm_pairs_len = pfm_pairs_len.at_mut(batch_id as usize);
-
-    let len = collision_pairs_len
-        .read(batch_id as usize)
-        .min(contacts_batch_capacity as u32);
+    let total = atomic_load_u32(collision_pairs_len.at_mut(0)).min(batch_ids.collision_pairs_capacity);
 
     // NOTE: same-body collider pairs are *not* filtered in this pass — it is
     //       already at the 8-storage-buffer WebGPU limit and can't take the
     //       `collider_parent` binding. The complex pairs it emits are filtered
     //       downstream in `gpu_narrow_phase_pfm_pfm` (which has room) before any
     //       contact is written.
-    for i in StepRng::new(invocation_id.x..len, num_threads) {
-        let pair = collision_pairs[i as usize];
-        let shape1 = &shapes[pair.colliders.x as usize];
-        let shape2 = &shapes[pair.colliders.y as usize];
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let mut pfm_pairs = SliceMut(&mut *pfm_pairs, 0);
+        let pfm_pairs_len = pfm_pairs_len.at_mut(0);
+        let pair = collision_pairs.read(t as usize);
+        let shape1 = shapes.at(pair.colliders.x as usize);
+        let shape2 = shapes.at(pair.colliders.y as usize);
         let shape_ty1 = shape1.shape_type();
         let shape_ty2 = shape2.shape_type();
 
@@ -421,8 +502,8 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
             continue;
         }
 
-        let pose1 = poses[pair.colliders.x as usize];
-        let pose2 = poses[pair.colliders.y as usize];
+        let pose1 = poses.read(pair.colliders.x as usize);
+        let pose2 = poses.read(pair.colliders.y as usize);
         let pose12 = pose1.inverse() * pose2;
 
         // PFM - PFM (generic convex shapes via GJK/EPA)
@@ -441,7 +522,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 };
                 let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
                 // NOTE: if we exceed capacity, just skip the pair.
-                if (pfm_index as usize) < contacts_batch_capacity {
+                if (pfm_index as usize) < pfm_capacity {
                     pfm_pairs.write(pfm_index as usize, pfm_pair);
                 }
 
@@ -463,7 +544,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 pair.colliders,
                 &mut pfm_pairs,
                 pfm_pairs_len,
-                contacts_batch_capacity,
+                pfm_capacity,
                 vertices,
                 indices,
             );
@@ -482,7 +563,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 UVec2::new(pair.colliders.y, pair.colliders.x),
                 &mut pfm_pairs,
                 pfm_pairs_len,
-                contacts_batch_capacity,
+                pfm_capacity,
                 vertices,
                 indices,
             );
@@ -502,7 +583,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 pair.colliders,
                 &mut pfm_pairs,
                 pfm_pairs_len,
-                contacts_batch_capacity,
+                pfm_capacity,
                 vertices,
                 indices,
             );
@@ -521,7 +602,7 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                 UVec2::new(pair.colliders.y, pair.colliders.x),
                 &mut pfm_pairs,
                 pfm_pairs_len,
-                contacts_batch_capacity,
+                pfm_capacity,
                 vertices,
                 indices,
             );
@@ -687,19 +768,6 @@ pub struct NarrowPhasePfmPair {
     colliders: UVec2,
 }
 
-/// Initializes PFM-PFM dispatch arguments for constraint solver. Dispatch one
-/// [`MAX_REDUCE_LANES`]-thread workgroup.
-#[spirv_bindgen]
-#[spirv(compute(threads(256)))]
-pub fn gpu_init_pfm_pfm_dispatch(
-    #[spirv(local_invocation_id)] lid: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] pfm_pairs_len: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
-    #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
-) {
-    max_len_indirect_args(lid.x, pfm_pairs_len, indirect_args, partial);
-}
-
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))] // TODO PERF: pfm_pfm is very divergent. Use a smaller workgroup size?
 pub fn gpu_narrow_phase_pfm_pfm(
@@ -708,10 +776,7 @@ pub fn gpu_narrow_phase_pfm_pfm(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &mut [IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] pfm_pairs: &[NarrowPhasePfmPair],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] pfm_pairs_len: &[u32],
-    // NOTE: we assume that max_pfm_pairs == contacts_batch_capacity
-    //       And we assume all batch dimensions are given the same buffer allocation sizes
-    //       (i.e. the same `contacts_batch_capacity`).
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_offsets: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] vertices: &[PaddedVector],
     #[allow(unused_variables)]
@@ -726,28 +791,22 @@ pub fn gpu_narrow_phase_pfm_pfm(
 ) {
     let prediction = params.prediction_distance();
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let contacts_batch_capacity = batch_ids.contacts_batch_capacity as usize;
 
-    let mut contacts = batch_ids.contact_batch_mut(batch_id, contacts);
-    let collider_materials = batch_ids.coll_batch(batch_id, collider_materials);
-    let pfm_pairs = batch_ids.contact_batch(batch_id, pfm_pairs);
-    let contacts_len = contacts_len.at_mut(batch_id as usize);
-    // The producer counter can exceed the allocation on overflow (writes are
-    // skipped past capacity); clamp so we never read uninitialized slots.
-    let pfm_pairs_len = pfm_pairs_len
-        .read(batch_id as usize)
-        .min(contacts_batch_capacity as u32);
+    let total = contact_offsets.read(batch_ids.num_batches as usize + 2);
 
-    for i in StepRng::new(invocation_id.x..pfm_pairs_len, num_threads) {
-        let pair = pfm_pairs[i as usize];
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let pair = pfm_pairs.read(t as usize);
+        let batch_id = batch_ids.collider_batch(pair.colliders.x);
+        let seg_start = contact_offsets.read(batch_id as usize);
+        let seg_end = contact_offsets.read(batch_id as usize + 1);
+        let contacts_len = contacts_len.at_mut(batch_id as usize);
+
         // Resolve the parent rigid-bodies and skip same-body collider pairs. This
         // is where the deferred (PFM / trimesh / polyline) pairs get the same-body
         // filtering that the analytic pass does inline — the broad phase no longer
         // does it, and the deferred pass has no spare storage binding for it.
-        let coll_base = batch_ids.coll_start(batch_id);
-        let body1 = collider_parent.read(coll_base + pair.colliders.x as usize);
-        let body2 = collider_parent.read(coll_base + pair.colliders.y as usize);
+        let body1 = collider_parent.read(pair.colliders.x as usize);
+        let body2 = collider_parent.read(pair.colliders.y as usize);
         if body1 == body2 {
             continue;
         }
@@ -764,20 +823,22 @@ pub fn gpu_narrow_phase_pfm_pfm(
         );
 
         if manifold.len > 0 && manifold.points_a.at(0).dist < prediction {
-            let target_contact_index = atomic_add_u32(contacts_len, 1) as usize;
+            let idx = seg_start + atomic_add_u32(contacts_len, 1);
 
-            // NOTE: if we exceed capacity, just skip the pair.
-            if target_contact_index < contacts_batch_capacity {
-                let mat1 = collider_materials[pair.colliders.x as usize];
-                let mat2 = collider_materials[pair.colliders.y as usize];
-                contacts[target_contact_index] = IndexedManifold {
-                    contact: manifold,
-                    colliders: pair.colliders,
-                    bodies: UVec2::new(body1, body2),
-                    friction: mat1.combined_friction(&mat2),
-                    restitution: mat1.combined_restitution(&mat2),
-                    _padding: [0.0; 2],
-                };
+            if idx < seg_end {
+                let mat1 = collider_materials.read(pair.colliders.x as usize);
+                let mat2 = collider_materials.read(pair.colliders.y as usize);
+                contacts.write(
+                    idx as usize,
+                    IndexedManifold {
+                        contact: manifold,
+                        colliders: pair.colliders,
+                        bodies: UVec2::new(body1, body2),
+                        friction: mat1.combined_friction(&mat2),
+                        restitution: mat1.combined_restitution(&mat2),
+                        _padding: [0.0; 2],
+                    },
+                );
             }
         }
     }

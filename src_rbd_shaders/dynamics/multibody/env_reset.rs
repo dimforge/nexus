@@ -44,7 +44,12 @@ pub fn gpu_mb_env_reset(
     let dpb = params.w;
 
     if i < lpb * WS_QUADS {
-        links_workspace.write((i * nb + env) as usize, staging_ws.read(i as usize));
+        let link = i / WS_QUADS;
+        let q = i % WS_QUADS;
+        links_workspace.write(
+            ((link * nb + env) * WS_QUADS + q) as usize,
+            staging_ws.read(i as usize),
+        );
     }
     if i < lpb {
         links_static.write((i * nb + env) as usize, staging_links.read(i as usize));
@@ -116,7 +121,7 @@ pub fn gpu_mb_env_reset_batch(
             v.y += off.y;
             v.z += off.z;
         }
-        links_workspace.write((i * nb + env) as usize, v);
+        links_workspace.write(((link * nb + env) * WS_QUADS + q) as usize, v);
     }
 }
 
@@ -201,6 +206,7 @@ pub fn gpu_env_reset_bodies(
     let r = invocation_id.y;
     let bps = params.x;
     let vs = params.y;
+    let nb = params.w;
     if r >= params.z {
         return;
     }
@@ -216,11 +222,11 @@ pub fn gpu_env_reset_bodies(
             p.translation.y += off.y;
             p.translation.z += off.z;
         }
-        body_poses.write((env * bps + i) as usize, p);
+        body_poses.write((i * nb + env) as usize, p);
     }
     if i < vs {
         vels.write(
-            (env * vs + i) as usize,
+            (i * nb + env) as usize,
             templates_vels.read((t * vs + i) as usize),
         );
     }

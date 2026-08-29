@@ -5,6 +5,7 @@ use glamx::Vec4;
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
+use khal_std::iter::StepRng;
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
 use crate::Pose;
@@ -43,11 +44,6 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * 64;
-    let batch_id = invocation_id.y;
-    let cap = batch_ids.mb_imp_joints_batch_capacity;
-    if invocation_id.x >= cap {
-        return;
-    }
     let dt = softness.dt;
     // Joint lock/limit softness — configurable via `joint_natural_frequency` /
     // `joint_damping_ratio` (rapier's `joint.softness`), replacing the old
@@ -56,37 +52,25 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     let lock_cfm_coeff = softness.joint_cfm_coeff;
     let max_corr_velocity = softness.max_corr_velocity;
 
-    let joints_start = batch_ids.mb_imp_joints_start(batch_id);
-    let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
-    let jac_buf_start = batch_ids.mb_imp_joint_jacobians_start(batch_id);
-    // Interleaved dynamics-buffer view (multibody_info / links_workspace /
-    // body_jacobians / mass_matrices / lu_pivots / dof_state).
-    let il = VSlice::interleaved(0, batch_ids.num_batches, batch_id);
-    let colliders_start = batch_ids.coll_start(batch_id);
-
-    // Loop chunked across `num_threads` so a single workgroup row processes
-    // all joints in a batch (matches `gpu_init_joint_constraints` style).
-    // Iterating to `cap` instead of `len` lets us drop the per-batch
-    // `num_joints` storage binding — the host pads unused builder slots
-    // with `side_a_kind == SIDE_KIND_FIXED && side_b_kind == SIDE_KIND_FIXED`
-    // which we use as the inactive-slot sentinel below.
-    let mut i = invocation_id.x;
-    while i < cap {
-        let builder = builders.read(joints_start + i as usize);
+    let nb = batch_ids.num_batches;
+    let total = batch_ids.mb_imp_joints_batch_capacity * nb;
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let builder = builders.read(t as usize);
         let is_dummy =
             builder.side_a_kind == SIDE_KIND_FIXED && builder.side_b_kind == SIDE_KIND_FIXED;
         if !is_dummy {
+            let batch_id = t % nb;
+            let il = VSlice::interleaved(0, nb, batch_id);
+            let bix = batch_ids.body_ix(batch_id);
             builder.update_one_joint(
                 constraints,
-                cons_start,
                 jacobians,
-                jac_buf_start,
                 multibody_info,
                 links_workspace,
                 body_jacobians,
                 il,
                 poses,
-                colliders_start,
+                bix,
                 mprops,
                 dt,
                 lock_erp_inv_dt,
@@ -94,7 +78,6 @@ pub fn gpu_mb_update_impulse_joint_constraints(
                 max_corr_velocity,
             );
         }
-        i += num_threads;
     }
 }
 
@@ -119,25 +102,19 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * 64;
-    let batch_id = invocation_id.y;
-    let cap = batch_ids.mb_imp_joints_batch_capacity;
-    if invocation_id.x >= cap {
-        return;
-    }
+    let nb = batch_ids.num_batches;
+    let total = batch_ids.mb_imp_joints_batch_capacity * nb;
 
-    let joints_start = batch_ids.mb_imp_joints_start(batch_id);
-    let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
-    let il = VSlice::interleaved(0, batch_ids.num_batches, batch_id);
-
-    let mut i = invocation_id.x;
-    while i < cap {
-        let builder = builders.read(joints_start + i as usize);
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let builder = builders.read(t as usize);
         let is_dummy =
             builder.side_a_kind == SIDE_KIND_FIXED && builder.side_b_kind == SIDE_KIND_FIXED;
         if !is_dummy {
-            let cons_base = cons_start + builder.constraint_id as usize;
+            let batch_id = t % nb;
+            let il = VSlice::interleaved(0, nb, batch_id);
             for s in 0..MAX_AXIS_CONSTRAINTS {
-                let mut c = constraints.read(cons_base + s as usize);
+                let cons_idx = il.atz(builder.constraint_id as usize + s as usize);
+                let mut c = constraints.read(cons_idx);
                 if c.kind != 0 {
                     // Multibody side(s): LU back-solve `M⁻¹·Jᵀ`. Free-body sides
                     // already have their `W·J` (= M⁻¹·Jᵀ) filled by the build
@@ -171,11 +148,10 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
                         );
                     }
                     c.finalize_generic_constraint(jacobians);
-                    constraints.write(cons_base + s as usize, c);
+                    constraints.write(cons_idx, c);
                 }
             }
         }
-        i += num_threads;
     }
 }
 
@@ -206,27 +182,26 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
     // Per-lane scratch for the J·v tree reductions.
     #[spirv(workgroup)] partial: &mut [f32; LANES as usize],
 ) {
-    let batch_id = wg_id.y;
+    let nb = batch_ids.num_batches;
+    let batch_id = wg_id.x % nb;
+    let k = wg_id.x / nb;
     let lane = lid.x;
 
-    let joints_start = batch_ids.mb_imp_joints_start(batch_id);
-    let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
-    let il = VSlice::interleaved(0, batch_ids.num_batches, batch_id);
-    let colliders_start = batch_ids.coll_start(batch_id);
+    let il = VSlice::interleaved(0, nb, batch_id);
+    let bix = batch_ids.body_ix(batch_id);
 
     // `color_groups` is a per-batch prefix-sum over the color-sorted
     // builders: color `c` owns the sorted-builder range
     // `[color_groups[c-1], color_groups[c])` (start `0` for color `0`).
     let color = *curr_color as usize;
-    let color_groups = batch_ids.mb_imp_joint_color_groups_batch(batch_id, all_color_groups);
     let start = if color > 0 {
-        color_groups[color - 1]
+        all_color_groups.read(il.atz(color - 1))
     } else {
         0
     };
-    let end = color_groups[color];
+    let end = all_color_groups.read(il.atz(color));
 
-    let mut j = start + wg_id.x;
+    let mut j = start + k;
     let workgroup_is_active = j < end;
     if !workgroup_is_active {
         // Technically, if we enter here, we should return. However, on the web, a return would
@@ -235,8 +210,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
         j = start; // Any valid index will do.
     }
 
-    let builder = builders.at(joints_start + j as usize);
-    let cons_base = cons_start + builder.constraint_id as usize;
+    let builder = builders.at(il.atz(j as usize));
 
     // Per-multibody dof base: same for every axis constraint of this joint.
     let dof_base_a = if builder.side_a_kind == SIDE_KIND_MB {
@@ -255,7 +229,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
     // TODO(PERF): load jacobians into shared memory and keep the velocity deltat on shared
     //             memory and only writeback after all the axis constraints are solved.
     for s in 0..MAX_AXIS_CONSTRAINTS {
-        let c = constraints.at_mut(cons_base + s as usize);
+        let c = constraints.at_mut(il.atz(builder.constraint_id as usize + s as usize));
         let active = workgroup_is_active && c.kind != 0;
 
         // dvel = J_b · v_b - J_a · v_a   (rapier's `vel2 - vel1`).
@@ -269,7 +243,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
             dof_state,
             dof_base_a,
             solver_vels,
-            colliders_start,
+            bix,
             lane,
             partial,
         );
@@ -283,7 +257,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
             dof_state,
             dof_base_b,
             solver_vels,
-            colliders_start,
+            bix,
             lane,
             partial,
         );
@@ -318,7 +292,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
             dof_state,
             dof_base_a,
             solver_vels,
-            colliders_start,
+            bix,
             lane,
         );
         side_apply_impulse_par(
@@ -333,7 +307,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
             dof_state,
             dof_base_b,
             solver_vels,
-            colliders_start,
+            bix,
             lane,
         );
 
@@ -351,24 +325,25 @@ pub fn gpu_mb_remove_impulse_joint_constraint_bias(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] builders: &[MbImpulseJointBuilder],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     constraints: &mut [MbImpulseJointConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] num_joints: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * 64;
-    let batch_id = invocation_id.y;
-    let len = num_joints.read(batch_id as usize);
-    let joints_start = batch_ids.mb_imp_joints_start(batch_id);
-    let cons_start = batch_ids.mb_imp_joint_constraints_start(batch_id);
-    let mut i = invocation_id.x;
-    while i < len {
-        let builder = builders.at(joints_start + i as usize);
-        let cons_base = cons_start + builder.constraint_id as usize;
+    let nb = batch_ids.num_batches;
+    let total = batch_ids.mb_imp_joints_batch_capacity * nb;
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let builder = builders.at(t as usize);
+        let is_dummy =
+            builder.side_a_kind == SIDE_KIND_FIXED && builder.side_b_kind == SIDE_KIND_FIXED;
+        if is_dummy {
+            continue;
+        }
+        let batch_id = t % nb;
+        let il = VSlice::interleaved(0, nb, batch_id);
         for s in 0..MAX_AXIS_CONSTRAINTS {
-            let c = constraints.at_mut(cons_base + s as usize);
+            let c = constraints.at_mut(il.atz(builder.constraint_id as usize + s as usize));
             if c.kind != 0 {
                 c.rhs = c.rhs_wo_bias;
             }
         }
-        i += num_threads;
     }
 }

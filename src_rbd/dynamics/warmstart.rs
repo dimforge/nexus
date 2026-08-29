@@ -26,8 +26,7 @@ pub struct GpuWarmstart {
 ///
 /// Contains buffers for both old (previous frame) and new (current frame) constraint data.
 pub struct WarmstartArgs<'a> {
-    /// Number of contacts in current frame.
-    pub contacts_len: &'a Tensor<u32>,
+    pub contact_offsets: &'a Tensor<u32>,
     /// Constraint counts per body from previous frame.
     pub old_body_constraint_counts: &'a Tensor<u32>,
     /// Constraint IDs per body from previous frame.
@@ -48,8 +47,7 @@ pub struct WarmstartArgs<'a> {
 
 /// Arguments for the coloring seed dispatch.
 pub struct SeedColorsArgs<'a> {
-    /// Number of contacts in current frame.
-    pub contacts_len: &'a Tensor<u32>,
+    pub contact_offsets: &'a Tensor<u32>,
     /// Constraint counts per body from previous frame.
     pub old_body_constraint_counts: &'a Tensor<u32>,
     /// Constraint IDs per body from previous frame.
@@ -86,7 +84,7 @@ impl GpuWarmstart {
             args.old_constraint_builders,
             args.new_constraints,
             args.new_constraint_builders,
-            args.contacts_len,
+            args.contact_offsets,
             args.batch_indices,
         )
     }
@@ -108,7 +106,7 @@ impl GpuWarmstart {
             args.old_constraints_colors,
             args.constraints_colors,
             args.colored,
-            args.contacts_len,
+            args.contact_offsets,
             args.batch_indices,
         )
     }

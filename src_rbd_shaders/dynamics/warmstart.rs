@@ -25,25 +25,23 @@ pub fn gpu_transfer_warmstart_impulses(
     new_constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
     new_constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] contacts_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] contact_offsets: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let contacts_start = batch_ids.contacts_start(batch_id);
-    let colliders_start = batch_ids.coll_start(batch_id);
-    let bci_start = batch_id as usize * 2 * batch_ids.contacts_batch_capacity as usize;
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let old_body_constraint_counts = Slice(old_body_constraint_counts, 0);
+    let old_body_constraint_ids = Slice(old_body_constraint_ids, 0);
+    let old_constraints = Slice(old_constraints, 0);
+    let old_constraint_builders = Slice(old_constraint_builders, 0);
+    let mut new_constraints = SliceMut(new_constraints, 0);
+    let new_constraint_builders = Slice(new_constraint_builders, 0);
 
-    let old_body_constraint_counts = Slice(old_body_constraint_counts, colliders_start);
-    let old_body_constraint_ids = Slice(old_body_constraint_ids, bci_start);
-    let old_constraints = Slice(old_constraints, contacts_start);
-    let old_constraint_builders = Slice(old_constraint_builders, contacts_start);
-    let mut new_constraints = SliceMut(new_constraints, contacts_start);
-    let new_constraint_builders = Slice(new_constraint_builders, contacts_start);
-
-    let len = contacts_len.read(batch_id as usize);
     let cid_new = invocation_id.x;
 
-    if cid_new < len {
+    if cid_new < total {
+        if new_constraints[cid_new as usize].len == 0 {
+            return;
+        }
         transfer_warmstart_impulses(
             cid_new,
             &old_body_constraint_counts,
@@ -77,26 +75,24 @@ pub fn gpu_seed_colors_from_warmstart(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] old_constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] colored: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] contacts_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] contact_offsets: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = invocation_id.y;
-    let contacts_start = batch_ids.contacts_start(batch_id);
-    let colliders_start = batch_ids.coll_start(batch_id);
-    let bci_start = batch_id as usize * 2 * batch_ids.contacts_batch_capacity as usize;
+    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let old_body_constraint_counts = Slice(old_body_constraint_counts, 0);
+    let old_body_constraint_ids = Slice(old_body_constraint_ids, 0);
+    let old_constraints = Slice(old_constraints, 0);
+    let old_constraints_colors = Slice(old_constraints_colors, 0);
+    let mut constraints_colors = SliceMut(constraints_colors, 0);
+    let mut colored = SliceMut(colored, 0);
+    let new_constraints = Slice(new_constraints, 0);
 
-    let old_body_constraint_counts = Slice(old_body_constraint_counts, colliders_start);
-    let old_body_constraint_ids = Slice(old_body_constraint_ids, bci_start);
-    let old_constraints = Slice(old_constraints, contacts_start);
-    let old_constraints_colors = Slice(old_constraints_colors, contacts_start);
-    let mut constraints_colors = SliceMut(constraints_colors, contacts_start);
-    let mut colored = SliceMut(colored, contacts_start);
-    let new_constraints = Slice(new_constraints, contacts_start);
-
-    let len = contacts_len.read(batch_id as usize);
     let i = invocation_id.x as usize;
 
-    if (i as u32) < len {
+    if (i as u32) < total {
+        if new_constraints[i].len == 0 {
+            return;
+        }
         let body_a = new_constraints[i].solver_body_a;
         let body_b = new_constraints[i].solver_body_b;
 
