@@ -559,6 +559,7 @@ impl GpuSolver {
             }
         }
 
+        mb_phase!("[RBD] slv/mb-sense-contacts", sense_contact_impulses);
         mb_phase!("[RBD] slv/mb-restitution", apply_restitution);
 
         /*

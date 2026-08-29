@@ -15,6 +15,7 @@ use nexus3d::prelude::{
     NexusPipeline as RNexusPipeline, NexusPipelineMask, NexusState as RNexusState,
     RbdCoupling as RRbdCoupling,
 };
+use numpy::PyArray2;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use rapier3d::prelude as rp;
@@ -95,15 +96,17 @@ impl GpuTimestamps {
 }
 
 /// The GPU-resident state of a multiphysics simulation
-/// (`nexus3d::prelude::NexusState`).
+/// (`nexus3d::prelude::NexusState`). The second field keeps the
+/// `rapier3d-mjcf` robot handles of the last `insert_mjcf`, so
+/// `apply_actuator_controls` can drive the robot's actuators per step.
 #[pyclass(name = "NexusState", unsendable)]
-pub struct NexusState(pub RNexusState);
+pub struct NexusState(pub RNexusState, pub Option<crate::loaders::MjcfHandles>);
 
 #[pymethods]
 impl NexusState {
     #[new]
     fn new() -> Self {
-        NexusState(RNexusState::default())
+        NexusState(RNexusState::default(), None)
     }
 
     // --- rigid bodies -----------------------------------------------------
@@ -322,17 +325,145 @@ impl NexusState {
         })
     }
 
-    /// Loads a MuJoCo MJCF scene into environment 0 as multibodies, registering
-    /// its render shapes (and a sized floor) with `viewer`. Returns scene info
-    /// (suggested camera + whether the scene is Z-up). Call `finalize` after.
-    #[pyo3(signature = (viewer, scene_path, render_colliders=false))]
+    /// Per-environment collision-pair capacity (default 4096). Lower it before
+    /// `finalize` when batching many small environments: pair-keyed GPU
+    /// workspaces scale with `capacity x num_envs`.
+    fn set_rbd_collisions_capacity(&mut self, capacity: u32) {
+        self.0.set_rbd_collisions_capacity(capacity);
+    }
+
+    /// Loads a MuJoCo MJCF scene into environment `env` as multibodies,
+    /// registering its render shapes (and a sized floor) with `viewer`. Returns
+    /// scene info (suggested camera + whether the scene is Z-up). Call
+    /// `finalize` after.
+    #[pyo3(signature = (viewer, scene_path, render_colliders=false, env=0))]
     fn insert_mjcf(
         &mut self,
         viewer: PyRefMut<NexusViewer>,
         scene_path: std::path::PathBuf,
         render_colliders: bool,
+        env: usize,
     ) -> PyResult<MjcfSceneInfo> {
-        crate::loaders::insert_mjcf(&mut self.0, viewer, &scene_path, render_colliders)
+        let (info, handles) =
+            crate::loaders::insert_mjcf(&mut self.0, viewer, &scene_path, render_colliders, env)?;
+        self.1 = handles;
+        Ok(info)
+    }
+
+    // --- MJCF actuation -----------------------------------------------------
+
+    /// Names of the MJCF `<actuator>`s of the robot loaded by `insert_mjcf`, in
+    /// actuator (control-vector) order. Unnamed actuators fall back to the name
+    /// of the joint they drive. Empty before `insert_mjcf`.
+    fn actuator_names(&self) -> Vec<String> {
+        self.1
+            .as_ref()
+            .map(|h| {
+                h.actuators
+                    .iter()
+                    .map(|a| {
+                        a.actuator
+                            .name
+                            .clone()
+                            .or_else(|| a.actuator.joint.clone())
+                            .unwrap_or_default()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Applies one MJCF control vector (one entry per actuator, in
+    /// `actuator_names` order) to every environment's copy of the robot loaded
+    /// by `insert_mjcf`, with full MJCF actuator semantics (`<position>` servos
+    /// with kp/kv, `<motor>` force/gear, force limits), and pushes the resulting
+    /// joint-motor state to the GPU.
+    ///
+    /// Call once per control step, after `finalize`; the next
+    /// `NexusPipeline.simulate` steps the solver against the new targets.
+    #[pyo3(signature = (viewer, ctrl))]
+    fn apply_actuator_controls(
+        &mut self,
+        viewer: PyRef<NexusViewer>,
+        ctrl: Vec<f32>,
+    ) -> PyResult<()> {
+        let Some(handles) = self.1.as_ref() else {
+            return Err(PyRuntimeError::new_err(
+                "no MJCF robot loaded (call insert_mjcf first)",
+            ));
+        };
+        if ctrl.len() != handles.actuators.len() {
+            return Err(PyRuntimeError::new_err(format!(
+                "ctrl has {} entries but the robot has {} actuators",
+                ctrl.len(),
+                handles.actuators.len()
+            )));
+        }
+        let handles = handles.clone();
+        self.0
+            .control_multibody_motors(viewer.backend(), |_, world| {
+                handles.apply_controls_multibody(
+                    &mut world.bodies,
+                    &mut world.multibody_joints,
+                    &ctrl,
+                );
+            })
+            .map_err(gpu_err)
+    }
+
+    /// Reads every environment's multibody link states back from the GPU in one
+    /// transfer. Returns five float32 numpy arrays with
+    /// `num_environments * multibody_links_per_env` rows, environment-major;
+    /// links follow the GPU build's traversal order (multibodies, then links,
+    /// parent before child), the same order `apply_actuator_controls` drives:
+    ///
+    /// - `coords (n, 6)`: generalized joint coordinates (only the joint's DOF
+    ///   count is meaningful; a revolute joint's angle is `coords[5]`),
+    /// - `positions (n, 3)` / `quats (n, 4)`: link world pose (`w, x, y, z`),
+    /// - `linvels (n, 3)` / `angvels (n, 3)`: world-space velocities, valid
+    ///   after the first simulated step.
+    ///
+    /// Use `multibody_links_per_env()` to slice a single environment out.
+    #[allow(clippy::type_complexity)]
+    fn read_multibody_links<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+    ) -> (
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+        Bound<'py, PyArray2<f32>>,
+    ) {
+        let links = pollster::block_on(self.0.read_multibody_links(viewer.backend()));
+        let mut coords = Vec::with_capacity(links.len());
+        let mut positions = Vec::with_capacity(links.len());
+        let mut quats = Vec::with_capacity(links.len());
+        let mut linvels = Vec::with_capacity(links.len());
+        let mut angvels = Vec::with_capacity(links.len());
+        for ws in &links {
+            coords.push(ws.coords.to_vec());
+            let (t, q) = (ws.local_to_world.translation, ws.local_to_world.rotation);
+            positions.push(vec![t.x, t.y, t.z]);
+            quats.push(vec![q.w, q.x, q.y, q.z]);
+            let (l, a) = (ws.rb_vels.linear, ws.rb_vels.angular);
+            linvels.push(vec![l.x, l.y, l.z]);
+            angvels.push(vec![a.x, a.y, a.z]);
+        }
+        (
+            PyArray2::from_vec2(py, &coords).unwrap(),
+            PyArray2::from_vec2(py, &positions).unwrap(),
+            PyArray2::from_vec2(py, &quats).unwrap(),
+            PyArray2::from_vec2(py, &linvels).unwrap(),
+            PyArray2::from_vec2(py, &angvels).unwrap(),
+        )
+    }
+
+    /// Number of link slots per environment, the stride of
+    /// `read_multibody_links`.
+    fn multibody_links_per_env(&self) -> u32 {
+        self.0.multibody_links_per_env()
     }
 
     // --- rbd config -------------------------------------------------------

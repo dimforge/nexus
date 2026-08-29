@@ -87,6 +87,11 @@ impl RbdState {
                      (env 0 has {}, env {env} has {})",
                     sp0.num_solver_iterations, sp.num_solver_iterations
                 );
+                assert!(
+                    sp == sp0,
+                    "batched rbd requires identical simulation parameters in every \
+                     environment (env {env} differs from env 0)"
+                );
             }
         }
 
@@ -147,25 +152,33 @@ impl RbdState {
         // the equal-topology invariant and to set `BatchIndices::bodies_len`.
         let mut all_env_body_counts: Vec<usize> = Vec::new();
         let mut shape_buffers = ShapeBuffers::default();
+        // A `SharedShape` cloned across envs (e.g. shared terrain) is
+        // serialized into `shape_buffers` once, keyed by its parry data
+        // pointer, and every clone reuses the resulting `Shape` descriptor.
+        let mut trimesh_cache: HashMap<usize, crate::shaders::shapes::Shape> = HashMap::new();
         let mut joint_envs: Vec<(
             &ImpulseJointSet,
             HashMap<crate::rapier::dynamics::RigidBodyHandle, u32>,
         )> = Vec::new();
 
-        // Collect per-batch sim params, adjusting dt for substeps.
-        let num_solver_iterations = environments
-            .iter()
-            .map(|(_, _, _, _, sp)| sp.num_solver_iterations)
-            .max()
-            .unwrap_or(4);
-        let all_sim_params: Vec<RbdSimParams> = environments
-            .iter()
+        // Simulation parameters are global: every batch shares one struct,
+        // bound as a uniform. Identical across environments by the invariant
+        // asserted above, so the first environment's is authoritative.
+        let sim_params = environments
+            .first()
             .map(|(_, _, _, _, sp)| {
                 let mut sp = **sp;
                 sp.dt /= sp.num_solver_iterations as f32;
                 sp
             })
-            .collect();
+            .unwrap_or_else(|| {
+                let mut sp = RbdSimParams::default();
+                sp.dt /= sp.num_solver_iterations as f32;
+                sp
+            });
+        // Unchanged by the dt division above, so this is every environment's
+        // solver-iteration count (and 4, the default, when there are none).
+        let num_solver_iterations = sim_params.num_solver_iterations;
         // Pick representative dt (outer dt, not the per-substep one) from any batch.
         #[cfg(feature = "dim3")]
         let multibody_dt = environments
@@ -291,9 +304,24 @@ impl RbdState {
                     }
                 };
 
-                all_shapes.push(
-                    shape_from_parry(co.shape(), &mut shape_buffers).expect("Unsupported shape"),
-                );
+                let gpu_shape = match co.shape().as_typed_shape() {
+                    crate::parry::shape::TypedShape::TriMesh(tm) => {
+                        let key = tm as *const _ as *const u8 as usize;
+                        match trimesh_cache.get(&key) {
+                            Some(&s) => s,
+                            None => {
+                                let s = shape_from_parry(co.shape(), &mut shape_buffers)
+                                    .expect("Unsupported shape");
+                                trimesh_cache.insert(key, s);
+                                s
+                            }
+                        }
+                    }
+                    _ => {
+                        shape_from_parry(co.shape(), &mut shape_buffers).expect("Unsupported shape")
+                    }
+                };
+                all_shapes.push(gpu_shape);
                 all_collider_local_poses.push(collider_local_pose);
                 all_collision_groups.push(co.collision_groups());
                 all_collider_materials.push(collider_material_from_rapier(co));
@@ -448,7 +476,7 @@ impl RbdState {
 
         // Convert multibodies (3D only).
         #[cfg(feature = "dim3")]
-        let multibodies = {
+        let mut multibodies = {
             let mb_refs: Vec<(
                 &MultibodyJointSet,
                 &HashMap<crate::rapier::dynamics::RigidBodyHandle, u32>,
@@ -465,7 +493,7 @@ impl RbdState {
             // Soft contact coefficients (rapier TGS-soft) from the substep sim
             // params, so multibody-vs-floor contacts use the same soft ERP + CFM
             // as the free-body path (and as rapier) instead of a rigid `1/dt`.
-            mb.set_constraint_softness(backend, &all_sim_params[0]);
+            mb.set_constraint_softness(backend, &sim_params);
 
             // Route MB-touching impulse joints (those skipped by the
             // regular `GpuImpulseJointSet`) to the multibody generic
@@ -753,8 +781,16 @@ impl RbdState {
             num_batches,
             num_colliders_per_batch: num_colliders_per_batch as u32,
             num_solver_iterations,
-            sim_params: Tensor::vector(backend, &all_sim_params, BufferUsages::STORAGE).unwrap(),
-            vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
+            sim_params: Tensor::scalar(
+                backend,
+                sim_params,
+                BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            )
+            .unwrap(),
+            sim_params_cpu: sim_params,
+            vels: Tensor::vector(backend, &all_vels, storage | BufferUsages::COPY_DST).unwrap(),
+            #[cfg(feature = "dim3")]
+            reset_templates_bodies: None,
             solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
             solver_vels_inc: Tensor::vector(backend, &all_vels, storage).unwrap(),
             joints,
@@ -767,7 +803,7 @@ impl RbdState {
             body_poses: Tensor::vector(
                 backend,
                 &all_poses,
-                BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+                BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST,
             )
             .unwrap(),
             // Sized like `body_poses`. Will be (re-)seeded each step before

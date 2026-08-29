@@ -289,6 +289,9 @@ mod dim2 {
 // ====================
 
 #[cfg(feature = "dim3")]
+pub use dim3::manifold_reduction;
+
+#[cfg(feature = "dim3")]
 mod dim3 {
     use super::*;
     use crate::MAX_FLT;

@@ -3,6 +3,8 @@
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::PaddedVector;
+#[cfg(feature = "dim3")]
+use crate::shaders::broad_phase::GpuReduceContacts;
 use crate::shaders::broad_phase::{
     CollisionPair, GpuInitPfmPfmDispatch, GpuNarrowPhaseInitContactsDispatch, GpuNarrowPhasePfmPfm,
     GpuNarrowPhaseShapeShape, GpuNarrowPhaseShapeShapeDeferred, GpuResetNarrowPhase,
@@ -22,6 +24,8 @@ pub struct GpuNarrowPhase {
     /// `pfm_pairs` work-list. Split from `narrow_phase` to fit 8 storage buffers.
     narrow_phase_deferred: GpuNarrowPhaseShapeShapeDeferred,
     narrow_phase_pfm_pfm: GpuNarrowPhasePfmPfm,
+    #[cfg(feature = "dim3")]
+    reduce_contacts: GpuReduceContacts,
     init_pfm_pfm_indirect_args: GpuInitPfmPfmDispatch,
     init_contacts_indirect_args: GpuNarrowPhaseInitContactsDispatch,
 }
@@ -49,6 +53,10 @@ impl GpuNarrowPhase {
         batch_indices: &Tensor<crate::shaders::utils::BatchIndices>,
         collider_parent: &Tensor<u32>,
         collider_materials: &Tensor<crate::shaders::queries::ColliderMaterial>,
+        sim_params: &Tensor<crate::shaders::dynamics::RbdSimParams>,
+        // Optional: merge each collider pair's manifolds into one before the
+        // solvers see them. `false` skips the kernel entirely.
+        reduce_contacts: bool,
     ) -> Result<(), GpuBackendError> {
         let num_batches = contacts_len.len() as u32;
         self.reset_narrow_phase
@@ -66,6 +74,7 @@ impl GpuNarrowPhase {
             batch_indices,
             collider_parent,
             collider_materials,
+            sim_params,
         )?;
 
         // Pass 2: defer the complex shape pairs into `pfm_pairs` (kept as a
@@ -80,6 +89,7 @@ impl GpuNarrowPhase {
             pfm_pairs,
             pfm_pairs_len,
             batch_indices,
+            sim_params,
             vertices,
             indices,
         )?;
@@ -98,7 +108,23 @@ impl GpuNarrowPhase {
             indices,
             collider_parent,
             collider_materials,
+            sim_params,
         )?;
+        // Reduction rewrites `contacts_len`, so it has to run before the
+        // indirect args are derived from it.
+        #[cfg(feature = "dim3")]
+        if reduce_contacts {
+            self.reduce_contacts.call(
+                pass,
+                [1u32, num_batches, 1],
+                contacts,
+                contacts_len,
+                batch_indices,
+                sim_params,
+            )?;
+        }
+        #[cfg(not(feature = "dim3"))]
+        let _ = reduce_contacts;
         self.init_contacts_indirect_args.call(
             pass,
             256u32,

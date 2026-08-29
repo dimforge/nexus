@@ -4,11 +4,15 @@
 //! simulation step on the GPU. The pipeline manages collision detection, contact generation,
 //! constraint solving, and integration.
 
+#[cfg(all(test, feature = "dim3"))]
+mod bench_narrow_phase;
 mod insertion_removal;
 mod lbvh_validation;
 mod rbd_state;
 mod rbd_state_from_rapier;
 mod rbd_step;
 
+#[cfg(feature = "dim3")]
+pub use rbd_state::RbdSnapshot;
 pub use rbd_state::{RbdCapacities, RbdResizePolicy, RbdState, RunStats};
-pub use rbd_step::RbdPipeline;
+pub use rbd_step::{FORCE_FUSED_SWEEPS, RbdPipeline};

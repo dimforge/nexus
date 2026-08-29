@@ -43,6 +43,7 @@ impl GpuMultibodySet {
         let mut per_env_dof_vels: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_damping: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_armature: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
+        let mut per_env_dof_friction: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_stiffness: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_spring_ref: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_kinematic: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
@@ -63,6 +64,12 @@ impl GpuMultibodySet {
         let mut global_max_cons = 0u32;
         let mut global_max_couplings = 0u32;
 
+        // Whether any multibody anywhere declares dry joint friction.
+        let scene_has_joint_friction = environments.iter().any(|(set, _, _)| {
+            set.multibodies()
+                .any(|mb| mb.frictions().iter().any(|f| *f > 0.0))
+        });
+
         for (set, body_ids, bodies) in environments {
             let mut infos = Vec::new();
             let mut statics = Vec::new();
@@ -71,6 +78,7 @@ impl GpuMultibodySet {
             let mut dof_vels = Vec::new();
             let mut dof_damping = Vec::new();
             let mut dof_armature = Vec::new();
+            let mut dof_friction = Vec::new();
             let mut dof_stiffness = Vec::new();
             let mut dof_spring_ref = Vec::new();
             let mut dof_kinematic = Vec::new();
@@ -151,7 +159,10 @@ impl GpuMultibodySet {
                 // One extra constraint slot per DoF coupling (they are solved
                 // among the joint constraints).
                 let num_couplings = mb.couplings().len() as u32;
-                let max_constraints = max_constraints + num_couplings;
+                // One dry-friction row per DoF, emitted only for DoFs whose
+                // friction is non-zero (see `gpu_mb_init_joint_constraints`).
+                let friction_slots = if scene_has_joint_friction { ndofs } else { 0 };
+                let max_constraints = max_constraints + num_couplings + friction_slots;
                 max_mb_joint_constraints = max_mb_joint_constraints.max(max_constraints);
 
                 infos.push(MultibodyInfo {
@@ -185,6 +196,8 @@ impl GpuMultibodySet {
                 // `assembly_counter` (which drops the fixed root's DoFs).
                 let mb_damping = mb.damping();
                 let mb_armature = mb.armature();
+                // Per-DoF dry joint friction.
+                let mb_friction = mb.frictions();
                 let mut rapier_assembly = 0usize;
                 let mb_statics_start = statics.len();
                 for (link_idx, link) in mb.links().enumerate() {
@@ -292,6 +305,7 @@ impl GpuMultibodySet {
                         dof_vels.push(0.0);
                         dof_damping.push(mb_damping[rapier_assembly + d]);
                         dof_armature.push(mb_armature[rapier_assembly + d]);
+                        dof_friction.push(mb_friction[rapier_assembly + d]);
                         let (k_s, rest) = link.joint().spring(free_axis_of_dof[d]);
                         dof_stiffness.push(k_s);
                         dof_spring_ref.push(rest);
@@ -345,6 +359,7 @@ impl GpuMultibodySet {
             per_env_dof_vels.push(dof_vels);
             per_env_dof_damping.push(dof_damping);
             per_env_dof_armature.push(dof_armature);
+            per_env_dof_friction.push(dof_friction);
             per_env_dof_stiffness.push(dof_stiffness);
             per_env_dof_spring_ref.push(dof_spring_ref);
             per_env_dof_kinematic.push(dof_kinematic);
@@ -403,6 +418,7 @@ impl GpuMultibodySet {
         let mut all_dof_vels: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_damping: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_armature: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
+        let mut all_dof_friction: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_stiffness: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_spring_ref: Vec<f32> =
             Vec::with_capacity((dofs_cap * num_batches) as usize);
@@ -442,6 +458,9 @@ impl GpuMultibodySet {
             all_dof_armature.extend_from_slice(&per_env_dof_armature[i]);
             let pad = (dofs_cap as usize).saturating_sub(per_env_dof_armature[i].len());
             all_dof_armature.resize(all_dof_armature.len() + pad, 0.0);
+            all_dof_friction.extend_from_slice(&per_env_dof_friction[i]);
+            let pad = (dofs_cap as usize).saturating_sub(per_env_dof_friction[i].len());
+            all_dof_friction.resize(all_dof_friction.len() + pad, 0.0);
             all_dof_stiffness.extend_from_slice(&per_env_dof_stiffness[i]);
             let pad = (dofs_cap as usize).saturating_sub(per_env_dof_stiffness[i].len());
             all_dof_stiffness.resize(all_dof_stiffness.len() + pad, 0.0);
@@ -478,6 +497,7 @@ impl GpuMultibodySet {
         let all_dof_vels = interleave(&all_dof_vels, dofs_cap, nb);
         let all_dof_damping = interleave(&all_dof_damping, dofs_cap, nb);
         let all_dof_armature = interleave(&all_dof_armature, dofs_cap, nb);
+        let all_dof_friction = interleave(&all_dof_friction, dofs_cap, nb);
         let all_dof_stiffness = interleave(&all_dof_stiffness, dofs_cap, nb);
         let all_dof_spring_ref = interleave(&all_dof_spring_ref, dofs_cap, nb);
         let all_dof_kinematic = interleave(&all_dof_kinematic, dofs_cap, nb);
@@ -498,7 +518,10 @@ impl GpuMultibodySet {
             // falls back to a single plain matrix with explicit-only
             // coriolis/gyroscopic forces (cheaper, but less stable).
             implicit_coriolis: true,
+            coriolis_in_uniform: true,
             has_joint_constraints: all_infos.iter().any(|info| info.max_constraints > 0),
+            frictionloss_slots_reserved: scene_has_joint_friction,
+            constraint_caps_dirty: false,
 
             multibody_info: Tensor::vector(backend, &all_infos, storage).unwrap(),
             max_contact_constraints: Tensor::scalar(
@@ -511,27 +534,35 @@ impl GpuMultibodySet {
                 .unwrap(),
             links_static_mirror: all_statics.clone(),
             info_mirror,
+            // COPY_SRC so hosts can read joint/link state back (observation
+            // pipelines); see `GpuMultibodySet::links_workspace`.
             links_workspace: Tensor::vector(
                 backend,
                 crate::shaders::dynamics::ws_soa_from_structs(&all_ws, links_cap, num_batches),
-                storage,
+                storage | BufferUsages::COPY_SRC,
             )
             .unwrap(),
             dof_values: Tensor::vector(backend, &all_dof_vals, storage).unwrap(),
             dof_state: {
                 // Pack [velocities, damping, armature, spring stiffness,
-                // spring rest, kinematic mask] back-to-back, each section
-                // N = dofs_cap * num_batches long. The shaders address
-                // section `s` at intra-batch offset `s · dof_batch_capacity`.
+                // spring rest, kinematic mask, frictionloss] back-to-back,
+                // each section N = dofs_cap * num_batches long. The shaders
+                // address section `s` at intra-batch offset
+                // `s · dof_batch_capacity`. The friction section comes from
+                // rapier's `Multibody::frictions` (MJCF `<joint
+                // frictionloss>`); `RbdState::set_dof_frictionloss` overrides
+                // it afterwards.
                 let n = (dofs_cap * num_batches) as usize;
-                let mut buf = Vec::with_capacity(6 * n);
+                let mut buf = Vec::with_capacity(7 * n);
                 buf.extend_from_slice(&all_dof_vels);
                 buf.extend_from_slice(&all_dof_damping);
                 buf.extend_from_slice(&all_dof_armature);
                 buf.extend_from_slice(&all_dof_stiffness);
                 buf.extend_from_slice(&all_dof_spring_ref);
                 buf.extend_from_slice(&all_dof_kinematic);
-                debug_assert_eq!(buf.len(), 6 * n);
+                buf.extend_from_slice(&all_dof_friction);
+                buf.resize(7 * n, 0.0);
+                debug_assert_eq!(buf.len(), 7 * n);
                 Tensor::vector(backend, &buf, storage).unwrap()
             },
             gen_forces: Tensor::vector(
@@ -584,6 +615,42 @@ impl GpuMultibodySet {
             dof_couplings: Tensor::vector(backend, &all_couplings, storage).unwrap(),
             couplings_per_batch: couplings_cap,
             body_to_link: Tensor::vector(backend, &all_body_to_link, storage).unwrap(),
+            body_to_link_host: all_body_to_link,
+            body_to_link_cap,
+            motor_delay_state: Tensor::vector(
+                backend,
+                vec![0.0f32; ((2 + links_cap) * num_batches) as usize],
+                storage | BufferUsages::COPY_DST,
+            )
+            .unwrap(),
+            motor_delay_params: Tensor::scalar(
+                backend,
+                glamx::UVec4::new(num_batches, 2 + links_cap, 0, 0),
+                BufferUsages::STORAGE | BufferUsages::UNIFORM,
+            )
+            .unwrap(),
+            delay_update_cache: None,
+            contact_sensor_links: Tensor::vector(
+                backend,
+                [u32::MAX; crate::shaders::dynamics::MAX_CONTACT_SENSORS as usize],
+                storage,
+            )
+            .unwrap(),
+            contact_sensor_out: Tensor::vector(
+                backend,
+                vec![
+                    0.0f32;
+                    (mb_cap * num_batches * crate::shaders::dynamics::MAX_CONTACT_SENSORS) as usize
+                ],
+                storage | BufferUsages::COPY_SRC,
+            )
+            .unwrap(),
+            num_contact_sensors: 0,
+            substep_refresh: true,
+            substep_refresh_light: false,
+            env_reset: None,
+            reset_templates: None,
+            scatter_caches: Vec::new(),
             contact_constraints: Tensor::vector(
                 backend,
                 vec![

@@ -42,7 +42,7 @@ pub async fn run(
             let collider = if status == RigidBodyType::Fixed {
                 ColliderBuilder::cuboid(rad, rad, rad).build()
             } else {
-                ColliderBuilder::ball(rad).density(10.0).build()
+                ColliderBuilder::ball(rad).density(40.0).build()
             };
             let shape = collider.shared_shape().clone();
             let child_handle = state.insert_rigid_body(rigid_body, collider, no_coupling);

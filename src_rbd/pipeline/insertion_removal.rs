@@ -48,7 +48,6 @@ impl RbdState {
         let num_solver_iterations = 4u32;
         let mut base_sim_params = RbdSimParams::default();
         base_sim_params.dt /= num_solver_iterations as f32;
-        let all_sim_params = vec![base_sim_params; num_batches as usize];
 
         // Inactive (padding) slots use empty collision groups so the broad-phase
         // never matches them with anything.
@@ -95,14 +94,14 @@ impl RbdState {
         let joints = GpuImpulseJointSet::from_rapier_filtered(backend, &joint_env_refs, &[], &[]);
 
         #[cfg(feature = "dim3")]
-        let multibodies = {
+        let mut multibodies = {
             let empty_mb = MultibodyJointSet::new();
             let empty_bodies = RigidBodySet::new();
             let mb_refs: Vec<_> = (0..num_batches as usize)
                 .map(|_| (&empty_mb, &empty_body_ids, &empty_bodies))
                 .collect();
             let mut mb = GpuMultibodySet::from_rapier(backend, &mb_refs, capacity_per_batch);
-            mb.set_constraint_softness(backend, &all_sim_params[0]);
+            mb.set_constraint_softness(backend, &base_sim_params);
             mb
         };
 
@@ -243,8 +242,16 @@ impl RbdState {
             num_batches,
             num_colliders_per_batch,
             num_solver_iterations,
-            sim_params: Tensor::vector(backend, &all_sim_params, BufferUsages::STORAGE).unwrap(),
+            sim_params: Tensor::scalar(
+                backend,
+                base_sim_params,
+                BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            )
+            .unwrap(),
+            sim_params_cpu: base_sim_params,
             vels: Tensor::vector(backend, &all_vels, rw).unwrap(),
+            #[cfg(feature = "dim3")]
+            reset_templates_bodies: None,
             solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
             solver_vels_inc: Tensor::vector(backend, &all_vels, storage).unwrap(),
             joints,

@@ -42,10 +42,10 @@ bvh = "0.7"
 
 # Physics / geometry. default-features off for the no_std shader crates; host
 # crates opt back in with `features = ["default"]`.
-rapier2d = { version = "0.35.2", default-features = false }
-rapier3d = { version = "0.35.2", default-features = false }
-rapier3d-urdf = "0.35"
-rapier3d-mjcf = { version = "0.35", features = ["stl", "wavefront", "msh"] }
+rapier2d = { version = "0.35.3", default-features = false }
+rapier3d = { version = "0.35.3", default-features = false }
+rapier3d-urdf = "0.35.3"
+rapier3d-mjcf = { version = "0.35.3", features = ["stl", "wavefront", "msh"] }
 parry2d = { version = "0.30", default-features = false }
 parry3d = { version = "0.30", default-features = false }
 
@@ -93,8 +93,6 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [patch.crates-io]
-# Compare against the rapier checkout the reference example runs, not the
-# crates.io release (their solver defaults differ).
 #rapier2d = { path = "../rapier/crates/rapier2d" }
 #rapier3d = { path = "../rapier/crates/rapier3d" }
 #rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }

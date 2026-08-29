@@ -283,7 +283,8 @@ pub fn gpu_mb_gravity_and_lu(
     if i < ndofs {
         let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
-        gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
+        let v = vel_slice[i as usize];
+        gen_forces.write(idx, cur - damping_slice[i as usize] * v);
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -596,7 +597,8 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     if i < ndofs {
         let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
-        gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
+        let v = vel_slice[i as usize];
+        gen_forces.write(idx, cur - damping_slice[i as usize] * v);
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -896,7 +898,8 @@ pub fn gpu_mb_gravity_and_lu_t1(
     for i in 0..ndofs {
         let idx = batch_ids.mbi(batch_id, gen_base + i as usize);
         let cur = gen_forces.read(idx);
-        gen_forces.write(idx, cur - damping_slice[i as usize] * vel_slice[i as usize]);
+        let v = vel_slice[i as usize];
+        gen_forces.write(idx, cur - damping_slice[i as usize] * v);
     }
 
     // Per-DoF joint springs.

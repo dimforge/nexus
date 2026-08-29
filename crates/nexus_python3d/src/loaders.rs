@@ -115,12 +115,19 @@ struct VisualMeshReg {
 /// floor, camera and light with the viewer. Mirrors the Rust `mujoco_menagerie3`
 /// example's `load_scene` (minus the runtime model picker). Gravity is left to
 /// the caller (set after `finalize`).
+/// Handles of the robot loaded by [`insert_mjcf`], kept by the Python
+/// `NexusState` so per-step actuator control (`apply_actuator_controls`) can
+/// reuse `rapier3d-mjcf`'s MJCF actuator semantics.
+pub type MjcfHandles =
+    rapier3d_mjcf::MjcfRobotHandles<Option<rapier3d::prelude::MultibodyJointHandle>>;
+
 pub fn insert_mjcf(
     state: &mut nexus3d::prelude::NexusState,
     mut viewer: PyRefMut<crate::viewer::NexusViewer>,
     scene_path: &std::path::Path,
     render_colliders: bool,
-) -> PyResult<MjcfSceneInfo> {
+    env: usize,
+) -> PyResult<(MjcfSceneInfo, Option<MjcfHandles>)> {
     use nexus3d::prelude::RbdCoupling;
     use pyo3::exceptions::PyRuntimeError;
     use rapier3d::parry::bounding_volume::BoundingVolume; // for `Aabb::merge`
@@ -141,9 +148,9 @@ pub fn insert_mjcf(
     let mut floor: Option<(glamx::Vec3, glamx::Vec3)> = None;
     let mut camera: Option<(glamx::Vec3, glamx::Vec3)> = None;
 
-    match MjcfRobot::from_file(scene_path, options) {
+    let robot_handles: Option<MjcfHandles> = match MjcfRobot::from_file(scene_path, options) {
         Ok((robot, _model)) => {
-            let world = state.rbd_world_mut(0);
+            let world = state.rbd_world_mut(env);
             let handles = robot.clone().insert_using_multibody_joints(
                 &mut world.bodies,
                 &mut world.colliders,
@@ -225,6 +232,7 @@ pub fn insert_mjcf(
                 let eye = target + glamx::Vec3::new(radius * 2.2, -radius * 2.2, radius * 1.6);
                 camera = Some((eye, target));
             }
+            Some(handles)
         }
         Err(e) => {
             return Err(PyRuntimeError::new_err(format!(
@@ -232,7 +240,7 @@ pub fn insert_mjcf(
                 scene_path.display()
             )));
         }
-    }
+    };
 
     let loaded = camera.is_some();
     let v = viewer.rust_mut();
@@ -242,11 +250,15 @@ pub fn insert_mjcf(
         let body = rp::RigidBodyBuilder::fixed().translation(center).build();
         let collider = rp::ColliderBuilder::cuboid(he.x, he.y, he.z).build();
         let shape = collider.shared_shape().clone();
-        let handle = state.insert_rigid_body(body, collider, RbdCoupling::None);
-        v.insert_shape(handle, &shape, rp::Pose::IDENTITY);
+        let handle = state.insert_rigid_body_in(env, body, collider, RbdCoupling::None);
+        if env == 0 {
+            v.insert_shape(handle, &shape, rp::Pose::IDENTITY);
+        }
     }
 
-    if render_colliders {
+    if env != 0 {
+        // Batch environments are physics-only: the viewer draws environment 0.
+    } else if render_colliders {
         for (body, shape, local_pose, _) in &collider_shapes {
             v.insert_visual_shape(0, *body, shape, *local_pose);
         }
@@ -271,11 +283,13 @@ pub fn insert_mjcf(
         }
     }
 
-    if let Some((eye, target)) = camera {
-        v.set_camera(eye, target);
+    if env == 0 {
+        if let Some((eye, target)) = camera {
+            v.set_camera(eye, target);
+        }
+        v.scene3d_mut()
+            .add_directional_light(glamx::Vec3::new(-1.0, 1.0, -1.0));
     }
-    v.scene3d_mut()
-        .add_directional_light(glamx::Vec3::new(-1.0, 1.0, -1.0));
 
-    Ok(MjcfSceneInfo { z_up: true, loaded })
+    Ok((MjcfSceneInfo { z_up: true, loaded }, robot_handles))
 }

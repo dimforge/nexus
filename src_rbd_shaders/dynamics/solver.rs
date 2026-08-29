@@ -41,12 +41,11 @@ pub fn gpu_solver_init_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] vels: &[Velocity],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] mprops: &[WorldMassProperties],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 4)] all_params: &[RbdSimParams],
+    #[spirv(uniform, descriptor_set = 1, binding = 4)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 1, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
-    let params = all_params.at(batch_id as usize);
 
     let contacts = batch_ids.contact_batch(batch_id, contacts);
     let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
@@ -132,12 +131,11 @@ pub fn gpu_solver_update_constraints(
     constraint_builders: &[TwoBodyConstraintBuilder],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts_len: &[u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] all_params: &[RbdSimParams],
+    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
-    let params = all_params.at(batch_id as usize);
 
     let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
     let constraint_builders = batch_ids.contact_batch(batch_id, constraint_builders);
@@ -166,12 +164,11 @@ pub fn gpu_solver_refresh_rhs_wo_bias(
     constraint_builders: &[TwoBodyConstraintBuilder],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts_len: &[u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] all_params: &[RbdSimParams],
+    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
-    let params = all_params.at(batch_id as usize);
 
     let mut constraints = batch_ids.contact_batch_mut(batch_id, constraints);
     let constraint_builders = batch_ids.contact_batch(batch_id, constraint_builders);
@@ -274,12 +271,11 @@ pub fn gpu_init_solver_vels_inc(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] solver_vels_inc: &mut [Velocity],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mprops: &[WorldMassProperties],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] all_params: &[RbdSimParams],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 4)] gravity: &glamx::Vec4,
 ) {
     let batch_id = invocation_id.y;
-    let params = all_params.at(batch_id as usize);
     let i = invocation_id.x;
 
     let num_bodies = batch_ids.bodies_len;
@@ -603,11 +599,10 @@ pub fn gpu_integrate_linearized(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] poses: &mut [Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] all_params: &[RbdSimParams],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] params: &RbdSimParams,
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
     let batch_id = invocation_id.y;
-    let params = all_params.at(batch_id as usize);
     let i = invocation_id.x;
 
     let num_bodies = batch_ids.bodies_len;

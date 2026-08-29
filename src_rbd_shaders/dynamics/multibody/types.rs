@@ -62,6 +62,8 @@ pub const MB_JOINT_KIND_LIMIT_INACTIVE: u32 = 3;
 /// `J = e_{dof_id} − coeff·e_{dof2_id}` and a bias pulling the position drift
 /// back to zero.
 pub const MB_JOINT_KIND_COUPLING: u32 = 4;
+/// Joint-constraint `kind`: dry joint friction.
+pub const MB_JOINT_KIND_FRICTION: u32 = 5;
 
 /// Sentinel marking a link with no parent (the root).
 pub const MULTIBODY_ROOT: u32 = u32::MAX;
