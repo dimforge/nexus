@@ -349,9 +349,54 @@ impl NexusViewer {
         self.inner_mut().set_body_color(env, handle.0, rgba);
     }
 
+    /// Whether body `handle`'s visual nodes cast shadows (default `True`). A
+    /// floor slab that does not cast keeps the shadow map fit to the objects
+    /// above it, so hard shadow edges stay crisp.
+    fn set_body_casts_shadows(&mut self, env: u32, handle: RigidBodyHandle, casts: bool) {
+        self.inner_mut()
+            .set_body_casts_shadows(env, handle.0, casts);
+    }
+
     /// Ambient light level of the main window's shaded render.
     fn set_ambient(&mut self, ambient: f32) {
         self.inner_mut().set_ambient(ambient);
+    }
+
+    /// MSAA sample count of the sensor cameras' shaded renders, existing and
+    /// future ones (`1` disables antialiasing, `4` is the default).
+    fn set_sensor_antialiasing(&mut self, samples: u32) {
+        self.inner_mut().set_sensor_antialiasing(samples);
+    }
+
+    /// Shadow-edge softness of the sensor cameras' shaded renders, existing
+    /// and future ones (`0.0` hard edges, the default; `1.0` the PCF
+    /// penumbra).
+    fn set_sensor_shadow_softness(&mut self, softness: f32) {
+        self.inner_mut().set_sensor_shadow_softness(softness);
+    }
+
+    /// Shadow-edge softness of the main window's shaded render (`0.0` hard
+    /// edges, the default; `1.0` the PCF penumbra).
+    fn set_shadow_softness(&mut self, softness: f32) {
+        self.inner_mut().set_shadow_softness(softness);
+    }
+
+    /// Directional-shadow cascade layout of the sensor cameras' renders,
+    /// existing and future ones: the sharpest cascade covers the camera's
+    /// first `first_cascade_far_bound` meters (default 3) and shadows stop at
+    /// `shadow_distance` meters (default: the camera far plane).
+    #[pyo3(signature = (first_cascade_far_bound, shadow_distance=f32::INFINITY))]
+    fn set_sensor_shadow_range(&mut self, first_cascade_far_bound: f32, shadow_distance: f32) {
+        self.inner_mut()
+            .set_sensor_shadow_range(first_cascade_far_bound, shadow_distance);
+    }
+
+    /// Directional-shadow cascade layout of the main window's render (see
+    /// `set_sensor_shadow_range`).
+    #[pyo3(signature = (first_cascade_far_bound, shadow_distance=f32::INFINITY))]
+    fn set_shadow_range(&mut self, first_cascade_far_bound: f32, shadow_distance: f32) {
+        self.inner_mut()
+            .set_shadow_range(first_cascade_far_bound, shadow_distance);
     }
 
     /// Registers one render node for body `handle` in `env` drawing `shape`

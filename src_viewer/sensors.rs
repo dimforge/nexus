@@ -16,7 +16,7 @@ use kiss3d::camera::Camera3d;
 use kiss3d::event::WindowEvent;
 use kiss3d::prelude::Color;
 use kiss3d::scene::SceneNode3d;
-use kiss3d::window::{Canvas, OffscreenSurface};
+use kiss3d::window::{Canvas, NumSamples, OffscreenSurface};
 use nexus::rbd::math::Pose;
 use rapier::data::Index;
 
@@ -204,6 +204,29 @@ impl SensorCamera {
     pub fn set_background_color(&mut self, rgba: [f32; 4]) {
         self.surface
             .set_background_color(Color::new(rgba[0], rgba[1], rgba[2], rgba[3]));
+    }
+
+    /// MSAA sample count of the shaded render (`1` disables antialiasing;
+    /// kiss3d supports 1 and 4, other values round down to 1).
+    pub fn set_samples(&mut self, samples: u32) {
+        let samples = NumSamples::from_u32(samples).unwrap_or(NumSamples::One);
+        self.surface.set_samples(samples);
+    }
+
+    /// Shadow-edge softness of the shaded render: `0.0` hard edges, `1.0`
+    /// kiss3d's default PCF penumbra.
+    pub fn set_shadow_softness(&mut self, softness: f32) {
+        self.surface.set_shadow_softness(softness);
+    }
+
+    /// Directional-shadow cascade layout of the shaded render: the
+    /// highest-resolution cascade covers the camera's first
+    /// `first_cascade_far_bound` meters and shadows stop at `shadow_distance`
+    /// (`INFINITY` = the camera far plane).
+    pub fn set_shadow_range(&mut self, first_cascade_far_bound: f32, shadow_distance: f32) {
+        self.surface
+            .set_first_cascade_far_bound(first_cascade_far_bound);
+        self.surface.set_shadow_distance(shadow_distance);
     }
 
     /// Renders the shaded scene and returns it as row-major, top-left origin

@@ -6,6 +6,11 @@
   PGS pass, instead of only during the once-per-substep stabilization sweep (rapier's
   `friction_in_bias_pass`). Off by default; on, friction gets as many iterations as the normal
   rows, which keeps pinch grasps and resting stacks from drifting.
+- Viewer: sensor cameras render with 4x MSAA and hard shadow edges by default
+  (`set_sensor_antialiasing`, `set_sensor_shadow_softness`); the window's shadows are hard-edged
+  too (`set_shadow_softness`); the sharpest directional cascade covers the first 3 m instead of
+  12 (`set_sensor_shadow_range`, `set_shadow_range`), and `set_body_casts_shadows` excludes a
+  body from the shadow map. Needs kiss3d's offscreen MSAA and cascade controls.
 - Python: `NexusState.set_rbd_solver_params(friction_in_bias_pass=...)`,
   `ColliderBuilder.friction_combine_rule`, and the `debug_contacts` /
   `debug_multibody_contact_impulses` GPU readbacks for contact diagnostics.
