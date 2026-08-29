@@ -177,6 +177,11 @@ const DEFAULT_SHADOW_SOFTNESS: f32 = 0.0;
 /// Far bound (meters) of the highest-resolution directional shadow cascade of
 /// the window and of new sensor cameras: desk-sized scenes, not landscapes.
 const DEFAULT_SHADOW_FIRST_CASCADE: f32 = 3.0;
+/// Shadow map texels per atlas layer for the window and new sensor cameras.
+const DEFAULT_SHADOW_RESOLUTION: u32 = 4096;
+/// Shadow atlas layers for the window and new sensor cameras: one directional
+/// light's four cascades.
+const DEFAULT_SHADOW_ATLAS_LAYERS: u32 = 4;
 
 pub struct NexusViewer {
     window: Window,
@@ -262,6 +267,9 @@ pub struct NexusViewer {
     /// `(first cascade far bound, shadow distance)` in meters.
     #[cfg(feature = "dim3")]
     sensor_shadow_range: (f32, f32),
+    /// Shadow map `(resolution, atlas layers)` given to every new sensor camera.
+    #[cfg(feature = "dim3")]
+    sensor_shadow_resolution: (u32, u32),
     /// Body-origin poses from the last readback sync, indexed by GPU pose slot.
     /// Empty on the zero-readback path.
     #[cfg(feature = "dim3")]
@@ -314,6 +322,10 @@ impl NexusViewer {
         // on the small geometry physics scenes are made of.
         window.set_shadow_softness(DEFAULT_SHADOW_SOFTNESS);
         window.set_first_cascade_far_bound(DEFAULT_SHADOW_FIRST_CASCADE);
+        // Physics scenes light with directional lights only: four cascade
+        // layers instead of kiss3d's sixteen pay for a finer shadow map.
+        window.set_shadow_atlas_layers(DEFAULT_SHADOW_ATLAS_LAYERS);
+        window.set_shadow_resolution(DEFAULT_SHADOW_RESOLUTION);
 
         #[cfg(feature = "dim2")]
         let (camera2d, camera3d) = {
@@ -378,6 +390,8 @@ impl NexusViewer {
             sensor_shadow_softness: DEFAULT_SHADOW_SOFTNESS,
             #[cfg(feature = "dim3")]
             sensor_shadow_range: (DEFAULT_SHADOW_FIRST_CASCADE, f32::INFINITY),
+            #[cfg(feature = "dim3")]
+            sensor_shadow_resolution: (DEFAULT_SHADOW_RESOLUTION, DEFAULT_SHADOW_ATLAS_LAYERS),
             #[cfg(feature = "dim3")]
             body_pose_cache: Vec::new(),
             ui: UiState {
@@ -788,6 +802,10 @@ impl NexusViewer {
         sensor.set_samples(self.sensor_samples);
         sensor.set_shadow_softness(self.sensor_shadow_softness);
         sensor.set_shadow_range(self.sensor_shadow_range.0, self.sensor_shadow_range.1);
+        sensor.set_shadow_resolution(
+            self.sensor_shadow_resolution.0,
+            self.sensor_shadow_resolution.1,
+        );
         self.sensors.push(sensor);
         self.sensors.len() - 1
     }
@@ -830,6 +848,28 @@ impl NexusViewer {
         for sensor in &mut self.sensors {
             sensor.set_shadow_range(self.sensor_shadow_range.0, self.sensor_shadow_range.1);
         }
+    }
+
+    /// Shadow map resolution (texels per atlas layer, default 4096) and atlas
+    /// layer count (default 4: one directional light's cascades; a point light
+    /// needs 6, a spot light 1) of the sensor cameras' renders, existing and
+    /// future ones. Memory per camera is `resolution² × layers × 8` bytes.
+    #[cfg(feature = "dim3")]
+    pub fn set_sensor_shadow_resolution(&mut self, resolution: u32, layers: u32) {
+        self.sensor_shadow_resolution = (resolution.max(1), layers.max(1));
+        for sensor in &mut self.sensors {
+            sensor.set_shadow_resolution(
+                self.sensor_shadow_resolution.0,
+                self.sensor_shadow_resolution.1,
+            );
+        }
+    }
+
+    /// Shadow map resolution and atlas layer count of the main window's render
+    /// (see [`Self::set_sensor_shadow_resolution`]).
+    pub fn set_shadow_resolution(&mut self, resolution: u32, layers: u32) {
+        self.window.set_shadow_atlas_layers(layers.max(1));
+        self.window.set_shadow_resolution(resolution.max(1));
     }
 
     /// Directional-shadow cascade layout of the main window's render (see

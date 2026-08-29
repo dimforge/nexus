@@ -219,6 +219,13 @@ impl SensorCamera {
         self.surface.set_shadow_softness(softness);
     }
 
+    /// Shadow map resolution (texels per atlas layer, square) and the number
+    /// of atlas layers to allocate (one directional light needs four).
+    pub fn set_shadow_resolution(&mut self, resolution: u32, layers: u32) {
+        self.surface.set_shadow_atlas_layers(layers);
+        self.surface.set_shadow_resolution(resolution);
+    }
+
     /// Directional-shadow cascade layout of the shaded render: the
     /// highest-resolution cascade covers the camera's first
     /// `first_cascade_far_bound` meters and shadows stop at `shadow_distance`
