@@ -391,6 +391,23 @@ impl NexusViewer {
             .set_sensor_shadow_range(first_cascade_far_bound, shadow_distance);
     }
 
+    /// Shadow map resolution (texels per atlas layer, default 4096) and atlas
+    /// layer count (default 4, one directional light's cascades; a point light
+    /// needs 6) of the sensor cameras' renders, existing and future ones.
+    /// Memory per camera is `resolution² × layers × 8` bytes.
+    #[pyo3(signature = (resolution, layers=4))]
+    fn set_sensor_shadow_resolution(&mut self, resolution: u32, layers: u32) {
+        self.inner_mut()
+            .set_sensor_shadow_resolution(resolution, layers);
+    }
+
+    /// Shadow map resolution and atlas layer count of the main window's render
+    /// (see `set_sensor_shadow_resolution`).
+    #[pyo3(signature = (resolution, layers=4))]
+    fn set_shadow_resolution(&mut self, resolution: u32, layers: u32) {
+        self.inner_mut().set_shadow_resolution(resolution, layers);
+    }
+
     /// Directional-shadow cascade layout of the main window's render (see
     /// `set_sensor_shadow_range`).
     #[pyo3(signature = (first_cascade_far_bound, shadow_distance=f32::INFINITY))]
