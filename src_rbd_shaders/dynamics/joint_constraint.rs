@@ -212,7 +212,7 @@ pub fn gpu_init_joint_constraints(
         cons.solver_vel_b = body_b;
         cons.im_a = local_mprops.at(body_a as usize).inv_mass;
         cons.im_b = local_mprops.at(body_b as usize).inv_mass;
-        cons.len = 0;
+        cons.len = 0; // Constraint elements will be filled later.
     }
 }
 

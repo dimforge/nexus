@@ -26,6 +26,7 @@ pub struct GpuWarmstart {
 ///
 /// Contains buffers for both old (previous frame) and new (current frame) constraint data.
 pub struct WarmstartArgs<'a> {
+    /// Clamped per-frame list totals (the flat contact sweep bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// Constraint counts per body from previous frame.
     pub old_body_constraint_counts: &'a Tensor<u32>,
@@ -45,6 +46,7 @@ pub struct WarmstartArgs<'a> {
 
 /// Arguments for the coloring seed dispatch.
 pub struct SeedColorsArgs<'a> {
+    /// Clamped per-frame list totals (the flat contact sweep bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// Constraint counts per body from previous frame.
     pub old_body_constraint_counts: &'a Tensor<u32>,

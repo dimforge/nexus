@@ -17,10 +17,10 @@ use super::ws_soa::{WS_COORDS, WS_LTP, WS_LTW, WS_QUADS};
 /// per-element loops (`links_per_batch · WS_QUADS >= links_per_batch`, and
 /// `dofs_per_batch <= links_per_batch · WS_QUADS` for any real multibody).
 ///
-/// `staging_dofs` holds `dofs_per_batch` generalized coordinates followed by
-/// `dofs_per_batch` generalized velocities. Only the velocity section of
-/// `dof_state` is written; the sections after it are static configuration
-/// (damping, armature, springs), not per-episode state.
+/// `staging_dofs` holds `dofs_per_batch` generalized velocities. Only the
+/// velocity section of `dof_state` is written; the sections after it are
+/// static configuration (damping, armature, springs), not per-episode state.
+/// The generalized coordinates live in the workspace quads copied above.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_env_reset(
@@ -43,6 +43,8 @@ pub fn gpu_mb_env_reset(
     let dpb = params.w;
 
     if i < lpb * WS_QUADS {
+        // Staging is per-env dense; the live workspace is interleaved at
+        // per-link-record granularity (record = `WS_QUADS` dense quads).
         let link = i / WS_QUADS;
         let q = i % WS_QUADS;
         links_workspace.write(
@@ -116,6 +118,7 @@ pub fn gpu_mb_env_reset_batch(
             v.y += off.y;
             v.z += off.z;
         }
+        // Live workspace is interleaved at per-link-record granularity.
         links_workspace.write(((link * nb + env) * WS_QUADS + q) as usize, v);
     }
 }
@@ -204,6 +207,8 @@ pub fn gpu_env_reset_bodies(
     let t = meta.y;
     let off = offsets.read(r as usize);
 
+    // Templates are dense per-env arrays; the live per-body buffers are
+    // batch-interleaved (`local * num_batches + env`).
     if i < bps {
         let mut p = templates_poses.read((t * bps + i) as usize);
         if body_mask.read(i as usize) != 0 {

@@ -51,6 +51,8 @@ pub fn gpu_mb_integrate_velocities(
     let mut dof_vel = batch_ids
         .ib_mut(batch_id, dof_state)
         .offset(mb.first_dof as usize);
+    // The accelerations live in the per-multibody-region `gen_forces` buffer
+    // (dense region per (multibody, batch); `dof_state` stays interleaved).
     let acc0 = batch_ids.mb_region(batch_id, mb.first_dof, mb.ndofs);
 
     for d in 0..mb.ndofs {

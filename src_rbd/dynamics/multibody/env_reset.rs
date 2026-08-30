@@ -25,8 +25,8 @@ use khal::backend::{Backend, GpuBackend};
 use vortx::tensor::Tensor;
 
 /// CPU snapshot of one (single-batch) multibody template: the AoS per-link
-/// workspace, the static link descriptors, and the generalized coordinates and
-/// velocities of batch 0.
+/// workspace (which carries the generalized coordinates), the static link
+/// descriptors, and the generalized velocities of batch 0.
 #[derive(Clone)]
 pub struct GpuMultibodySnapshot {
     /// AoS per-link workspace of batch 0, `links_per_batch` entries including
@@ -69,8 +69,8 @@ impl GpuMultibodySnapshot {
     }
 
     /// A copy with every floating-base multibody translated by `offset` (world
-    /// frame). Rotations, joint coordinates past the free linear DoFs,
-    /// velocities and `dof_values` are translation-invariant; the free root's
+    /// frame). Rotations, joint coordinates past the free linear DoFs and
+    /// velocities are translation-invariant; the free root's
     /// world position lives in `coords[0..3]` and `local_to_parent` (a root's
     /// parent frame is the world), and each link's `local_to_world` carries its
     /// body pose. Fixed-base multibodies are untouched. `body_poses`, owned by
@@ -264,8 +264,8 @@ impl GpuMultibodySet {
         self.env_reset = Some(bundle);
     }
 
-    /// Uploads the reset templates once as GPU-resident blobs (SoA workspace,
-    /// links, coords and velocities) plus the per-link translate flags the
+    /// Uploads the reset templates once as GPU-resident blobs (SoA workspace
+    /// and links) plus the per-link translate flags the
     /// batch kernel needs, enabling [`Self::encode_reset_envs_batch`]. A host
     /// copy of each template's `links_static` is kept so the batch reset can
     /// maintain the CPU mirror.

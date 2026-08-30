@@ -37,6 +37,7 @@ pub fn gpu_bf_compute_aabbs(
 
     let poses = batch_ids.ib(batch_id, poses);
     let shapes = batch_ids.ib(batch_id, shapes);
+    // The AABB scratch stays batch-major (broad-phase internal layout).
     let out = (crate::broad_phase::scratch_start(batch_ids, batch_id) + i) as usize;
     aabbs.write(
         out,
@@ -99,6 +100,7 @@ pub fn gpu_bf_find_pairs(
         return;
     }
 
+    // Single global counter: every batch appends to the same flat buffer.
     let target_pair_index = atomic_add_u32(collision_pairs_len.at_mut(0), 1);
 
     // If we exceed capacity, keep counting the pairs but don’t store any more to avoid overflow.

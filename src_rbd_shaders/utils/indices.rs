@@ -20,8 +20,16 @@ pub struct BatchIndices {
     pub colliders_len: u32,
     /// Number of *active* rigid bodies per batch.
     pub bodies_len: u32,
+    /// Total capacity of the flat collision-pair buffer (all batches share it;
+    /// also the capacity of the flat PFM work-list, which is sized identically).
     pub collision_pairs_capacity: u32,
+    /// Total capacity of the flat contacts buffer (and of every contacts-keyed
+    /// buffer: constraints, builders, colors, sorted ids). Contact slots are
+    /// positional (pair `t` owns slot `t`, PFM entry `i` owns slot
+    /// `pairs_total + i`), so this is always `2 * collision_pairs_capacity`.
     pub contacts_capacity: u32,
+    /// Number of *active* free-body impulse joints per batch (the loop bound;
+    /// the joint-keyed buffers are batch-interleaved).
     pub impulse_joints_len: u32,
 
     /*
@@ -40,7 +48,14 @@ pub struct BatchIndices {
      */
     pub mb_joint_constraints_batch_capacity: u32,
     pub mb_joint_constraint_columns_batch_capacity: u32,
+    /// Total capacity (in slots) of the flat multibody contact-constraint
+    /// buffer; per-multibody segments within it are dynamic (see
+    /// `MultibodyInfo::contact_constraint_start`). The paired jac/column arena
+    /// holds `2 * dof_batch_capacity` floats per slot (`Jᵀ` row, then its
+    /// `M⁻¹·Jᵀ` column).
     pub mb_contact_constraints_capacity: u32,
+    /// Per-batch multibody-touching impulse-joint slot count (loop bound for
+    /// the flat sweeps).
     pub mb_imp_joints_batch_capacity: u32,
     /// Actual max `ndofs` across every multibody in every batch (often smaller
     /// than the fixed `MAX_MB_DOFS` limit).
@@ -81,10 +96,16 @@ impl BatchIndices {
      * compute base indices into flat f32 buffers (e.g. when constructing a
      * `MatSlice::dense(base, ...)`).
      */
+    /// Global id of body/collider `local` of `batch_id`: bodies are stored
+    /// batch-interleaved (`local * num_batches + batch`), so the same
+    /// topological entity across environments sits on adjacent lanes.
     #[inline]
     pub fn body_global(&self, batch_id: u32, local: u32) -> usize {
         local as usize * self.num_batches as usize + batch_id as usize
     }
+
+    /// Strided body indexer for `batch_id` (see [`BodyIx`]), for helpers that
+    /// resolve env-local body ids without carrying a slice view.
     #[inline]
     pub fn body_ix(&self, batch_id: u32) -> BodyIx {
         BodyIx {
@@ -122,13 +143,19 @@ impl BatchIndices {
         }
     }
 
-    /// Interleaved dense matrix view at intra-batch element offset `offset`.
+    /// Base of batch `batch_id`'s dense region in a per-multibody-region
+    /// buffer (mass matrices, LU pivots, body jacobians, coriolis blocks,
+    /// generalized forces, impulse-joint jacobians): regions tile as
+    /// `offset * num_batches + batch * len`, dense inside.
     #[inline]
     pub fn mb_region(&self, batch_id: u32, offset: u32, len: u32) -> usize {
         offset as usize * self.num_batches as usize + batch_id as usize * len as usize
     }
 
-    /// Interleaved vector view at intra-batch element offset `offset`.
+    /// Batch owning the collider with global id `collider_id` (the flat
+    /// collision-pair and contact buffers store global collider/body ids;
+    /// bodies are batch-interleaved so the batch is the id modulo the batch
+    /// count).
     #[inline]
     pub fn collider_batch(&self, collider_id: u32) -> u32 {
         collider_id % self.num_batches
@@ -150,6 +177,9 @@ impl BatchIndices {
     }
 }
 
+/// Strided indexer mapping an env-local body/collider id to its global slot in
+/// the batch-interleaved per-body buffers: `global = id * stride + shift`
+/// (`stride = num_batches`, `shift = batch_id`).
 #[derive(Copy, Clone)]
 pub struct BodyIx {
     pub stride: u32,

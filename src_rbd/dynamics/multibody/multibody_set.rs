@@ -186,27 +186,38 @@ pub struct GpuMultibodySet {
     /// Snapshot of `contact_constraints` taken at the start of the step; the
     /// warmstart transfer matches this frame's slots against it.
     pub(super) old_contact_constraints: Tensor<MultibodyContactConstraint>,
+    /// Paired per-slot jac/column arena of the contact constraints: slot `s`
+    /// owns `2 * dofs_per_batch` dense floats, its `Jᵀ` row followed by its
+    /// `M⁻¹·Jᵀ` column (same pairing as the impulse-joint jacobians arena).
     pub(super) contact_jac_cols: Tensor<f32>,
     /// Per-multibody Delassus blocks (`MAX_MB_CONTACT_CONSTRAINTS_PER_MB²`
     /// floats each) only allocated when the total multibody count is at most
     /// [`MAX_DELASSUS_MULTIBODIES`].
     pub(super) contact_delassus: Option<Tensor<f32>>,
 
+    /// Batch-interleaved impulse-joint builder descriptors (joint slot `i` of
+    /// batch `b` at `i * num_batches + b`; unused slots padded with a
+    /// FIXED/FIXED sentinel).
     pub(super) mb_imp_joint_builders: Tensor<MbImpulseJointBuilder>,
-    /// Per-batch slab of axis constraints.
+    /// Batch-interleaved axis constraints (batch-local slot ids live in the
+    /// builders).
     pub(super) mb_imp_joint_constraints: Tensor<MbImpulseJointConstraint>,
-    /// Per-batch flat jacobians buffer — stores `J / W·J` for both sides
-    /// of every axis constraint of every joint.
+    /// Jacobians buffer — stores `J / W·J` for both sides of every axis
+    /// constraint of every joint. Interleaved at per-joint-region granularity
+    /// (joint `j`, batch `b` at `jacobian_offset_j * nb + b *
+    /// jacobian_capacity_j`, dense inside); constraints hold absolute ids.
     pub(super) mb_imp_joint_jacobians: Tensor<f32>,
 
-    /// Capacities (per-batch strides) for the impulse-joint slabs above.
-    /// Mirrored into `BatchIndices` via [`Self::fill_batch_indices`].
+    /// Per-batch slot counts for the interleaved impulse-joint buffers above
+    /// (`mb_imp_joints_per_batch` is mirrored into `BatchIndices` as the flat
+    /// sweeps' loop bound; the others only size the buffers).
     pub(super) mb_imp_joints_per_batch: u32,
     pub(super) mb_imp_joint_constraints_per_batch: u32,
     pub(super) mb_imp_joint_jacobians_per_batch: u32,
 
-    /// Per-batch prefix-sum over the color-sorted `mb_imp_joint_builders`.
-    /// Built at init time by `set_impulse_joints` (greedy graph coloring).
+    /// Per-batch prefix-sums over the color-sorted `mb_imp_joint_builders`,
+    /// color-major interleaved (`color * num_batches + batch`). Built at init
+    /// time by `set_impulse_joints` (greedy graph coloring).
     pub(super) mb_imp_joint_color_groups: Tensor<u32>,
     /// Number of colors (per-batch stride of `mb_imp_joint_color_groups`,
     /// and the host color-loop trip count). CPU mirror.
@@ -226,9 +237,18 @@ pub struct GpuMultibodySet {
     /// mirror). Stored so `RbdState` can rebuild its `BatchIndices` when caps change.
     pub(super) joint_constraints_per_batch: u32,
     pub(super) joint_constraint_columns_per_batch: u32,
+    /// Total capacity (in slots) of the flat contact-constraint buffer; the
+    /// jacobian/column arenas hold `dofs_per_batch` floats per slot.
     pub(super) contact_constraints_capacity: u32,
+    /// Total contact-constraint slot demand of the last stepped frame,
+    /// written by `gpu_mb_cons_offsets_scan` and read back by the auto-resize.
     pub(super) mb_cons_demand: Tensor<u32>,
+    /// Per-(multibody, batch) contact-constraint slot demand, accumulated by
+    /// the flat count pass and consumed (then re-zeroed) by the offsets scan.
+    /// Indexed like `multibody_info` (interleaved).
     pub(super) mb_cons_counts: Tensor<u32>,
+    /// Per-(multibody, batch) contact-index entry counts; after the scan they
+    /// double as the scatter pass's write cursors.
     pub(super) mb_index_counts: Tensor<u32>,
 
     /// Number of solver iterations to run on `joint_constraints` per `step()`.
@@ -647,6 +667,9 @@ impl GpuMultibodySet {
         set: &crate::rapier::dynamics::MultibodyJointSet,
         bodies: &crate::rapier::dynamics::RigidBodySet,
     ) -> Result<(), GpuBackendError> {
+        // The mirror shares the GPU buffer's batch-interleaved layout: link
+        // slot `i` of env `e` lives at `i * num_batches + e` (same convention
+        // as `set_motors`).
         let nb = self.num_batches as usize;
         let mut offset = 0usize;
         for mb in set.multibodies() {
@@ -666,6 +689,9 @@ impl GpuMultibodySet {
                 if link_idx == 0 && !root_is_dynamic {
                     data.locked_axes = 0x3f;
                 }
+                // Motor `impulse` is solver state, not configuration: keep the
+                // accumulated values so retargeting does not drop the servos'
+                // warmstart (mirrors `set_motors`).
                 for axis in 0..6 {
                     data.motors[axis].impulse = entry.data.motors[axis].impulse;
                 }
@@ -774,9 +800,14 @@ impl GpuMultibodySet {
         self.warmstart_coefficient
     }
 
+    /// Total slot capacity of [`Self::contact_constraints`].
     pub fn contact_constraints_capacity(&self) -> u32 {
         self.contact_constraints_capacity
     }
+
+    /// Total contact-constraint slot demand of the last stepped frame (GPU
+    /// buffer, read back by the auto-resize).
+    /// Debug: the body-id → (multibody, link) lookup buffer.
     pub fn body_to_link(&self) -> &Tensor<[u32; 2]> {
         &self.body_to_link
     }
@@ -784,11 +815,17 @@ impl GpuMultibodySet {
     pub fn mb_cons_demand(&self) -> &Tensor<u32> {
         &self.mb_cons_demand
     }
+
+    /// Smallest flat contact-constraint capacity that honors every
+    /// multibody's overflow reservation (see `MB_CONS_SLOT_RESERVE`).
     pub(crate) fn min_contact_slab_capacity(&self) -> u32 {
         (self.num_active_multibodies * self.num_batches)
             .saturating_mul(crate::shaders::dynamics::MB_CONS_SLOT_RESERVE)
             .max(64)
     }
+
+    /// Debug: per (multibody, batch) `(start, count, old_start, old_count)` of
+    /// the dynamic contact-constraint segments, plus the last total demand.
     pub async fn debug_cons_layout(
         &self,
         backend: &GpuBackend,
@@ -817,6 +854,10 @@ impl GpuMultibodySet {
         (out, demand.first().copied().unwrap_or(0))
     }
 
+    /// Reallocates the flat contact-constraint buffer (and its parallel
+    /// jacobian / column arenas and previous-frame copy) at `new_capacity`
+    /// slots. The previous-frame copy is zeroed, so the warmstart transfer
+    /// skips one frame after a resize.
     pub(crate) fn resize_contact_slabs(&mut self, backend: &GpuBackend, new_capacity: u32) {
         use khal::BufferUsages;
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
@@ -1104,6 +1145,9 @@ impl GpuMultibodySet {
             .unwrap_or([u32::MAX; 2])
     }
 
+    /// Paired per-slot jac/column arena of the contact constraints: slot `s`
+    /// (laid out like [`Self::contact_constraints`]) owns `2 * dofs_per_batch`
+    /// dense floats — its `Jᵀ` row followed by its `M⁻¹·Jᵀ` column.
     pub fn contact_jac_cols(&self) -> &Tensor<f32> {
         &self.contact_jac_cols
     }

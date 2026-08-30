@@ -30,6 +30,8 @@ impl GpuMultibodySet {
             &RigidBodySet,
         )],
         colliders_per_batch: u32,
+        // Per-batch contact-constraint slot budget
+        // (`RbdCapacities::mb_contact_constraints_capacity`).
         contact_constraint_slots: u32,
     ) -> Self {
         let num_batches = environments.len() as u32;
@@ -123,10 +125,12 @@ impl GpuMultibodySet {
                 max_mb_links = max_mb_links.max(num_links);
 
                 // Count maximum constraint slots this multibody could need: for
-                // each non-root non-kinematic joint, every free axis with a limit
-                // OR a motor enabled produces one constraint slot, plus an
-                // additional one if BOTH limit and motor are enabled on the same
-                // axis (rapier emits them as separate constraints).
+                // each non-root non-kinematic joint, every free axis with a
+                // limit produces one constraint slot, plus one MOTOR slot per
+                // free axis whether or not a motor is enabled at build time —
+                // `set_motors` can enable motors at runtime (the MJCF actuator
+                // path does exactly that every frame), and the emission kernel
+                // must never outgrow this baked-in segment.
                 let max_constraints = mb
                     .links()
                     .enumerate()
@@ -146,6 +150,7 @@ impl GpuMultibodySet {
                                 n += 1;
                             }
                             if (locked >> ax) & 1 == 0 {
+                                // Reserved motor row (runtime-enableable).
                                 n += 1;
                             }
                         }
@@ -378,6 +383,12 @@ impl GpuMultibodySet {
         // One length-`dofs_cap` column of `M⁻¹` per constraint slot.
         let cons_col_cap = cons_cap.saturating_mul(dofs_cap).max(1);
 
+        // Flat contact-constraint buffer: per-multibody segments within it are
+        // demand-sized every frame (count pass + offsets scan). The initial
+        // capacity is the configured per-batch slot budget, floored by the
+        // per-multibody overflow reservation; the auto-resize grows it from
+        // the readback of the actual demand. Each contact point produces 1
+        // normal + (DIM-1) friction tangent constraint slots.
         let contact_cons_cap = contact_constraint_slots
             .saturating_mul(num_batches)
             .max(
@@ -427,6 +438,12 @@ impl GpuMultibodySet {
         let dummy_info = MultibodyInfo::default();
         let dummy_stat: MultibodyLinkStatic = bytemuck::Zeroable::zeroed();
         let dummy_ws = make_workspace_init();
+
+        // The dynamics arenas (mass matrices, LU pivots, body jacobians,
+        // coriolis, generalized forces) are interleaved at per-multibody-region
+        // granularity (`BatchIndices::mb_region`): the tiling requires every
+        // batch to agree on each multibody's layout offsets. The equal-topology
+        // invariant guarantees it; make it explicit.
         for (b, env) in per_env_infos.iter().enumerate() {
             assert_eq!(
                 env.len(),
@@ -628,6 +645,8 @@ impl GpuMultibodySet {
             .unwrap(),
             dof_couplings: Tensor::vector(backend, &all_couplings, storage).unwrap(),
             couplings_per_batch: couplings_cap,
+            // The GPU buffer is indexed by global (batch-interleaved) body id;
+            // the host mirror stays batch-major for `link_of_body`.
             body_to_link: {
                 let cap = body_to_link_cap as usize;
                 let nb = num_batches as usize;
@@ -765,6 +784,8 @@ impl GpuMultibodySet {
             contact_constraints_capacity: contact_cons_cap,
             mb_cons_demand: Tensor::vector(backend, &[0u32], storage | BufferUsages::COPY_SRC)
                 .unwrap(),
+            // Zeroed: the count pass atomically accumulates into these and the
+            // offsets scan re-zeroes them after consuming them.
             mb_cons_counts: Tensor::vector(
                 backend,
                 vec![0u32; (mb_cap * num_batches) as usize],

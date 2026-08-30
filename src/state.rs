@@ -349,6 +349,9 @@ impl NexusState {
         self.capacities.rbd.collisions_capacity = capacity.max(1);
     }
 
+    /// Sets the per-batch multibody contact-constraint slot budget (see
+    /// [`RbdCapacities::mb_contact_constraints_capacity`]). Takes effect on the
+    /// next state (re)build.
     pub fn set_rbd_mb_contact_constraints_capacity(&mut self, capacity: u32) {
         self.capacities.rbd.mb_contact_constraints_capacity = capacity.max(1);
     }
@@ -998,6 +1001,8 @@ impl NexusState {
             // `gpu_id` is its *body* slot, not a collider slot, since a body may
             // own several colliders. Body slots are assigned in the order
             // `from_rapier` uses (the first time each parent body is seen while
+            // iterating colliders); the per-body buffers are batch-interleaved,
+            // so `gpu_id = local_slot * num_batches + env`.
             let nb = rbd_state.num_batches();
             for (env_idx, world) in self.rbd_envs.iter().enumerate() {
                 let mut body_slot: std::collections::HashMap<_, u32> =

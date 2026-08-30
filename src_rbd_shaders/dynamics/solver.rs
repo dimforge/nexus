@@ -57,6 +57,8 @@ pub fn gpu_solver_init_constraints(
         let i = i as usize;
         let im = contacts.at(i);
         if im.contact.len == 0 {
+            // Gap or inert slot: clear the (stale) constraint so every flat
+            // consumer skips it.
             constraints.at_mut(i).len = 0;
             continue;
         }
@@ -87,6 +89,7 @@ pub fn gpu_solver_count_constraints(
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
+    // Flat over all contacts of all batches: ids are global, counts cumulative.
     let total = contact_plan.bound;
     let contacts = Slice(contacts, 0);
     let mut body_constraint_counts = SliceMut(body_constraint_counts, 0);
@@ -142,6 +145,7 @@ pub fn gpu_solver_update_constraints(
 
     for i in StepRng::new(invocation_id.x..total, num_threads) {
         if constraints[i as usize].len == 0 {
+            // Gap / inert slot.
             continue;
         }
         constraints[i as usize].update_constraint(
@@ -176,6 +180,7 @@ pub fn gpu_solver_refresh_rhs_wo_bias(
 
     for i in StepRng::new(invocation_id.x..total, num_threads) {
         if constraints[i as usize].len == 0 {
+            // Gap / inert slot.
             continue;
         }
         constraints[i as usize].refresh_rhs_wo_bias(
@@ -366,6 +371,9 @@ pub fn gpu_warmstart(
     let mut solver_vels = SliceMut(solver_vels, 0);
     let color = *curr_color;
 
+    // Buckets are color-major (`color * num_batches + batch`) and the buffer
+    // holds post-scatter exclusive ENDS, so color `c` (over every batch) spans
+    // `[ends[c*nb - 1], ends[(c+1)*nb - 1])`. `c >= 1` keeps the index valid.
     let start = color_starts.read((color * nb - 1) as usize);
     let end = color_starts.read(((color + 1) * nb - 1) as usize);
 
@@ -409,6 +417,7 @@ pub fn gpu_step_gauss_seidel(
     let color = *curr_color;
     let use_bias = *use_bias != 0;
 
+    // Color-major bucket ends; see `gpu_warmstart`.
     let start = color_starts.read((color * nb - 1) as usize);
     let end = color_starts.read(((color + 1) * nb - 1) as usize);
 
@@ -456,6 +465,8 @@ pub fn gpu_warmstart_fused(
     let num_colors = *num_colors;
 
     for color in 1..=num_colors {
+        // This batch's bucket for `color` (color-major layout, post-scatter
+        // exclusive ends; the index is >= num_batches >= 1 for color >= 1).
         let bucket = (color * nb + batch_id) as usize;
         let start = color_starts.read(bucket - 1);
         let end = color_starts.read(bucket);
@@ -521,6 +532,7 @@ pub fn gpu_step_gauss_seidel_fused(
     let use_bias = *use_bias != 0;
 
     for color in 1..=num_colors {
+        // Empty-color skip: see `gpu_warmstart_fused`.
         let bucket = (color * nb + batch_id) as usize;
         let start = color_starts.read(bucket - 1);
         let end = color_starts.read(bucket);

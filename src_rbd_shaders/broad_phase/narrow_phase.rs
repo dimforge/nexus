@@ -28,15 +28,29 @@ use glamx::UVec2;
 
 const WORKGROUP_SIZE: u32 = 64;
 
+/// The clamped per-frame list totals every contacts-keyed kernel reads,
+/// written once per frame by [`gpu_contact_plan`].
+///
+/// Contact slots are positional: pair `t` owns contact slot `t`, and the
+/// `i`-th PFM entry (in sorted order when the sort runs) owns slot
+/// `pfm_base + i`. Every slot in `[0, bound)` is (re)written each frame by
+/// exactly one producer (`len = 0` when the pair yields no manifold), so no
+/// zeroing pass is needed and the flat consumers can sweep the whole bound.
 #[derive(Copy, Clone, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 pub struct ContactPlan {
+    /// Total contact-slot bound (`pfm_base + pfm_len`): the sweep range of
+    /// every flat contacts-keyed kernel.
     pub bound: u32,
+    /// Clamped flat collision-pair total; also the base contact slot of the
+    /// PFM entries.
     pub pfm_base: u32,
+    /// Clamped flat PFM work-list total.
     pub pfm_len: u32,
 }
 
+/// Resets the (single, global) PFM work-list counter.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_reset_narrow_phase(
@@ -49,6 +63,18 @@ pub fn gpu_reset_narrow_phase(
     }
 }
 
+/// Publishes this frame's clamped list totals (the `contact_plan`) and every
+/// grid derived from them: the flat contacts sweep grid, the PFM sweep grid,
+/// the (clamped) PFM sort count, and the per-multibody contact sweep grid
+/// (`[multibodies_batch_capacity, num_batches, 1]`, zero workgroups when the
+/// frame cannot produce any contact).
+///
+/// Runs after the deferred pass (both list counters final) and before
+/// everything that consumes contact slots. Serial in one thread.
+///
+/// NOTE: the counter loads must be atomic or they occasionally read stale
+/// data (breaks Windows+Nvidia+wgpu, see
+/// <https://github.com/gfx-rs/wgpu/issues/9221>).
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_contact_plan(
@@ -64,6 +90,8 @@ pub fn gpu_contact_plan(
     let pairs =
         atomic_load_u32(collision_pairs_len.at_mut(0)).min(batch_ids.collision_pairs_capacity);
     let pfm = atomic_load_u32(pfm_pairs_len.at_mut(0)).min(batch_ids.collision_pairs_capacity);
+    // `contacts_capacity = 2 * collision_pairs_capacity` (host invariant), so
+    // the positional slots `[0, pairs)` and `[pairs, pairs + pfm)` always fit.
     let bound = pairs + pfm;
 
     contact_plan.bound = bound;
@@ -87,6 +115,9 @@ pub fn gpu_contact_plan(
     *mb_sweep_indirect.at_mut(2) = 1;
 }
 
+/// Copies each PFM entry's originating pair index into the flat sort-key
+/// buffer consumed by the radix sort that groups the entries per pair (only
+/// dispatched when contact reduction is enabled).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_pfm_sort_keys(
@@ -153,6 +184,12 @@ fn pool_dedup(cand: &mut [ContactPoint; 8], num: &mut usize, pt: ContactPoint, d
 /// default threshold, where every member is within ~5.1 degrees, but it keeps
 /// the choice sane when `merge_cos` is loosened.
 ///
+/// One thread per sorted PFM entry; the entries were radix-sorted by their
+/// originating pair (a prerequisite of reduction), so each pair's manifolds
+/// sit in one contiguous run of contact slots and the run leader (the first
+/// entry of its run) compacts the run in place. Analytic pairs emit exactly
+/// one manifold and never enter the PFM list, so they need no reduction.
+/// Grid: `pfm_indirect`.
 #[cfg(feature = "dim3")]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
@@ -173,9 +210,11 @@ pub fn gpu_reduce_contacts(
     for t in StepRng::new(invocation_id.x..total as u32, num_threads) {
         let i = t as usize;
         let key = sorted_pfm_keys.read(i);
+        // Only the leader (first entry) of each same-pair run does the work.
         if i > 0 && sorted_pfm_keys.read(i - 1) == key {
             continue;
         }
+        // Run length: entries sharing this pair key (clamped by `total`).
         let mut n = 1usize;
         for j in (i + 1)..total {
             if sorted_pfm_keys.read(j) != key {
@@ -184,20 +223,28 @@ pub fn gpu_reduce_contacts(
             n += 1;
         }
         if n <= 1 {
+            // Single-manifold pairs are bit-identical to the unreduced path.
             continue;
         }
         let mut contacts = SliceMut(contacts, base + i);
 
+        // Write cursor: always <= the read cursor, so compacting in place is
+        // safe.
         let mut w = 0usize;
         for i in 0..n {
             let im = contacts[i];
+            // PFM misses left an inert slot; nothing to merge or keep.
             if im.contact.len == 0 {
                 continue;
             }
             let mut merged = false;
             for j in 0..w {
                 let out = contacts[j];
+                // Every entry of the run shares one collider pair (and one
+                // collider-A local frame): cluster on the normal alone.
                 if out.contact.normal_a.dot(im.contact.normal_a) >= merge_cos {
+                    // Pool the two manifolds' points (same collider-A local frame),
+                    // dropping near-duplicates as rapier's clustering does.
                     let na = (out.contact.len as usize).min(MAX_MANIFOLD_POINTS);
                     let nb = (im.contact.len as usize).min(MAX_MANIFOLD_POINTS);
                     let dedup_eps = prediction * 0.25;
@@ -220,6 +267,11 @@ pub fn gpu_reduce_contacts(
                             dedup_eps_sq,
                         );
                     }
+                    // Normal of whichever manifold holds the deepest point. rapier
+                    // keeps the opener's normal instead, which it can afford
+                    // because its ~5.1 degree cone makes every member equivalent;
+                    // this degrades gracefully when `merge_cos` is loosened, and
+                    // agrees with rapier's choice when it is not.
                     let mut deep_out = out.contact.points_a.at(0).dist;
                     for k in 1..na {
                         let d = out.contact.points_a.at(k).dist;
@@ -240,6 +292,7 @@ pub fn gpu_reduce_contacts(
                         out.contact.normal_a
                     };
                     let mut reduced = manifold_reduction(&cand, num as u32, normal, prediction);
+                    // `manifold_reduction` fills points/len only.
                     reduced.normal_a = normal;
                     let mut kept = out;
                     kept.contact = reduced;
@@ -253,6 +306,8 @@ pub fn gpu_reduce_contacts(
                 w += 1;
             }
         }
+        // The compaction leaves stale duplicates in `[w, n)`; mark them inert
+        // so the flat consumers (which walk the whole bound) skip them.
         for i in w..n {
             contacts[i].contact.len = 0;
         }
@@ -261,6 +316,11 @@ pub fn gpu_reduce_contacts(
 
 /// Narrow phase, pass 1 of 2: analytic shape-shape contacts for ball / cuboid
 /// pairs, written straight into the `contacts` buffer.
+///
+/// Contact slots are positional: pair `t` owns contact slot `t` and this pass
+/// writes every slot in `[0, pairs_total)` exactly once (`len = 0` when the
+/// pair yields no manifold here: separated, same-body, or deferred), so the
+/// flat consumers can sweep the whole bound without a zeroing pass.
 ///
 /// The complex cases (generic convex via PFM, trimesh, polyline) are deferred
 /// to `gpu_narrow_phase_shape_shape_deferred`.
@@ -285,6 +345,9 @@ pub fn gpu_narrow_phase_shape_shape(
     let prediction = params.prediction_distance();
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
+    // Flat over the single mixed-batch pair list: consecutive lanes take
+    // consecutive pairs regardless of which batch owns them, so warps stay
+    // packed even when each batch only has a handful.
     let total = contact_plan.pfm_base;
 
     for t in StepRng::new(invocation_id.x..total, num_threads) {
@@ -292,6 +355,7 @@ pub fn gpu_narrow_phase_shape_shape(
 
         // Resolve the parent rigid-bodies here (the broad phase no longer does)
         // and skip pairs whose colliders share the same body. Pair ids are
+        // global, and `collider_parent` maps them to global body ids.
         let body1 = collider_parent.read(pair.colliders.x as usize);
         let body2 = collider_parent.read(pair.colliders.y as usize);
         let mut manifold = ContactManifold::default();
@@ -304,6 +368,7 @@ pub fn gpu_narrow_phase_shape_shape(
             let shape_ty2 = shape2.shape_type();
             let pose12 = pose1.inverse() * pose2;
 
+            // Ball - Convex
             if shape_ty1 == SHAPE_TYPE_BALL {
                 if shape_ty2 == SHAPE_TYPE_BALL {
                     let ball1 = shape1.to_ball();
@@ -319,6 +384,7 @@ pub fn gpu_narrow_phase_shape_shape(
                 }
             }
 
+            // Convex - Ball
             if shape_ty2 == SHAPE_TYPE_BALL
                 && (shape_ty1 == SHAPE_TYPE_CUBOID
                     || shape_ty1 == SHAPE_TYPE_CAPSULE
@@ -329,6 +395,7 @@ pub fn gpu_narrow_phase_shape_shape(
                 manifold = convex_ball(pose12, shape1, &ball2);
             }
 
+            // Cuboid - Cuboid
             if shape_ty1 == SHAPE_TYPE_CUBOID && shape_ty2 == SHAPE_TYPE_CUBOID {
                 let cuboid1 = shape1.to_cuboid();
                 let cuboid2 = shape2.to_cuboid();
@@ -337,9 +404,11 @@ pub fn gpu_narrow_phase_shape_shape(
         }
 
         // Everything else (PFM / trimesh / polyline) is handled by the deferred
+        // pass; `manifold.len` stays 0 here so the pair's slot reads as inert.
         if manifold.len > 0 && manifold.points_a.at(0).dist < prediction {
             let mat1 = collider_materials.read(pair.colliders.x as usize);
             let mat2 = collider_materials.read(pair.colliders.y as usize);
+            // Contacts carry global collider/body ids.
             contacts.write(
                 t as usize,
                 IndexedManifold {
@@ -352,6 +421,8 @@ pub fn gpu_narrow_phase_shape_shape(
                 },
             );
         } else {
+            // The slot is owned by this pair either way; only its `len` gates
+            // every consumer, so a field write avoids the full-struct store.
             contacts.at_mut(t as usize).contact.len = 0;
         }
     }
@@ -368,17 +439,19 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs: &[CollisionPair],
+    // Single global pair count (see `gpu_narrow_phase_shape_shape`).
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] collision_pairs_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] shapes: &[Shape],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     pfm_pairs: &mut [NarrowPhasePfmPair],
+    // Single global PFM work-list count.
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pfm_pairs_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] vertices: &[PaddedVector],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] indices: &[u32],
-    // NOTE: we assume that max_pfm_pairs == contacts_batch_capacity
-    //       And we assume all batch dimensions are given the same buffer allocation sizes
-    //       (i.e. the same `contacts_batch_capacity`).
+    // NOTE: the flat PFM work-list shares the collision-pair buffer's capacity
+    //       (`collision_pairs_capacity`); both buffers are allocated the same
+    //       total size.
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &RbdSimParams,
 ) {
@@ -397,6 +470,8 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
     for t in StepRng::new(invocation_id.x..total, num_threads) {
         let mut pfm_pairs = SliceMut(&mut *pfm_pairs, 0);
         let pfm_pairs_len = pfm_pairs_len.at_mut(0);
+
+        // Pair collider ids are global; the emitted PFM pairs keep them global.
         let pair = collision_pairs.read(t as usize);
         let shape1 = shapes.at(pair.colliders.x as usize);
         let shape2 = shapes.at(pair.colliders.y as usize);
@@ -708,10 +783,22 @@ pub struct NarrowPhasePfmPair {
     thickness1: f32,
     thickness2: f32,
     colliders: UVec2,
+    /// Index of the originating pair in the flat collision-pair list; the
+    /// per-pair sort key of the contact-reduction path.
     pair_index: u32,
     _padding: [u32; 3],
 }
 
+/// PFM (GJK/EPA) manifold computation for the deferred work-list entries.
+///
+/// Contact slots are positional: the `i`-th PFM entry owns contact slot
+/// `plan.pfm_base + i` and every slot in that range is written exactly
+/// once (`len = 0` on a miss or a same-body pair).
+///
+/// The `pfm_order` indirection selects which entry lane `i` processes: the
+/// identity permutation normally, or the pair-sorted permutation when contact
+/// reduction is enabled (so each pair's manifolds land in one contiguous run
+/// of slots for `gpu_reduce_contacts`).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))] // TODO PERF: pfm_pfm is very divergent. Use a smaller workgroup size?
 pub fn gpu_narrow_phase_pfm_pfm(
@@ -766,6 +853,7 @@ pub fn gpu_narrow_phase_pfm_pfm(
         if manifold.len > 0 && manifold.points_a.at(0).dist < prediction {
             let mat1 = collider_materials.read(pair.colliders.x as usize);
             let mat2 = collider_materials.read(pair.colliders.y as usize);
+            // Contacts carry global collider/body ids.
             contacts.write(
                 slot,
                 IndexedManifold {

@@ -57,8 +57,10 @@ pub fn gpu_reset_luby(
     if i < total {
         let idx = i as usize;
         if constraints.at(idx).len == 0 {
+            // Gap / inert slot: pre-colored with 0 so the Luby steps skip it.
             constraints_colors.write(idx, 0);
         } else {
+            // Mark as uncolored
             constraints_colors.write(idx, MAX_U32);
         }
         // Assign random weight
@@ -192,6 +194,8 @@ pub fn gpu_reset_topo_gc(
         let idx = i as usize;
         // Color 0 is reserved for "uncolored" state
         constraints_colors.write(idx, 0);
+        // Gaps / inert slots are pre-marked colored so the topo-gc iterations
+        // skip them (and converge).
         let inert = if constraints.at(idx).len == 0 { 1 } else { 0 };
         colored.write(idx, inert);
     }
@@ -335,6 +339,7 @@ pub fn gpu_fix_conflicts_topo_gc(
 
     for constraint_i in StepRng::new(invocation_id.x..total, num_threads) {
         let i = constraint_i as usize;
+        // Gap / inert slot: its stale body ids must not be dereferenced.
         if constraints[i].len == 0 {
             continue;
         }

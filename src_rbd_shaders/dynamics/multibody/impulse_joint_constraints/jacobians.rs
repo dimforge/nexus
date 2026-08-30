@@ -14,9 +14,10 @@ use super::super::lu::LANES;
 use super::super::types::MultibodyInfo;
 use super::types::*;
 
-// Returns the multibody side jacobian's offset / size in the per-batch
-// jacobians buffer. `wj_id` is the start of the corresponding `M⁻¹·J`
-// block (= `j_id + ndofs`).
+// Returns the multibody side jacobian's offset in the jacobians buffer.
+// Jacobian ids are absolute dense indices into the joint's own region (the
+// buffer is interleaved at per-joint-region granularity, dense inside).
+// `wj_id` is the start of the corresponding `M⁻¹·J` block (= `j_id + ndofs`).
 #[inline]
 pub(super) fn wj_id(j_id: u32, ndofs: u32) -> usize {
     (j_id + ndofs) as usize

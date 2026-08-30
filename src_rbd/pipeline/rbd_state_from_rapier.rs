@@ -564,9 +564,10 @@ impl RbdState {
         // when computing constraint adjacency, so contacts touching different
         // bodies of the same multibody correctly conflict and never share a
         // color.
-        // `body_group` stores PER-BATCH local indices (so a kernel can use the
-        // same `Slice(buf, colliders_start)` pattern as for `body_constraint_*`
-        // and just index by `group_local`).
+        // `body_group` stores global group ids (indexed by global body id):
+        // free bodies map to themselves, every link of a multibody maps to the
+        // multibody root's global body id. Built with LOCAL values batch-major
+        // here; globalized and interleaved with the other per-body vecs below.
         let mut all_body_group: Vec<u32> = Vec::with_capacity(max_colliders * num_batches as usize);
         for _batch_idx in 0..num_batches as usize {
             for b in 0..max_colliders {
@@ -594,6 +595,13 @@ impl RbdState {
 
         let num_colliders_per_batch = max_colliders;
         let num_bodies_total = num_colliders_per_batch * num_batches as usize;
+
+        /*
+         * Re-layout: the per-body/per-collider buffers are batch-interleaved
+         * (global id = local * num_batches + batch), so the batch-major vecs
+         * built above are transposed before upload, and buffers holding body
+         * ids switch from env-local to global values.
+         */
         let nb = num_batches as usize;
         fn interleave_batches<T: Copy>(v: &[T], nb: usize) -> Vec<T> {
             let per_batch = v.len() / nb.max(1);
@@ -605,6 +613,8 @@ impl RbdState {
             }
             out
         }
+        // Env-local body ids → global (interleaved) ids, still batch-major
+        // positioned; the position transpose follows.
         for (idx, v) in all_collider_parent.iter_mut().enumerate() {
             let batch = idx / max_colliders;
             *v = *v * nb as u32 + batch as u32;
@@ -640,18 +650,23 @@ impl RbdState {
         let pair_filter = Tensor::vector(backend, &all_pair_filter, storage).unwrap();
         let collider_materials = Tensor::vector(backend, &all_collider_materials, storage).unwrap();
 
+        // The flat pair buffer is shared by every batch: `collisions_capacity`
+        // stays a per-batch sizing hint, so the initial total is `× num_batches`.
         let collision_pairs = Tensor::vector_uninit(
             backend,
             capacities.collisions_capacity * num_batches,
             storage,
         )
         .unwrap();
+        // Single global pair counter.
         let collision_pairs_len = Tensor::vector(
             backend,
             &[0u32],
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
+        // Readback: pair count, PFM count, uncolored count (+ the multibody
+        // contact-constraint demand on dim3).
         #[cfg(feature = "dim3")]
         let resize_readback = GpuReadback::new(backend, 4).unwrap();
         #[cfg(not(feature = "dim3"))]
@@ -659,6 +674,9 @@ impl RbdState {
         let collision_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
 
+        // Positional contact slots: pair `t` owns slot `t`, PFM entry `i` owns
+        // slot `pairs_total + i`, so the contacts buffer (and every
+        // contacts-keyed buffer) is sized `pairs + pfm = 2 ×` the pair capacity.
         let pairs_capacity = capacities.collisions_capacity * num_batches;
         let contacts_capacity = pairs_capacity * 2;
         let contacts = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
@@ -676,6 +694,7 @@ impl RbdState {
             storage,
         )
         .unwrap();
+        // Single global PFM work-list counter.
         let pfm_pairs_len = Tensor::vector(
             backend,
             &[0u32],
@@ -697,11 +716,18 @@ impl RbdState {
         let color_buckets_stride = capacities.solver_colors + 3;
         let color_buckets =
             Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
+        // Clamped per-frame list totals (see `gpu_contact_plan`).
+        // Zero-initialized: a resize readback can race the first step.
+        // Written as a storage buffer by `gpu_contact_plan`, read as a uniform
+        // by every consumer.
         let contact_plan =
             Tensor::scalar(backend, ContactPlan::default(), storage | BufferUsages::UNIFORM)
                 .unwrap();
         let pfm_sort = PfmSortState::new(backend, pairs_capacity);
         let color_sorted_ids = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        // Zeroed (not uninit): the first frame's warmstart transfer walks the
+        // "old" counts before any step has written them; zero counts = empty
+        // ranges.
         let old_constraints_counts = Tensor::vector(
             backend,
             vec![0u32; (num_colliders_per_batch as u32 * num_batches) as usize],

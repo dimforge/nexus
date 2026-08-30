@@ -44,6 +44,7 @@ use super::ws_soa::{
 #[inline]
 fn apply_spring_forces(
     gen_forces: &mut [f32],
+    // Dense base of this multibody's generalized-force region.
     gen0: usize,
     stat_slice: &ISlice<MultibodyLinkStatic>,
     links_workspace: &[Vec4],

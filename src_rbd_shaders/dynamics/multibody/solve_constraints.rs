@@ -126,6 +126,9 @@ pub fn gpu_mb_solve_constraints(
     let jcol_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
 
+    // This multibody's dynamic segment in the flat constraint buffer, and the
+    // paired jac/column arena: slot `g` owns `2 * dofs_stride` dense floats,
+    // the `J` row first, then its `M^-1*J^T` column.
     let ccons_base = mb.contact_constraint_start as usize;
     let cjc_base = ccons_base * 2 * dofs_stride;
 
@@ -137,6 +140,10 @@ pub fn gpu_mb_solve_constraints(
     }
     let active = in_range && ndofs != 0 && (mb.max_constraints != 0 || contact_count != 0);
 
+    // Load the generalized velocities into workgroup memory. The accumulated
+    // contact impulses stay in storage: every impulse access below is lane-0
+    // only, so same-invocation ordering makes storage reads-after-writes safe
+    // and no compile-time per-multibody bound is needed.
     if active && lane < ndofs {
         dof_v.write(
             lane as usize,
@@ -289,7 +296,8 @@ pub fn gpu_mb_solve_constraints(
                     j_dot_v1 += scratch.read(i as usize);
                 }
             }
-            // Free-body side stays lane-0-local.
+            // Free-body side stays lane-0-local (`free_body_id` is a global
+            // body id).
             let free = if is_self {
                 Velocity::default()
             } else {
@@ -322,6 +330,8 @@ pub fn gpu_mb_solve_constraints(
             // Normal: clamp to ≥ 0. Friction: cap the tangent pair to the
             // circular cone `μ · normal_impulse`.
             let (new0, new1) = if is_tangent {
+                // The paired normal was updated earlier in this sweep by this
+                // same lane, so the storage read observes the fresh value.
                 let limit = cons.friction_coeff
                     * contact_constraints
                         .at(ccons_base + cons.normal_constraint_slot as usize)
@@ -371,6 +381,8 @@ pub fn gpu_mb_solve_constraints(
         workgroup_memory_barrier_with_group_sync();
     }
 
+    // Writeback (the contact impulses were updated in storage as they were
+    // solved).
     if active && lane < ndofs {
         dof_state.write(
             batch_ids.mbi(batch_id, v_base + lane as usize),
@@ -527,12 +539,15 @@ pub fn gpu_mb_build_contact_delassus(
 
     let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
+    // The Delassus path's per-multibody blocks and shared SoA arrays are
+    // compile-time sized: clamp the (otherwise unbounded) dynamic count.
     let count = mb.contact_constraint_count.min(MAXC);
     if ndofs == 0 || count == 0 {
         return;
     }
 
     let cons_base = mb.contact_constraint_start as usize;
+    // Paired jac/column arena (see `gpu_mb_solve_constraints`).
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let jc_base = cons_base * 2 * dofs_stride;
     let d_base = ((batch_id * batch_ids.multibodies_batch_capacity + mb_idx) as usize)
@@ -613,6 +628,7 @@ pub fn gpu_mb_solve_contacts_delassus(
 
     let mb = multibody_info.read(batch_ids.mbi(batch_id, slot as usize));
     let ndofs = mb.ndofs;
+    // Clamped: see `gpu_mb_build_contact_delassus`.
     let count = mb.contact_constraint_count.min(MAXC);
     // Uniform per workgroup: every lane of this group returns together.
     #[cfg(not(feature = "web-compat"))]
@@ -624,6 +640,7 @@ pub fn gpu_mb_solve_contacts_delassus(
 
     let v_base = mb.first_dof as usize;
     let cons_base = mb.contact_constraint_start as usize;
+    // Paired jac/column arena (see `gpu_mb_solve_constraints`).
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let jc_base = cons_base * 2 * dofs_stride;
     let d_base = ((batch_id * batch_ids.multibodies_batch_capacity + mb_idx) as usize)

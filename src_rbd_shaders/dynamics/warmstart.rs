@@ -39,6 +39,7 @@ pub fn gpu_transfer_warmstart_impulses(
     let cid_new = invocation_id.x;
 
     if cid_new < total {
+        // Gap / inert slot: stale body ids must not be dereferenced.
         if new_constraints[cid_new as usize].len == 0 {
             return;
         }
@@ -89,6 +90,7 @@ pub fn gpu_seed_colors_from_warmstart(
     let i = invocation_id.x as usize;
 
     if (i as u32) < total {
+        // Gap / inert slot: stale body ids must not be dereferenced.
         if new_constraints[i].len == 0 {
             return;
         }

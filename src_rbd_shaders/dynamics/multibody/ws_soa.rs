@@ -111,7 +111,9 @@ impl WsAddr {
     }
 
     /// Flat index of quad `quad` (a `WS_*` field offset + quad index) of
-    /// link `k` (relative to `base`).
+    /// link `k` (relative to `base`). The workspace is interleaved at
+    /// per-link-record granularity: link `L` of batch `b` owns the dense
+    /// `WS_QUADS` quads at `(L * num_batches + b) * WS_QUADS`.
     #[inline]
     pub fn at(&self, k: u32, quad: u32) -> usize {
         ((self.base + k as usize) * self.stride as usize + self.shift as usize)

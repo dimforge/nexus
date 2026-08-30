@@ -184,6 +184,8 @@ impl RadixSort {
             let keys = &in_keys[offset..offset + n];
 
             // Sort by permutation: sort indices by their corresponding key.
+            // Stable, like the GPU radix sort (equal keys keep their order;
+            // the per-pair PFM grouping relies on it).
             indices.clear();
             indices.extend(0..n as u32);
             indices.sort_by_key(|&i| keys[i as usize]);

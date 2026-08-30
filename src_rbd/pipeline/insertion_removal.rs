@@ -66,8 +66,15 @@ impl RbdState {
         let all_collision_groups = vec![none_groups; num_bodies_total];
         let all_vels = vec![GpuVelocity::default(); num_bodies_total];
 
+        // body_group: global body ids (free bodies map to themselves). The
+        // per-body buffers are batch-interleaved, so the identity mapping is
+        // simply each slot's own flat index.
         let all_body_group: Vec<u32> = (0..num_bodies_total as u32).collect();
 
+        // collider_parent: global parent body ids, identity initially (no body
+        // is active yet). `append_bodies` overwrites the active prefix. The
+        // pair-filter key stays env-local (compared within a batch only); the
+        // interleaved slot `i` belongs to local collider `i / num_batches`.
         let all_collider_parent: Vec<u32> = (0..num_bodies_total as u32).collect();
         let all_pair_filter: Vec<[u32; 2]> = (0..num_bodies_total as u32)
             .map(|i| [i / num_batches, 0u32])
@@ -118,15 +125,23 @@ impl RbdState {
         let all_collider_materials = vec![GpuColliderMaterial::default(); num_bodies_total];
         let collider_materials = Tensor::vector(backend, &all_collider_materials, rw).unwrap();
 
+        // The flat pair buffer is shared by every batch: `collisions_capacity`
+        // stays a per-batch sizing hint, so the initial total is `× num_batches`.
         let pairs_capacity = collisions_capacity * num_batches;
+        // Positional contact slots: pair `t` owns slot `t`, PFM entry `i` owns
+        // slot `pairs_total + i`, so the contacts buffer (and every
+        // contacts-keyed buffer) is sized `pairs + pfm = 2 ×` the pair capacity.
         let contacts_capacity = pairs_capacity * 2;
         let collision_pairs = Tensor::vector_uninit(backend, pairs_capacity, storage).unwrap();
+        // Single global pair counter.
         let collision_pairs_len = Tensor::vector(
             backend,
             &[0u32],
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
+        // Readback: pair count, PFM count, uncolored count (+ the multibody
+        // contact-constraint demand on dim3).
         #[cfg(feature = "dim3")]
         let resize_readback = GpuReadback::new(backend, 4).unwrap();
         #[cfg(not(feature = "dim3"))]
@@ -144,6 +159,7 @@ impl RbdState {
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let pfm_pairs = Tensor::vector_uninit(backend, pairs_capacity, storage).unwrap();
         let pfm_sort = PfmSortState::new(backend, pairs_capacity);
+        // Single global PFM work-list counter.
         let pfm_pairs_len = Tensor::vector(
             backend,
             &[0u32],
@@ -165,10 +181,13 @@ impl RbdState {
         let color_buckets_stride = capacities.solver_colors + 3;
         let color_buckets =
             Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
+        // Written as a storage buffer by `gpu_contact_plan`, read as a uniform
+        // by every consumer.
         let contact_plan =
             Tensor::scalar(backend, ContactPlan::default(), storage | BufferUsages::UNIFORM)
                 .unwrap();
         let color_sorted_ids = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        // Zeroed: see `RbdState::from_rapier`.
         let old_constraints_counts = Tensor::vector(
             backend,
             vec![0u32; (num_colliders_per_batch * num_batches) as usize],
@@ -419,13 +438,20 @@ impl RbdState {
 
         // The incremental path attaches exactly one collider per body, so a
         // body's collider slot equals its body slot: `collider_parent` is the
+        // identity (each interleaved slot's own flat index).
         let nb = self.num_batches as usize;
         let parents: Vec<u32> =
             ((active * nb) as u32..((active + bodies.len()) * nb) as u32).collect();
+        // NOTE: appended bodies are free bodies (never multibody links). The
+        // pair-filter key stays env-local.
         let pair_filters: Vec<[u32; 2]> = (0..bodies.len() * nb)
             .map(|i| [(active + i / nb) as u32, 0u32])
             .collect();
 
+        // The per-body buffers are batch-interleaved: entity slots `[active,
+        // active + n)` of EVERY batch form one contiguous range `[active * nb,
+        // (active + n) * nb)`, so one replicated write per buffer covers all
+        // environments (identical topology).
         fn replicate<T: Copy>(v: &[T], nb: usize) -> Vec<T> {
             let mut out = Vec::with_capacity(v.len() * nb);
             for &x in v {
@@ -511,6 +537,9 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST;
         let mut enc = backend.begin_encoding();
         let mut any_copy = false;
+        // The per-body buffers are batch-interleaved: entity slot `k` of every
+        // batch is one contiguous range `[k * nb, (k + 1) * nb)`, so one
+        // nb-element copy relocates the slot in ALL environments.
         let mut staging_pose = backend.uninit_buffer::<Pose>(nb, staging_usages)?;
         let mut staging_local_mprops =
             backend.uninit_buffer::<GpuLocalMassProperties>(nb, staging_usages)?;
@@ -522,6 +551,7 @@ impl RbdState {
             .uninit_buffer::<crate::rapier::geometry::InteractionGroups>(nb, staging_usages)?;
         let mut staging_materials =
             backend.uninit_buffer::<GpuColliderMaterial>(nb, staging_usages)?;
+        // Deferred entity-slot neutralisation writes.
         let mut neutralize: Vec<usize> = Vec::new();
 
         for local in locals {
@@ -534,6 +564,9 @@ impl RbdState {
             if local != last {
                 let hole_global = local * nb;
                 let last_global = last * nb;
+                // Relocate the last active body into the freed slot (in every
+                // batch at once). A staging buffer avoids same-buffer
+                // overlapping copies.
                 macro_rules! relocate {
                     ($t:expr, $staging:expr) => {{
                         enc.copy_buffer_to_buffer($t.buffer(), last_global, &mut $staging, 0, nb)?;

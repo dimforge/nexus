@@ -246,12 +246,22 @@ impl GpuMultibodySet {
             per_env_builders.push(sorted_builders);
         }
 
-        // Stage 2 — flatten with per-batch padding to `max_joints`.
+        // Stage 2 — batch-interleaved upload: joint slot `i` of batch `b`
+        // lands at `i * num_batches + b`, and constraint slots follow the same
+        // per-slot interleave (their ids inside the builders are batch-local).
+        // The jacobians buffer is interleaved at per-joint-region granularity
+        // instead: joint `j`'s region for batch `b` starts at
+        // `jacobian_offset_j * nb + b * jacobian_capacity_j` and is dense
+        // inside, so the solver's lane-parallel row reads stay contiguous.
         let joints_cap = max_joints.max(1);
         let cons_cap = (joints_cap * MAX_AXIS_CONSTRAINTS).max(1);
         let jac_cap = max_jac_floats.max(1);
         let nb = self.num_batches as usize;
 
+        // The region tiling above only works if every batch agrees on each
+        // joint's jacobian layout (offsets are a prefix sum of capacities, so
+        // the regions tile the buffer exactly). The equal-topology invariant
+        // guarantees this; make it explicit instead of padding around it.
         for (b, env) in per_env_builders.iter().enumerate() {
             assert_eq!(
                 env.len(),
@@ -269,6 +279,10 @@ impl GpuMultibodySet {
                 );
             }
         }
+
+        // Padding builder: both sides marked FIXED so the GPU kernels can
+        // skip unused slots by sentinel check (no per-batch `num_joints`
+        // binding needed).
         let mut dummy: MbImpulseJointBuilder = bytemuck::Zeroable::zeroed();
         dummy.side_a_kind = SIDE_KIND_FIXED;
         dummy.side_b_kind = SIDE_KIND_FIXED;
@@ -298,10 +312,11 @@ impl GpuMultibodySet {
         self.mb_imp_joint_constraints_per_batch = cons_cap;
         self.mb_imp_joint_jacobians_per_batch = jac_cap;
 
-        // Flat color-groups buffer [num_batches * cols]. Envs with fewer
-        // colors are padded with their last prefix value so the extra
-        // colors are no-ops (start == end). `cols` is clamped to ≥1 so the
-        // buffer is always a valid non-empty binding even with no joints.
+        // Color-groups buffer, color-major interleaved (`color * nb + batch`).
+        // Envs with fewer colors are padded with their last prefix value so
+        // the extra colors are no-ops (start == end). `cols` is clamped to ≥1
+        // so the buffer is always a valid non-empty binding even with no
+        // joints.
         let cols = global_num_colors.max(1);
         let mut all_color_groups = vec![0u32; cols as usize * nb];
         for (b, env_cg) in per_env_color_groups.iter().enumerate() {

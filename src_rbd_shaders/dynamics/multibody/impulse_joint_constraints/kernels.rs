@@ -52,6 +52,11 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     let lock_cfm_coeff = softness.joint_cfm_coeff;
     let max_corr_velocity = softness.max_corr_velocity;
 
+    // Flat sweep over the interleaved builder slots (slot `t` = joint `t / nb`
+    // of batch `t % nb`). Iterating to `cap * nb` instead of the per-batch
+    // lengths lets us drop the `num_joints` storage binding — the host pads
+    // unused slots with `side_a_kind == SIDE_KIND_FIXED && side_b_kind ==
+    // SIDE_KIND_FIXED` which we use as the inactive-slot sentinel below.
     let nb = batch_ids.num_batches;
     let total = batch_ids.mb_imp_joints_batch_capacity * nb;
     for t in StepRng::new(invocation_id.x..total, num_threads) {
@@ -60,6 +65,10 @@ pub fn gpu_mb_update_impulse_joint_constraints(
             builder.side_a_kind == SIDE_KIND_FIXED && builder.side_b_kind == SIDE_KIND_FIXED;
         if !is_dummy {
             let batch_id = t % nb;
+            // Interleaved view shared by the dynamics buffers (multibody_info /
+            // links_workspace / body_jacobians / dof_state) and the constraint
+            // slots. The jacobians buffer is interleaved at per-joint-region
+            // granularity instead (dense inside; see `update_one_joint`).
             let il = VSlice::interleaved(0, nb, batch_id);
             let bix = batch_ids.body_ix(batch_id);
             builder.update_one_joint(
@@ -191,7 +200,8 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
     let bix = batch_ids.body_ix(batch_id);
 
     // `color_groups` is a per-batch prefix-sum over the color-sorted
-    // builders: color `c` owns the sorted-builder range
+    // builders, stored color-major interleaved (`color * nb + batch`):
+    // color `c` owns the sorted-builder range
     // `[color_groups[c-1], color_groups[c])` (start `0` for color `0`).
     let color = *curr_color as usize;
     let start = if color > 0 {

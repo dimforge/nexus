@@ -32,6 +32,8 @@ pub struct GpuLbvh {
     refit_internal: GpuLbvhRefitInternal,
     reset_collision_pairs: GpuLbvhResetCollisionPairs,
     find_collision_pairs: GpuLbvhFindCollisionPairs,
+    /// Writes the `[total/64, 1, 1]` indirect grid from the single global pair
+    /// counter.
     flat_list_dispatch: GpuFlatListDispatch,
     // Kernels for brute-force broad-phase for small scenes
     // (typically, small scenes but many batches).

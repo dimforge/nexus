@@ -276,6 +276,8 @@ impl RbdPipeline {
         let readback_enabled = state.capacities.solver_colors_resize_policy
             != RbdResizePolicy::Fixed
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
+        // Estimated pairs per batch: the counter (and the capacity fallback)
+        // are totals over the whole flat pair buffer.
         let est_pairs = if readback_enabled {
             state.collision_pairs_len_cpu.div_ceil(state.num_batches)
         } else {
@@ -609,12 +611,17 @@ impl RbdPipeline {
             != RbdResizePolicy::Fixed
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
 
+        // The readback holds `[total collision-pair count, total PFM-pair
+        // count, uncolored count]` (+ the multibody contact-constraint demand
+        // on dim3).
         #[cfg(feature = "dim3")]
         let mut counts = [0u32; 4];
         #[cfg(not(feature = "dim3"))]
         let mut counts = [0u32; 3];
         if state.resize_readback.try_take(backend, &mut counts) {
             // TODO: make the coloring update optional (and pre-configurable) too?
+            // The flat pair and PFM work-lists share one buffer capacity, so
+            // whichever is larger drives that resize.
             let pairs_len = counts[0].max(counts[1]);
             let coloring_converged = counts[2];
             state.collision_pairs_len_cpu = counts[0];
@@ -627,6 +634,13 @@ impl RbdPipeline {
                 != RbdResizePolicy::Fixed
                 && coloring_converged == 0
                 && !state.rb_contacts_inert;
+
+            // Decide every resize up front, then drain the GPU once before
+            // applying any of them: `rebuild_batch_indices` rewrites the shared
+            // uniform, and on Metal a `write_buffer` is observed by every
+            // still-queued submission — an in-flight step would read the new
+            // capacities while bound to the old (smaller) buffers and write out
+            // of bounds. Resizes are rare, so the stall is negligible.
             let total_capacity = state.collision_pairs_capacity_cpu;
             let safe_total = pairs_len.saturating_add(pairs_len / 4);
             let new_total = pairs_len
@@ -670,6 +684,8 @@ impl RbdPipeline {
             if grow_colors {
                 state.max_colors += 5;
 
+                // The color-bucket buffer is strided by `max_colors + 3`:
+                // regrow it and update the stride in `BatchIndices`.
                 let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
                 let stride = state.max_colors + 3;
                 let nb = state.num_batches;
@@ -679,12 +695,23 @@ impl RbdPipeline {
 
             let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
+            // Flat pair / PFM buffers: sized by the TOTAL demand across all
+            // batches (the whole point of the flat layout: one hot batch no
+            // longer multiplies every batch's capacity).
+            //
+            // Since the auto-resize always lags a bit behind, resizes trigger
+            // with less than 25% padding available and grow with 50% slack;
+            // never below the configured per-batch floor × num_batches.
             if resize_pairs {
                 state.collision_pairs = Tensor::vector_uninit(backend, new_total, storage)?;
                 state.pfm_pairs = Tensor::vector_uninit(backend, new_total, storage)?;
                 state.pfm_sort.resize(backend, new_total);
                 state.collision_pairs_capacity_cpu = new_total;
 
+                // Contacts-keyed buffers follow the pair capacity: contact
+                // slots are positional (pair `t` owns slot `t`, PFM entry `i`
+                // owns slot `pairs_total + i`), so their capacity is always
+                // `2 ×` the pair/PFM capacity.
                 let new_contacts = new_total * 2;
                 state.contacts = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 #[cfg(feature = "dim3")]
@@ -709,12 +736,16 @@ impl RbdPipeline {
                 state.colored = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.constraints_rands = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.color_sorted_ids = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                // The old counts index the old (now discarded) constraint list:
+                // zero them so the next warmstart transfer sees empty ranges
+                // instead of stale offsets into the fresh buffers.
                 let counts_len = state.old_constraints_counts.len() as usize;
                 state.old_constraints_counts =
                     Tensor::vector(backend, vec![0u32; counts_len], storage)?;
 
                 state.contacts_capacity_cpu = new_contacts;
             }
+            // Multibody contact-constraint slots: flat and demand-sized.
             #[cfg(feature = "dim3")]
             if resize_mb {
                 state.multibodies.resize_contact_slabs(backend, new_mb);

@@ -45,12 +45,19 @@ pub struct GpuColoring {
 
 /// Buffers for the per-color constraint bucket sort.
 pub struct ColorBucketsArgs<'a> {
+    /// Flat dispatch grid over the whole contacts range.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Color assigned to each constraint by graph coloring.
     pub constraints_colors: &'a Tensor<u32>,
+    /// The colored constraints (batch recovered from their global body ids).
     pub constraints: &'a Tensor<TwoBodyConstraint>,
+    /// Clamped per-frame list totals (the flat contact sweep bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
+    /// The single `(color, batch)` bucket buffer, color-major
+    /// (`solver_color_buckets_stride * num_batches` entries): counts, then
+    /// scanned exclusive starts, then post-scatter exclusive ends.
     pub color_buckets: &'a mut Tensor<u32>,
+    /// Constraint ids bucket-sorted by `(color, batch)`.
     pub color_sorted_ids: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
@@ -78,6 +85,7 @@ pub struct ColoringArgs<'a> {
     pub uncolored: &'a mut Tensor<u32>,
     /// Staging buffer for reading uncolored count on CPU.
     pub uncolored_staging: &'a Tensor<u32>,
+    /// Clamped per-frame list totals (the flat contact sweep bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// Buffer tracking which constraints are colored.
     pub colored: &'a mut Tensor<u32>,
@@ -238,7 +246,9 @@ impl GpuColoring {
         num_colors
     }
 
-    /// Bucket-sorts the constraint ids by their color.
+    /// Bucket-sorts the constraint ids by `(color, batch)`: zero the buckets,
+    /// count, exclusive-prefix-scan them in place, then scatter (which turns
+    /// the starts into exclusive ends, the form the sweeps read).
     pub fn dispatch_build_color_buckets(
         &self,
         backend: &GpuBackend,

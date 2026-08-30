@@ -35,6 +35,8 @@ use super::types::{
     MultibodyLinkStatic,
 };
 
+/// Workgroup width of the flat contact sweeps below (must match the
+/// `contacts_indirect` grid written by `gpu_contact_plan`).
 const MB_SWEEP_WG: u32 = 64;
 use super::utils::zero_kinematic_dofs;
 use super::ws_soa::{WS_LTW, WS_WORLD_COM, WsAddr, ws_pose, ws_vec};
@@ -72,6 +74,7 @@ fn orthonormal_vector(v: Vec2) -> Vec2 {
 #[inline]
 fn fill_contact_jac_row(
     body_jacobians: &[f32],
+    // Dense base of the multibody's body-jacobians region.
     jac0: usize,
     ndofs: u32,
     link_id: u32,
@@ -123,11 +126,26 @@ fn fill_contact_jac_row(
     }
 }
 
+/// Resolves which multibody (if any) owns contact `im`'s constraint slots,
+/// from the contact's global body ids. This is the single source of truth for
+/// the ownership decision: `gpu_mb_count_contact_constraints` sizes the
+/// dynamic segments with it and `gpu_mb_scatter_contact_index` builds the
+/// contact→multibody index with it, so the prediction always matches the
+/// index the emission consumes.
+///
+/// Skipped contacts (empty manifold, free-free, inter-multibody which is not
+/// yet handled, disabled or same-link self contact) return `mb == u32::MAX`.
+/// The self-contacts-enabled bit comes from the owner's `MultibodyInfo`.
 struct MbContactOwner {
+    /// Env-local index of the owning multibody, `u32::MAX` when skipped.
     mb: u32,
+    /// Owning batch (recovered from the interleaved global body ids).
     batch: u32,
+    /// Touched link of the owning multibody (the constraint's A side).
     link_a: u32,
+    /// Second touched link for self-contacts, `u32::MAX` otherwise.
     link_b: u32,
+    /// 1 when the multibody sits on the contact's `bodies.x` side.
     mb_on_first: u32,
 }
 
@@ -154,17 +172,23 @@ fn mb_contact_owner(
     if l1[0] == u32::MAX && l2[0] == u32::MAX {
         return MB_OWNER_SKIP;
     }
+    // Inter-multibody contacts (each side a different multibody) are not yet
+    // handled.
     if l1[0] != u32::MAX && l2[0] != u32::MAX && l1[0] != l2[0] {
         return MB_OWNER_SKIP;
     }
     let is_self = l1[0] != u32::MAX && l2[0] != u32::MAX;
+    // Degenerate self-contact on the same link.
     if is_self && l1[1] == l2[1] {
         return MB_OWNER_SKIP;
     }
     let mb_on_first = l1[0] != u32::MAX;
     let owner = if mb_on_first { l1[0] } else { l2[0] };
+    // Bodies are batch-interleaved, so the contact's global body ids carry
+    // the owning batch.
     let batch = batch_ids.collider_batch(im.bodies.x);
     let mb = multibody_info.read(batch_ids.mbi(batch, owner as usize));
+    // All-locked (zero-dof) multibodies take no contact constraints.
     if mb.ndofs == 0 {
         return MB_OWNER_SKIP;
     }
@@ -180,6 +204,16 @@ fn mb_contact_owner(
     }
 }
 
+/// Predicts, per (multibody, batch), how many contact-constraint slots the
+/// emission pass needs, and how many contacts touch each multibody. One flat
+/// sweep over the contacts: each contact resolves its owner and atomically
+/// bumps that owner's counters, so the pass costs one visit per contact
+/// instead of one full-list scan per (multibody, batch).
+///
+/// `mb_cons_counts` / `mb_index_counts` are indexed like `multibody_info`
+/// (interleaved `mb * num_batches + batch`) and must be zero on entry (the
+/// offsets scan re-zeroes them after consuming them). Grid:
+/// `contacts_indirect`.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_count_contact_constraints(
@@ -208,6 +242,16 @@ pub fn gpu_mb_count_contact_constraints(
     }
 }
 
+/// Turns the per-(multibody, batch) predictions into dynamic segments:
+/// contact-constraint segments (`MultibodyInfo::contact_constraint_start/
+/// count`, exclusive prefix cumulatively clamped to the buffer capacity so
+/// the emission never overruns) and contact-index segments
+/// (`contact_index_start/len`, unclamped: the index buffer is sized like the
+/// contacts buffer and each contact owns at most one entry). Also publishes
+/// the total slot demand for the host's auto-resize readback, and re-zeroes
+/// `mb_cons_counts` (for the next frame) and `mb_index_counts` (which the
+/// scatter pass reuses as its write cursors). Serial in one thread (the
+/// multibody count per scene is small).
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_mb_cons_offsets_scan(
@@ -218,6 +262,8 @@ pub fn gpu_mb_cons_offsets_scan(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_cons_demand: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
+    // The interleaved `multibody_info` layout makes the active multibodies of
+    // every batch the contiguous prefix `[0, multibodies_len * num_batches)`.
     let total_infos = batch_ids.multibodies_len * batch_ids.num_batches;
     let capacity = batch_ids.mb_contact_constraints_capacity;
 
@@ -228,6 +274,7 @@ pub fn gpu_mb_cons_offsets_scan(
         demand += count;
         reserved_total += count.min(MB_CONS_SLOT_RESERVE);
     }
+    // NOTE: not `saturating_sub`, which rust-gpu fails to compile.
     #[allow(clippy::implicit_saturating_sub)]
     let mut extra_budget = if capacity > reserved_total {
         capacity - reserved_total
@@ -254,12 +301,20 @@ pub fn gpu_mb_cons_offsets_scan(
         index_acc += mb.contact_index_len;
 
         multibody_info.write(i as usize, mb);
+        // Zeroed for the next frame's count pass / for the scatter cursors.
         mb_cons_counts.write(i as usize, 0);
         mb_index_counts.write(i as usize, 0);
     }
     mb_cons_demand.write(0, demand);
 }
 
+/// Builds the contact→multibody index: one flat sweep over the contacts,
+/// each contact appending its entry to its owner's segment (laid out by the
+/// offsets scan; `mb_index_counts` was re-zeroed there and serves as the
+/// per-multibody write cursors). Entry order within a segment follows the
+/// atomic race; the emission's warmstart matching is key-based, so the order
+/// only affects the (already nondeterministic) impulse iteration order.
+/// Grid: `contacts_indirect`.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_scatter_contact_index(
@@ -297,6 +352,10 @@ pub fn gpu_mb_scatter_contact_index(
     }
 }
 
+/// Saves the current (about to be superseded) constraint-segment bounds as the
+/// "previous frame" bounds the warmstart transfer matches against. Runs at
+/// step start, before the new layout is computed. One thread per (multibody,
+/// batch).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_save_prev_cons_bounds(
@@ -319,12 +378,13 @@ pub fn gpu_mb_save_prev_cons_bounds(
 
 /// Pack the per-link world-space contact point into the constraint.
 ///
-/// Pass 1: scans every contact in `contacts[batch]` and, for each contact
-/// point touching a link of this multibody, emits a normal-direction
+/// Pass 1: walks this multibody's segment of the contact→multibody index
+/// (built by `gpu_mb_scatter_contact_index`) and, for each contact point
+/// touching one of its links, emits a normal-direction
 /// `MultibodyContactConstraint` plus its friction slots. The multibody-side
 /// `Jᵀ` rows are assembled later, by the finalize pass. Multibody-multibody
 /// contacts (each side a different multibody) are not handled — such contacts
-/// are skipped.
+/// never enter the index.
 /// One 64-lane workgroup per (multibody, batch).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
@@ -377,10 +437,17 @@ pub fn gpu_mb_init_contact_constraints(
         }
         return;
     }
+    // This multibody's dynamic segment of the flat constraint buffer, sized by
+    // the count pass and the offsets scan; `avail` is the (possibly clamped)
+    // slot budget the emission below must stay within.
     let cons_base = mb.contact_constraint_start as usize;
     let avail = mb.contact_constraint_count;
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
+    // This multibody's segment of the contact→multibody index. Entries were
+    // pre-filtered by `mb_contact_owner` (shared with the count pass, so the
+    // segment prediction always matches the emission below). Contact
+    // collider/body ids are global.
     let idx_base = mb.contact_index_start as usize;
     let n_entries = mb.contact_index_len;
     let mut count = 0u32;
@@ -731,13 +798,20 @@ pub fn gpu_mb_init_contact_constraints(
         }
     }
 
+    // Next frame's warmstart match only scans `[old_start, old_start +
+    // old_count)`, so no stale-slot invalidation is needed.
     if lane == 0 {
         mb.contact_constraint_count = count;
         multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
     }
 }
 
+/// Snapshot the (flat) contact-constraint buffer into the "previous frame"
+/// copy that `gpu_mb_transfer_contact_warmstart` matches against (the segment
+/// bounds are saved separately by `gpu_mb_save_prev_cons_bounds`). Called once
+/// per visible frame from `init_step`, before the new layout is computed.
 ///
+/// One thread per slot.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_snapshot_contact_warmstart(
@@ -788,6 +862,8 @@ pub fn gpu_mb_warmstart_contact_constraints(
     }
     let v_base = mb.first_dof as usize;
     let cons_base = mb.contact_constraint_start as usize;
+    // Paired jac/column arena: slot `g` owns `2 * dofs_stride` dense floats,
+    // the `J` row first, then its `M^-1*J^T` column.
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let jc_base = cons_base * 2 * dofs_stride;
 
@@ -817,6 +893,7 @@ pub fn gpu_mb_warmstart_contact_constraints(
             // Free body side (skipped for self-contacts).
             let is_self = cons.free_body_id == u32::MAX;
             if lane == 0 && !is_self {
+                // `free_body_id` is a global body id.
                 let free = solver_vels.read(cons.free_body_id as usize);
                 let mut new_free = free;
                 new_free.linear += cons.lin_jac * (cons.free_body_im * imp);
@@ -917,8 +994,8 @@ pub fn gpu_mb_finalize_contact_constraints(
             );
         }
 
-        // 2) Copy J^T row into the column buffer (it'll be overwritten by the
-        //    LU solve with the M⁻¹·Jᵀ result).
+        // 2) Copy the J^T row into the paired column half (it'll be
+        //    overwritten by the LU solve with the M⁻¹·Jᵀ result).
         for i in 0..ndofs {
             let v = contact_jac_cols.read(jac_offset + i as usize);
             contact_jac_cols.write(col_offset + i as usize, v);
@@ -994,6 +1071,9 @@ pub fn gpu_mb_transfer_contact_warmstart(
     }
 
     let cons_base = mb.contact_constraint_start as usize;
+    // Previous frame's segment (bounds saved at step start). The bounds guard
+    // covers the one frame right after a buffer resize, where they still
+    // describe the discarded (differently sized) buffer.
     let old_base = mb.old_contact_constraint_start as usize;
     let old_count = if mb.old_contact_constraint_start + mb.old_contact_constraint_count
         <= batch_ids.mb_contact_constraints_capacity
@@ -1109,6 +1189,7 @@ pub fn gpu_mb_seed_contact_restitution(
                 * dof_state.read(batch_ids.mbi(batch_id, v_base + i as usize));
         }
         if cons.free_body_id != u32::MAX {
+            // `free_body_id` is a global body id.
             let free = solver_vels.read(cons.free_body_id as usize);
             j_dot_v += cons.lin_jac.dot(free.linear) + gdot(cons.ang_jac, free.angular);
         }

@@ -49,7 +49,7 @@ pub struct LbvhNode {
     pub refit_count_or_max_subtree_index: u32,
 }
 
-/// Resets the collision pairs counter. One thread per batch.
+/// Resets the (single, global) collision pairs counter.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_reset_collision_pairs(
@@ -61,6 +61,12 @@ pub fn gpu_lbvh_reset_collision_pairs(
         collision_pairs_len.write(i, 0);
     }
 }
+
+/// Writes the flat 1-D indirect grid for a kernel iterating a flat work-list
+/// (collision pairs or PFM pairs): `[ceil(min(len, capacity) / 64), 1, 1]`.
+///
+/// NOTE: the load must be atomic or it occasionally reads stale data (breaks
+/// Windows+Nvidia+wgpu, see <https://github.com/gfx-rs/wgpu/issues/9221>).
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_flat_list_dispatch(
@@ -68,6 +74,8 @@ pub fn gpu_flat_list_dispatch(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
 ) {
+    // Loop shell per the `gpu_reset_completion_flag_topo_gc` rustgpu-triviality
+    // workaround (too-trivial kernels don't get their spirv generated).
     for _ in 0..1 {
         let total = atomic_load_u32(len.at_mut(0)).min(batch_ids.collision_pairs_capacity);
         *indirect_args.at_mut(0) = total.div_ceil(WORKGROUP_SIZE);
@@ -542,12 +550,19 @@ pub fn gpu_lbvh_find_collision_pairs(
                     continue;
                 }
 
+                // Single global counter: every batch appends to the same flat
+                // buffer (pairs from different batches interleave freely).
                 let target_pair_index = atomic_add_u32(collision_pairs_len.at_mut(0), 1);
 
                 // NOTE: if the index is out-of-bounds (meaning the `collision_pairs` isn't
                 //       big enough), don't write. But keep traversing so we get the exact count we need
                 //       for reallocating the buffers.
                 if target_pair_index < batch_ids.collision_pairs_capacity {
+                    // NOTE: we only store the collider pair here, with global
+                    //       collider ids (the owning batch is recovered from the
+                    //       id downstream). The parent body ids are resolved
+                    //       lazily, at the very last moment, when the
+                    //       narrow-phase writes the `IndexedManifold` consumed
                     //       by the solver — keeping this hot buffer (and the
                     //       intermediate pfm-pair buffer) narrow, and keeping
                     //       `collider_parent` out of the broad phase entirely.
@@ -667,6 +682,11 @@ pub fn prefix_len(
     }
 }
 
+/// Start of `batch_id`'s segment in the broad-phase internal scratch buffers
+/// (morton keys, sorted collider ids, tree, brute-force AABBs). These stay
+/// batch-major: the radix sort works on contiguous per-batch key segments.
+/// Only the shared per-collider state (poses, shapes, groups, filters) is
+/// batch-interleaved.
 #[inline]
 pub fn scratch_start(batch_ids: &BatchIndices, batch_id: u32) -> u32 {
     batch_id * batch_ids.colliders_batch_capacity

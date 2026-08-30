@@ -41,6 +41,8 @@ pub(super) fn solve_mb_wj(
         let v = jacobians.read(j_id as usize + k as usize);
         jacobians.write(wj_base + k as usize, v);
     }
+    // Dense per-multibody-region views (`il` carries `num_batches` /
+    // `batch_id` as stride / shift).
     let m = MatSlice::dense(
         mb.mass_matrix_offset as usize * il.stride as usize
             + il.shift as usize * (ndofs * ndofs) as usize,
@@ -89,6 +91,8 @@ impl MbImpulseJointBuilder {
         lock_cfm_coeff: f32,
         max_corr_velocity: f32,
     ) {
+        // Constraint / jacobian slots are batch-local ids into the
+        // batch-interleaved buffers (resolved through `il`).
         let cons_base = self.constraint_id as usize;
         // Mark all axis-constraint slots inactive up-front; the active branches
         // below overwrite the live ones (rapier rebuilds the entire
@@ -192,6 +196,11 @@ impl MbImpulseJointBuilder {
             mb: mb_b,
         };
         let stride = axis_stride(ndofs_a, ndofs_b);
+        // The jacobians buffer is interleaved at per-joint-region granularity:
+        // this joint's region for the current batch starts at
+        // `jacobian_offset * num_batches + batch * jacobian_capacity` and is
+        // dense inside. All `j_id`s below (stored in the constraints) are
+        // absolute dense indices into that region.
         let j_base = self.jacobian_offset as usize * il.stride as usize
             + il.shift as usize * self.jacobian_capacity as usize;
 

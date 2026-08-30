@@ -60,6 +60,11 @@ pub struct RbdCapacities {
     ///
     /// This may or may not be automatically resized depending on [`Self::collisions_resize_policy`].
     pub collisions_capacity: u32,
+    /// Maximum number of multibody contact-constraint slots reserved per batch
+    /// (each contact point involving a multibody costs one normal slot plus
+    /// `DIM - 1` friction slots). Resized according to
+    /// [`Self::collisions_resize_policy`], like the collision buffers, and never
+    /// shrunk below the per-multibody overflow reservation.
     pub mb_contact_constraints_capacity: u32,
     /// How internal collision buffers gets automatically resized (or not).
     ///
@@ -165,19 +170,29 @@ pub struct RbdState {
     /// Per-collider friction / restitution coefficients (+ combine rules),
     pub(super) collider_materials: Tensor<GpuColliderMaterial>,
     pub(super) collision_pairs: Tensor<CollisionPair>,
-    /// Per-batch live collision-pair counts (length `num_batches`).
+    /// Single global live collision-pair count (length 1): every batch appends
+    /// to the same flat pair buffer.
     pub(super) collision_pairs_len: Tensor<u32>,
+    /// Non-blocking readback of `[collision_pairs_len, pfm_pairs_len,
+    /// uncolored]` used by
     /// [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers)
     /// to grow buffers without stalling.
     pub(super) resize_readback: GpuReadback<u32>,
     pub(super) collision_pairs_indirect: Tensor<[u32; 3]>,
-    /// CPU-side mirrors of the dynamic batch capacities. The capacity values
+    /// CPU-side mirrors of the dynamic capacities. The capacity values
     /// live in the [`BatchIndices`] uniform; these mirrors let
     /// [`Self::rebuild_batch_indices`] re-emit it whenever a buffer grows.
+    /// Total capacity of the flat contacts buffer (and of every contacts-keyed
+    /// buffer).
     pub(super) contacts_capacity_cpu: u32,
+    /// Total capacity of the flat collision-pair (and PFM) buffer.
     pub(super) collision_pairs_capacity_cpu: u32,
+    /// Most recently read live collision-pair count — the total across all
+    /// batches, harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers).
     /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize.
     pub(super) collision_pairs_len_cpu: u32,
+    /// CPU mirror of the multibody contact-constraint slot demand, refreshed
+    /// by the same (asynchronous) readback as `collision_pairs_len_cpu`.
     #[cfg(feature = "dim3")]
     pub(super) mb_cons_demand_cpu: u32,
     /// Single uniform aggregating every per-batch capacity and packed-buffer
@@ -186,12 +201,21 @@ pub struct RbdState {
     /// constituent caps changes (e.g. when the contacts buffer grows).
     pub(super) batch_indices: Tensor<BatchIndices>,
     pub(super) pfm_pairs: Tensor<NarrowPhasePfmPair>,
+    /// Single global live PFM work-list count (length 1).
     pub(super) pfm_pairs_len: Tensor<u32>,
     pub(super) pfm_pairs_indirect: Tensor<[u32; 3]>,
     pub(super) contacts: Tensor<GpuIndexedContact>,
+    /// Flat dispatch grid over the whole contacts range, written by
+    /// `gpu_contact_plan`.
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
+    /// Clamped per-frame list totals (see `gpu_contact_plan`): the sweep
+    /// bound and the positional-slot bases of the flat contacts buffer.
     pub(super) contact_plan: Tensor<ContactPlan>,
+    /// Buffers backing the per-pair PFM sort of the contact-reduction path.
     pub(super) pfm_sort: PfmSortState,
+    /// Contact→multibody index: per-(multibody, batch) segments of contact
+    /// slots (one entry per contact touching a multibody link), rebuilt each
+    /// step. Sized like `contacts` (each contact owns at most one entry).
     #[cfg(feature = "dim3")]
     pub(super) mb_contact_index: Tensor<MbContactIndexEntry>,
     /// Workgroup grid for the per-multibody contact-constraint dispatches:
@@ -209,7 +233,11 @@ pub struct RbdState {
     pub(super) old_constraints_colors: Tensor<u32>,
     pub(super) colored: Tensor<u32>,
     pub(super) constraints_rands: Tensor<u32>,
+    /// The single `(color, batch)` bucket buffer, color-major, of length
+    /// `(max_colors + 3) * num_batches`: counts, then scanned exclusive
+    /// starts, then post-scatter exclusive ends (what the sweeps read).
     pub(super) color_buckets: Tensor<u32>,
+    /// Constraint indices bucket-sorted by `(color, batch)`.
     pub(super) color_sorted_ids: Tensor<u32>,
     pub(super) curr_color: Tensor<u32>,
     /// Pre-built per-color-index uniforms: `color_uniforms[c] == c`.
@@ -230,6 +258,9 @@ pub struct RbdState {
     /// assigned the same color.
     pub(super) body_group: Tensor<u32>,
     pub(super) prefix_sum_workspace: PrefixSumWorkspace,
+    /// Separate workspace for the color-bucket prefix scan (different length
+    /// than the body-count scan, so sharing one workspace would thrash its
+    /// cached sizing).
     pub(super) bucket_prefix_workspace: PrefixSumWorkspace,
     /// Maximum number of constraint colors the solver will iterate.
     pub(super) max_colors: u32,
@@ -330,8 +361,8 @@ impl RbdState {
         &mut self.body_poses
     }
 
-    /// Live collision-pair count (batch 0) most recently harvested by the
-    /// non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
+    /// Live collision-pair count (total across all batches) most recently
+    /// harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
     /// frame or two; `0` until the first readback completes.
     pub fn collision_pairs_len(&self) -> u32 {
         self.collision_pairs_len_cpu
@@ -342,7 +373,7 @@ impl RbdState {
         &self.collision_pairs
     }
 
-    /// GPU buffer holding the per-batch collision-pair counts. Unlike
+    /// GPU buffer holding the single global collision-pair count. Unlike
     /// [`Self::collision_pairs_len`], which returns the CPU mirror from the
     /// last readback, this is the value the current step wrote.
     pub fn collision_pairs_len_gpu(&self) -> &Tensor<u32> {
@@ -406,10 +437,18 @@ impl RbdState {
     pub fn multibodies_mut(&mut self) -> &mut crate::dynamics::GpuMultibodySet {
         &mut self.multibodies
     }
+
+    /// Last known multibody contact-constraint slot demand (each contact point
+    /// costs one normal + `DIM - 1` friction slots). Refreshed by the same
+    /// asynchronous readback as [`Self::collision_pairs_len`], so it lags a
+    /// frame or two behind the GPU.
     #[cfg(feature = "dim3")]
     pub fn mb_contact_constraints_len(&self) -> u32 {
         self.mb_cons_demand_cpu
     }
+
+    /// Current capacity (in slots) of the flat multibody contact-constraint
+    /// buffer (see [`RbdCapacities::mb_contact_constraints_capacity`]).
     #[cfg(feature = "dim3")]
     pub fn mb_contact_constraints_capacity(&self) -> u32 {
         self.multibodies.contact_constraints_capacity()
@@ -620,6 +659,7 @@ pub struct RbdSnapshot {
 
 #[cfg(feature = "dim3")]
 impl RbdSnapshot {
+    /// Debug/test accessor: body `body_id`'s snapshotted (dense per-env) pose.
     pub fn debug_body_pose(&self, body_id: usize) -> Pose {
         self.body_poses[body_id]
     }
@@ -657,6 +697,8 @@ impl RbdState {
             .slow_read_buffer(self.vels.buffer(), &mut all_vels)
             .await
             .unwrap();
+        // The live buffers are batch-interleaved; a snapshot holds environment
+        // 0's state as a dense per-env array.
         let bps = all_poses.len() / nb;
         let body_poses = (0..bps).map(|i| all_poses[i * nb]).collect();
         let vs = all_vels.len() / nb;
@@ -670,6 +712,10 @@ impl RbdState {
     }
 
     /// Resets env `dst_env` from a CPU snapshot using `write_buffer` only.
+    ///
+    /// The per-body buffers are batch-interleaved, so this issues one strided
+    /// write per body: fine for the documented slow path, but prefer
+    /// [`Self::reset_envs_from_templates`] in reset loops.
     pub fn reset_env_from_snapshot(
         &mut self,
         backend: &GpuBackend,

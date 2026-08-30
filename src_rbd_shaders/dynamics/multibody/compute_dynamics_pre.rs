@@ -117,8 +117,8 @@ pub fn gpu_mb_compute_dynamics_pre(
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + vel_base);
     // Armature (reflected rotor inertia) section sits right after damping, at
-    // `2 · dof_damping_section_offset` (= 2·N). Added to the mass-matrix diagonal
-    // alongside `damping·dt`, matching rapier's `update_mass_matrix`.
+    // `2 · dof_batch_capacity`. Added to the mass-matrix diagonal alongside
+    // `damping·dt`, matching rapier's `update_mass_matrix`.
     let armature_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(2 * batch_ids.dof_batch_capacity as usize + vel_base);
@@ -680,6 +680,7 @@ fn update_body_jacobians(
     lane: u32,
     // Lanes owned by this multibody's slot (`BatchIndices::mb_pack_lanes`).
     lanes: u32,
+    // Dense base of this multibody's body-jacobians region.
     jac0: usize,
     ndofs: u32,
     num_links: u32,
