@@ -4,13 +4,72 @@
 //! static link descriptors, generalized coordinates and velocities) from a
 //! compact contiguous staging blob into the batch-interleaved live buffers.
 
-use glamx::{UVec4, Vec4};
+use glamx::Vec4;
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use super::types::MultibodyLinkStatic;
 use super::ws_soa::{WS_COORDS, WS_LTP, WS_LTW, WS_QUADS};
+
+/// One entry of the batched-reset list: restore environment `env` from the
+/// GPU-resident template `template`.
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct EnvResetRecord {
+    /// Destination environment (batch) index.
+    pub env: u32,
+    /// Index of the resident template to restore from.
+    pub template: u32,
+}
+
+/// Parameters of the single-env staging reset ([`gpu_mb_env_reset`]).
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct MbEnvResetParams {
+    /// Destination environment (batch) index.
+    pub dst_env: u32,
+    /// Total number of simulation batches (the interleave stride).
+    pub num_batches: u32,
+    /// Links per batch (with padding slots).
+    pub links_per_batch: u32,
+    /// Generalized-velocity entries per batch.
+    pub dofs_per_batch: u32,
+}
+
+/// Parameters shared by the two batched multibody reset passes
+/// ([`gpu_mb_env_reset_batch`] and [`gpu_mb_env_reset_batch_dofs`]).
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct MbEnvResetBatchParams {
+    /// Total number of simulation batches (the interleave stride).
+    pub num_batches: u32,
+    /// Links per batch (with padding slots).
+    pub links_per_batch: u32,
+    /// Generalized-velocity entries per batch.
+    pub dofs_per_batch: u32,
+    /// Number of entries in the reset list.
+    pub num_resets: u32,
+}
+
+/// Parameters of the rigid-body half of the batched reset
+/// ([`gpu_env_reset_bodies`]).
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct EnvResetBodiesParams {
+    /// Body slots per environment (template stride).
+    pub bodies_per_env: u32,
+    /// Velocity slots per environment (template stride).
+    pub vels_per_env: u32,
+    /// Number of entries in the reset list.
+    pub num_resets: u32,
+    /// Total number of simulation batches (the interleave stride).
+    pub num_batches: u32,
+}
 
 /// Scatters one staged env state into the interleaved buffers. Dispatch
 /// `[links_per_batch · WS_QUADS, 1, 1]` threads, the largest of the three
@@ -33,14 +92,13 @@ pub fn gpu_mb_env_reset(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     links_static: &mut [MultibodyLinkStatic],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] dof_state: &mut [f32],
-    // x = dst_env, y = num_batches, z = links_per_batch, w = dofs_per_batch.
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] params: &MbEnvResetParams,
 ) {
     let i = invocation_id.x;
-    let env = params.x;
-    let nb = params.y;
-    let lpb = params.z;
-    let dpb = params.w;
+    let env = params.dst_env;
+    let nb = params.num_batches;
+    let lpb = params.links_per_batch;
+    let dpb = params.dofs_per_batch;
 
     if i < lpb * WS_QUADS {
         // Staging is per-env dense; the live workspace is interleaved at
@@ -82,22 +140,21 @@ pub fn gpu_mb_env_reset_batch(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] templates_ws: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] link_flags: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] resets: &[UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] resets: &[EnvResetRecord],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] offsets: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] links_workspace: &mut [Vec4],
-    // x = num_batches, y = links_per_batch, z = dofs_per_batch, w = num_resets.
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] params: &MbEnvResetBatchParams,
 ) {
     let i = invocation_id.x;
     let r = invocation_id.y;
-    let nb = params.x;
-    let lpb = params.y;
-    if r >= params.w {
+    let nb = params.num_batches;
+    let lpb = params.links_per_batch;
+    if r >= params.num_resets {
         return;
     }
     let meta = resets.read(r as usize);
-    let env = meta.x;
-    let t = meta.y;
+    let env = meta.env;
+    let t = meta.template;
     let off = offsets.read(r as usize);
 
     if i < lpb * WS_QUADS {
@@ -137,25 +194,24 @@ pub fn gpu_mb_env_reset_batch_dofs(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     templates_links: &[MultibodyLinkStatic],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] resets: &[UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] resets: &[EnvResetRecord],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] dof_vels: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     links_static: &mut [MultibodyLinkStatic],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dof_state: &mut [f32],
-    // x = num_batches, y = links_per_batch, z = dofs_per_batch, w = num_resets.
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] params: &MbEnvResetBatchParams,
 ) {
     let i = invocation_id.x;
     let r = invocation_id.y;
-    let nb = params.x;
-    let lpb = params.y;
-    let dpb = params.z;
-    if r >= params.w {
+    let nb = params.num_batches;
+    let lpb = params.links_per_batch;
+    let dpb = params.dofs_per_batch;
+    if r >= params.num_resets {
         return;
     }
     let meta = resets.read(r as usize);
-    let env = meta.x;
-    let t = meta.y;
+    let env = meta.env;
+    let t = meta.template;
 
     if i < lpb {
         links_static.write(
@@ -186,25 +242,24 @@ pub fn gpu_env_reset_bodies(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     templates_vels: &[crate::dynamics::body::Velocity],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_mask: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] resets: &[UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] resets: &[EnvResetRecord],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] offsets: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] body_poses: &mut [crate::Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
     vels: &mut [crate::dynamics::body::Velocity],
-    // x = bodies_per_env, y = vels_per_env, z = num_resets.
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &EnvResetBodiesParams,
 ) {
     let i = invocation_id.x;
     let r = invocation_id.y;
-    let bps = params.x;
-    let vs = params.y;
-    let nb = params.w;
-    if r >= params.z {
+    let bps = params.bodies_per_env;
+    let vs = params.vels_per_env;
+    let nb = params.num_batches;
+    if r >= params.num_resets {
         return;
     }
     let meta = resets.read(r as usize);
-    let env = meta.x;
-    let t = meta.y;
+    let env = meta.env;
+    let t = meta.template;
     let off = offsets.read(r as usize);
 
     // Templates are dense per-env arrays; the live per-body buffers are

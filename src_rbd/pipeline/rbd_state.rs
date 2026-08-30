@@ -827,7 +827,8 @@ impl RbdState {
         offsets: &[crate::math::Vector],
         dof_vels: &[f32],
     ) {
-        use glamx::{UVec4, Vec4};
+        use crate::shaders::dynamics::{EnvResetBodiesParams, EnvResetRecord};
+        use glamx::Vec4;
         use khal::backend::Encoder as _;
         let n = resets.len() as u32;
         if n == 0 {
@@ -836,9 +837,9 @@ impl RbdState {
         let nb = self.num_batches;
         let bps = self.body_poses.len() as u32 / nb;
         let vs = self.vels.len() as u32 / nb;
-        let meta: Vec<UVec4> = resets
+        let meta: Vec<EnvResetRecord> = resets
             .iter()
-            .map(|&(env, t)| UVec4::new(env, t, 0, 0))
+            .map(|&(env, template)| EnvResetRecord { env, template })
             .collect();
         let offs: Vec<Vec4> = offsets
             .iter()
@@ -849,7 +850,12 @@ impl RbdState {
         let t_offs = Tensor::vector(backend, &offs, storage).unwrap();
         let params = Tensor::scalar(
             backend,
-            UVec4::new(bps, vs, n, nb),
+            EnvResetBodiesParams {
+                bodies_per_env: bps,
+                vels_per_env: vs,
+                num_resets: n,
+                num_batches: nb,
+            },
             BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         )
         .unwrap();

@@ -3,9 +3,9 @@
 
 use crate::math::Pose;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, LocalMassProperties, MbDofCoupling, MbImpulseJointBuilder,
-    MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo, MultibodyJointConstraint,
-    MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
+    ConstraintSoftness, LocalMassProperties, MbDelayStateParams, MbDelayTickParams, MbDofCoupling,
+    MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::BufferUsages;
@@ -59,7 +59,7 @@ pub(super) struct DelayUpdateBundle {
 pub(super) struct DelayUpdateCache {
     shader: DelayUpdateBundle,
     t_links: Tensor<u32>,
-    params: Tensor<glamx::UVec4>,
+    params: Tensor<MbDelayStateParams>,
     num_actuated: u32,
 }
 
@@ -155,7 +155,7 @@ pub struct GpuMultibodySet {
     /// links_per_batch]`. All zeros (the default) means no delay.
     pub(super) motor_delay_state: Tensor<f32>,
     /// `(num_batches, stride, 0, 0)` uniform for the delay tick dispatch.
-    pub(super) motor_delay_params: Tensor<glamx::UVec4>,
+    pub(super) motor_delay_params: Tensor<MbDelayTickParams>,
     /// Cached shader and constants for the on-device delay-state refresh.
     pub(super) delay_update_cache: Option<DelayUpdateCache>,
     /// The sensed multibody link ids, `MAX_CONTACT_SENSORS` slots padded with
@@ -1076,7 +1076,11 @@ impl GpuMultibodySet {
                     t_links: Tensor::vector(backend, actuated_link_ids, BufferUsages::STORAGE)?,
                     params: Tensor::scalar(
                         backend,
-                        glamx::UVec4::new(num_actuated, self.num_batches, stride, 0),
+                        MbDelayStateParams {
+                            num_actuated,
+                            num_envs: self.num_batches,
+                            stride,
+                        },
                         BufferUsages::STORAGE | BufferUsages::UNIFORM,
                     )?,
                     num_actuated,

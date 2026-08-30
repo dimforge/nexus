@@ -9,11 +9,36 @@
 //! element `(j, env)` at `j · num_envs + env`, matching the policy action
 //! buffer layout.
 
-use khal_std::glamx::{UVec3, UVec4};
+use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use super::types::MultibodyLinkStatic;
+
+/// Parameters of the on-device delay-state refresh
+/// ([`gpu_mb_delay_state_update`]).
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct MbDelayStateParams {
+    /// Number of actuated joints (rows of the target tensor).
+    pub num_actuated: u32,
+    /// Number of environments (columns of the target tensor).
+    pub num_envs: u32,
+    /// Per-env stride of the delay-state buffer (`2 + links_per_batch`).
+    pub stride: u32,
+}
+
+/// Parameters of the per-step delay tick ([`gpu_mb_delay_tick`]).
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct MbDelayTickParams {
+    /// Number of environments.
+    pub num_envs: u32,
+    /// Per-env stride of the delay-state buffer (`2 + links_per_batch`).
+    pub stride: u32,
+}
 
 /// One thread per (actuated joint `x`, env `y`). Writes `target_pos` into the
 /// matching motor and sets its `motor_axes` bit, like `set_motor` does on the
@@ -70,15 +95,14 @@ pub fn gpu_mb_delay_state_update(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] k_eff: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] actuated_link_ids: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] delay_state: &mut [f32],
-    // x = num_actuated, y = num_envs, z = stride (2 + links_per_batch).
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] params: &MbDelayStateParams,
 ) {
     let j = invocation_id.x;
     let env = invocation_id.y;
-    if j >= params.x || env >= params.y {
+    if j >= params.num_actuated || env >= params.num_envs {
         return;
     }
-    let base = (env * params.z) as usize;
+    let base = (env * params.stride) as usize;
     if j == 0 {
         delay_state.write(base, 0.0);
         delay_state.write(base + 1, k_eff.read(env as usize));
@@ -86,7 +110,7 @@ pub fn gpu_mb_delay_state_update(
     let link = actuated_link_ids.read(j as usize);
     delay_state.write(
         base + 2 + link as usize,
-        prev_targets.read((j * params.y + env) as usize),
+        prev_targets.read((j * params.num_envs + env) as usize),
     );
 }
 
@@ -100,14 +124,13 @@ pub fn gpu_mb_delay_state_update(
 pub fn gpu_mb_delay_tick(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] delay_state: &mut [f32],
-    // x = num_envs, y = stride (2 + links_per_batch).
-    #[spirv(uniform, descriptor_set = 0, binding = 1)] params: &UVec4,
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] params: &MbDelayTickParams,
 ) {
     let env = invocation_id.x;
-    if env >= params.x {
+    if env >= params.num_envs {
         return;
     }
-    let base = (env * params.y) as usize;
+    let base = (env * params.stride) as usize;
     let tick = delay_state.read(base);
     delay_state.write(base, tick + 1.0);
 }

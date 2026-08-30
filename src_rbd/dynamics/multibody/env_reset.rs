@@ -15,10 +15,11 @@
 use super::multibody_set::GpuMultibodySet;
 use crate::math::Vector;
 use crate::shaders::dynamics::{
-    GpuMbEnvReset, GpuMbEnvResetBatch, GpuMbEnvResetBatchDofs, MULTIBODY_ROOT, MultibodyLinkStatic,
-    MultibodyLinkWorkspace, WS_QUADS, ws_soa_from_structs, ws_soa_to_structs,
+    EnvResetRecord, GpuMbEnvReset, GpuMbEnvResetBatch, GpuMbEnvResetBatchDofs, MULTIBODY_ROOT,
+    MbEnvResetBatchParams, MbEnvResetParams, MultibodyLinkStatic, MultibodyLinkWorkspace, WS_QUADS,
+    ws_soa_from_structs, ws_soa_to_structs,
 };
-use glamx::{UVec4, Vec4};
+use glamx::Vec4;
 use khal::BufferUsages;
 use khal::Shader;
 use khal::backend::{Backend, GpuBackend};
@@ -115,7 +116,7 @@ pub(super) struct EnvResetBundle {
     staging_ws: Tensor<Vec4>,
     staging_links: Tensor<MultibodyLinkStatic>,
     staging_dofs: Tensor<f32>,
-    params: Tensor<UVec4>,
+    params: Tensor<MbEnvResetParams>,
 }
 
 impl EnvResetBundle {
@@ -138,7 +139,17 @@ impl EnvResetBundle {
             .unwrap(),
             staging_dofs: Tensor::vector(backend, vec![0.0f32; dpb.max(1) as usize], storage)
                 .unwrap(),
-            params: Tensor::scalar(backend, UVec4::new(0, 0, lpb, dpb), uniform).unwrap(),
+            params: Tensor::scalar(
+                backend,
+                MbEnvResetParams {
+                    dst_env: 0,
+                    num_batches: 0,
+                    links_per_batch: lpb,
+                    dofs_per_batch: dpb,
+                },
+                uniform,
+            )
+            .unwrap(),
         }
     }
 }
@@ -235,7 +246,12 @@ impl GpuMultibodySet {
         }
         bundle.params = Tensor::scalar(
             backend,
-            UVec4::new(dst_env, nb, lpb, dpb),
+            MbEnvResetParams {
+                dst_env,
+                num_batches: nb,
+                links_per_batch: lpb,
+                dofs_per_batch: dpb,
+            },
             BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         )
         .unwrap();
@@ -322,7 +338,7 @@ impl GpuMultibodySet {
         &mut self,
         backend: &GpuBackend,
         enc: &mut <GpuBackend as Backend>::Encoder,
-        resets: &[UVec4],
+        resets: &[EnvResetRecord],
         offsets: &[Vec4],
         dof_vels: &[f32],
     ) {
@@ -342,7 +358,7 @@ impl GpuMultibodySet {
 
         // Host mirror lockstep: the motor setters read-modify-write it.
         for meta in resets {
-            let (env, t) = (meta.x as usize, meta.y as usize);
+            let (env, t) = (meta.env as usize, meta.template as usize);
             for (k, ls) in tpl.mirror_links[t].iter().enumerate() {
                 self.links_static_mirror[k * nb as usize + env] = *ls;
             }
@@ -354,7 +370,12 @@ impl GpuMultibodySet {
         let t_vels = Tensor::vector(backend, dof_vels, storage).unwrap();
         let params = Tensor::scalar(
             backend,
-            UVec4::new(nb, lpb, dpb, n),
+            MbEnvResetBatchParams {
+                num_batches: nb,
+                links_per_batch: lpb,
+                dofs_per_batch: dpb,
+                num_resets: n,
+            },
             BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         )
         .unwrap();

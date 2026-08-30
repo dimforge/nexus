@@ -2,9 +2,10 @@
 
 use super::multibody_set::*;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDofCoupling,
-    MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
-    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
+    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDelayTickParams,
+    MbDofCoupling, MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint,
+    MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace,
+    RbdSimParams,
 };
 use crate::shaders::utils::linalg::MAX_MB_DOFS;
 use khal::BufferUsages;
@@ -668,7 +669,10 @@ impl GpuMultibodySet {
             .unwrap(),
             motor_delay_params: Tensor::scalar(
                 backend,
-                glamx::UVec4::new(num_batches, 2 + links_cap, 0, 0),
+                MbDelayTickParams {
+                    num_envs: num_batches,
+                    stride: 2 + links_cap,
+                },
                 BufferUsages::STORAGE | BufferUsages::UNIFORM,
             )
             .unwrap(),
