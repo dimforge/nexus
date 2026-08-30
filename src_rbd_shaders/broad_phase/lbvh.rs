@@ -49,74 +49,39 @@ pub struct LbvhNode {
     pub refit_count_or_max_subtree_index: u32,
 }
 
-/// Resets the collision pairs counter. One thread per batch.
+/// Resets the (single, global) collision pairs counter.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_reset_collision_pairs(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs_len: &mut [u32],
 ) {
-    let batch_id = invocation_id.x as usize;
-    if batch_id < collision_pairs_len.len() {
-        collision_pairs_len.write(batch_id, 0);
+    let i = invocation_id.x as usize;
+    if i < collision_pairs_len.len() {
+        collision_pairs_len.write(i, 0);
     }
 }
 
-/// Number of lanes used by the per-batch-count max reductions below. Their
-/// host dispatch is a single workgroup: `.call(pass, MAX_REDUCE_LANES, ...)`.
-pub const MAX_REDUCE_LANES: u32 = 256;
-
-/// Workgroup-parallel `max` over the per-batch counts, then writes the
-/// `[ceil(max/64), num_batches, 1]` indirect grid.
+/// Writes the flat 1-D indirect grid for a kernel iterating a flat work-list
+/// (collision pairs or PFM pairs): `[ceil(min(len, capacity) / 64), 1, 1]`.
 ///
-/// NOTE: `lens` is mutable even though we don't modify it: the loads must be
-/// atomic or they occasionally read stale data (breaks Windows+Nvidia+wgpu, see
-/// <https://github.com/gfx-rs/wgpu/issues/9221>).
-#[inline(always)]
-pub(crate) fn max_len_indirect_args(
-    lane: u32,
-    lens: &mut [u32],
-    indirect_args: &mut [u32; 3],
-    partial: &mut [u32; MAX_REDUCE_LANES as usize],
+/// NOTE: the load must be atomic or it occasionally reads stale data (breaks
+/// Windows+Nvidia+wgpu, see <https://github.com/gfx-rs/wgpu/issues/9221>).
+#[spirv_bindgen]
+#[spirv(compute(threads(1)))]
+pub fn gpu_flat_list_dispatch(
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
 ) {
-    let num_batches = lens.len();
-
-    let mut m = 0u32;
-    for i in StepRng::new(lane..num_batches as u32, MAX_REDUCE_LANES) {
-        m = m.max(atomic_load_u32(lens.at_mut(i as usize)));
-    }
-    partial.write(lane as usize, m);
-    workgroup_memory_barrier_with_group_sync();
-
-    // Tree reduction over the 256 lanes (8 halving steps).
-    for step in 0..8u32 {
-        let stride = MAX_REDUCE_LANES >> (step + 1);
-        if lane < stride {
-            let v = partial
-                .read(lane as usize)
-                .max(partial.read((lane + stride) as usize));
-            partial.write(lane as usize, v);
-        }
-        workgroup_memory_barrier_with_group_sync();
-    }
-
-    if lane == 0 {
-        *indirect_args.at_mut(0) = partial.read(0).div_ceil(WORKGROUP_SIZE);
-        *indirect_args.at_mut(1) = num_batches as u32;
+    // Loop shell per the `gpu_reset_completion_flag_topo_gc` rustgpu-triviality
+    // workaround (too-trivial kernels don't get their spirv generated).
+    for _ in 0..1 {
+        let total = atomic_load_u32(len.at_mut(0)).min(batch_ids.collision_pairs_capacity);
+        *indirect_args.at_mut(0) = total.div_ceil(WORKGROUP_SIZE);
+        *indirect_args.at_mut(1) = 1;
         *indirect_args.at_mut(2) = 1;
     }
-}
-
-/// Initializes indirect dispatch arguments for narrow phase.
-#[spirv_bindgen]
-#[spirv(compute(threads(256)))]
-pub fn gpu_lbvh_init_dispatch(
-    #[spirv(local_invocation_id)] lid: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] collision_pairs_len: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] indirect_args: &mut [u32; 3],
-    #[spirv(workgroup)] partial: &mut [u32; MAX_REDUCE_LANES as usize],
-) {
-    max_len_indirect_args(lid.x, collision_pairs_len, indirect_args, partial);
 }
 
 /// Runs a reduction to compute the AABB of the collider positions.
@@ -135,14 +100,9 @@ pub fn gpu_lbvh_compute_domain(
     let thread_id = global_id.x;
     *workspace_mins.at_mut(thread_id as usize) = Vector::splat(MAX_FLT);
     *workspace_maxs.at_mut(thread_id as usize) = Vector::splat(-MAX_FLT);
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
-    let colliders_end = colliders_start + batch_ids.colliders_len;
 
-    for i in StepRng::new(
-        colliders_start + thread_id..colliders_end,
-        REDUCTION_WORKGROUP_SIZE,
-    ) {
-        let val_i = poses.at(i as usize).translation;
+    for i in StepRng::new(thread_id..batch_ids.colliders_len, REDUCTION_WORKGROUP_SIZE) {
+        let val_i = poses.at(batch_ids.body_global(batch_id, i)).translation;
         *workspace_mins.at_mut(thread_id as usize) =
             workspace_mins.at(thread_id as usize).min(val_i);
         *workspace_maxs.at_mut(thread_id as usize) =
@@ -194,17 +154,13 @@ pub fn gpu_lbvh_compute_morton(
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
     let domain_aabb = domain_aabb.read(batch_id as usize);
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
-    let colliders_end = colliders_start + batch_ids.colliders_len;
+    let scratch = scratch_start(batch_ids, batch_id);
 
-    for i in StepRng::new(
-        colliders_start + invocation_id.x..colliders_end,
-        num_threads,
-    ) {
-        let center = poses.at(i as usize).translation;
+    for i in StepRng::new(invocation_id.x..batch_ids.colliders_len, num_threads) {
+        let center = poses.at(batch_ids.body_global(batch_id, i)).translation;
         let normalized = (center - domain_aabb.mins) / (domain_aabb.maxs - domain_aabb.mins);
         let morton_key = morton(normalized);
-        morton_keys.write(i as usize, morton_key);
+        morton_keys.write((scratch + i) as usize, morton_key);
     }
 }
 
@@ -223,7 +179,7 @@ pub fn gpu_lbvh_build(
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
+    let colliders_start = scratch_start(batch_ids, batch_id);
     let num_bodies = batch_ids.colliders_len;
     let num_internal_nodes = num_bodies - 1;
     let first_leaf_id = num_internal_nodes;
@@ -332,13 +288,13 @@ pub fn gpu_lbvh_refit_leaves(
     // Bottom-up refit. Leaf index starts at `num_colliders`.
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
+    let colliders_start = scratch_start(batch_ids, batch_id);
     let num_colliders = batch_ids.colliders_len;
     let first_leaf_id = num_colliders - 1;
 
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let sorted_colliders = batch_ids.coll_batch(batch_id, sorted_colliders);
+    let poses = batch_ids.ib(batch_id, poses);
+    let shapes = batch_ids.ib(batch_id, shapes);
+    let sorted_colliders = Slice(sorted_colliders, colliders_start as usize);
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
 
     for i in StepRng::new(invocation_id.x..num_colliders, num_threads) {
@@ -371,7 +327,7 @@ pub fn gpu_lbvh_refit_internal(
     // Bottom-up refit. Leaf index starts at `num_colliders`.
     let num_threads = 256u32;
     let batch_id = workgroup_id.y;
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
+    let colliders_start = scratch_start(batch_ids, batch_id);
     let num_bodies = batch_ids.colliders_len;
     let first_leaf_id = num_bodies - 1;
 
@@ -468,13 +424,13 @@ pub fn gpu_lbvh_refit(
     // Bottom-up refit. Leaf index starts at `num_colliders`.
     let batch_id = invocation_id.y;
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
+    let colliders_start = scratch_start(batch_ids, batch_id);
     let num_bodies = batch_ids.colliders_len;
     let first_leaf_id = num_bodies - 1;
 
-    let poses = batch_ids.coll_batch(batch_id, poses);
-    let shapes = batch_ids.coll_batch(batch_id, shapes);
-    let sorted_colliders = batch_ids.coll_batch(batch_id, sorted_colliders);
+    let poses = batch_ids.ib(batch_id, poses);
+    let shapes = batch_ids.ib(batch_id, shapes);
+    let sorted_colliders = Slice(sorted_colliders, colliders_start as usize);
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
 
     for i in StepRng::new(invocation_id.x..num_bodies, num_threads) {
@@ -544,14 +500,13 @@ pub fn gpu_lbvh_find_collision_pairs(
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
-    let colliders_start = batch_ids.coll_start(batch_id) as u32;
+    let colliders_start = scratch_start(batch_ids, batch_id);
     let num_bodies = batch_ids.colliders_len;
     let first_leaf_id = num_bodies - 1;
 
-    let mut collision_pairs = batch_ids.collision_pairs_batch_mut(batch_id, collision_pairs);
     let tree = Slice(tree, root_id(colliders_start) as usize);
-    let collision_groups = batch_ids.coll_batch(batch_id, collision_groups);
-    let pair_filter = batch_ids.coll_batch(batch_id, pair_filter);
+    let collision_groups = batch_ids.ib(batch_id, collision_groups);
+    let pair_filter = batch_ids.ib(batch_id, pair_filter);
 
     for leaf_i in StepRng::new(invocation_id.x..num_bodies, num_threads) {
         let i = tree.at((first_leaf_id + leaf_i) as usize).left;
@@ -595,23 +550,32 @@ pub fn gpu_lbvh_find_collision_pairs(
                     continue;
                 }
 
-                let target_pair_index =
-                    atomic_add_u32(collision_pairs_len.at_mut(batch_id as usize), 1);
+                // Single global counter: every batch appends to the same flat
+                // buffer (pairs from different batches interleave freely).
+                let target_pair_index = atomic_add_u32(collision_pairs_len.at_mut(0), 1);
 
                 // NOTE: if the index is out-of-bounds (meaning the `collision_pairs` isn't
                 //       big enough), don't write. But keep traversing so we get the exact count we need
                 //       for reallocating the buffers.
-                if target_pair_index < batch_ids.collision_pairs_batch_capacity {
-                    // NOTE: we only store the collider pair here. The parent body
-                    //       ids are resolved lazily, at the very last moment, when
-                    //       the narrow-phase writes the `IndexedManifold` consumed
+                if target_pair_index < batch_ids.collision_pairs_capacity {
+                    // NOTE: we only store the collider pair here, with global
+                    //       collider ids (the owning batch is recovered from the
+                    //       id downstream). The parent body ids are resolved
+                    //       lazily, at the very last moment, when the
+                    //       narrow-phase writes the `IndexedManifold` consumed
                     //       by the solver — keeping this hot buffer (and the
                     //       intermediate pfm-pair buffer) narrow, and keeping
                     //       `collider_parent` out of the broad phase entirely.
                     let (ci, cj) = if i < j { (i, j) } else { (j, i) };
-                    collision_pairs[target_pair_index as usize] = CollisionPair {
-                        colliders: UVec2::new(ci, cj),
-                    };
+                    collision_pairs.write(
+                        target_pair_index as usize,
+                        CollisionPair {
+                            colliders: UVec2::new(
+                                batch_ids.body_global(batch_id, ci) as u32,
+                                batch_ids.body_global(batch_id, cj) as u32,
+                            ),
+                        },
+                    );
                 }
             } else {
                 let left = node.left;
@@ -716,6 +680,16 @@ pub fn prefix_len(
     } else {
         fallback_prefix_len
     }
+}
+
+/// Start of `batch_id`'s segment in the broad-phase internal scratch buffers
+/// (morton keys, sorted collider ids, tree, brute-force AABBs). These stay
+/// batch-major: the radix sort works on contiguous per-batch key segments.
+/// Only the shared per-collider state (poses, shapes, groups, filters) is
+/// batch-interleaved.
+#[inline]
+pub fn scratch_start(batch_ids: &BatchIndices, batch_id: u32) -> u32 {
+    batch_id * batch_ids.colliders_batch_capacity
 }
 
 fn root_id(collider_start_id: u32) -> u32 {

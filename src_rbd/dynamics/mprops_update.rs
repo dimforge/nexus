@@ -29,7 +29,7 @@ impl GpuMpropsUpdate {
     ) -> Result<(), GpuBackendError> {
         self.update_mprops_kernel.call(
             pass,
-            [num_bodies, num_batches, 1],
+            num_bodies * num_batches,
             mprops,
             local_mprops,
             body_poses,
@@ -67,7 +67,7 @@ impl GpuSyncColliderPosesShader {
     ) -> Result<(), GpuBackendError> {
         self.sync_kernel.call(
             pass,
-            [num_colliders, num_batches, 1],
+            num_colliders * num_batches,
             body_poses,
             collider_local_poses,
             collider_world_poses,

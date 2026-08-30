@@ -179,8 +179,10 @@ fn emit_joint_constraints(
                     limit_min,
                     limit_max,
                 );
-                joint_constraints.write(cons_base + slot as usize, cons);
-                slot += 1;
+                if slot < mb.max_constraints {
+                    joint_constraints.write(cons_base + slot as usize, cons);
+                    slot += 1;
+                }
             }
             if (limit_axes & (1 << axis)) != 0 {
                 let cons = build_limit_constraint(
@@ -195,8 +197,10 @@ fn emit_joint_constraints(
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
-                joint_constraints.write(cons_base + slot as usize, cons);
-                slot += 1;
+                if slot < mb.max_constraints {
+                    joint_constraints.write(cons_base + slot as usize, cons);
+                    slot += 1;
+                }
             }
             curr_free_dof += 1;
         }
@@ -222,8 +226,10 @@ fn emit_joint_constraints(
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
-                joint_constraints.write(cons_base + slot as usize, cons);
-                slot += 1;
+                if slot < mb.max_constraints {
+                    joint_constraints.write(cons_base + slot as usize, cons);
+                    slot += 1;
+                }
             }
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
@@ -248,8 +254,10 @@ fn emit_joint_constraints(
                     limit_min,
                     limit_max,
                 );
-                joint_constraints.write(cons_base + slot as usize, cons);
-                slot += 1;
+                if slot < mb.max_constraints {
+                    joint_constraints.write(cons_base + slot as usize, cons);
+                    slot += 1;
+                }
             }
             curr_free_dof += 1;
         }
@@ -273,8 +281,10 @@ fn emit_joint_constraints(
             coupling.link_axis2 >> 16,
         );
         let cons = build_coupling_constraint(&coupling, q1, q2, joint_erp_inv_dt);
-        joint_constraints.write(cons_base + slot as usize, cons);
-        slot += 1;
+        if slot < mb.max_constraints {
+            joint_constraints.write(cons_base + slot as usize, cons);
+            slot += 1;
+        }
     }
 
     // Joint dry friction (MJCF `frictionloss`): one box-bounded row per DoF
@@ -293,7 +303,7 @@ fn emit_joint_constraints(
         let fl = frictionloss_slice.read(d as usize);
         // Kinematic DoFs have a prescribed velocity; a friction row would
         // fight it.
-        if fl > 0.0 && kin_mask_slice.read(d as usize) == 0.0 {
+        if fl > 0.0 && kin_mask_slice.read(d as usize) == 0.0 && slot < mb.max_constraints {
             let cons = build_friction_constraint(d, fl, dt, joint_cfm_coeff);
             joint_constraints.write(cons_base + slot as usize, cons);
             slot += 1;
@@ -669,13 +679,16 @@ pub fn gpu_mb_finalize_joint_constraints(
     }
     let active = in_range && ndofs != 0;
 
-    let mb_mm_base = mb.mass_matrix_offset as usize;
-    let piv = batch_ids.ivec(batch_id, mb.first_dof as usize);
+    let piv = VSlice::dense(batch_ids.mb_region(batch_id, mb.first_dof, ndofs));
     let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
     let col_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
-    let m = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
+    let m = MatSlice::dense(
+        batch_ids.mb_region(batch_id, mb.mass_matrix_offset, ndofs * ndofs),
+        ndofs,
+        ndofs,
+    );
 
     if active {
         for s in StepRng::new(lane..mb.max_constraints, LANES) {

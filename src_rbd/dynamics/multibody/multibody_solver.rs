@@ -3,18 +3,20 @@
 use super::multibody_set::*;
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
+use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
     GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
-    GpuMbComputeSolveBounds, GpuMbDelayTick, GpuMbFinalizeContactConstraints,
-    GpuMbFinalizeImpulseJointConstraints, GpuMbFinalizeJointConstraints, GpuMbGravityAndLu,
-    GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32,
-    GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
-    GpuMbIntegrateVelocities, GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
-    GpuMbSeedContactRestitution, GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart,
-    GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
-    GpuMbSolveJoints, GpuMbStashContactsLen, GpuMbTransferContactWarmstart,
-    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, Velocity,
-    WorldMassProperties,
+    GpuMbComputeSolveBounds, GpuMbConsOffsetsScan, GpuMbCountContactConstraints, GpuMbDelayTick,
+    GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
+    GpuMbFinalizeJointConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
+    GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
+    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
+    GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias, GpuMbSavePrevConsBounds,
+    GpuMbScatterContactIndex, GpuMbSeedContactRestitution, GpuMbSenseContactImpulses,
+    GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
+    GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbTransferContactWarmstart,
+    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, MbContactIndexEntry,
+    Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -66,12 +68,20 @@ pub struct GpuMultibodySolver {
     solve_contacts_delassus: GpuMbSolveContactsDelassus,
     /// Snapshot the contact impulses once per frame, for the cross-frame match.
     snapshot_contact_warmstart: GpuMbSnapshotContactWarmstart,
+    /// Saves the previous frame's constraint-segment bounds before the new
+    /// layout is computed (the warmstart transfer matches against them).
+    save_prev_cons_bounds: GpuMbSavePrevConsBounds,
+    /// Predicts the per-(multibody, batch) contact-constraint slot and index
+    /// counts (one flat sweep over the contacts).
+    count_contact_constraints: GpuMbCountContactConstraints,
+    /// Turns the predictions into dynamic segments of the flat constraint
+    /// buffer and of the contact→multibody index (and publishes the total
+    /// demand for the auto-resize).
+    cons_offsets_scan: GpuMbConsOffsetsScan,
+    /// Fills the contact→multibody index segments laid out by the scan.
+    scatter_contact_index: GpuMbScatterContactIndex,
     /// Carry the snapshotted impulses over to this frame's matching contacts.
     transfer_contact_warmstart: GpuMbTransferContactWarmstart,
-    /// Copy `contacts_len[batch]` into each `MultibodyInfo` once per step so
-    /// `init_contact_constraints` (at the 8-storage-buffer limit) can bound
-    /// its manifold scan by the actual count instead of the capacity.
-    stash_contacts_len: GpuMbStashContactsLen,
     /// Re-apply the accumulated contact impulse each substep (warmstart).
     warmstart_contact_constraints: GpuMbWarmstartContactConstraints,
     /// Capture each bouncy contact's approach velocity at the start of the step.
@@ -100,10 +110,17 @@ pub struct MultibodySolverArgs<'a> {
     pub collider_world_poses: &'a Tensor<Pose>,
     /// Free-body world mass properties (read by `init_contact_constraints`).
     pub mprops: &'a Tensor<WorldMassProperties>,
-    /// Per-batch contact manifold list (filled by narrow-phase).
+    /// Flat contact manifold list (filled by narrow-phase; positional slots).
     pub contacts: &'a Tensor<GpuIndexedContact>,
-    /// Per-batch contact count (parallel to `contacts`).
-    pub contacts_len: &'a Tensor<u32>,
+    /// Clamped per-frame list totals (see `gpu_contact_plan`); `[PLAN_BOUND]`
+    /// bounds the flat contact sweeps.
+    pub contact_plan: &'a Tensor<ContactPlan>,
+    /// Flat dispatch grid over the whole contacts range (written by
+    /// `gpu_contact_plan`).
+    pub contacts_indirect: &'a Tensor<[u32; 3]>,
+    /// Contact→multibody index (per-multibody segments of contact slots),
+    /// rebuilt once per step by [`GpuMultibodySolver::layout_contact_constraints`].
+    pub mb_contact_index: &'a mut Tensor<MbContactIndexEntry>,
     /// Free-body solver velocities (updated in place by `solve_contact_constraints`).
     pub solver_vels: &'a mut Tensor<Velocity>,
     /// Shared `BatchIndices` uniform — per-batch caps and packed-section
@@ -152,17 +169,20 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        // Snapshot the contact slab this frame's build will overwrite, so the
-        // warmstart transfer can still match against it.
-        // Flat (slot, multibody, batch) grid.
+        // Snapshot the contact-constraint buffer (and its segment bounds) that
+        // this frame's build will overwrite, so the warmstart transfer can
+        // still match against it.
         {
             let mut pass = encoder.begin_pass("[RBD] mbi/snapshot", timestamps.as_deref_mut());
-            let total_slots = mb.num_active_multibodies
-                * mb.num_batches
-                * crate::shaders::dynamics::MAX_MB_CONTACT_CONSTRAINTS_PER_MB;
+            self.save_prev_cons_bounds.call(
+                &mut pass,
+                mb.flat_mb_dispatch(),
+                &mut mb.multibody_info,
+                args.batch_indices,
+            )?;
             self.snapshot_contact_warmstart.call(
                 &mut pass,
-                [total_slots, 1, 1],
+                mb.contact_constraints_capacity,
                 &mb.contact_constraints,
                 &mut mb.old_contact_constraints,
                 args.batch_indices,
@@ -172,11 +192,13 @@ impl GpuMultibodySolver {
         self.compute_dynamics(&mut pass, mb, args)
     }
 
-    /// Copy `contacts_len[batch]` into each `MultibodyInfo`.
-    ///
-    /// This is a workaround for kernels that are already at the 8-storage-binding
-    /// web limit and could therefore not bind `contacts_len`.
-    pub fn stash_contacts_len(
+    /// Lay out this frame's dynamic contact-constraint segments and build the
+    /// contact→multibody index, once per step after the narrow phase:
+    /// predict the per-(multibody, batch) slot / index counts (one flat sweep
+    /// over the contacts), prefix-scan them into segment starts (also
+    /// publishing the total demand for the auto-resize readback), then
+    /// scatter each contact's slot into its owner's index segment.
+    pub fn layout_contact_constraints(
         &self,
         pass: &mut GpuPass,
         mb: &mut GpuMultibodySet,
@@ -185,11 +207,35 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        self.stash_contacts_len.call(
+        self.count_contact_constraints.call(
             pass,
-            mb.flat_mb_dispatch(),
+            args.contacts_indirect,
+            &mb.multibody_info,
+            args.contacts,
+            &mb.body_to_link,
+            &mut mb.mb_cons_counts,
+            &mut mb.mb_index_counts,
+            args.contact_plan,
+            args.batch_indices,
+        )?;
+        self.cons_offsets_scan.call(
+            pass,
+            1u32,
             &mut mb.multibody_info,
-            args.contacts_len,
+            &mut mb.mb_cons_counts,
+            &mut mb.mb_index_counts,
+            &mut mb.mb_cons_demand,
+            args.batch_indices,
+        )?;
+        self.scatter_contact_index.call(
+            pass,
+            args.contacts_indirect,
+            &mb.multibody_info,
+            args.contacts,
+            &mb.body_to_link,
+            &mut mb.mb_index_counts,
+            args.mb_contact_index,
+            args.contact_plan,
             args.batch_indices,
         )?;
         Ok(())
@@ -289,7 +335,7 @@ impl GpuMultibodySolver {
                 args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mut mb.contact_constraints,
-                &mb.contact_constraint_jacs,
+                &mb.contact_jac_cols,
                 &mb.dof_state,
                 args.solver_vels,
                 args.batch_indices,
@@ -309,7 +355,7 @@ impl GpuMultibodySolver {
                 args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mb.contact_constraints,
-                &mb.contact_constraint_columns,
+                &mb.contact_jac_cols,
                 &mut mb.dof_state,
                 args.solver_vels,
                 args.batch_indices,
@@ -392,7 +438,7 @@ impl GpuMultibodySolver {
                 init_contact_dispatch,
                 &mut mb.multibody_info,
                 &mb.links_workspace,
-                &mb.body_to_link,
+                &*args.mb_contact_index,
                 &mut mb.contact_constraints,
                 &mb.constraint_softness,
                 args.batch_indices,
@@ -415,8 +461,7 @@ impl GpuMultibodySolver {
                 &mb.mass_matrices,
                 &mb.lu_pivots,
                 &mut mb.contact_constraints,
-                &mut mb.contact_constraint_jacs,
-                &mut mb.contact_constraint_columns,
+                &mut mb.contact_jac_cols,
                 &mb.links_static,
                 &mb.body_jacobians,
                 args.batch_indices,
@@ -443,8 +488,7 @@ impl GpuMultibodySolver {
                 args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mb.contact_constraints,
-                &mb.contact_constraint_jacs,
-                &mb.contact_constraint_columns,
+                &mb.contact_jac_cols,
                 delassus,
                 args.batch_indices,
             )?;
@@ -486,8 +530,7 @@ impl GpuMultibodySolver {
                 args.mb_sweep_indirect,
                 &mb.multibody_info,
                 &mut mb.contact_constraints,
-                &mb.contact_constraint_jacs,
-                &mb.contact_constraint_columns,
+                &mb.contact_jac_cols,
                 delassus,
                 use_bias,
                 args.batch_indices,
@@ -503,8 +546,7 @@ impl GpuMultibodySolver {
                 &mut mb.joint_constraints,
                 &mb.joint_constraint_columns,
                 &mut mb.contact_constraints,
-                &mb.contact_constraint_jacs,
-                &mb.contact_constraint_columns,
+                &mb.contact_jac_cols,
                 use_bias,
                 args.batch_indices,
                 &mb.max_contact_constraints,
@@ -522,8 +564,7 @@ impl GpuMultibodySolver {
                 &mut mb.joint_constraints,
                 &mb.joint_constraint_columns,
                 &mut mb.contact_constraints,
-                &mb.contact_constraint_jacs,
-                &mb.contact_constraint_columns,
+                &mb.contact_jac_cols,
                 use_bias,
                 args.batch_indices,
                 &mb.max_contact_constraints,
@@ -558,7 +599,8 @@ impl GpuMultibodySolver {
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
         // constraints.
         if mb.mb_imp_joints_per_batch > 0 {
-            let imp_dispatch = [mb.mb_imp_joints_per_batch, mb.num_batches, 1];
+            // Flat 1-D sweep over the interleaved joint slots.
+            let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];
             self.update_impulse_joint_constraints.call(
                 pass,
                 imp_dispatch,
@@ -594,11 +636,12 @@ impl GpuMultibodySolver {
             for c in 0..mb.mb_imp_joint_num_colors as usize {
                 self.solve_impulse_joint_constraints.call(
                     pass,
-                    // One workgroup (MB_LU_LANES threads) per joint; thread
-                    // count = joints-in-largest-color × workgroup size.
+                    // One workgroup (MB_LU_LANES threads) per (joint, batch),
+                    // batch-fastest; thread count = joints-in-largest-color ×
+                    // batches × workgroup size.
                     [
-                        mb.mb_imp_joint_max_color_group_len * MB_LU_LANES,
-                        mb.num_batches,
+                        mb.mb_imp_joint_max_color_group_len * mb.num_batches * MB_LU_LANES,
+                        1,
                         1,
                     ],
                     &mb.mb_imp_joint_builders,
@@ -638,7 +681,6 @@ impl GpuMultibodySolver {
             &mb.multibody_info,
             &mb.links_static,
             &mut mb.links_workspace,
-            &mut mb.dof_values,
             &mb.dof_state,
             &mb.dt,
             args.batch_indices,
@@ -673,13 +715,13 @@ impl GpuMultibodySolver {
         let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
         self.dispatch_solve(pass, mb, args, solve_dispatch, 0)?;
         if mb.mb_imp_joints_per_batch > 0 {
-            let imp_dispatch = [mb.mb_imp_joints_per_batch, mb.num_batches, 1];
+            // Flat 1-D sweep over the interleaved joint slots.
+            let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];
             self.remove_impulse_joint_constraint_bias.call(
                 pass,
                 imp_dispatch,
                 &mb.mb_imp_joint_builders,
                 &mut mb.mb_imp_joint_constraints,
-                &mb.mb_imp_joint_count,
                 args.batch_indices,
             )?;
             // Final stabilization sweep WITHOUT bias — colored, one
@@ -687,11 +729,12 @@ impl GpuMultibodySolver {
             for c in 0..mb.mb_imp_joint_num_colors as usize {
                 self.solve_impulse_joint_constraints.call(
                     pass,
-                    // One workgroup (MB_LU_LANES threads) per joint; thread
-                    // count = joints-in-largest-color × workgroup size.
+                    // One workgroup (MB_LU_LANES threads) per (joint, batch),
+                    // batch-fastest; thread count = joints-in-largest-color ×
+                    // batches × workgroup size.
                     [
-                        mb.mb_imp_joint_max_color_group_len * MB_LU_LANES,
-                        mb.num_batches,
+                        mb.mb_imp_joint_max_color_group_len * mb.num_batches * MB_LU_LANES,
+                        1,
                         1,
                     ],
                     &mb.mb_imp_joint_builders,
@@ -750,8 +793,7 @@ impl GpuMultibodySolver {
             args.mb_sweep_indirect,
             &mb.multibody_info,
             &mut mb.contact_constraints,
-            &mb.contact_constraint_jacs,
-            &mb.contact_constraint_columns,
+            &mb.contact_jac_cols,
             args.batch_indices,
             &mb.max_contact_constraints,
             &mut mb.dof_state,

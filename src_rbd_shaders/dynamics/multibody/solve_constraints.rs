@@ -88,16 +88,14 @@ pub fn gpu_mb_solve_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] joint_constraint_columns: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     contact_constraints: &mut [MultibodyContactConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_constraint_jacs: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] contact_constraint_columns: &[f32],
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 8)] max_contact_constraints: &u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_jac_cols: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] use_bias: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 7)] max_contact_constraints: &u32,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
     #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
     #[spirv(workgroup)] scratch: &mut [f32; LANES as usize],
-    #[spirv(workgroup)] imp_shared: &mut [f32; MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize],
     #[spirv(workgroup)] delta_shared: &mut f32,
     #[spirv(workgroup)] delta2_shared: &mut f32,
 ) {
@@ -123,16 +121,16 @@ pub fn gpu_mb_solve_constraints(
 
     let v_base = mb.first_dof as usize;
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
-    let colliders_start = batch_ids.coll_start(batch_id);
 
     let jcons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let jcol_base = batch_ids.mb_joint_constraint_columns_start(batch_id)
         + (mb.first_constraint as usize) * dofs_stride;
 
-    let ccons_base = batch_ids.mb_contact_constraints_start(batch_id)
-        + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
-    let ccol_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
-        + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize) * dofs_stride;
+    // This multibody's dynamic segment in the flat constraint buffer, and the
+    // paired jac/column arena: slot `g` owns `2 * dofs_stride` dense floats,
+    // the `J` row first, then its `M^-1*J^T` column.
+    let ccons_base = mb.contact_constraint_start as usize;
+    let cjc_base = ccons_base * 2 * dofs_stride;
 
     let contact_count = mb.contact_constraint_count;
     #[cfg(not(feature = "web-compat"))]
@@ -142,21 +140,15 @@ pub fn gpu_mb_solve_constraints(
     }
     let active = in_range && ndofs != 0 && (mb.max_constraints != 0 || contact_count != 0);
 
-    // Load the generalized velocities and accumulated contact impulses into
-    // workgroup memory.
-    if active {
-        if lane < ndofs {
-            dof_v.write(
-                lane as usize,
-                dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize)),
-            );
-        }
-        for s in StepRng::new(lane..contact_count, LANES) {
-            imp_shared.write(
-                s as usize,
-                contact_constraints.read(ccons_base + s as usize).impulse,
-            );
-        }
+    // Load the generalized velocities into workgroup memory. The accumulated
+    // contact impulses stay in storage: every impulse access below is lane-0
+    // only, so same-invocation ordering makes storage reads-after-writes safe
+    // and no compile-time per-multibody bound is needed.
+    if active && lane < ndofs {
+        dof_v.write(
+            lane as usize,
+            dof_state.read(batch_ids.mbi(batch_id, v_base + lane as usize)),
+        );
     }
     workgroup_memory_barrier_with_group_sync();
 
@@ -258,8 +250,8 @@ pub fn gpu_mb_solve_constraints(
         #[cfg(feature = "dim2")]
         let has_pair = false;
 
-        let col_offset = ccol_base + (s as usize) * dofs_stride;
-        let col_offset2 = col_offset + dofs_stride;
+        let jac_offset = cjc_base + (s as usize) * 2 * dofs_stride;
+        let jac_offset2 = jac_offset + 2 * dofs_stride;
         let is_self = cons.free_body_id == u32::MAX;
 
         // Multibody side of J · u, one product per lane; lane 0 sums them in
@@ -268,8 +260,7 @@ pub fn gpu_mb_solve_constraints(
             scratch.write(
                 lane as usize,
                 if lane < ndofs {
-                    contact_constraint_jacs.read(col_offset + lane as usize)
-                        * dof_v.read(lane as usize)
+                    contact_jac_cols.read(jac_offset + lane as usize) * dof_v.read(lane as usize)
                 } else {
                     0.0
                 },
@@ -289,8 +280,7 @@ pub fn gpu_mb_solve_constraints(
             scratch.write(
                 lane as usize,
                 if lane < ndofs {
-                    contact_constraint_jacs.read(col_offset2 + lane as usize)
-                        * dof_v.read(lane as usize)
+                    contact_jac_cols.read(jac_offset2 + lane as usize) * dof_v.read(lane as usize)
                 } else {
                     0.0
                 },
@@ -306,11 +296,12 @@ pub fn gpu_mb_solve_constraints(
                     j_dot_v1 += scratch.read(i as usize);
                 }
             }
-            // Free-body side stays lane-0-local.
+            // Free-body side stays lane-0-local (`free_body_id` is a global
+            // body id).
             let free = if is_self {
                 Velocity::default()
             } else {
-                solver_vels.read(colliders_start + cons.free_body_id as usize)
+                solver_vels.read(cons.free_body_id as usize)
             };
             if !is_self {
                 j_dot_v0 += cons.lin_jac.dot(free.linear) + gdot(cons.ang_jac, free.angular);
@@ -320,15 +311,11 @@ pub fn gpu_mb_solve_constraints(
             }
 
             let cfm_factor = if use_bias { cons.cfm_factor } else { 1.0 };
-            let impulse0 = imp_shared.read(s as usize);
+            let impulse0 = cons.impulse;
             let rhs0 = if use_bias { cons.rhs } else { cons.rhs_wo_bias };
             let raw0 = cfm_factor * (impulse0 - cons.inv_lhs * (j_dot_v0 + rhs0));
 
-            let impulse1 = if has_pair {
-                imp_shared.read((s + 1) as usize)
-            } else {
-                0.0
-            };
+            let impulse1 = if has_pair { cons2.impulse } else { 0.0 };
             let raw1 = if has_pair {
                 let rhs1 = if use_bias {
                     cons2.rhs
@@ -343,8 +330,12 @@ pub fn gpu_mb_solve_constraints(
             // Normal: clamp to ≥ 0. Friction: cap the tangent pair to the
             // circular cone `μ · normal_impulse`.
             let (new0, new1) = if is_tangent {
-                let limit =
-                    cons.friction_coeff * imp_shared.read(cons.normal_constraint_slot as usize);
+                // The paired normal was updated earlier in this sweep by this
+                // same lane, so the storage read observes the fresh value.
+                let limit = cons.friction_coeff
+                    * contact_constraints
+                        .at(ccons_base + cons.normal_constraint_slot as usize)
+                        .impulse;
                 cap_friction(raw0, raw1, limit)
             } else if raw0 < 0.0 {
                 (0.0, 0.0)
@@ -354,9 +345,9 @@ pub fn gpu_mb_solve_constraints(
 
             let delta0 = new0 - impulse0;
             let delta1 = if has_pair { new1 - impulse1 } else { 0.0 };
-            imp_shared.write(s as usize, new0);
+            contact_constraints.at_mut(cons_idx).impulse = new0;
             if has_pair {
-                imp_shared.write((s + 1) as usize, new1);
+                contact_constraints.at_mut(cons_idx + 1).impulse = new1;
             }
             *delta_shared = delta0;
             *delta2_shared = delta1;
@@ -369,7 +360,7 @@ pub fn gpu_mb_solve_constraints(
                     new_free.linear += cons2.lin_jac * (cons2.free_body_im * delta1);
                     new_free.angular += cons2.ii_ang_jac * delta1;
                 }
-                solver_vels.write(colliders_start + cons.free_body_id as usize, new_free);
+                solver_vels.write(cons.free_body_id as usize, new_free);
             }
         }
         workgroup_memory_barrier_with_group_sync();
@@ -379,30 +370,24 @@ pub fn gpu_mb_solve_constraints(
         let delta1 = *delta2_shared;
         if solve && lane < ndofs {
             if delta0 != 0.0 {
-                let col = contact_constraint_columns.read(col_offset + lane as usize);
+                let col = contact_jac_cols.read(jac_offset + dofs_stride + lane as usize);
                 dof_v.write(lane as usize, dof_v.read(lane as usize) + delta0 * col);
             }
             if has_pair && delta1 != 0.0 {
-                let col = contact_constraint_columns.read(col_offset2 + lane as usize);
+                let col = contact_jac_cols.read(jac_offset2 + dofs_stride + lane as usize);
                 dof_v.write(lane as usize, dof_v.read(lane as usize) + delta1 * col);
             }
         }
         workgroup_memory_barrier_with_group_sync();
     }
 
-    // Writeback
-    if active {
-        if lane < ndofs {
-            dof_state.write(
-                batch_ids.mbi(batch_id, v_base + lane as usize),
-                dof_v.read(lane as usize),
-            );
-        }
-        for s in StepRng::new(lane..contact_count, LANES) {
-            let mut cons = contact_constraints.read(ccons_base + s as usize);
-            cons.impulse = imp_shared.read(s as usize);
-            contact_constraints.write(ccons_base + s as usize, cons);
-        }
+    // Writeback (the contact impulses were updated in storage as they were
+    // solved).
+    if active && lane < ndofs {
+        dof_state.write(
+            batch_ids.mbi(batch_id, v_base + lane as usize),
+            dof_v.read(lane as usize),
+        );
     }
 }
 
@@ -539,10 +524,9 @@ pub fn gpu_mb_build_contact_delassus(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     contact_constraints: &[MultibodyContactConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_constraint_jacs: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_constraint_columns: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] delassus: &mut [f32],
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_jac_cols: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] delassus: &mut [f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
     const MAXC: u32 = MAX_MB_CONTACT_CONSTRAINTS_PER_MB;
     let batch_id = workgroup_id.y;
@@ -555,16 +539,17 @@ pub fn gpu_mb_build_contact_delassus(
 
     let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
     let ndofs = mb.ndofs;
-    let count = mb.contact_constraint_count;
+    // The Delassus path's per-multibody blocks and shared SoA arrays are
+    // compile-time sized: clamp the (otherwise unbounded) dynamic count.
+    let count = mb.contact_constraint_count.min(MAXC);
     if ndofs == 0 || count == 0 {
         return;
     }
 
-    let cons_base =
-        batch_ids.mb_contact_constraints_start(batch_id) + (mb_idx as usize) * (MAXC as usize);
+    let cons_base = mb.contact_constraint_start as usize;
+    // Paired jac/column arena (see `gpu_mb_solve_constraints`).
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
-    let col_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
-        + (mb_idx as usize) * (MAXC as usize) * dofs_stride;
+    let jc_base = cons_base * 2 * dofs_stride;
     let d_base = ((batch_id * batch_ids.multibodies_batch_capacity + mb_idx) as usize)
         * (MAXC as usize)
         * (MAXC as usize);
@@ -578,12 +563,12 @@ pub fn gpu_mb_build_contact_delassus(
         let j = p % count;
 
         // Multibody coupling: jac_j · (M⁻¹ jac_sᵀ).
-        let jac_j_off = col_base + (j as usize) * dofs_stride;
-        let col_s_off = col_base + (s as usize) * dofs_stride;
+        let jac_j_off = jc_base + (j as usize) * 2 * dofs_stride;
+        let col_s_off = jc_base + (s as usize) * 2 * dofs_stride + dofs_stride;
         let mut v = 0.0f32;
         for i in 0..ndofs {
-            let jj = contact_constraint_jacs.read(jac_j_off + i as usize);
-            let cs = contact_constraint_columns.read(col_s_off + i as usize);
+            let jj = contact_jac_cols.read(jac_j_off + i as usize);
+            let cs = contact_jac_cols.read(col_s_off + i as usize);
             v += jj * cs;
         }
 
@@ -613,12 +598,11 @@ pub fn gpu_mb_solve_contacts_delassus(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     contact_constraints: &mut [MultibodyContactConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_constraint_jacs: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_constraint_columns: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] delassus: &[f32],
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] use_bias: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] max_contact_constraints: &u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_jac_cols: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] delassus: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] use_bias: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] max_contact_constraints: &u32,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
     #[spirv(workgroup)] dof_v: &mut [f32; MAX_MB_DOFS],
@@ -644,7 +628,8 @@ pub fn gpu_mb_solve_contacts_delassus(
 
     let mb = multibody_info.read(batch_ids.mbi(batch_id, slot as usize));
     let ndofs = mb.ndofs;
-    let count = mb.contact_constraint_count;
+    // Clamped: see `gpu_mb_build_contact_delassus`.
+    let count = mb.contact_constraint_count.min(MAXC);
     // Uniform per workgroup: every lane of this group returns together.
     #[cfg(not(feature = "web-compat"))]
     if ndofs == 0 || count == 0 {
@@ -654,12 +639,10 @@ pub fn gpu_mb_solve_contacts_delassus(
     let use_bias = *use_bias != 0;
 
     let v_base = mb.first_dof as usize;
-    let colliders_start = batch_ids.coll_start(batch_id);
-    let cons_base =
-        batch_ids.mb_contact_constraints_start(batch_id) + (mb_idx as usize) * (MAXC as usize);
+    let cons_base = mb.contact_constraint_start as usize;
+    // Paired jac/column arena (see `gpu_mb_solve_constraints`).
     let dofs_stride = batch_ids.dof_batch_capacity as usize;
-    let col_base = batch_ids.mb_contact_constraint_columns_start(batch_id)
-        + (mb_idx as usize) * (MAXC as usize) * dofs_stride;
+    let jc_base = cons_base * 2 * dofs_stride;
     let d_base = ((batch_id * batch_ids.multibodies_batch_capacity + mb_idx) as usize)
         * (MAXC as usize)
         * (MAXC as usize);
@@ -703,14 +686,14 @@ pub fn gpu_mb_solve_contacts_delassus(
     // warmstart) velocities.
     if active {
         for s in StepRng::new(lane..count, LANES) {
-            let jac_off = col_base + (s as usize) * dofs_stride;
+            let jac_off = jc_base + (s as usize) * 2 * dofs_stride;
             let mut dot = 0.0f32;
             for i in 0..ndofs {
-                dot += contact_constraint_jacs.read(jac_off + i as usize) * dof_v.read(i as usize);
+                dot += contact_jac_cols.read(jac_off + i as usize) * dof_v.read(i as usize);
             }
             let cons = contact_constraints.read(cons_base + s as usize);
             if cons.free_body_id != u32::MAX {
-                let free = solver_vels.read(colliders_start + cons.free_body_id as usize);
+                let free = solver_vels.read(cons.free_body_id as usize);
                 dot += cons.lin_jac.dot(free.linear) + gdot(cons.ang_jac, free.angular);
             }
             a_shared.write(s as usize, dot);
@@ -798,8 +781,7 @@ pub fn gpu_mb_solve_contacts_delassus(
 
                     if free_active {
                         let cons = contact_constraints.read(cons_base + s as usize);
-                        let mut free =
-                            solver_vels.read(colliders_start + cons.free_body_id as usize);
+                        let mut free = solver_vels.read(cons.free_body_id as usize);
                         free.linear += cons.lin_jac * (cons.free_body_im * delta0);
                         free.angular += cons.ii_ang_jac * delta0;
                         if has_pair {
@@ -807,7 +789,7 @@ pub fn gpu_mb_solve_contacts_delassus(
                             free.linear += cons2.lin_jac * (cons2.free_body_im * delta1);
                             free.angular += cons2.ii_ang_jac * delta1;
                         }
-                        solver_vels.write(colliders_start + cons.free_body_id as usize, free);
+                        solver_vels.write(cons.free_body_id as usize, free);
                     }
                 }
                 // Lane-parallel Delassus row update (row `s` is contiguous), plus
@@ -822,12 +804,17 @@ pub fn gpu_mb_solve_contacts_delassus(
                     a_shared.write(j as usize, a_shared.read(j as usize) + acc);
                 }
                 if lane < ndofs {
-                    let col = contact_constraint_columns
-                        .read(col_base + (s as usize) * dofs_stride + lane as usize);
+                    let col = contact_jac_cols.read(
+                        jc_base + (s as usize) * 2 * dofs_stride + dofs_stride + lane as usize,
+                    );
                     dof_v.write(lane as usize, dof_v.read(lane as usize) + delta0 * col);
                     if has_pair {
-                        let col2 = contact_constraint_columns
-                            .read(col_base + ((s + 1) as usize) * dofs_stride + lane as usize);
+                        let col2 = contact_jac_cols.read(
+                            jc_base
+                                + ((s + 1) as usize) * 2 * dofs_stride
+                                + dofs_stride
+                                + lane as usize,
+                        );
                         dof_v.write(lane as usize, dof_v.read(lane as usize) + delta1 * col2);
                     }
                 }

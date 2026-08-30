@@ -246,31 +246,54 @@ impl GpuMultibodySet {
             per_env_builders.push(sorted_builders);
         }
 
-        // Stage 2 — flatten with per-batch padding to `max_joints`.
+        // Stage 2 — batch-interleaved upload: joint slot `i` of batch `b`
+        // lands at `i * num_batches + b`, and constraint slots follow the same
+        // per-slot interleave (their ids inside the builders are batch-local).
+        // The jacobians buffer is interleaved at per-joint-region granularity
+        // instead: joint `j`'s region for batch `b` starts at
+        // `jacobian_offset_j * nb + b * jacobian_capacity_j` and is dense
+        // inside, so the solver's lane-parallel row reads stay contiguous.
         let joints_cap = max_joints.max(1);
         let cons_cap = (joints_cap * MAX_AXIS_CONSTRAINTS).max(1);
         let jac_cap = max_jac_floats.max(1);
+        let nb = self.num_batches as usize;
 
-        let mut all_builders: Vec<MbImpulseJointBuilder> =
-            Vec::with_capacity((joints_cap * self.num_batches) as usize);
-        let mut all_counts: Vec<u32> = Vec::with_capacity(self.num_batches as usize);
-        // Padding builder: both sides marked FIXED so the GPU kernel can
-        // skip them by sentinel check (replaces the per-batch `num_joints`
-        // storage binding the kernel used to read for early-out).
+        // The region tiling above only works if every batch agrees on each
+        // joint's jacobian layout (offsets are a prefix sum of capacities, so
+        // the regions tile the buffer exactly). The equal-topology invariant
+        // guarantees this; make it explicit instead of padding around it.
+        for (b, env) in per_env_builders.iter().enumerate() {
+            assert_eq!(
+                env.len(),
+                per_env_builders[0].len(),
+                "batch {b}: multibody-touching impulse-joint count differs from batch 0 \
+                 (batched envs must have identical topology)"
+            );
+            for (i, (builder, b0)) in env.iter().zip(per_env_builders[0].iter()).enumerate() {
+                assert!(
+                    builder.jacobian_offset == b0.jacobian_offset
+                        && builder.jacobian_capacity == b0.jacobian_capacity
+                        && builder.constraint_id == b0.constraint_id,
+                    "batch {b} joint slot {i}: jacobian/constraint layout differs from batch 0 \
+                     (batched envs must have identical topology)"
+                );
+            }
+        }
+
+        // Padding builder: both sides marked FIXED so the GPU kernels can
+        // skip unused slots by sentinel check (no per-batch `num_joints`
+        // binding needed).
         let mut dummy: MbImpulseJointBuilder = bytemuck::Zeroable::zeroed();
         dummy.side_a_kind = SIDE_KIND_FIXED;
         dummy.side_b_kind = SIDE_KIND_FIXED;
-        for env in &per_env_builders {
-            all_counts.push(env.len() as u32);
-            all_builders.extend_from_slice(env);
-            for _ in env.len()..joints_cap as usize {
-                all_builders.push(dummy);
+        let mut all_builders: Vec<MbImpulseJointBuilder> = vec![dummy; joints_cap as usize * nb];
+        for (b, env) in per_env_builders.iter().enumerate() {
+            for (i, builder) in env.iter().enumerate() {
+                all_builders[i * nb + b] = *builder;
             }
         }
 
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
-        let usage_u = storage | BufferUsages::UNIFORM;
-        self.mb_imp_joint_count = Tensor::vector(backend, &all_counts, usage_u).unwrap();
         self.mb_imp_joint_builders = Tensor::vector(backend, &all_builders, storage).unwrap();
         self.mb_imp_joint_constraints = Tensor::vector(
             backend,
@@ -288,17 +311,17 @@ impl GpuMultibodySet {
         self.mb_imp_joint_constraints_per_batch = cons_cap;
         self.mb_imp_joint_jacobians_per_batch = jac_cap;
 
-        // Flat color-groups buffer [num_batches * cols]. Envs with fewer
-        // colors are padded with their last prefix value so the extra
-        // colors are no-ops (start == end). `cols` is clamped to ≥1 so the
-        // buffer is always a valid non-empty binding even with no joints.
+        // Color-groups buffer, color-major interleaved (`color * nb + batch`).
+        // Envs with fewer colors are padded with their last prefix value so
+        // the extra colors are no-ops (start == end). `cols` is clamped to ≥1
+        // so the buffer is always a valid non-empty binding even with no
+        // joints.
         let cols = global_num_colors.max(1);
-        let mut all_color_groups = Vec::with_capacity((cols * self.num_batches) as usize);
-        for env_cg in &per_env_color_groups {
+        let mut all_color_groups = vec![0u32; cols as usize * nb];
+        for (b, env_cg) in per_env_color_groups.iter().enumerate() {
             let last = env_cg.last().copied().unwrap_or(0);
-            all_color_groups.extend_from_slice(env_cg);
-            for _ in env_cg.len()..cols as usize {
-                all_color_groups.push(last);
+            for c in 0..cols as usize {
+                all_color_groups[c * nb + b] = env_cg.get(c).copied().unwrap_or(last);
             }
         }
         self.mb_imp_joint_color_groups =

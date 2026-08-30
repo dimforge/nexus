@@ -3,6 +3,7 @@
 //! This module contains the actual GPU compute shader entry points for mass properties update.
 
 use khal_std::glamx::UVec3;
+use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
 
@@ -26,17 +27,13 @@ pub fn gpu_update_mprops(
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
 
-    let num_bodies = batch_ids.bodies_len;
-    let mut mprops = batch_ids.coll_batch_mut(batch_id, mprops);
-    let local_mprops = batch_ids.coll_batch(batch_id, local_mprops);
-    let poses = batch_ids.coll_batch(batch_id, poses);
+    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
 
     for i in StepRng::new(invocation_id.x..num_bodies, num_threads) {
         let idx = i as usize;
-        let new_mprops = local_mprops[idx].to_world(&poses[idx]);
-        mprops[idx] = new_mprops;
+        let new_mprops = local_mprops.at(idx).to_world(poses.at(idx));
+        mprops.write(idx, new_mprops);
     }
 }
 
@@ -59,17 +56,12 @@ pub fn gpu_sync_collider_poses(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let batch_id = invocation_id.y;
-    let num_colliders = batch_ids.colliders_len;
 
-    let body_poses = batch_ids.coll_batch(batch_id, body_poses);
-    let collider_local_poses = batch_ids.coll_batch(batch_id, collider_local_poses);
-    let mut collider_world_poses = batch_ids.coll_batch_mut(batch_id, collider_world_poses);
-    let collider_parent = batch_ids.coll_batch(batch_id, collider_parent);
+    let num_colliders = batch_ids.colliders_len * batch_ids.num_batches;
 
     for i in StepRng::new(invocation_id.x..num_colliders, num_threads) {
         let idx = i as usize;
-        let body = collider_parent[idx] as usize;
-        collider_world_poses[idx] = body_poses[body] * collider_local_poses[idx];
+        let body = collider_parent.read(idx) as usize;
+        collider_world_poses.write(idx, *body_poses.at(body) * *collider_local_poses.at(idx));
     }
 }

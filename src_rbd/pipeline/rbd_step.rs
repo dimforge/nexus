@@ -15,7 +15,6 @@ use super::lbvh_validation::validate_lbvh_topology;
 use super::rbd_state::*;
 use khal::BufferUsages;
 use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuTimestamps};
-use vortx::Reduce;
 use vortx::tensor::Tensor;
 
 /// Forces the fused colored-sweep kernels regardless of the estimated pair
@@ -37,7 +36,6 @@ pub struct RbdPipeline {
     lbvh: Lbvh,
     coloring: GpuColoring,
     warmstart: GpuWarmstart,
-    reduce: Reduce,
     /// Optional (default `false`): merge each collider pair's manifolds
     /// (e.g. per-triangle trimesh contacts) into one before the solvers.
     pub contact_reduction: bool,
@@ -62,7 +60,6 @@ impl RbdPipeline {
             lbvh: Lbvh::from_backend(backend),
             coloring: GpuColoring::from_backend(backend)?,
             warmstart: GpuWarmstart::from_backend(backend)?,
-            reduce: Reduce::from_backend(backend)?,
             contact_reduction: false,
         })
     }
@@ -151,7 +148,9 @@ impl RbdPipeline {
                     collider_world_poses: &state.collider_world_poses,
                     mprops: &state.mprops,
                     contacts: &state.contacts,
-                    contacts_len: &state.contacts_len,
+                    contact_plan: &state.contact_plan,
+                    contacts_indirect: &state.contacts_indirect,
+                    mb_contact_index: &mut state.mb_contact_index,
                     solver_vels: &mut state.solver_vels,
                     batch_indices: &state.batch_indices,
                     color_uniforms: &state.color_uniforms,
@@ -277,10 +276,14 @@ impl RbdPipeline {
         let readback_enabled = state.capacities.solver_colors_resize_policy
             != RbdResizePolicy::Fixed
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
+        // Estimated pairs per batch: the counter (and the capacity fallback)
+        // are totals over the whole flat pair buffer.
         let est_pairs = if readback_enabled {
-            state.collision_pairs_len_cpu
+            state.collision_pairs_len_cpu.div_ceil(state.num_batches)
         } else {
-            state.collision_pairs_per_batch_cpu
+            state
+                .collision_pairs_capacity_cpu
+                .div_ceil(state.num_batches)
         };
 
         // Choose the kernel depending on the expected pairs count: small pair
@@ -305,27 +308,29 @@ impl RbdPipeline {
             let mut pass = encoder.begin_pass("[RBD] narrow-phase", timestamps.as_deref_mut());
 
             self.narrow_phase.dispatch(
+                backend,
                 &mut pass,
-                state.body_poses.len() as u32,
                 &state.collider_world_poses,
                 &state.shapes,
                 &state.vertex_buffers,
                 &state.index_buffers,
                 &state.collision_pairs,
-                &state.collision_pairs_len,
-                &state.collision_pairs_indirect,
+                &mut state.collision_pairs_len,
                 &mut state.contacts,
-                &mut state.contacts_len,
                 &mut state.contacts_indirect,
+                &mut state.contact_plan,
                 &mut state.mb_sweep_indirect,
                 &mut state.pfm_pairs,
                 &mut state.pfm_pairs_len,
                 &mut state.pfm_pairs_indirect,
+                &mut state.pfm_sort,
                 &state.batch_indices,
                 &state.collider_parent,
                 &state.collider_materials,
                 &state.sim_params,
                 self.contact_reduction,
+                &state.collision_pairs_indirect,
+                state.collision_pairs_capacity_cpu,
             )?;
 
             drop(pass);
@@ -343,7 +348,9 @@ impl RbdPipeline {
             // Solver preparation - create args here to avoid borrow conflicts
             let prepare_args = SolverArgs {
                 contacts: &state.contacts,
-                contacts_len: &state.contacts_len,
+                contact_plan: &state.contact_plan,
+                #[cfg(feature = "dim3")]
+                mb_contact_index: &mut state.mb_contact_index,
                 contacts_len_indirect: &state.contacts_indirect,
                 constraints: &mut state.new_constraints,
                 constraint_builders: &mut state.new_constraint_builders,
@@ -359,7 +366,7 @@ impl RbdPipeline {
                 local_mprops: &state.local_mprops,
                 body_constraint_counts: &mut state.new_constraints_counts,
                 body_constraint_ids: &mut state.new_body_constraint_ids,
-                color_bucket_starts: &state.color_bucket_starts,
+                color_buckets: &state.color_buckets,
                 color_sorted_ids: &state.color_sorted_ids,
                 color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
@@ -388,7 +395,7 @@ impl RbdPipeline {
             } else {
                 // Warmstart
                 let warmstart_args = WarmstartArgs {
-                    contacts_len: &state.contacts_len,
+                    contact_plan: &state.contact_plan,
                     old_body_constraint_counts: &state.old_constraints_counts,
                     old_constraint_builders: &state.old_constraint_builders,
                     old_body_constraint_ids: &state.old_body_constraint_ids,
@@ -396,7 +403,6 @@ impl RbdPipeline {
                     new_constraints: &mut state.new_constraints,
                     new_constraint_builders: &state.new_constraint_builders,
                     contacts_len_indirect: &state.contacts_indirect,
-                    batch_indices: &state.batch_indices,
                 };
 
                 self.warmstart
@@ -412,7 +418,7 @@ impl RbdPipeline {
                     curr_color: &mut state.curr_color,
                     uncolored: &mut state.uncolored,
                     uncolored_staging: &state.uncolored_staging,
-                    contacts_len: &state.contacts_len,
+                    contact_plan: &state.contact_plan,
                     colored: &mut state.colored,
                     batch_indices: &state.batch_indices,
                     body_group: &state.body_group,
@@ -424,7 +430,7 @@ impl RbdPipeline {
                 // persist, so most constraints can reuse their old color and the
                 // topo-gc iterations converge in 1-2 rounds instead of ~num_colors).
                 let seed_args = crate::dynamics::warmstart::SeedColorsArgs {
-                    contacts_len: &state.contacts_len,
+                    contact_plan: &state.contact_plan,
                     old_body_constraint_counts: &state.old_constraints_counts,
                     old_body_constraint_ids: &state.old_body_constraint_ids,
                     old_constraints: &state.old_constraints,
@@ -433,7 +439,6 @@ impl RbdPipeline {
                     constraints_colors: &mut state.constraints_colors,
                     colored: &mut state.colored,
                     contacts_len_indirect: &state.contacts_indirect,
-                    batch_indices: &state.batch_indices,
                 };
                 self.warmstart
                     .seed_colors_from_warmstart(&mut pass, seed_args)?;
@@ -448,7 +453,7 @@ impl RbdPipeline {
                     curr_color: &mut state.curr_color,
                     uncolored: &mut state.uncolored,
                     uncolored_staging: &state.uncolored_staging,
-                    contacts_len: &state.contacts_len,
+                    contact_plan: &state.contact_plan,
                     colored: &mut state.colored,
                     batch_indices: &state.batch_indices,
                     body_group: &state.body_group,
@@ -464,18 +469,18 @@ impl RbdPipeline {
                 let bucket_args = crate::dynamics::ColorBucketsArgs {
                     contacts_len_indirect: &state.contacts_indirect,
                     constraints_colors: &state.constraints_colors,
-                    contacts_len: &state.contacts_len,
-                    color_bucket_counts: &mut state.color_bucket_counts,
-                    color_bucket_starts: &mut state.color_bucket_starts,
-                    color_bucket_cursors: &mut state.color_bucket_cursors,
+                    constraints: &state.new_constraints,
+                    contact_plan: &state.contact_plan,
+                    color_buckets: &mut state.color_buckets,
                     color_sorted_ids: &mut state.color_sorted_ids,
                     batch_indices: &state.batch_indices,
                 };
                 self.coloring.dispatch_build_color_buckets(
+                    backend,
                     &mut pass,
                     bucket_args,
-                    state.max_colors + 3,
-                    state.num_batches,
+                    &self.prefix_sum,
+                    &mut state.bucket_prefix_workspace,
                 )?;
 
                 // `+1` because solver iterates 1..=max_colors (color 0 is unassigned).
@@ -494,7 +499,9 @@ impl RbdPipeline {
         // Create solver_args for solve phase (after coloring is complete)
         let solver_args = SolverArgs {
             contacts: &state.contacts,
-            contacts_len: &state.contacts_len,
+            contact_plan: &state.contact_plan,
+            #[cfg(feature = "dim3")]
+            mb_contact_index: &mut state.mb_contact_index,
             contacts_len_indirect: &state.contacts_indirect,
             constraints: &mut state.new_constraints,
             constraint_builders: &mut state.new_constraint_builders,
@@ -510,7 +517,7 @@ impl RbdPipeline {
             local_mprops: &state.local_mprops,
             body_constraint_counts: &mut state.new_constraints_counts,
             body_constraint_ids: &mut state.new_body_constraint_ids,
-            color_bucket_starts: &state.color_bucket_starts,
+            color_buckets: &state.color_buckets,
             color_sorted_ids: &state.color_sorted_ids,
             color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
@@ -604,112 +611,169 @@ impl RbdPipeline {
             != RbdResizePolicy::Fixed
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
 
-        // The readback holds `[max collision-pair count across batches, uncolored
-        // count]`. The max is computed on the GPU.
-        let mut counts = [0u32; 2];
+        // The readback holds `[total collision-pair count, total PFM-pair
+        // count, uncolored count]` (+ the multibody contact-constraint demand
+        // on dim3).
+        #[cfg(feature = "dim3")]
+        let mut counts = [0u32; 4];
+        #[cfg(not(feature = "dim3"))]
+        let mut counts = [0u32; 3];
         if state.resize_readback.try_take(backend, &mut counts) {
             // TODO: make the coloring update optional (and pre-configurable) too?
-            let collision_pairs_len = counts[0];
-            let coloring_converged = counts[1];
-            state.collision_pairs_len_cpu = collision_pairs_len;
+            // The flat pair and PFM work-lists share one buffer capacity, so
+            // whichever is larger drives that resize.
+            let pairs_len = counts[0].max(counts[1]);
+            let coloring_converged = counts[2];
+            state.collision_pairs_len_cpu = counts[0];
+            let nb = state.num_batches;
 
             // TODO: Fit will act like Grow. To be able to auto-shrink the max color count, we need
             //       to readback the actual color count. This would also allow us to grow the color
             //       count earlier, before it gets a chance to fail.
-            if state.capacities.solver_colors_resize_policy != RbdResizePolicy::Fixed
+            let grow_colors = state.capacities.solver_colors_resize_policy
+                != RbdResizePolicy::Fixed
                 && coloring_converged == 0
-                && !state.rb_contacts_inert
-            {
+                && !state.rb_contacts_inert;
+
+            // Decide every resize up front, then drain the GPU once before
+            // applying any of them: `rebuild_batch_indices` rewrites the shared
+            // uniform, and on Metal a `write_buffer` is observed by every
+            // still-queued submission — an in-flight step would read the new
+            // capacities while bound to the old (smaller) buffers and write out
+            // of bounds. Resizes are rare, so the stall is negligible.
+            let total_capacity = state.collision_pairs_capacity_cpu;
+            let safe_total = pairs_len.saturating_add(pairs_len / 4);
+            let new_total = pairs_len
+                .saturating_add(pairs_len / 2)
+                .max(state.capacities.collisions_capacity.saturating_mul(nb));
+            let resize_pairs = match state.capacities.collisions_resize_policy {
+                RbdResizePolicy::Fixed => false,
+                RbdResizePolicy::Grow => safe_total >= total_capacity,
+                RbdResizePolicy::Fit => safe_total >= total_capacity || total_capacity >= new_total,
+            };
+
+            #[cfg(feature = "dim3")]
+            let (resize_mb, new_mb) = {
+                let mb_demand = counts[3];
+                state.mb_cons_demand_cpu = mb_demand;
+                let mb_capacity = state.multibodies.contact_constraints_capacity();
+                let safe_mb = mb_demand.saturating_add(mb_demand / 4);
+                let new_mb = mb_demand
+                    .saturating_add(mb_demand / 2)
+                    .max(state.multibodies.min_contact_slab_capacity())
+                    .max(
+                        state
+                            .capacities
+                            .mb_contact_constraints_capacity
+                            .saturating_mul(nb),
+                    );
+                let resize_mb = match state.capacities.collisions_resize_policy {
+                    RbdResizePolicy::Fixed => false,
+                    RbdResizePolicy::Grow => safe_mb >= mb_capacity,
+                    RbdResizePolicy::Fit => safe_mb >= mb_capacity || mb_capacity >= new_mb * 2,
+                };
+                (resize_mb, new_mb)
+            };
+            #[cfg(not(feature = "dim3"))]
+            let resize_mb = false;
+
+            if grow_colors || resize_pairs || resize_mb {
+                backend.synchronize()?;
+            }
+
+            if grow_colors {
                 state.max_colors += 5;
 
-                // The color-bucket buffers are strided by `max_colors + 3`:
-                // regrow them and update the stride in `BatchIndices`.
+                // The color-bucket buffer is strided by `max_colors + 3`:
+                // regrow it and update the stride in `BatchIndices`.
                 let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
                 let stride = state.max_colors + 3;
                 let nb = state.num_batches;
-                state.color_bucket_counts = Tensor::vector_uninit(backend, stride * nb, storage)?;
-                state.color_bucket_starts = Tensor::vector_uninit(backend, stride * nb, storage)?;
-                state.color_bucket_cursors = Tensor::vector_uninit(backend, stride * nb, storage)?;
+                state.color_buckets = Tensor::vector_uninit(backend, stride * nb, storage)?;
                 state.rebuild_batch_indices(backend);
             }
 
-            // Lazy resize based on the *previous* frame's max pair count.
-            let per_batch_capacity =
-                (state.collision_pairs.len() as u32).div_ceil(state.num_batches);
+            let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
-            // Since the auto-resize always lags a bit behind, consider resizing if we have less than 25%
-            // padding available, reducing the risks of missing contacts.
-            let safe_capacity = collision_pairs_len.saturating_add(collision_pairs_len / 4);
-            // Add a 50% extra so we don’t need to reallocate immediately if the
-            // collision count grows further. Can never be smaller than the `RbdCapacities::collisions_capacity`.
-            let new_capacity = collision_pairs_len
-                .saturating_add(collision_pairs_len / 2)
-                .max(state.capacities.collisions_capacity);
+            // Flat pair / PFM buffers: sized by the TOTAL demand across all
+            // batches (the whole point of the flat layout: one hot batch no
+            // longer multiplies every batch's capacity).
+            //
+            // Since the auto-resize always lags a bit behind, resizes trigger
+            // with less than 25% padding available and grow with 50% slack;
+            // never below the configured per-batch floor × num_batches.
+            if resize_pairs {
+                state.collision_pairs = Tensor::vector_uninit(backend, new_total, storage)?;
+                state.pfm_pairs = Tensor::vector_uninit(backend, new_total, storage)?;
+                state.pfm_sort.resize(backend, new_total);
+                state.collision_pairs_capacity_cpu = new_total;
 
-            let resize = match state.capacities.collisions_resize_policy {
-                RbdResizePolicy::Fixed => false,
-                RbdResizePolicy::Grow => safe_capacity >= per_batch_capacity,
-                RbdResizePolicy::Fit => {
-                    safe_capacity >= per_batch_capacity || per_batch_capacity >= new_capacity
+                // Contacts-keyed buffers follow the pair capacity: contact
+                // slots are positional (pair `t` owns slot `t`, PFM entry `i`
+                // owns slot `pairs_total + i`), so their capacity is always
+                // `2 ×` the pair/PFM capacity.
+                let new_contacts = new_total * 2;
+                state.contacts = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                #[cfg(feature = "dim3")]
+                {
+                    state.mb_contact_index = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 }
-            };
-
-            if resize {
-                let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
-                let nb = state.num_batches;
-
-                state.collision_pairs = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
-                state.contacts = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
-                state.pfm_pairs = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
-                state.old_constraints = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                state.old_constraints = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.old_constraint_builders =
-                    Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                    Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.old_body_constraint_ids =
-                    Tensor::vector_uninit(backend, new_capacity * 2 * nb, storage)?;
-                state.new_constraints = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                    Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
+                state.new_constraints = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.new_constraint_builders =
-                    Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                    Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.new_body_constraint_ids =
-                    Tensor::vector_uninit(backend, new_capacity * 2 * nb, storage)?;
-                state.constraints_colors =
-                    Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                    Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
+                state.constraints_colors = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 // Zeroed (not uninit): 0 = "uncolored" disables color seeding
                 // for the frame right after the resize.
                 state.old_constraints_colors =
-                    Tensor::vector(backend, vec![0u32; (new_capacity * nb) as usize], storage)?;
-                state.colored = Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
-                state.constraints_rands =
-                    Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
-                state.color_sorted_ids =
-                    Tensor::vector_uninit(backend, new_capacity * nb, storage)?;
+                    Tensor::vector(backend, vec![0u32; new_contacts as usize], storage)?;
+                state.colored = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.constraints_rands = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.color_sorted_ids = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                // The old counts index the old (now discarded) constraint list:
+                // zero them so the next warmstart transfer sees empty ranges
+                // instead of stale offsets into the fresh buffers.
+                let counts_len = state.old_constraints_counts.len() as usize;
+                state.old_constraints_counts =
+                    Tensor::vector(backend, vec![0u32; counts_len], storage)?;
 
-                state.collision_pairs_per_batch_cpu = new_capacity;
-                state.contacts_per_batch_cpu = new_capacity;
+                state.contacts_capacity_cpu = new_contacts;
+            }
+            // Multibody contact-constraint slots: flat and demand-sized.
+            #[cfg(feature = "dim3")]
+            if resize_mb {
+                state.multibodies.resize_contact_slabs(backend, new_mb);
+            }
+            if resize_pairs || resize_mb {
                 state.rebuild_batch_indices(backend);
             }
         }
 
         if readback_enabled && state.resize_readback.is_idle() {
-            let pairs_source = if state.num_batches > 1 {
-                let mut encoder = backend.begin_encoding();
-                let mut pass = encoder.begin_pass("[RBD] calc-max-coll-len", None);
-                self.reduce.reduce_max_u32.call(
-                    &mut pass,
-                    1,
-                    &state.num_batches_uniform,
-                    &state.collision_pairs_len,
-                    &mut state.collision_pairs_len_max,
-                )?;
-                drop(pass);
-                backend.submit(encoder)?;
-                state.collision_pairs_len_max.buffer()
-            } else {
-                state.collision_pairs_len.buffer()
-            };
-
+            #[cfg(feature = "dim3")]
             state.resize_readback.request(
                 backend,
-                &[(pairs_source, 0, 1), (state.uncolored.buffer(), 0, 1)],
+                &[
+                    (state.collision_pairs_len.buffer(), 0, 1),
+                    (state.pfm_pairs_len.buffer(), 0, 1),
+                    (state.uncolored.buffer(), 0, 1),
+                    (state.multibodies.mb_cons_demand().buffer(), 0, 1),
+                ],
+            )?;
+            #[cfg(not(feature = "dim3"))]
+            state.resize_readback.request(
+                backend,
+                &[
+                    (state.collision_pairs_len.buffer(), 0, 1),
+                    (state.pfm_pairs_len.buffer(), 0, 1),
+                    (state.uncolored.buffer(), 0, 1),
+                ],
             )?;
         }
 

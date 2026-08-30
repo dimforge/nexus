@@ -23,12 +23,13 @@ use super::ws_soa::{
 use crate::dynamics::body::Velocity;
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::utils::linalg::{
-    axpy_mat_par, copy_from_par, fill_par, gemm_inertia_lhs_par, gemm_omega_skew_tr_cross_buf_par,
-    gemm_skew_tr_lhs_cross_buf_par, gemm_skew_tr_lhs_par, gemm_tr_par, quadform_spatial_par,
+    MatSlice, axpy_mat_par, copy_from_par, fill_par, gemm_inertia_lhs_par,
+    gemm_omega_skew_tr_cross_buf_par, gemm_skew_tr_lhs_cross_buf_par, gemm_skew_tr_lhs_par,
+    gemm_tr_par, quadform_spatial_par,
 };
 #[cfg(feature = "dim3")]
 use crate::utils::linalg::{gemm_inertia_lhs_cross_buf_par, gemm_skew_lhs_cross_buf_par};
-use crate::utils::{BatchIndices, ISlice, SliceMut};
+use crate::utils::{BatchIndices, ISlice, ISliceMut};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross_av};
 use parry::math::VectorExt;
 
@@ -88,25 +89,36 @@ pub fn gpu_mb_compute_dynamics_pre(
     };
     let num_links = mb.num_links;
     let ndofs = mb.ndofs;
-    let mb_jac_base = mb.jacobian_offset as usize;
-    let mb_mm_base = mb.mass_matrix_offset as usize;
-    let mb_cor_base = mb.coriolis_offset as usize;
-    let mb_cor_w_base = batch_ids.coriolis_batch_capacity as usize + mb_cor_base;
-    let mb_icdt_base =
-        2 * batch_ids.coriolis_batch_capacity as usize + mb.i_coriolis_dt_offset as usize;
+    let jac0 = batch_ids.mb_region(
+        batch_id,
+        mb.jacobian_offset,
+        num_links * SPATIAL_DIM as u32 * ndofs,
+    );
+    let cor_len = num_links * DIM * ndofs;
+    let cor_v0 = batch_ids.mb_region(batch_id, mb.coriolis_offset, cor_len);
+    let cor_w0 = batch_ids.mb_region(
+        batch_id,
+        batch_ids.coriolis_batch_capacity + mb.coriolis_offset,
+        cor_len,
+    );
+    let icdt0 = batch_ids.mb_region(
+        batch_id,
+        2 * batch_ids.coriolis_batch_capacity + mb.i_coriolis_dt_offset,
+        SPATIAL_DIM as u32 * ndofs,
+    );
     let vel_base = mb.first_dof as usize;
 
     let stat_slice = batch_ids
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
-    let mut poses_slice = batch_ids.coll_batch_mut(batch_id, poses);
+    let mut poses_slice = batch_ids.ib_mut(batch_id, poses);
     let damping_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(batch_ids.dof_batch_capacity as usize + vel_base);
     // Armature (reflected rotor inertia) section sits right after damping, at
-    // `2 · dof_damping_section_offset` (= 2·N). Added to the mass-matrix diagonal
-    // alongside `damping·dt`, matching rapier's `update_mass_matrix`.
+    // `2 · dof_batch_capacity`. Added to the mass-matrix diagonal alongside
+    // `damping·dt`, matching rapier's `update_mass_matrix`.
     let armature_slice = batch_ids
         .ib(batch_id, dof_state)
         .offset(2 * batch_ids.dof_batch_capacity as usize + vel_base);
@@ -136,7 +148,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     update_body_jacobians(
         lane,
         t,
-        mb_jac_base,
+        jac0,
         ndofs,
         num_links,
         batch_ids.mb_max_links,
@@ -144,8 +156,6 @@ pub fn gpu_mb_compute_dynamics_pre(
         links_workspace,
         wa,
         body_jacobians,
-        batch_ids,
-        batch_id,
     );
 
     // 3) Propagate velocities (single-threaded)
@@ -158,20 +168,29 @@ pub fn gpu_mb_compute_dynamics_pre(
     // the plain one for constraints and the coriolis-augmented acc section for
     // the acceleration solve. Otherwise only the plain matrix is built and the
     // coriolis blocks are skipped entirely (forces stay explicit).
-    let acc_section = batch_ids.mass_matrix_acc_section_offset as usize;
+    let acc_section = batch_ids.mass_matrix_acc_section_offset;
     let split = acc_section != 0;
+    let mm_len = ndofs * ndofs;
+    let plain_mass = MatSlice::dense(
+        batch_ids.mb_region(batch_id, mb.mass_matrix_offset, mm_len),
+        ndofs,
+        ndofs,
+    );
     let acc_augmented_mass = if split {
-        batch_ids.imat(batch_id, acc_section + mb_mm_base, ndofs, ndofs)
+        MatSlice::dense(
+            batch_ids.mb_region(batch_id, acc_section + mb.mass_matrix_offset, mm_len),
+            ndofs,
+            ndofs,
+        )
     } else {
-        batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs)
+        plain_mass
     };
-    let plain_mass = batch_ids.imat(batch_id, mb_mm_base, ndofs, ndofs);
     fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
     if split {
         fill_par(mass_matrices, plain_mass, 0.0, lane, t);
     }
 
-    let i_coriolis_dt_view = batch_ids.imat(batch_id, mb_icdt_base, SPATIAL_DIM as u32, ndofs);
+    let i_coriolis_dt_view = MatSlice::dense(icdt0, SPATIAL_DIM as u32, ndofs);
     let i_coriolis_dt_v = i_coriolis_dt_view.fixed_rows(0, DIM);
     let i_coriolis_dt_w = i_coriolis_dt_view.fixed_rows(DIM, ANG_DIM);
 
@@ -188,18 +207,16 @@ pub fn gpu_mb_compute_dynamics_pre(
             inv_mass_x = lmp.inv_mass.x;
 
             if split && inv_mass_x == 0.0 {
-                let coriolis_block = batch_ids.imat(
-                    batch_id,
-                    mb_cor_base + (k as usize) * (DIM as usize) * (ndofs as usize),
+                let coriolis_block = MatSlice::dense(
+                    cor_v0 + (k as usize) * (DIM as usize) * (ndofs as usize),
                     DIM,
                     ndofs,
                 );
                 fill_par(coriolis_packed, coriolis_block, 0.0, lane, t);
                 fill_par(
                     coriolis_packed,
-                    batch_ids.imat(
-                        batch_id,
-                        mb_cor_w_base + (k as usize) * (DIM as usize) * (ndofs as usize),
+                    MatSlice::dense(
+                        cor_w0 + (k as usize) * (DIM as usize) * (ndofs as usize),
                         DIM,
                         ndofs,
                     ),
@@ -214,21 +231,18 @@ pub fn gpu_mb_compute_dynamics_pre(
         sync_slots(t);
 
         let loop_is_active = k < num_links && inv_mass_x != 0.0;
-        let coriolis_v_i = batch_ids.imat(
-            batch_id,
-            mb_cor_base + (k as usize) * (DIM as usize) * (ndofs as usize),
+        let coriolis_v_i = MatSlice::dense(
+            cor_v0 + (k as usize) * (DIM as usize) * (ndofs as usize),
             DIM,
             ndofs,
         );
-        let coriolis_w_i = batch_ids.imat(
-            batch_id,
-            mb_cor_w_base + (k as usize) * (DIM as usize) * (ndofs as usize),
+        let coriolis_w_i = MatSlice::dense(
+            cor_w0 + (k as usize) * (DIM as usize) * (ndofs as usize),
             ANG_DIM,
             ndofs,
         );
-        let body_jacobian = batch_ids.imat(
-            batch_id,
-            mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
+        let body_jacobian = MatSlice::dense(
+            jac0 + (k as usize) * SPATIAL_DIM * (ndofs as usize),
             SPATIAL_DIM as u32,
             ndofs,
         );
@@ -261,22 +275,19 @@ pub fn gpu_mb_compute_dynamics_pre(
             if split && k != 0 {
                 let stat = stat_slice[k as usize];
                 let parent_id = stat.parent_link_id;
-                let parent_j = batch_ids.imat(
-                    batch_id,
-                    mb_jac_base + (parent_id as usize) * SPATIAL_DIM * (ndofs as usize),
+                let parent_j = MatSlice::dense(
+                    jac0 + (parent_id as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,
                     ndofs,
                 );
                 let parent_j_w = parent_j.fixed_rows(DIM, ANG_DIM);
-                let parent_coriolis_v = batch_ids.imat(
-                    batch_id,
-                    mb_cor_base + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
+                let parent_coriolis_v = MatSlice::dense(
+                    cor_v0 + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
                     DIM,
                     ndofs,
                 );
-                let parent_coriolis_w = batch_ids.imat(
-                    batch_id,
-                    mb_cor_w_base + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
+                let parent_coriolis_w = MatSlice::dense(
+                    cor_w0 + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
                     ANG_DIM,
                     ndofs,
                 );
@@ -613,7 +624,7 @@ fn jacobian_mul_coordinates(
 fn forward_kinematics(
     mb: &MultibodyInfo,
     stat_slice: &ISlice<MultibodyLinkStatic>,
-    poses_slice: &mut SliceMut<Pose>,
+    poses_slice: &mut ISliceMut<Pose>,
     ws: &mut [Vec4],
     wa: WsAddr,
     num_links: u32,
@@ -669,7 +680,8 @@ fn update_body_jacobians(
     lane: u32,
     // Lanes owned by this multibody's slot (`BatchIndices::mb_pack_lanes`).
     lanes: u32,
-    mb_jac_base: usize,
+    // Dense base of this multibody's body-jacobians region.
+    jac0: usize,
     ndofs: u32,
     num_links: u32,
     max_links: u32,
@@ -677,8 +689,6 @@ fn update_body_jacobians(
     ws: &[Vec4],
     wa: WsAddr,
     body_jacobians: &mut [f32],
-    batch_ids: &BatchIndices,
-    batch_id: u32,
 ) {
     // TODO(PERF): instead of copying the body jacobian over and over for each body, we should
     //             precompute a bit set that indicates which dofs are part of the kinematic tree
@@ -686,9 +696,8 @@ fn update_body_jacobians(
     //             value per node.
     for k in 0..max_links {
         let mut parent_to_world = Pose::default();
-        let link_j = batch_ids.imat(
-            batch_id,
-            mb_jac_base + (k as usize) * SPATIAL_DIM * (ndofs as usize),
+        let link_j = MatSlice::dense(
+            jac0 + (k as usize) * SPATIAL_DIM * (ndofs as usize),
             SPATIAL_DIM as u32,
             ndofs,
         );
@@ -697,10 +706,8 @@ fn update_body_jacobians(
             let link_infos = &stat_slice[k as usize];
 
             if k != 0 {
-                let parent_j = batch_ids.imat(
-                    batch_id,
-                    mb_jac_base
-                        + (link_infos.parent_link_id as usize) * SPATIAL_DIM * (ndofs as usize),
+                let parent_j = MatSlice::dense(
+                    jac0 + (link_infos.parent_link_id as usize) * SPATIAL_DIM * (ndofs as usize),
                     SPATIAL_DIM as u32,
                     ndofs,
                 );

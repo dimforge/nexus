@@ -2,9 +2,10 @@
 
 use super::multibody_set::*;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDofCoupling,
-    MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
-    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
+    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDelayTickParams,
+    MbDofCoupling, MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint,
+    MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace,
+    RbdSimParams,
 };
 use crate::shaders::utils::linalg::MAX_MB_DOFS;
 use khal::BufferUsages;
@@ -30,6 +31,9 @@ impl GpuMultibodySet {
             &RigidBodySet,
         )],
         colliders_per_batch: u32,
+        // Per-batch contact-constraint slot budget
+        // (`RbdCapacities::mb_contact_constraints_capacity`).
+        contact_constraint_slots: u32,
     ) -> Self {
         let num_batches = environments.len() as u32;
 
@@ -39,7 +43,6 @@ impl GpuMultibodySet {
             Vec::with_capacity(num_batches as usize);
         let mut per_env_links_workspace: Vec<Vec<MultibodyLinkWorkspace>> =
             Vec::with_capacity(num_batches as usize);
-        let mut per_env_dof_values: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_vels: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_damping: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
         let mut per_env_dof_armature: Vec<Vec<f32>> = Vec::with_capacity(num_batches as usize);
@@ -74,7 +77,6 @@ impl GpuMultibodySet {
             let mut infos = Vec::new();
             let mut statics = Vec::new();
             let mut workspaces = Vec::new();
-            let mut dof_vals = Vec::new();
             let mut dof_vels = Vec::new();
             let mut dof_damping = Vec::new();
             let mut dof_armature = Vec::new();
@@ -124,10 +126,12 @@ impl GpuMultibodySet {
                 max_mb_links = max_mb_links.max(num_links);
 
                 // Count maximum constraint slots this multibody could need: for
-                // each non-root non-kinematic joint, every free axis with a limit
-                // OR a motor enabled produces one constraint slot, plus an
-                // additional one if BOTH limit and motor are enabled on the same
-                // axis (rapier emits them as separate constraints).
+                // each non-root non-kinematic joint, every free axis with a
+                // limit produces one constraint slot, plus one MOTOR slot per
+                // free axis whether or not a motor is enabled at build time —
+                // `set_motors` can enable motors at runtime (the MJCF actuator
+                // path does exactly that every frame), and the emission kernel
+                // must never outgrow this baked-in segment.
                 let max_constraints = mb
                     .links()
                     .enumerate()
@@ -141,14 +145,13 @@ impl GpuMultibodySet {
                         let j = link.joint().data;
                         let locked = j.locked_axes.bits() as u32;
                         let limit_axes = j.limit_axes.bits() as u32 & !locked;
-                        let motor_axes = j.motor_axes.bits() as u32 & !locked;
-                        // 1 per active limit + 1 per active motor (axis-wise).
                         let mut n = 0u32;
                         for ax in 0u32..6 {
                             if (limit_axes >> ax) & 1 != 0 {
                                 n += 1;
                             }
-                            if (motor_axes >> ax) & 1 != 0 {
+                            if (locked >> ax) & 1 == 0 {
+                                // Reserved motor row (runtime-enableable).
                                 n += 1;
                             }
                         }
@@ -179,7 +182,11 @@ impl GpuMultibodySet {
                     max_constraints,
                     self_contacts_enabled: if mb.self_contacts_enabled() { 1 } else { 0 },
                     contact_constraint_count: 0,
-                    batch_contacts_len: 0,
+                    contact_constraint_start: 0,
+                    old_contact_constraint_start: 0,
+                    old_contact_constraint_count: 0,
+                    contact_index_len: 0,
+                    contact_index_start: 0,
                     first_coupling: coupling_off,
                     num_couplings,
                 });
@@ -301,7 +308,6 @@ impl GpuMultibodySet {
                         }
                     }
                     for d in 0..link_ndofs as usize {
-                        dof_vals.push(0.0);
                         dof_vels.push(0.0);
                         dof_damping.push(mb_damping[rapier_assembly + d]);
                         dof_armature.push(mb_armature[rapier_assembly + d]);
@@ -344,7 +350,7 @@ impl GpuMultibodySet {
 
             global_max_mb = global_max_mb.max(infos.len() as u32);
             global_max_links = global_max_links.max(statics.len() as u32);
-            global_max_dofs = global_max_dofs.max(dof_vals.len() as u32);
+            global_max_dofs = global_max_dofs.max(dof_vels.len() as u32);
             global_max_jac = global_max_jac.max(jac_off);
             global_max_mm = global_max_mm.max(mm_off);
             global_max_cor = global_max_cor.max(cor_off);
@@ -355,7 +361,6 @@ impl GpuMultibodySet {
             per_env_infos.push(infos);
             per_env_links_static.push(statics);
             per_env_links_workspace.push(workspaces);
-            per_env_dof_values.push(dof_vals);
             per_env_dof_vels.push(dof_vels);
             per_env_dof_damping.push(dof_damping);
             per_env_dof_armature.push(dof_armature);
@@ -379,12 +384,18 @@ impl GpuMultibodySet {
         // One length-`dofs_cap` column of `M⁻¹` per constraint slot.
         let cons_col_cap = cons_cap.saturating_mul(dofs_cap).max(1);
 
-        // Per-multibody contact-constraint banks: every multibody owns a
-        // fixed-size slab of `MAX_MB_CONTACT_CONSTRAINTS_PER_MB` slots —
-        // each contact point produces 1 normal + (DIM-1) friction tangent
-        // constraint slots. The init kernel marks unused slots as `kind = 0`.
-        let contact_cons_cap = mb_cap
-            .saturating_mul(MAX_MB_CONTACT_CONSTRAINTS_PER_MB)
+        // Flat contact-constraint buffer: per-multibody segments within it are
+        // demand-sized every frame (count pass + offsets scan). The initial
+        // capacity is the configured per-batch slot budget, floored by the
+        // per-multibody overflow reservation; the auto-resize grows it from
+        // the readback of the actual demand. Each contact point produces 1
+        // normal + (DIM-1) friction tangent constraint slots.
+        let contact_cons_cap = contact_constraint_slots
+            .saturating_mul(num_batches)
+            .max(
+                (mb_cap * num_batches)
+                    .saturating_mul(crate::shaders::dynamics::MB_CONS_SLOT_RESERVE),
+            )
             .max(1);
         let contact_cons_col_cap = contact_cons_cap.saturating_mul(dofs_cap).max(1);
         let body_to_link_cap = colliders_per_batch.max(1);
@@ -414,7 +425,6 @@ impl GpuMultibodySet {
             Vec::with_capacity((links_cap * num_batches) as usize);
         let mut all_ws: Vec<MultibodyLinkWorkspace> =
             Vec::with_capacity((links_cap * num_batches) as usize);
-        let mut all_dof_vals: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_vels: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_damping: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
         let mut all_dof_armature: Vec<f32> = Vec::with_capacity((dofs_cap * num_batches) as usize);
@@ -429,6 +439,34 @@ impl GpuMultibodySet {
         let dummy_info = MultibodyInfo::default();
         let dummy_stat: MultibodyLinkStatic = bytemuck::Zeroable::zeroed();
         let dummy_ws = make_workspace_init();
+
+        // The dynamics arenas (mass matrices, LU pivots, body jacobians,
+        // coriolis, generalized forces) are interleaved at per-multibody-region
+        // granularity (`BatchIndices::mb_region`): the tiling requires every
+        // batch to agree on each multibody's layout offsets. The equal-topology
+        // invariant guarantees it; make it explicit.
+        for (b, env) in per_env_infos.iter().enumerate() {
+            assert_eq!(
+                env.len(),
+                per_env_infos[0].len(),
+                "batch {b}: multibody count differs from batch 0 \
+                 (batched envs must have identical topology)"
+            );
+            for (i, (info, i0)) in env.iter().zip(per_env_infos[0].iter()).enumerate() {
+                assert!(
+                    info.first_link == i0.first_link
+                        && info.num_links == i0.num_links
+                        && info.first_dof == i0.first_dof
+                        && info.ndofs == i0.ndofs
+                        && info.jacobian_offset == i0.jacobian_offset
+                        && info.mass_matrix_offset == i0.mass_matrix_offset
+                        && info.coriolis_offset == i0.coriolis_offset
+                        && info.i_coriolis_dt_offset == i0.i_coriolis_dt_offset,
+                    "batch {b} multibody {i}: dynamics-arena layout differs from batch 0 \
+                     (batched envs must have identical topology)"
+                );
+            }
+        }
 
         for i in 0..num_batches as usize {
             all_infos.extend_from_slice(&per_env_infos[i]);
@@ -446,9 +484,6 @@ impl GpuMultibodySet {
                 all_ws.push(dummy_ws);
             }
 
-            all_dof_vals.extend_from_slice(&per_env_dof_values[i]);
-            let pad = (dofs_cap as usize).saturating_sub(per_env_dof_values[i].len());
-            all_dof_vals.resize(all_dof_vals.len() + pad, 0.0);
             all_dof_vels.extend_from_slice(&per_env_dof_vels[i]);
             let pad = (dofs_cap as usize).saturating_sub(per_env_dof_vels[i].len());
             all_dof_vels.resize(all_dof_vels.len() + pad, 0.0);
@@ -493,7 +528,6 @@ impl GpuMultibodySet {
         let info_mirror = all_infos.clone();
         let all_infos = interleave(&all_infos, mb_cap, nb);
         let all_statics = interleave(&all_statics, links_cap, nb);
-        let all_dof_vals = interleave(&all_dof_vals, dofs_cap, nb);
         let all_dof_vels = interleave(&all_dof_vels, dofs_cap, nb);
         let all_dof_damping = interleave(&all_dof_damping, dofs_cap, nb);
         let all_dof_armature = interleave(&all_dof_armature, dofs_cap, nb);
@@ -508,10 +542,8 @@ impl GpuMultibodySet {
             num_active_multibodies: global_max_mb,
             links_per_batch: links_cap,
             dofs_per_batch: dofs_cap,
-            jacobian_entries_per_batch: jac_cap,
             mass_matrix_entries_per_batch: mm_cap,
             coriolis_entries_per_batch: cor_cap,
-            i_coriolis_dt_entries_per_batch: icdt_cap,
             // Default: implicit coriolis. The acceleration solve uses a mass
             // matrix augmented with the coriolis/gyroscopic derivatives, while
             // constraints keep the plain one. `set_implicit_coriolis(false)`
@@ -523,7 +555,8 @@ impl GpuMultibodySet {
             frictionloss_slots_reserved: scene_has_joint_friction,
             constraint_caps_dirty: false,
 
-            multibody_info: Tensor::vector(backend, &all_infos, storage).unwrap(),
+            multibody_info: Tensor::vector(backend, &all_infos, storage | BufferUsages::COPY_SRC)
+                .unwrap(),
             max_contact_constraints: Tensor::scalar(
                 backend,
                 0u32,
@@ -542,7 +575,6 @@ impl GpuMultibodySet {
                 storage | BufferUsages::COPY_SRC,
             )
             .unwrap(),
-            dof_values: Tensor::vector(backend, &all_dof_vals, storage).unwrap(),
             dof_state: {
                 // Pack [velocities, damping, armature, spring stiffness,
                 // spring rest, kinematic mask, frictionloss] back-to-back,
@@ -614,7 +646,19 @@ impl GpuMultibodySet {
             .unwrap(),
             dof_couplings: Tensor::vector(backend, &all_couplings, storage).unwrap(),
             couplings_per_batch: couplings_cap,
-            body_to_link: Tensor::vector(backend, &all_body_to_link, storage).unwrap(),
+            // The GPU buffer is indexed by global (batch-interleaved) body id;
+            // the host mirror stays batch-major for `link_of_body`.
+            body_to_link: {
+                let cap = body_to_link_cap as usize;
+                let nb = num_batches as usize;
+                let mut interleaved = vec![[u32::MAX, u32::MAX]; all_body_to_link.len()];
+                for local in 0..cap {
+                    for b in 0..nb {
+                        interleaved[local * nb + b] = all_body_to_link[b * cap + local];
+                    }
+                }
+                Tensor::vector(backend, &interleaved, storage).unwrap()
+            },
             body_to_link_host: all_body_to_link,
             body_to_link_cap,
             motor_delay_state: Tensor::vector(
@@ -625,7 +669,10 @@ impl GpuMultibodySet {
             .unwrap(),
             motor_delay_params: Tensor::scalar(
                 backend,
-                glamx::UVec4::new(num_batches, 2 + links_cap, 0, 0),
+                MbDelayTickParams {
+                    num_envs: num_batches,
+                    stride: 2 + links_cap,
+                },
                 BufferUsages::STORAGE | BufferUsages::UNIFORM,
             )
             .unwrap(),
@@ -653,31 +700,19 @@ impl GpuMultibodySet {
             scatter_caches: Vec::new(),
             contact_constraints: Tensor::vector(
                 backend,
-                vec![
-                    MultibodyContactConstraint::default();
-                    (contact_cons_cap * num_batches) as usize
-                ],
-                storage,
+                vec![MultibodyContactConstraint::default(); contact_cons_cap as usize],
+                storage | BufferUsages::COPY_SRC,
             )
             .unwrap(),
             old_contact_constraints: Tensor::vector(
                 backend,
-                vec![
-                    MultibodyContactConstraint::default();
-                    (contact_cons_cap * num_batches) as usize
-                ],
+                vec![MultibodyContactConstraint::default(); contact_cons_cap as usize],
                 storage,
             )
             .unwrap(),
-            contact_constraint_jacs: Tensor::vector(
+            contact_jac_cols: Tensor::vector(
                 backend,
-                vec![0.0f32; (contact_cons_col_cap * num_batches) as usize],
-                storage,
-            )
-            .unwrap(),
-            contact_constraint_columns: Tensor::vector(
-                backend,
-                vec![0.0f32; (contact_cons_col_cap * num_batches) as usize],
+                vec![0.0f32; 2 * contact_cons_col_cap as usize],
                 storage,
             )
             .unwrap(),
@@ -713,12 +748,6 @@ impl GpuMultibodySet {
             // Impulse-joint buffers are sized for "no MB-touching joints" by
             // default — `set_impulse_joints` resizes them at pipeline build
             // time when the host has actually counted the joints.
-            mb_imp_joint_count: Tensor::vector(
-                backend,
-                vec![0u32; num_batches as usize],
-                storage | BufferUsages::UNIFORM,
-            )
-            .unwrap(),
             mb_imp_joint_builders: Tensor::vector(
                 backend,
                 vec![<MbImpulseJointBuilder as bytemuck::Zeroable>::zeroed(); num_batches as usize],
@@ -756,8 +785,23 @@ impl GpuMultibodySet {
             max_joint_constraints: max_mb_joint_constraints,
             joint_constraints_per_batch: cons_cap,
             joint_constraint_columns_per_batch: cons_col_cap,
-            contact_constraints_per_batch: contact_cons_cap,
-            contact_constraint_columns_per_batch: contact_cons_col_cap,
+            contact_constraints_capacity: contact_cons_cap,
+            mb_cons_demand: Tensor::vector(backend, [0u32], storage | BufferUsages::COPY_SRC)
+                .unwrap(),
+            // Zeroed: the count pass atomically accumulates into these and the
+            // offsets scan re-zeroes them after consuming them.
+            mb_cons_counts: Tensor::vector(
+                backend,
+                vec![0u32; (mb_cap * num_batches) as usize],
+                storage,
+            )
+            .unwrap(),
+            mb_index_counts: Tensor::vector(
+                backend,
+                vec![0u32; (mb_cap * num_batches) as usize],
+                storage,
+            )
+            .unwrap(),
 
             num_solver_iterations: 4,
             num_internal_pgs_iterations: 1,

@@ -1,9 +1,6 @@
 //! Contact "force sensor" readout for RL observations.
 
-use super::types::{
-    MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MB_CONTACT_KIND_NORMAL, MultibodyContactConstraint,
-    MultibodyInfo,
-};
+use super::types::{MB_CONTACT_KIND_NORMAL, MultibodyContactConstraint, MultibodyInfo};
 use crate::utils::BatchIndices;
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
@@ -49,8 +46,7 @@ pub fn gpu_mb_sense_contact_impulses(
     }
 
     let mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
-    let cons_start = batch_ids.mb_contact_constraints_start(batch_id);
-    let cons_base = cons_start + (mb_idx as usize) * (MAX_MB_CONTACT_CONSTRAINTS_PER_MB as usize);
+    let cons_base = mb.contact_constraint_start as usize;
     let count = mb.contact_constraint_count;
 
     for c in 0..count {

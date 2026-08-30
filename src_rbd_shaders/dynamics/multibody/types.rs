@@ -33,8 +33,21 @@ pub const CONTACT_CONSTRAINTS_PER_POINT: u32 = 2;
 pub const CONTACT_CONSTRAINTS_PER_POINT: u32 = 3;
 
 /// Total constraint slots reserved per multibody (= contact points × DIM).
+/// Per-multibody constraint bound used only by the (currently disabled)
+/// Delassus constraint-space solve path, whose per-multibody blocks and shared
+/// SoA arrays need a compile-time size. The live dof-space pipeline has no
+/// per-multibody cap: its flat constraint buffer is demand-sized, so
+/// re-enabling the Delassus path requires clamping the per-multibody counts to
+/// this bound again.
 pub const MAX_MB_CONTACT_CONSTRAINTS_PER_MB: u32 =
     MAX_MB_CONTACTS_PER_MB * CONTACT_CONSTRAINTS_PER_POINT;
+
+/// Per-(multibody, batch) slot reservation honored by the segment scan when
+/// the flat constraint buffer overflows: every multibody is guaranteed up to
+/// this many slots (8 contact points) before the leftover capacity is handed
+/// out in order, so an overflow degrades every environment a little instead of
+/// starving the last ones entirely while the auto-resize catches up.
+pub const MB_CONS_SLOT_RESERVE: u32 = 8 * CONTACT_CONSTRAINTS_PER_POINT;
 
 /// `kind` value: inactive / unused slot.
 pub const MB_CONTACT_KIND_INACTIVE: u32 = 0;
@@ -442,18 +455,50 @@ pub struct MultibodyInfo {
     /// `DISABLE_SELF_CONTACTS`). The contact-constraint kernel skips self
     /// contacts when this is `0`.
     pub self_contacts_enabled: u32,
-    /// Per-frame count of active multibody contact constraints emitted for this
-    /// multibody. Written by `gpu_mb_init_contact_constraints`, read by the
-    /// warmstart / finalize / solve / remove-bias contact kernels.
+    /// Per-frame count of active multibody contact constraints for this
+    /// multibody: predicted by `gpu_mb_count_contact_constraints`, clamped by
+    /// the segment scan, finalized by `gpu_mb_init_contact_constraints`; read
+    /// by the warmstart / finalize / solve / remove-bias contact kernels.
     pub contact_constraint_count: u32,
-    /// Per-step copy of `contacts_len[batch]` (to work around the web 8 storage
-    /// bindings count limit).
-    pub batch_contacts_len: u32,
+    /// Per-frame start of this multibody's dynamic segment in the flat
+    /// contact-constraint buffer (written by `gpu_mb_cons_offsets_scan`).
+    pub contact_constraint_start: u32,
+    /// Previous frame's segment bounds (saved at step start, before the new
+    /// layout is computed), matched against by the contact warmstart transfer.
+    pub old_contact_constraint_start: u32,
+    pub old_contact_constraint_count: u32,
+    /// Per-step count of this multibody's entries in the contact→multibody
+    /// index (one entry per contact touching one of its links), written by
+    /// `gpu_mb_cons_offsets_scan`.
+    pub contact_index_len: u32,
+    /// Per-step start of this multibody's segment in the contact→multibody
+    /// index buffer (same scan).
+    pub contact_index_start: u32,
     /// First entry of this multibody's DoF couplings in the `dof_couplings`
     /// buffer (relative to the batch's coupling slice).
     pub first_coupling: u32,
     /// Number of DoF couplings on this multibody.
     pub num_couplings: u32,
+}
+
+/// One entry of the per-step contact→multibody index: contact
+/// `contact_slot` touches multibody link `link_a` (and `link_b` when it is a
+/// self-contact). Built by `gpu_mb_scatter_contact_index` into per-multibody
+/// segments (`MultibodyInfo::contact_index_start/len`) so the emission pass
+/// visits only its own contacts instead of scanning the whole flat list.
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct MbContactIndexEntry {
+    /// Slot of the contact in the flat contacts buffer.
+    pub contact_slot: u32,
+    /// Touched link of the owning multibody (the constraint's A side).
+    pub link_a: u32,
+    /// Second touched link for self-contacts, `u32::MAX` otherwise.
+    pub link_b: u32,
+    /// 1 when the multibody is on the contact's `bodies.x` side (fixes the
+    /// jacobian sign and which side is the free body).
+    pub mb_on_first: u32,
 }
 
 /// One holonomic coupling `q2 = coeff·q1 + offset` between two generalized

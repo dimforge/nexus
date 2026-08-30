@@ -8,12 +8,14 @@
 //!   and handles arbitrary constraint graphs.
 
 use crate::pipeline::RunStats;
+use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::TwoBodyConstraint;
 use crate::shaders::dynamics::{
-    GpuColorBucketsCount, GpuColorBucketsReset, GpuColorBucketsScan, GpuColorBucketsScatter,
-    GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc,
-    GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
+    GpuColorBucketsCount, GpuColorBucketsReset, GpuColorBucketsScatter, GpuFixConflictsTopoGc,
+    GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby,
+    GpuStepGraphColoringTopoGc,
 };
+use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
 use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuPass, GpuTimestamps};
 use vortx::tensor::Tensor;
@@ -38,25 +40,24 @@ pub struct GpuColoring {
     // only touches their own constraint.
     color_buckets_reset: GpuColorBucketsReset,
     color_buckets_count: GpuColorBucketsCount,
-    color_buckets_scan: GpuColorBucketsScan,
     color_buckets_scatter: GpuColorBucketsScatter,
 }
 
 /// Buffers for the per-color constraint bucket sort.
 pub struct ColorBucketsArgs<'a> {
-    /// Indirect dispatch arguments based on contact count.
+    /// Flat dispatch grid over the whole contacts range.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Color assigned to each constraint by graph coloring.
     pub constraints_colors: &'a Tensor<u32>,
-    /// Number of contacts per batch.
-    pub contacts_len: &'a Tensor<u32>,
-    /// Per-batch per-color counts (stride `solver_color_buckets_stride`).
-    pub color_bucket_counts: &'a mut Tensor<u32>,
-    /// Per-batch per-color exclusive prefix sums.
-    pub color_bucket_starts: &'a mut Tensor<u32>,
-    /// Scatter cursors (seeded from the starts).
-    pub color_bucket_cursors: &'a mut Tensor<u32>,
-    /// Constraint ids bucket-sorted by color (contacts layout).
+    /// The colored constraints (batch recovered from their global body ids).
+    pub constraints: &'a Tensor<TwoBodyConstraint>,
+    /// Clamped per-frame list totals (the flat contact sweep bound).
+    pub contact_plan: &'a Tensor<ContactPlan>,
+    /// The single `(color, batch)` bucket buffer, color-major
+    /// (`solver_color_buckets_stride * num_batches` entries): counts, then
+    /// scanned exclusive starts, then post-scatter exclusive ends.
+    pub color_buckets: &'a mut Tensor<u32>,
+    /// Constraint ids bucket-sorted by `(color, batch)`.
     pub color_sorted_ids: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
@@ -84,8 +85,8 @@ pub struct ColoringArgs<'a> {
     pub uncolored: &'a mut Tensor<u32>,
     /// Staging buffer for reading uncolored count on CPU.
     pub uncolored_staging: &'a Tensor<u32>,
-    /// Total number of contacts.
-    pub contacts_len: &'a Tensor<u32>,
+    /// Clamped per-frame list totals (the flat contact sweep bound).
+    pub contact_plan: &'a Tensor<ContactPlan>,
     /// Buffer tracking which constraints are colored.
     pub colored: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
@@ -108,8 +109,8 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.constraints_rands,
-            args.contacts_len,
-            args.batch_indices,
+            args.constraints,
+            args.contact_plan,
         )?;
         Ok(())
     }
@@ -131,8 +132,7 @@ impl GpuColoring {
             args.uncolored,
             args.body_group,
             args.curr_color,
-            args.contacts_len,
-            args.batch_indices,
+            args.contact_plan,
         )?;
         Ok(())
     }
@@ -148,8 +148,8 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.colored,
-            args.contacts_len,
-            args.batch_indices,
+            args.constraints,
+            args.contact_plan,
         )?;
         Ok(())
     }
@@ -169,9 +169,8 @@ impl GpuColoring {
             args.constraints_colors,
             args.colored,
             args.uncolored,
-            args.contacts_len,
+            args.contact_plan,
             args.body_group,
-            args.batch_indices,
         )?;
         Ok(())
     }
@@ -191,9 +190,8 @@ impl GpuColoring {
             args.constraints_colors,
             args.colored,
             args.uncolored,
-            args.contacts_len,
+            args.contact_plan,
             args.body_group,
-            args.batch_indices,
         )?;
         Ok(())
     }
@@ -248,42 +246,37 @@ impl GpuColoring {
         num_colors
     }
 
-    /// Bucket-sorts the constraint ids by their color.
+    /// Bucket-sorts the constraint ids by `(color, batch)`: zero the buckets,
+    /// count, exclusive-prefix-scan them in place, then scatter (which turns
+    /// the starts into exclusive ends, the form the sweeps read).
     pub fn dispatch_build_color_buckets(
         &self,
+        backend: &GpuBackend,
         pass: &mut GpuPass,
         args: ColorBucketsArgs<'_>,
-        color_buckets_stride: u32,
-        num_batches: u32,
+        prefix_sum: &GpuPrefixSum,
+        prefix_workspace: &mut PrefixSumWorkspace,
     ) -> Result<(), GpuBackendError> {
-        self.color_buckets_reset.call(
-            pass,
-            [color_buckets_stride, num_batches, 1],
-            args.color_bucket_counts,
-            args.batch_indices,
-        )?;
+        let num_buckets = args.color_buckets.len() as u32;
+        self.color_buckets_reset
+            .call(pass, [num_buckets, 1, 1], args.color_buckets)?;
         self.color_buckets_count.call(
             pass,
             args.contacts_len_indirect,
             args.constraints_colors,
-            args.contacts_len,
-            args.color_bucket_counts,
+            args.constraints,
+            args.contact_plan,
+            args.color_buckets,
             args.batch_indices,
         )?;
-        self.color_buckets_scan.call(
-            pass,
-            [1, num_batches, 1],
-            args.color_bucket_counts,
-            args.color_bucket_starts,
-            args.color_bucket_cursors,
-            args.batch_indices,
-        )?;
+        prefix_sum.launch(backend, pass, prefix_workspace, args.color_buckets, 1)?;
         self.color_buckets_scatter.call(
             pass,
             args.contacts_len_indirect,
             args.constraints_colors,
-            args.contacts_len,
-            args.color_bucket_cursors,
+            args.constraints,
+            args.contact_plan,
+            args.color_buckets,
             args.color_sorted_ids,
             args.batch_indices,
         )?;
