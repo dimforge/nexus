@@ -10,6 +10,7 @@ mod sort_reduce;
 mod sort_scan;
 mod sort_scan_add;
 mod sort_scatter;
+mod sort_small;
 mod sorting;
 
 pub use init_batch_ids::*;
@@ -19,4 +20,5 @@ pub use sort_reduce::*;
 pub use sort_scan::*;
 pub use sort_scan_add::*;
 pub use sort_scatter::*;
+pub use sort_small::*;
 pub use sorting::*;
