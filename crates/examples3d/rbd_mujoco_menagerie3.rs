@@ -2,8 +2,6 @@ use khal::backend::GpuTimestamps;
 use kiss3d::egui;
 use nexus_viewer3d::{NexusViewer, RenderMaterial};
 use nexus3d::prelude::{NexusPipeline, NexusState, RbdCoupling};
-use nexus3d::rbd::dynamics::convert_joint_motor;
-use nexus3d::rbd::shaders::dynamics::JointMotor;
 use rapier3d::prelude::*;
 use rapier3d_mjcf::{MjcfLoaderOptions, MjcfMultibodyOptions, MjcfRobot, MjcfRobotHandles};
 use std::fs;
@@ -523,8 +521,14 @@ async fn load_scene(
 /// Drives the model's actuators toward `ctrl`, scaled by `gain`.
 ///
 /// The motor configuration is baked into the GPU state at finalization, so this
-/// runs the MJCF actuator model on the CPU-side joints and then pushes each
-/// touched motor across.
+/// runs the MJCF actuator model on the CPU-side joints and then re-syncs the
+/// GPU link records from them.
+///
+/// `control_multibody_motors` does that sync itself, in the multibody traversal
+/// order the GPU link ids follow. Pushing the motors by hand through
+/// `set_motors` would need those same link ids, which are NOT the rapier body
+/// indices as soon as the scene holds a body that is not a multibody link
+/// (aloha's table, for instance) ahead of the robot.
 fn apply_controls(
     state: &mut NexusState,
     backend: &khal::backend::GpuBackend,
@@ -532,45 +536,14 @@ fn apply_controls(
     ctrl: &[Real],
     gain: Real,
 ) {
-    let mut updates: Vec<(u32, usize, JointMotor)> = Vec::new();
-    {
-        // Untracked: the rapier sets are only the scratch the MJCF actuator
-        // model writes into. Marking them dirty would rebuild the GPU buffers
-        // from the authored poses and reset the model every step.
-        let world = state.rbd_world_mut_untracked(0);
+    let _ = state.control_multibody_motors(backend, |_, world| {
         controls.handles.apply_controls_multibody_scaled(
             &mut world.bodies,
             &mut world.multibody_joints,
             ctrl,
             gain,
         );
-        for ah in &controls.handles.actuators {
-            let Some(Some(handle)) = ah.joint else {
-                continue;
-            };
-            let Some((mb, link_id)) = world.multibody_joints.get(handle) else {
-                continue;
-            };
-            let Some(link) = mb.links().nth(link_id) else {
-                continue;
-            };
-            // The GPU link id is the body index (see `GpuMultibodySet::set_motor`).
-            let body_idx = link.rigid_body_handle().into_raw_parts().0;
-            let axes = link.joint().data.motor_axes.bits();
-            for axis in 0..6 {
-                if axes & (1 << axis) != 0 {
-                    updates.push((
-                        body_idx,
-                        axis,
-                        convert_joint_motor(link.joint().data.motors[axis]),
-                    ));
-                }
-            }
-        }
-    }
-    if let Some(rbd) = state.rbd.as_mut() {
-        let _ = rbd.multibodies_mut().set_motors(backend, 0, &updates);
-    }
+    });
 }
 
 /// Picks a scene: first runs the cheap DoF pre-check (no mesh I/O); if the model
