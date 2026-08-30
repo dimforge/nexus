@@ -23,6 +23,10 @@
 
 ### Fixed
 
+- Contact warmstarting matched each new contact point to the *first* old point of the same pair
+  within 10 cm, so every point of a small manifold (a fingertip pad) inherited the first point's
+  normal and friction impulses and the solver had to redistribute them each step. Both the
+  rigid-body and multibody transfers now take the nearest old point.
 - Contacts between a multibody link and a rigid body were solved twice: by the multibody
   contact solver and, again, by the rigid-body solver against a zero-inverse-mass copy of the
   link. The second copy saw the link as never moving, so a robot lifting a grasped object had

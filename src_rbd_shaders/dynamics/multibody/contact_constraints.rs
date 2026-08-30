@@ -1055,8 +1055,10 @@ pub fn gpu_mb_transfer_contact_warmstart(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] softness: &ConstraintSoftness,
 ) {
     const LANES: u32 = 64;
-    // Anchors this far apart (in each side's own frame) are taken to be the
-    // same contact point from one frame to the next.
+    // Anchors further apart than this (in each side's own frame) are never the
+    // same contact point from one frame to the next; among the candidates the
+    // nearest wins, so the points of one small manifold (a fingertip pad) each
+    // recover their own impulse instead of all copying the first one.
     const MATCH_DIST: f32 = 1.0e-1;
 
     let batch_id = workgroup_id.y;
@@ -1095,6 +1097,9 @@ pub fn gpu_mb_transfer_contact_warmstart(
             continue;
         }
 
+        // Nearest old point of the same link pair within the threshold.
+        let mut best_j = u32::MAX;
+        let mut best_sq = sq_threshold;
         for j in 0..old_count {
             let old = old_contact_constraints.read(old_base + j as usize);
             if old.kind != MB_CONTACT_KIND_NORMAL
@@ -1106,10 +1111,15 @@ pub fn gpu_mb_transfer_contact_warmstart(
             }
             let d1 = old.local_p1 - cons.local_p1;
             let d2 = old.local_p2 - cons.local_p2;
-            if d1.dot(d1) >= sq_threshold || d2.dot(d2) >= sq_threshold {
-                continue;
+            let sq = d1.dot(d1).max(d2.dot(d2));
+            if sq < best_sq {
+                best_sq = sq;
+                best_j = j;
             }
-
+        }
+        if best_j != u32::MAX {
+            let j = best_j;
+            let old = old_contact_constraints.read(old_base + j as usize);
             cons.impulse = old.impulse * warmstart_coeff;
             contact_constraints.write(cons_base + s as usize, cons);
 
@@ -1135,7 +1145,6 @@ pub fn gpu_mb_transfer_contact_warmstart(
                 new_t0.impulse = old_t0.impulse * warmstart_coeff;
                 contact_constraints.write(cons_base + (s + 1) as usize, new_t0);
             }
-            break;
         }
     }
 }

@@ -202,26 +202,34 @@ pub fn transfer_warmstart_impulses(
             let dist_threshold = 1.0e-1; // 10cm
             let sq_threshold = dist_threshold * dist_threshold;
 
-            // Try to match each new contact point with old contact points
+            // Match each new contact point with the NEAREST old contact point
+            // within the threshold: the points of one small manifold are all
+            // within 10cm of each other, so taking the first candidate would hand
+            // every point the same (first) impulse.
             for k_new in 0..(new_constraints[i].len as usize) {
                 let pt_new_a = new_constraint_builders[i].infos.at(k_new).local_pt_a;
                 let pt_new_b = new_constraint_builders[i].infos.at(k_new).local_pt_b;
 
-                // Search through old contact points for a match
+                let mut best_k_old = usize::MAX;
+                let mut best_sq = sq_threshold;
                 for k_old in 0..(old_constraints[cid_old].len as usize) {
                     let pt_old_a = old_constraint_builders[cid_old].infos.at(k_old).local_pt_a;
                     let pt_old_b = old_constraint_builders[cid_old].infos.at(k_old).local_pt_b;
-
-                    // Compute distance between contact points in local space
                     let dpt_a = pt_old_a - pt_new_a;
                     let dpt_b = pt_old_b - pt_new_b;
+                    let sq = dpt_a.dot(dpt_a).max(dpt_b.dot(dpt_b));
+                    if sq < best_sq {
+                        best_sq = sq;
+                        best_k_old = k_old;
+                    }
+                }
 
-                    // If both points are close enough, consider it a match
-                    if dpt_a.dot(dpt_a) < sq_threshold && dpt_b.dot(dpt_b) < sq_threshold {
+                {
+                    let k_old = best_k_old;
+                    if k_old != usize::MAX {
                         // Contact point match found! Transfer the accumulated impulse.
                         // The impulse field contains the last substep's impulse, which serves
                         // as the warmstart value for this frame.
-                        // TODO: what if we have multiple matches? (currently uses first match)
                         new_constraints[i]
                             .elements
                             .at_mut(k_new)
