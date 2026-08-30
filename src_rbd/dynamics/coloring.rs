@@ -8,6 +8,7 @@
 //!   and handles arbitrary constraint graphs.
 
 use crate::pipeline::RunStats;
+use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::TwoBodyConstraint;
 use crate::shaders::dynamics::{
     GpuColorBucketsCount, GpuColorBucketsReset, GpuColorBucketsScatter, GpuFixConflictsTopoGc,
@@ -44,12 +45,11 @@ pub struct GpuColoring {
 
 /// Buffers for the per-color constraint bucket sort.
 pub struct ColorBucketsArgs<'a> {
-    /// Indirect dispatch arguments based on contact count.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Color assigned to each constraint by graph coloring.
     pub constraints_colors: &'a Tensor<u32>,
     pub constraints: &'a Tensor<TwoBodyConstraint>,
-    pub contact_offsets: &'a Tensor<u32>,
+    pub contact_plan: &'a Tensor<ContactPlan>,
     pub color_buckets: &'a mut Tensor<u32>,
     pub color_sorted_ids: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
@@ -78,7 +78,7 @@ pub struct ColoringArgs<'a> {
     pub uncolored: &'a mut Tensor<u32>,
     /// Staging buffer for reading uncolored count on CPU.
     pub uncolored_staging: &'a Tensor<u32>,
-    pub contact_offsets: &'a Tensor<u32>,
+    pub contact_plan: &'a Tensor<ContactPlan>,
     /// Buffer tracking which constraints are colored.
     pub colored: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
@@ -102,8 +102,7 @@ impl GpuColoring {
             args.constraints_colors,
             args.constraints_rands,
             args.constraints,
-            args.contact_offsets,
-            args.batch_indices,
+            args.contact_plan,
         )?;
         Ok(())
     }
@@ -125,8 +124,7 @@ impl GpuColoring {
             args.uncolored,
             args.body_group,
             args.curr_color,
-            args.contact_offsets,
-            args.batch_indices,
+            args.contact_plan,
         )?;
         Ok(())
     }
@@ -143,8 +141,7 @@ impl GpuColoring {
             args.constraints_colors,
             args.colored,
             args.constraints,
-            args.contact_offsets,
-            args.batch_indices,
+            args.contact_plan,
         )?;
         Ok(())
     }
@@ -164,9 +161,8 @@ impl GpuColoring {
             args.constraints_colors,
             args.colored,
             args.uncolored,
-            args.contact_offsets,
+            args.contact_plan,
             args.body_group,
-            args.batch_indices,
         )?;
         Ok(())
     }
@@ -186,9 +182,8 @@ impl GpuColoring {
             args.constraints_colors,
             args.colored,
             args.uncolored,
-            args.contact_offsets,
+            args.contact_plan,
             args.body_group,
-            args.batch_indices,
         )?;
         Ok(())
     }
@@ -260,7 +255,7 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.constraints,
-            args.contact_offsets,
+            args.contact_plan,
             args.color_buckets,
             args.batch_indices,
         )?;
@@ -270,7 +265,7 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.constraints,
-            args.contact_offsets,
+            args.contact_plan,
             args.color_buckets,
             args.color_sorted_ids,
             args.batch_indices,

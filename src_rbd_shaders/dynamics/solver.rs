@@ -2,6 +2,7 @@
 //!
 //! This module contains the actual GPU compute shader entry points for the physics solver.
 
+use crate::broad_phase::ContactPlan;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 
@@ -37,17 +38,16 @@ pub fn gpu_solver_init_constraints(
     constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     constraint_builders: &mut [TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] collider_world_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] vels: &[Velocity],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] mprops: &[WorldMassProperties],
     #[spirv(uniform, descriptor_set = 1, binding = 4)] params: &RbdSimParams,
-    #[spirv(uniform, descriptor_set = 1, binding = 5)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let collider_world_poses = Slice(collider_world_poses, 0);
     let solver_body_poses = Slice(solver_body_poses, 0);
     let vels = Slice(vels, 0);
@@ -83,12 +83,11 @@ pub fn gpu_solver_count_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_group: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mprops: &[WorldMassProperties],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_offsets: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] contact_plan: &ContactPlan,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let contacts = Slice(contacts, 0);
     let mut body_constraint_counts = SliceMut(body_constraint_counts, 0);
     let body_group = Slice(body_group, 0);
@@ -130,14 +129,13 @@ pub fn gpu_solver_update_constraints(
     constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
     #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
-    #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let mut constraints = SliceMut(constraints, 0);
     let constraint_builders = Slice(constraint_builders, 0);
     let solver_body_poses = Slice(solver_body_poses, 0);
@@ -165,14 +163,13 @@ pub fn gpu_solver_refresh_rhs_wo_bias(
     constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
     #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
-    #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let mut constraints = SliceMut(constraints, 0);
     let constraint_builders = Slice(constraint_builders, 0);
     let solver_body_poses = Slice(solver_body_poses, 0);
@@ -197,14 +194,13 @@ pub fn gpu_solver_sort_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mprops: &[WorldMassProperties],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts: &[IndexedManifold],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_constraint_ids: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] body_group: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let contacts = Slice(contacts, 0);
     let mut body_constraint_counts = SliceMut(body_constraint_counts, 0);
     let body_group = Slice(body_group, 0);
@@ -637,7 +633,9 @@ pub fn gpu_init_solver_bodies(
         let idx = i as usize;
         solver_body_poses.write(
             idx,
-            body_poses.read(idx).prepend_translation(local_mprops.at(idx).com),
+            body_poses
+                .read(idx)
+                .prepend_translation(local_mprops.at(idx).com),
         );
     }
 }

@@ -228,6 +228,8 @@ pub struct GpuMultibodySet {
     pub(super) joint_constraint_columns_per_batch: u32,
     pub(super) contact_constraints_capacity: u32,
     pub(super) mb_cons_demand: Tensor<u32>,
+    pub(super) mb_cons_counts: Tensor<u32>,
+    pub(super) mb_index_counts: Tensor<u32>,
 
     /// Number of solver iterations to run on `joint_constraints` per `step()`.
     pub(super) num_solver_iterations: u32,
@@ -807,13 +809,14 @@ impl GpuMultibodySet {
                 (
                     i.contact_constraint_start,
                     i.contact_constraint_count,
-                    i.batch_contacts_start,
-                    i.batch_contacts_len,
+                    i.contact_index_start,
+                    i.contact_index_len,
                 )
             })
             .collect();
         (out, demand.first().copied().unwrap_or(0))
     }
+
     pub(crate) fn resize_contact_slabs(&mut self, backend: &GpuBackend, new_capacity: u32) {
         use khal::BufferUsages;
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;

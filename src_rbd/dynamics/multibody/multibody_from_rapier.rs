@@ -179,8 +179,8 @@ impl GpuMultibodySet {
                     contact_constraint_start: 0,
                     old_contact_constraint_start: 0,
                     old_contact_constraint_count: 0,
-                    batch_contacts_len: 0,
-                    batch_contacts_start: 0,
+                    contact_index_len: 0,
+                    contact_index_start: 0,
                     first_coupling: coupling_off,
                     num_couplings,
                 });
@@ -380,7 +380,10 @@ impl GpuMultibodySet {
 
         let contact_cons_cap = contact_constraint_slots
             .saturating_mul(num_batches)
-            .max((mb_cap * num_batches).saturating_mul(crate::shaders::dynamics::MB_CONS_SLOT_RESERVE))
+            .max(
+                (mb_cap * num_batches)
+                    .saturating_mul(crate::shaders::dynamics::MB_CONS_SLOT_RESERVE),
+            )
             .max(1);
         let contact_cons_col_cap = contact_cons_cap.saturating_mul(dofs_cap).max(1);
         let body_to_link_cap = colliders_per_batch.max(1);
@@ -760,10 +763,18 @@ impl GpuMultibodySet {
             joint_constraints_per_batch: cons_cap,
             joint_constraint_columns_per_batch: cons_col_cap,
             contact_constraints_capacity: contact_cons_cap,
-            mb_cons_demand: Tensor::vector(
+            mb_cons_demand: Tensor::vector(backend, &[0u32], storage | BufferUsages::COPY_SRC)
+                .unwrap(),
+            mb_cons_counts: Tensor::vector(
                 backend,
-                &[0u32],
-                storage | BufferUsages::COPY_SRC,
+                vec![0u32; (mb_cap * num_batches) as usize],
+                storage,
+            )
+            .unwrap(),
+            mb_index_counts: Tensor::vector(
+                backend,
+                vec![0u32; (mb_cap * num_batches) as usize],
+                storage,
             )
             .unwrap(),
 

@@ -186,7 +186,7 @@ impl RadixSort {
             // Sort by permutation: sort indices by their corresponding key.
             indices.clear();
             indices.extend(0..n as u32);
-            indices.sort_unstable_by_key(|&i| keys[i as usize]);
+            indices.sort_by_key(|&i| keys[i as usize]);
 
             // Scatter using the sorted permutation.
             for (dst, &src) in indices.iter().enumerate() {

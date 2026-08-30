@@ -1,14 +1,7 @@
 //! Bucket-sort of contact constraints by graph-coloring color.
 //!
-//! After the per-step coloring converges, the constraint indices are
-//! bucket-sorted by color (`color_sorted_ids`, contacts layout) with
-//! per-batch per-color exclusive prefix sums (`color_starts`), so each
-//! colored solver sweep iterates only its own bucket instead of scanning the
-//! whole constraint buffer. The count/start/cursor buffers are flat
-//! `[num_batches × stride]` arrays with `stride =
-//! BatchIndices::solver_color_buckets_stride` (= `max_colors + 3`, keeping
-//! `starts[c + 1]` in bounds for every swept color).
 
+use crate::broad_phase::ContactPlan;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::{index::MaybeIndexUnchecked, iter::StepRng, sync::atomic_add_u32};
@@ -39,14 +32,14 @@ pub fn gpu_color_buckets_count(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_buckets: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let nb = batch_ids.num_batches;
     let stride = batch_ids.solver_color_buckets_stride;
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let constraints = Slice(constraints, 0);
 
     for i in StepRng::new(invocation_id.x..total, num_threads) {
@@ -65,7 +58,7 @@ pub fn gpu_color_buckets_scatter(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_buckets: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] color_sorted_ids: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
@@ -73,7 +66,7 @@ pub fn gpu_color_buckets_scatter(
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let nb = batch_ids.num_batches;
     let stride = batch_ids.solver_color_buckets_stride;
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let constraints = Slice(constraints, 0);
 
     for i in StepRng::new(invocation_id.x..total, num_threads) {

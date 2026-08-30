@@ -3,11 +3,12 @@
 //! Transfers impulses from frame `n-1` to frame `n` as initial guesses for the solver.
 //! Contacts are matched by proximity in local coordinates (threshold: 10cm).
 
+use crate::broad_phase::ContactPlan;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
-use crate::utils::{BatchIndices, Slice, SliceMut};
+use crate::utils::{Slice, SliceMut};
 use khal_std::index::MaybeIndexUnchecked;
 
 /// Transfers warmstart impulses from previous frame to current frame.
@@ -25,10 +26,9 @@ pub fn gpu_transfer_warmstart_impulses(
     new_constraints: &mut [TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
     new_constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] contact_offsets: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] contact_plan: &ContactPlan,
 ) {
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let old_body_constraint_counts = Slice(old_body_constraint_counts, 0);
     let old_body_constraint_ids = Slice(old_body_constraint_ids, 0);
     let old_constraints = Slice(old_constraints, 0);
@@ -75,10 +75,9 @@ pub fn gpu_seed_colors_from_warmstart(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] old_constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] colored: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] contact_offsets: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 7)] contact_plan: &ContactPlan,
 ) {
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let old_body_constraint_counts = Slice(old_body_constraint_counts, 0);
     let old_body_constraint_ids = Slice(old_body_constraint_ids, 0);
     let old_constraints = Slice(old_constraints, 0);

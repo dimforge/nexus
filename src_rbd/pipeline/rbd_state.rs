@@ -1,13 +1,15 @@
 //! GPU-resident rigid-body state ([`RbdState`]): buffer definitions, accessors,
 //! run statistics and capacity/resize policies.
-use crate::broad_phase::LbvhState;
+use crate::broad_phase::{LbvhState, PfmSortState};
 use crate::dynamics::GpuImpulseJointSet;
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
 use crate::math::Pose;
 use crate::queries::{GpuColliderMaterial, GpuIndexedContact};
 use crate::shaders::PaddedVector;
-use crate::shaders::broad_phase::{CollisionPair, NarrowPhasePfmPair};
+use crate::shaders::broad_phase::{CollisionPair, ContactPlan, NarrowPhasePfmPair};
+#[cfg(feature = "dim3")]
+use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
     LocalMassProperties as GpuLocalMassProperties, RbdSimParams, TwoBodyConstraint,
     TwoBodyConstraintBuilder, Velocity as GpuVelocity,
@@ -187,11 +189,11 @@ pub struct RbdState {
     pub(super) pfm_pairs_len: Tensor<u32>,
     pub(super) pfm_pairs_indirect: Tensor<[u32; 3]>,
     pub(super) contacts: Tensor<GpuIndexedContact>,
-    pub(super) contacts_len: Tensor<u32>,
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
-    pub(super) contact_offsets: Tensor<u32>,
-    pub(super) pair_batch_counts: Tensor<u32>,
-    pub(super) pfm_batch_counts: Tensor<u32>,
+    pub(super) contact_plan: Tensor<ContactPlan>,
+    pub(super) pfm_sort: PfmSortState,
+    #[cfg(feature = "dim3")]
+    pub(super) mb_contact_index: Tensor<MbContactIndexEntry>,
     /// Workgroup grid for the per-multibody contact-constraint dispatches:
     /// `[multibodies_batch_capacity, num_batches, 1]`.
     pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
@@ -444,12 +446,6 @@ impl RbdState {
     /// Per-collider parent rigid-body slot map (env-local). For debugging.
     pub fn collider_parent(&self) -> &Tensor<u32> {
         &self.collider_parent
-    }
-
-    /// The contact manifold buffer (post narrow-phase + body resolution).
-    /// Per-batch number of manifolds currently in [`Self::contacts`].
-    pub fn contacts_len(&self) -> &Tensor<u32> {
-        &self.contacts_len
     }
 
     /// GPU buffer holding the contact manifolds.

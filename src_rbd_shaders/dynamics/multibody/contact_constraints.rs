@@ -18,20 +18,24 @@ use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::sync::workgroup_memory_barrier_with_group_sync;
+use khal_std::sync::{atomic_add_u32, atomic_load_u32, workgroup_memory_barrier_with_group_sync};
 
+use crate::broad_phase::ContactPlan;
 use crate::dynamics::ConstraintSoftness;
 use crate::dynamics::body::{Velocity, WorldMassProperties};
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::queries::IndexedManifold;
+use crate::utils::BatchIndices;
 use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, VSlice, lu_solve_in_place};
-use crate::utils::{BatchIndices, Slice};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 
 use super::types::{
     CONTACT_CONSTRAINTS_PER_POINT, MB_CONS_SLOT_RESERVE, MB_CONTACT_KIND_NORMAL,
-    MB_CONTACT_KIND_TANGENT, MultibodyContactConstraint, MultibodyInfo, MultibodyLinkStatic,
+    MB_CONTACT_KIND_TANGENT, MbContactIndexEntry, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyLinkStatic,
 };
+
+const MB_SWEEP_WG: u32 = 64;
 use super::utils::zero_kinematic_dofs;
 use super::ws_soa::{WS_LTW, WS_WORLD_COM, WsAddr, ws_pose, ws_vec};
 
@@ -118,84 +122,113 @@ fn fill_contact_jac_row(
         out_jacs.write(col_offset + j as usize, prev + dot);
     }
 }
+
+struct MbContactOwner {
+    mb: u32,
+    batch: u32,
+    link_a: u32,
+    link_b: u32,
+    mb_on_first: u32,
+}
+
+const MB_OWNER_SKIP: MbContactOwner = MbContactOwner {
+    mb: u32::MAX,
+    batch: 0,
+    link_a: u32::MAX,
+    link_b: u32::MAX,
+    mb_on_first: 0,
+};
+
 #[inline(always)]
-fn mb_contact_demand(
+fn mb_contact_owner(
     im: &IndexedManifold,
-    mb_idx: u32,
-    self_contacts_enabled: u32,
     body_to_link: &[[u32; 2]],
-) -> u32 {
+    multibody_info: &[MultibodyInfo],
+    batch_ids: &BatchIndices,
+) -> MbContactOwner {
     if im.contact.len == 0 {
-        return 0;
+        return MB_OWNER_SKIP;
     }
     let l1 = body_to_link.read(im.bodies.x as usize);
     let l2 = body_to_link.read(im.bodies.y as usize);
-    let mb_on_1 = l1[0] == mb_idx;
-    let mb_on_2 = l2[0] == mb_idx;
-    if !mb_on_1 && !mb_on_2 {
-        return 0;
+    if l1[0] == u32::MAX && l2[0] == u32::MAX {
+        return MB_OWNER_SKIP;
     }
     if l1[0] != u32::MAX && l2[0] != u32::MAX && l1[0] != l2[0] {
-        return 0;
+        return MB_OWNER_SKIP;
     }
-    let is_self = mb_on_1 && mb_on_2;
-    if is_self && self_contacts_enabled == 0 {
-        return 0;
-    }
+    let is_self = l1[0] != u32::MAX && l2[0] != u32::MAX;
     if is_self && l1[1] == l2[1] {
-        return 0;
+        return MB_OWNER_SKIP;
     }
-    im.contact.len * CONTACT_CONSTRAINTS_PER_POINT
+    let mb_on_first = l1[0] != u32::MAX;
+    let owner = if mb_on_first { l1[0] } else { l2[0] };
+    let batch = batch_ids.collider_batch(im.bodies.x);
+    let mb = multibody_info.read(batch_ids.mbi(batch, owner as usize));
+    if mb.ndofs == 0 {
+        return MB_OWNER_SKIP;
+    }
+    if is_self && mb.self_contacts_enabled == 0 {
+        return MB_OWNER_SKIP;
+    }
+    MbContactOwner {
+        mb: owner,
+        batch,
+        link_a: if mb_on_first { l1[1] } else { l2[1] },
+        link_b: if is_self { l2[1] } else { u32::MAX },
+        mb_on_first: mb_on_first as u32,
+    }
 }
+
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_count_contact_constraints(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    multibody_info: &mut [MultibodyInfo],
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts: &[IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_to_link: &[[u32; 2]],
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_cons_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] mb_index_counts: &mut [u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] contact_plan: &ContactPlan,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let num_mb = batch_ids.multibodies_len;
-    if invocation_id.x >= num_mb * batch_ids.num_batches {
-        return;
-    }
-    let batch_id = invocation_id.x / num_mb;
-    let mb_idx = invocation_id.x % num_mb;
-    let mut mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
-    let mut count = 0u32;
-    if mb.ndofs != 0 {
-        let contacts_slice = Slice(contacts, mb.batch_contacts_start as usize);
-        for ci in 0..mb.batch_contacts_len {
-            count += mb_contact_demand(
-                contacts_slice.at(ci as usize),
-                mb_idx,
-                mb.self_contacts_enabled,
-                body_to_link,
-            );
+    let num_threads = num_workgroups.x * MB_SWEEP_WG;
+    let total = contact_plan.bound;
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let im = contacts.read(t as usize);
+        let owner = mb_contact_owner(&im, body_to_link, multibody_info, batch_ids);
+        if owner.mb == u32::MAX {
+            continue;
         }
+        let slot = batch_ids.mbi(owner.batch, owner.mb as usize);
+        let demand = im.contact.len * CONTACT_CONSTRAINTS_PER_POINT;
+        atomic_add_u32(mb_cons_counts.at_mut(slot), demand);
+        atomic_add_u32(mb_index_counts.at_mut(slot), 1);
     }
-    mb.contact_constraint_count = count;
-    multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
 }
+
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_mb_cons_offsets_scan(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     multibody_info: &mut [MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mb_cons_demand: &mut [u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mb_cons_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] mb_index_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_cons_demand: &mut [u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
 ) {
     let total_infos = batch_ids.multibodies_len * batch_ids.num_batches;
     let capacity = batch_ids.mb_contact_constraints_capacity;
+
     let mut demand = 0u32;
     let mut reserved_total = 0u32;
     for i in 0..total_infos {
-        let count = multibody_info.read(i as usize).contact_constraint_count;
+        let count = atomic_load_u32(mb_cons_counts.at_mut(i as usize));
         demand += count;
         reserved_total += count.min(MB_CONS_SLOT_RESERVE);
     }
+    #[allow(clippy::implicit_saturating_sub)]
     let mut extra_budget = if capacity > reserved_total {
         capacity - reserved_total
     } else {
@@ -203,9 +236,10 @@ pub fn gpu_mb_cons_offsets_scan(
     };
 
     let mut acc = 0u32;
+    let mut index_acc = 0u32;
     for i in 0..total_infos {
         let mut mb = multibody_info.read(i as usize);
-        let count = mb.contact_constraint_count;
+        let count = atomic_load_u32(mb_cons_counts.at_mut(i as usize));
         let reserve = count.min(MB_CONS_SLOT_RESERVE);
         let extra = (count - reserve).min(extra_budget);
         extra_budget -= extra;
@@ -213,11 +247,56 @@ pub fn gpu_mb_cons_offsets_scan(
         let avail = (reserve + extra).min(capacity - start);
         mb.contact_constraint_start = start;
         mb.contact_constraint_count = avail;
-        multibody_info.write(i as usize, mb);
         acc = start + avail;
+
+        mb.contact_index_start = index_acc;
+        mb.contact_index_len = atomic_load_u32(mb_index_counts.at_mut(i as usize));
+        index_acc += mb.contact_index_len;
+
+        multibody_info.write(i as usize, mb);
+        mb_cons_counts.write(i as usize, 0);
+        mb_index_counts.write(i as usize, 0);
     }
     mb_cons_demand.write(0, demand);
 }
+
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_scatter_contact_index(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts: &[IndexedManifold],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_to_link: &[[u32; 2]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_index_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
+    mb_contact_index: &mut [MbContactIndexEntry],
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] contact_plan: &ContactPlan,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
+) {
+    let num_threads = num_workgroups.x * MB_SWEEP_WG;
+    let total = contact_plan.bound;
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let im = contacts.read(t as usize);
+        let owner = mb_contact_owner(&im, body_to_link, multibody_info, batch_ids);
+        if owner.mb == u32::MAX {
+            continue;
+        }
+        let slot = batch_ids.mbi(owner.batch, owner.mb as usize);
+        let mb = multibody_info.read(slot);
+        let pos = atomic_add_u32(mb_index_counts.at_mut(slot), 1);
+        mb_contact_index.write(
+            (mb.contact_index_start + pos) as usize,
+            MbContactIndexEntry {
+                contact_slot: t,
+                link_a: owner.link_a,
+                link_b: owner.link_b,
+                mb_on_first: owner.mb_on_first,
+            },
+        );
+    }
+}
+
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_save_prev_cons_bounds(
@@ -255,7 +334,8 @@ pub fn gpu_mb_init_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     multibody_info: &mut [MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_workspace: &[Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_to_link: &[[u32; 2]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    mb_contact_index: &[MbContactIndexEntry],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     contact_constraints: &mut [MultibodyContactConstraint],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] softness: &ConstraintSoftness,
@@ -301,16 +381,14 @@ pub fn gpu_mb_init_contact_constraints(
     let avail = mb.contact_constraint_count;
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
-    let contacts_slice = Slice(contacts, mb.batch_contacts_start as usize);
-    let n_contacts = mb.batch_contacts_len;
+    let idx_base = mb.contact_index_start as usize;
+    let n_entries = mb.contact_index_len;
     let mut count = 0u32;
 
-    for ci in 0..n_contacts {
-        let im = contacts_slice[ci as usize];
-        let demand = mb_contact_demand(&im, mb_idx, mb.self_contacts_enabled, body_to_link);
-        if demand == 0 {
-            continue;
-        }
+    for ci in 0..n_entries {
+        let entry = mb_contact_index.read(idx_base + ci as usize);
+        let im = contacts.read(entry.contact_slot as usize);
+        let demand = im.contact.len * CONTACT_CONSTRAINTS_PER_POINT;
         if count + demand > avail {
             break;
         }
@@ -318,16 +396,14 @@ pub fn gpu_mb_init_contact_constraints(
         let b1 = im.bodies.x;
         let b2 = im.bodies.y;
 
-        let l1 = body_to_link.read(b1 as usize);
-        let l2 = body_to_link.read(b2 as usize);
-        let mb_on_1 = l1[0] == mb_idx;
-        let is_self = mb_on_1 && l2[0] == mb_idx;
+        let mb_on_1 = entry.mb_on_first != 0;
+        let is_self = entry.link_b != u32::MAX;
         let (mb_link_id_a, mb_link_id_b, free_body_id) = if is_self {
-            (l1[1], l2[1], u32::MAX)
+            (entry.link_a, entry.link_b, u32::MAX)
         } else if mb_on_1 {
-            (l1[1], u32::MAX, b2)
+            (entry.link_a, u32::MAX, b2)
         } else {
-            (l2[1], u32::MAX, b1)
+            (entry.link_a, u32::MAX, b1)
         };
 
         let pose1 = poses.read(id1 as usize);
@@ -655,48 +731,13 @@ pub fn gpu_mb_init_contact_constraints(
         }
     }
 
-    // The solve kernels only iterate `0..count`, but next frame's warmstart
-    // match scans the whole slab, so the leftovers of the previous build have
-    // to be marked inactive.
     if lane == 0 {
         mb.contact_constraint_count = count;
         multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
     }
 }
 
-/// HACK: stash `contacts_len[batch]` into each multibody's `batch_contacts_len`.
 ///
-/// This exists only to work around the web 8-storage-bindings limit for kernels
-/// that bind multibodies but don’t have any room left to bind `contacts_len`.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_mb_stash_contacts_len(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    multibody_info: &mut [MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_len: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contact_offsets: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
-) {
-    let num_mb = batch_ids.multibodies_len;
-    if invocation_id.x >= num_mb * batch_ids.num_batches {
-        return;
-    }
-    let batch_id = invocation_id.x / num_mb;
-    let mb_idx = invocation_id.x % num_mb;
-    let seg_start = contact_offsets.read(batch_id as usize);
-    let seg_end = contact_offsets.read(batch_id as usize + 1);
-    let mut mb = multibody_info.read(batch_ids.mbi(batch_id, mb_idx as usize));
-    mb.batch_contacts_len = contacts_len.read(batch_id as usize).min(seg_end - seg_start);
-    mb.batch_contacts_start = seg_start;
-    multibody_info.write(batch_ids.mbi(batch_id, mb_idx as usize), mb);
-}
-
-/// Snapshot every contact-constraint slot into the "previous frame" slab that
-/// `gpu_mb_transfer_contact_warmstart` matches against. Called once per visible
-/// frame from `init_step`, before the substep loop rebuilds the live slab.
-///
-/// One thread per (slot, multibody, batch).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_snapshot_contact_warmstart(

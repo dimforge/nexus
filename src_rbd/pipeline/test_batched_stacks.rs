@@ -14,26 +14,35 @@ async fn test_backend() -> GpuBackend {
         GpuBackend::WebGpu(khal::backend::WebGpu::default().await.unwrap())
     }
 }
+
 fn build_env(num_stacks: usize, stack_height: usize) -> (RigidBodySet, ColliderSet) {
     let mut bodies = RigidBodySet::new();
     let mut colliders = ColliderSet::new();
 
     let ground = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(0.0, -0.5, 0.0)));
-    colliders.insert_with_parent(ColliderBuilder::cuboid(50.0, 0.5, 50.0), ground, &mut bodies);
+    colliders.insert_with_parent(
+        ColliderBuilder::cuboid(50.0, 0.5, 50.0),
+        ground,
+        &mut bodies,
+    );
 
     for s in 0..num_stacks {
         let x = (s % 8) as f32 * 2.0;
         let z = (s / 8) as f32 * 2.0;
         for i in 0..stack_height {
             let y = 0.25 + i as f32 * 0.45;
-            let handle =
-                bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(x, y, z)));
-            colliders.insert_with_parent(ColliderBuilder::cuboid(0.2, 0.2, 0.2), handle, &mut bodies);
+            let handle = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(x, y, z)));
+            colliders.insert_with_parent(
+                ColliderBuilder::cuboid(0.2, 0.2, 0.2),
+                handle,
+                &mut bodies,
+            );
         }
     }
 
     (bodies, colliders)
 }
+
 async fn run_case(num_envs: u32, num_stacks: usize, stack_height: usize, collisions_capacity: u32) {
     let backend = test_backend().await;
 
@@ -137,8 +146,7 @@ async fn test_stacks_8_impulse_joint() {
         let mut joints = ImpulseJointSet::new();
         let anchor = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(0.0, 2.0, 0.0)));
         colliders.insert_with_parent(ColliderBuilder::ball(0.1), anchor, &mut bodies);
-        let bob =
-            bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(1.0, 2.0, 0.0)));
+        let bob = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(1.0, 2.0, 0.0)));
         colliders.insert_with_parent(ColliderBuilder::ball(0.1), bob, &mut bodies);
         let joint = RevoluteJointBuilder::new(Vec3::Z)
             .local_anchor1(Vec3::ZERO)
@@ -251,17 +259,25 @@ async fn test_stacks_7_pfm_shapes() {
         let mut colliders = ColliderSet::new();
         let ground =
             bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(0.0, -0.5, 0.0)));
-        colliders.insert_with_parent(ColliderBuilder::cuboid(20.0, 0.5, 20.0), ground, &mut bodies);
+        colliders.insert_with_parent(
+            ColliderBuilder::cuboid(20.0, 0.5, 20.0),
+            ground,
+            &mut bodies,
+        );
         for i in 0..3 {
-            let b = bodies.insert(
-                RigidBodyBuilder::dynamic().translation(Vec3::new(i as f32 * 1.5, 0.6, 0.0)),
-            );
+            let b = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(
+                i as f32 * 1.5,
+                0.6,
+                0.0,
+            )));
             colliders.insert_with_parent(ColliderBuilder::capsule_y(0.15, 0.1), b, &mut bodies);
         }
         for i in 0..2 {
-            let b = bodies.insert(
-                RigidBodyBuilder::dynamic().translation(Vec3::new(i as f32 * 1.5 + 0.5, 0.6, 1.5)),
-            );
+            let b = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(
+                i as f32 * 1.5 + 0.5,
+                0.6,
+                1.5,
+            )));
             colliders.insert_with_parent(ColliderBuilder::ball(0.2), b, &mut bodies);
         }
         (bodies, colliders)
@@ -306,13 +322,19 @@ async fn test_stacks_7_pfm_shapes() {
     }
     println!("OK: pfm shapes rest, envs={num_envs}");
 }
+
 fn build_mb_env(ball_colliders: bool) -> (RigidBodySet, ColliderSet, MultibodyJointSet) {
     let mut bodies = RigidBodySet::new();
     let mut colliders = ColliderSet::new();
     let mut mb_joints = MultibodyJointSet::new();
 
     let ground = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(0.0, -0.5, 0.0)));
-    colliders.insert_with_parent(ColliderBuilder::cuboid(20.0, 0.5, 20.0), ground, &mut bodies);
+    colliders.insert_with_parent(
+        ColliderBuilder::cuboid(20.0, 0.5, 20.0),
+        ground,
+        &mut bodies,
+    );
+
     let mut prev = None;
     for i in 0..3 {
         let x = i as f32 * 0.5;
@@ -373,7 +395,10 @@ async fn test_stacks_6_multibody() {
                 .await
                 .unwrap();
             let finite = poses.iter().all(|p| p.translation.is_finite());
-            println!("step {step}: cap={} demand={demand} layout={layout:?} finite={finite}", state.multibodies().contact_constraints_capacity());
+            println!(
+                "step {step}: cap={} demand={demand} layout={layout:?} finite={finite}",
+                state.multibodies().contact_constraints_capacity()
+            );
             if demand > 0 {
                 let cons: Vec<crate::shaders::dynamics::MultibodyContactConstraint> = backend
                     .slow_read_vec(state.multibodies().contact_constraints().buffer())
@@ -488,14 +513,14 @@ async fn test_stacks_10_mb_impulse_joint() {
         let mut joints = ImpulseJointSet::new();
         let mut mb_joints = MultibodyJointSet::new();
         let y = anchor_y(e);
+
         let anchor = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(0.0, y, 0.0)));
         colliders.insert_with_parent(ColliderBuilder::ball(0.05), anchor, &mut bodies);
         let mut links = Vec::new();
         let mut prev = anchor;
         for i in 0..2 {
             let x = 0.5 + i as f32 * 0.5;
-            let link =
-                bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(x, y, 0.0)));
+            let link = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(x, y, 0.0)));
             colliders.insert_with_parent(ColliderBuilder::ball(0.05), link, &mut bodies);
             let joint = RevoluteJointBuilder::new(Vec3::Z)
                 .local_anchor1(Vec3::new(if i == 0 { 0.0 } else { 0.25 }, 0.0, 0.0))
@@ -555,7 +580,10 @@ async fn test_stacks_10_mb_impulse_joint() {
         );
         for slot in 0..5 {
             let p = at(slot).translation;
-            assert!(p.is_finite(), "env {env} slot {slot}: non-finite pose {p:?}");
+            assert!(
+                p.is_finite(),
+                "env {env} slot {slot}: non-finite pose {p:?}"
+            );
         }
         for (link_slot, bob_slot) in [(1usize, 3usize), (2, 4)] {
             let link = at(link_slot);
@@ -569,4 +597,95 @@ async fn test_stacks_10_mb_impulse_joint() {
         }
     }
     println!("OK: multibody impulse joints hold, envs={num_envs}");
+}
+
+#[futures_test::test]
+#[serial_test::serial]
+#[ignore]
+async fn test_stacks_12_trimesh_reduction() {
+    let backend = test_backend().await;
+
+    let num_envs = 4u32;
+    let build = || {
+        let mut bodies = RigidBodySet::new();
+        let mut colliders = ColliderSet::new();
+
+        let ground = bodies.insert(RigidBodyBuilder::fixed());
+        let nsubdivs = 8;
+        let heights = Array2::from_fn(nsubdivs + 1, nsubdivs + 1, |_, _| 0.0f32);
+        let (vertices, indices) = HeightField::new(heights, Vec3::new(8.0, 1.0, 8.0)).to_trimesh();
+        colliders.insert_with_parent(
+            ColliderBuilder::trimesh_with_flags(
+                vertices,
+                indices,
+                TriMeshFlags::MERGE_DUPLICATE_VERTICES,
+            )
+            .unwrap(),
+            ground,
+            &mut bodies,
+        );
+
+        let wide = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(0.0, 0.3, 0.0)));
+        colliders.insert_with_parent(ColliderBuilder::cuboid(1.5, 0.2, 1.5), wide, &mut bodies);
+
+        for i in 0..3 {
+            let b = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(
+                0.0,
+                0.7 + i as f32 * 0.45,
+                0.0,
+            )));
+            colliders.insert_with_parent(ColliderBuilder::cuboid(0.2, 0.2, 0.2), b, &mut bodies);
+        }
+        (bodies, colliders)
+    };
+    let envs: Vec<_> = (0..num_envs).map(|_| build()).collect();
+    let joints = ImpulseJointSet::new();
+    let mb_joints = MultibodyJointSet::new();
+    let params = RbdSimParams::tgs_soft();
+    let refs: Vec<_> = envs
+        .iter()
+        .map(|(b, c)| (b, c, &joints, &mb_joints, &params))
+        .collect();
+
+    let capacities = RbdCapacities {
+        batches: num_envs,
+        collisions_capacity: 64,
+        ..Default::default()
+    };
+    let mut state = RbdState::from_rapier(&backend, &refs, capacities);
+    let mut pipeline = RbdPipeline::new(&backend).unwrap();
+    pipeline.contact_reduction = true;
+    for _ in 0..250 {
+        pipeline.step(&backend, &mut state, None).unwrap();
+        pipeline.auto_resize_buffers(&backend, &mut state).unwrap();
+    }
+    backend.synchronize().unwrap();
+
+    let poses: Vec<Pose> = backend
+        .slow_read_vec(state.body_poses().buffer())
+        .await
+        .unwrap();
+    let nb = num_envs as usize;
+    for env in 0..num_envs as usize {
+        let expected = [0.2f32, 0.6, 1.0, 1.4];
+        for (b, expected_y) in expected.iter().enumerate() {
+            let pose = poses[(1 + b) * nb + env];
+            assert!(
+                pose.translation.is_finite(),
+                "env {env} box {b}: non-finite pose {:?}",
+                pose.translation
+            );
+            let y = pose.translation.y;
+            assert!(
+                (y - expected_y).abs() < 0.1,
+                "env {env} box {b}: y = {y}, expected ~{expected_y}"
+            );
+            if env > 0 {
+                let ref_pose = poses[(1 + b) * nb];
+                let d = (pose.translation - ref_pose.translation).length();
+                assert!(d < 5.0e-2, "env {env} box {b}: diverged from env 0 by {d}");
+            }
+        }
+    }
+    println!("OK: trimesh floor + contact reduction rests, envs={num_envs}");
 }

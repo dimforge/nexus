@@ -443,20 +443,27 @@ pub struct MultibodyInfo {
     /// `DISABLE_SELF_CONTACTS`). The contact-constraint kernel skips self
     /// contacts when this is `0`.
     pub self_contacts_enabled: u32,
-    /// Per-frame count of active multibody contact constraints emitted for this
-    /// multibody. Written by `gpu_mb_init_contact_constraints`, read by the
-    /// warmstart / finalize / solve / remove-bias contact kernels.
     pub contact_constraint_count: u32,
     pub contact_constraint_start: u32,
     pub old_contact_constraint_start: u32,
     pub old_contact_constraint_count: u32,
-    pub batch_contacts_len: u32,
-    pub batch_contacts_start: u32,
+    pub contact_index_len: u32,
+    pub contact_index_start: u32,
     /// First entry of this multibody's DoF couplings in the `dof_couplings`
     /// buffer (relative to the batch's coupling slice).
     pub first_coupling: u32,
     /// Number of DoF couplings on this multibody.
     pub num_couplings: u32,
+}
+
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct MbContactIndexEntry {
+    pub contact_slot: u32,
+    pub link_a: u32,
+    pub link_b: u32,
+    pub mb_on_first: u32,
 }
 
 /// One holonomic coupling `q2 = coeff·q1 + offset` between two generalized

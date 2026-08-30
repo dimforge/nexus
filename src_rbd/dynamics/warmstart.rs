@@ -1,10 +1,10 @@
 //! Warmstarting: reuses previous-frame impulses for faster solver convergence.
 
+use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
     GpuSeedColorsFromWarmstart, GpuTransferWarmstartImpulses, TwoBodyConstraint,
     TwoBodyConstraintBuilder,
 };
-use crate::shaders::utils::BatchIndices;
 use khal::Shader;
 use khal::backend::{GpuBackendError, GpuPass};
 use vortx::tensor::Tensor;
@@ -26,7 +26,7 @@ pub struct GpuWarmstart {
 ///
 /// Contains buffers for both old (previous frame) and new (current frame) constraint data.
 pub struct WarmstartArgs<'a> {
-    pub contact_offsets: &'a Tensor<u32>,
+    pub contact_plan: &'a Tensor<ContactPlan>,
     /// Constraint counts per body from previous frame.
     pub old_body_constraint_counts: &'a Tensor<u32>,
     /// Constraint IDs per body from previous frame.
@@ -41,13 +41,11 @@ pub struct WarmstartArgs<'a> {
     pub new_constraint_builders: &'a Tensor<TwoBodyConstraintBuilder>,
     /// Indirect dispatch arguments based on contact count.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
-    /// Shared per-batch index uniform.
-    pub batch_indices: &'a Tensor<BatchIndices>,
 }
 
 /// Arguments for the coloring seed dispatch.
 pub struct SeedColorsArgs<'a> {
-    pub contact_offsets: &'a Tensor<u32>,
+    pub contact_plan: &'a Tensor<ContactPlan>,
     /// Constraint counts per body from previous frame.
     pub old_body_constraint_counts: &'a Tensor<u32>,
     /// Constraint IDs per body from previous frame.
@@ -64,8 +62,6 @@ pub struct SeedColorsArgs<'a> {
     pub colored: &'a mut Tensor<u32>,
     /// Indirect dispatch arguments based on contact count.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
-    /// Shared per-batch index uniform.
-    pub batch_indices: &'a Tensor<BatchIndices>,
 }
 
 impl GpuWarmstart {
@@ -84,8 +80,7 @@ impl GpuWarmstart {
             args.old_constraint_builders,
             args.new_constraints,
             args.new_constraint_builders,
-            args.contact_offsets,
-            args.batch_indices,
+            args.contact_plan,
         )
     }
 
@@ -106,8 +101,7 @@ impl GpuWarmstart {
             args.old_constraints_colors,
             args.constraints_colors,
             args.colored,
-            args.contact_offsets,
-            args.batch_indices,
+            args.contact_plan,
         )
     }
 }

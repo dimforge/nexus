@@ -1,11 +1,12 @@
 //! Initialization of [`RbdState`] from CPU-side Rapier data structures.
 
-use crate::broad_phase::LbvhState;
+use crate::broad_phase::{LbvhState, PfmSortState};
 use crate::dynamics::GpuImpulseJointSet;
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
 use crate::math::{Pose, Vector};
 use crate::queries::GpuColliderMaterial;
+use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
     LocalMassProperties as GpuLocalMassProperties, RbdSimParams, Velocity as GpuVelocity,
     WorldMassProperties as GpuWorldMassProperties,
@@ -658,18 +659,11 @@ impl RbdState {
         let collision_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
 
-        let contacts = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
-        let contacts_len = Tensor::vector_uninit(
-            backend,
-            num_batches,
-            BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-        )
-        .unwrap();
+        let pairs_capacity = capacities.collisions_capacity * num_batches;
+        let contacts_capacity = pairs_capacity * 2;
+        let contacts = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        #[cfg(feature = "dim3")]
+        let mb_contact_index = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let contacts_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let mb_sweep_indirect =
@@ -688,73 +682,26 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
-        let old_constraints = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
-        let old_constraint_builders = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
-        let new_constraints = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
-        let new_constraint_builders = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
-        let constraints_colors = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
-        let old_constraints_colors = Tensor::vector(
-            backend,
-            vec![0u32; (capacities.collisions_capacity * num_batches) as usize],
-            storage,
-        )
-        .unwrap();
-        let colored = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
-        let constraints_rands = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
+        let old_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let old_constraint_builders =
+            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let new_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let new_constraint_builders =
+            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let constraints_colors =
+            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let old_constraints_colors =
+            Tensor::vector(backend, vec![0u32; contacts_capacity as usize], storage).unwrap();
+        let colored = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let constraints_rands = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let color_buckets_stride = capacities.solver_colors + 3;
         let color_buckets =
             Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
-        let contact_offsets = Tensor::vector(
-            backend,
-            vec![0u32; num_batches as usize + 3],
-            storage,
-        )
-        .unwrap();
-        let pair_batch_counts =
-            Tensor::vector(backend, vec![0u32; num_batches as usize], storage).unwrap();
-        let pfm_batch_counts =
-            Tensor::vector(backend, vec![0u32; num_batches as usize], storage).unwrap();
-        let color_sorted_ids = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
+        let contact_plan =
+            Tensor::scalar(backend, ContactPlan::default(), storage | BufferUsages::UNIFORM)
+                .unwrap();
+        let pfm_sort = PfmSortState::new(backend, pairs_capacity);
+        let color_sorted_ids = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let old_constraints_counts = Tensor::vector(
             backend,
             vec![0u32; (num_colliders_per_batch as u32 * num_batches) as usize],
@@ -767,18 +714,10 @@ impl RbdState {
             storage,
         )
         .unwrap();
-        let old_body_constraint_ids = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * 2 * num_batches,
-            storage,
-        )
-        .unwrap();
-        let new_body_constraint_ids = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * 2 * num_batches,
-            storage,
-        )
-        .unwrap();
+        let old_body_constraint_ids =
+            Tensor::vector_uninit(backend, contacts_capacity * 2, storage).unwrap();
+        let new_body_constraint_ids =
+            Tensor::vector_uninit(backend, contacts_capacity * 2, storage).unwrap();
 
         let lbvh_usages = if crate::VALIDATE_LBVH_TOPOLOGY {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC
@@ -786,8 +725,8 @@ impl RbdState {
             BufferUsages::STORAGE
         };
 
-        let contacts_capacity_cpu = capacities.collisions_capacity * num_batches;
-        let collision_pairs_capacity_cpu = capacities.collisions_capacity * num_batches;
+        let contacts_capacity_cpu = contacts_capacity;
+        let collision_pairs_capacity_cpu = pairs_capacity;
         #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
         let mut bi = BatchIndices {
             num_batches,
@@ -876,11 +815,11 @@ impl RbdState {
             mb_cons_demand_cpu: 0,
             batch_indices,
             contacts,
-            contacts_len,
             contacts_indirect,
-            contact_offsets,
-            pair_batch_counts,
-            pfm_batch_counts,
+            contact_plan,
+            pfm_sort,
+            #[cfg(feature = "dim3")]
+            mb_contact_index,
             mb_sweep_indirect,
             pfm_pairs,
             pfm_pairs_len,

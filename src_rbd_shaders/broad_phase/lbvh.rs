@@ -76,44 +76,6 @@ pub fn gpu_flat_list_dispatch(
     }
 }
 
-/// Number of lanes used by the per-batch-count max reductions below. Their
-/// host dispatch is a single workgroup: `.call(pass, MAX_REDUCE_LANES, ...)`.
-pub const MAX_REDUCE_LANES: u32 = 256;
-
-/// Workgroup-parallel `max` over the per-batch counts, then writes the
-/// `[ceil(max/64), num_batches, 1]` indirect grid.
-///
-/// NOTE: `lens` is mutable even though we don't modify it: the loads must be
-/// atomic or they occasionally read stale data (breaks Windows+Nvidia+wgpu, see
-/// <https://github.com/gfx-rs/wgpu/issues/9221>).
-#[inline(always)]
-pub(crate) fn reduce_max_lens(
-    lane: u32,
-    lens: &mut [u32],
-    partial: &mut [u32; MAX_REDUCE_LANES as usize],
-) {
-    let num_batches = lens.len();
-
-    let mut m = 0u32;
-    for i in StepRng::new(lane..num_batches as u32, MAX_REDUCE_LANES) {
-        m = m.max(atomic_load_u32(lens.at_mut(i as usize)));
-    }
-    partial.write(lane as usize, m);
-    workgroup_memory_barrier_with_group_sync();
-
-    // Tree reduction over the 256 lanes (8 halving steps).
-    for step in 0..8u32 {
-        let stride = MAX_REDUCE_LANES >> (step + 1);
-        if lane < stride {
-            let v = partial
-                .read(lane as usize)
-                .max(partial.read((lane + stride) as usize));
-            partial.write(lane as usize, v);
-        }
-        workgroup_memory_barrier_with_group_sync();
-    }
-}
-
 /// Runs a reduction to compute the AABB of the collider positions.
 /// Needs to be called with a single workgroup.
 #[spirv_bindgen]
@@ -131,10 +93,7 @@ pub fn gpu_lbvh_compute_domain(
     *workspace_mins.at_mut(thread_id as usize) = Vector::splat(MAX_FLT);
     *workspace_maxs.at_mut(thread_id as usize) = Vector::splat(-MAX_FLT);
 
-    for i in StepRng::new(
-        thread_id..batch_ids.colliders_len,
-        REDUCTION_WORKGROUP_SIZE,
-    ) {
+    for i in StepRng::new(thread_id..batch_ids.colliders_len, REDUCTION_WORKGROUP_SIZE) {
         let val_i = poses.at(batch_ids.body_global(batch_id, i)).translation;
         *workspace_mins.at_mut(thread_id as usize) =
             workspace_mins.at(thread_id as usize).min(val_i);

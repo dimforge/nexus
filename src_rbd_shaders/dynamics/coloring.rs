@@ -3,6 +3,7 @@
 //! Assigns colors to constraints so that no two constraints sharing a body get the
 //! same color. Implements Jones-Plassmann-Luby and Topo-GC algorithms.
 
+use crate::broad_phase::ContactPlan;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::{
@@ -10,7 +11,7 @@ use khal_std::{
     sync::{atomic_add_u32, atomic_max_u32},
 };
 
-use crate::utils::{BatchIndices, Slice, SliceMut};
+use crate::utils::{Slice, SliceMut};
 use khal_std::index::MaybeIndexUnchecked;
 
 use super::constraint::TwoBodyConstraint;
@@ -48,10 +49,9 @@ pub fn gpu_reset_luby(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints_rands: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_offsets: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
 ) {
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let i = invocation_id.x;
 
     if i < total {
@@ -80,12 +80,11 @@ pub fn gpu_step_graph_coloring_luby(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] uncolored: &mut u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] body_group: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] curr_color: &u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 8)] contact_offsets: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 8)] contact_plan: &ContactPlan,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let body_constraint_counts = Slice(body_constraint_counts, 0);
     let body_constraint_ids = Slice(body_constraint_ids, 0);
     let body_group = Slice(body_group, 0);
@@ -184,10 +183,9 @@ pub fn gpu_reset_topo_gc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] contact_offsets: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
 ) {
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let i = invocation_id.x;
 
     if i < total {
@@ -233,13 +231,12 @@ pub fn gpu_step_graph_coloring_topo_gc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] body_group: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let body_constraint_counts = Slice(body_constraint_counts, 0);
     let body_constraint_ids = Slice(body_constraint_ids, 0);
     let body_group = Slice(body_group, 0);
@@ -323,13 +320,12 @@ pub fn gpu_fix_conflicts_topo_gc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] contact_offsets: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] body_group: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
-    let total = contact_offsets.read(batch_ids.num_batches as usize);
+    let total = contact_plan.bound;
     let body_constraint_counts = Slice(body_constraint_counts, 0);
     let body_constraint_ids = Slice(body_constraint_ids, 0);
     let body_group = Slice(body_group, 0);

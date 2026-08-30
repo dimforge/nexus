@@ -6,41 +6,82 @@ use crate::shaders::PaddedVector;
 #[cfg(feature = "dim3")]
 use crate::shaders::broad_phase::GpuReduceContacts;
 use crate::shaders::broad_phase::{
-    CollisionPair, GpuContactOffsetsScan, GpuCountPairsPerBatch, GpuCountPfmPerBatch,
-    GpuFlatListDispatch, GpuNarrowPhaseInitContactsDispatch, GpuNarrowPhasePfmPfm,
-    GpuNarrowPhaseShapeShape, GpuNarrowPhaseShapeShapeDeferred, GpuResetNarrowPhase,
-    GpuZeroContactLens, NarrowPhasePfmPair,
+    CollisionPair, ContactPlan, GpuContactPlan, GpuNarrowPhasePfmPfm, GpuNarrowPhaseShapeShape,
+    GpuNarrowPhaseShapeShapeDeferred, GpuPfmSortKeys, GpuResetNarrowPhase, NarrowPhasePfmPair,
 };
 use crate::shaders::shapes::Shape;
-use khal::Shader;
-use khal::backend::{GpuBackendError, GpuPass};
+use crate::utils::{RadixSort, RadixSortWorkspace};
+use khal::backend::{GpuBackend, GpuBackendError, GpuPass};
+use khal::{BufferUsages, Shader};
 use vortx::tensor::Tensor;
 
-/// GPU shader for narrow-phase collision detection.
 #[derive(Shader)]
-pub struct GpuNarrowPhase {
+struct GpuNarrowPhaseShaders {
     reset_narrow_phase: GpuResetNarrowPhase,
     narrow_phase: GpuNarrowPhaseShapeShape,
-    /// Pass 2: defers complex shape pairs (PFM / trimesh / polyline) into the
     /// `pfm_pairs` work-list. Split from `narrow_phase` to fit 8 storage buffers.
     narrow_phase_deferred: GpuNarrowPhaseShapeShapeDeferred,
     narrow_phase_pfm_pfm: GpuNarrowPhasePfmPfm,
     #[cfg(feature = "dim3")]
     reduce_contacts: GpuReduceContacts,
-    count_pairs_per_batch: GpuCountPairsPerBatch,
-    count_pfm_per_batch: GpuCountPfmPerBatch,
-    contact_offsets_scan: GpuContactOffsetsScan,
-    zero_contact_lens: GpuZeroContactLens,
-    flat_list_dispatch: GpuFlatListDispatch,
-    init_contacts_indirect_args: GpuNarrowPhaseInitContactsDispatch,
+    contact_plan: GpuContactPlan,
+    pfm_sort_keys: GpuPfmSortKeys,
+}
+
+pub struct GpuNarrowPhase {
+    shaders: GpuNarrowPhaseShaders,
+    sort: RadixSort,
+}
+
+impl GpuNarrowPhase {
+    pub fn from_backend(backend: &GpuBackend) -> Result<Self, GpuBackendError> {
+        Ok(Self {
+            shaders: GpuNarrowPhaseShaders::from_backend(backend)?,
+            sort: RadixSort::from_backend(backend)?,
+        })
+    }
+}
+
+pub struct PfmSortState {
+    keys: Tensor<u32>,
+    identity: Tensor<u32>,
+    sorted_keys: Tensor<u32>,
+    sorted_values: Tensor<u32>,
+    sort_len: Tensor<u32>,
+    workspace: RadixSortWorkspace,
+}
+
+impl PfmSortState {
+    pub fn new(backend: &GpuBackend, capacity: u32) -> Self {
+        let storage = BufferUsages::STORAGE;
+        let identity: Vec<u32> = (0..capacity).collect();
+        Self {
+            keys: Tensor::vector_uninit(backend, capacity.max(1), storage).unwrap(),
+            identity: Tensor::vector(backend, &identity, storage).unwrap(),
+            sorted_keys: Tensor::vector_uninit(backend, capacity.max(1), storage).unwrap(),
+            sorted_values: Tensor::vector_uninit(backend, capacity.max(1), storage).unwrap(),
+            sort_len: Tensor::vector(backend, &[0u32], storage).unwrap(),
+            workspace: RadixSortWorkspace::new(backend),
+        }
+    }
+
+    pub fn resize(&mut self, backend: &GpuBackend, capacity: u32) {
+        *self = Self::new(backend, capacity);
+    }
+
+    #[cfg(feature = "dim3")]
+    pub fn sorted_keys(&self) -> &Tensor<u32> {
+        &self.sorted_keys
+    }
 }
 
 impl GpuNarrowPhase {
     /// Dispatches the narrow-phase collision detection pipeline.
+    #[allow(clippy::too_many_arguments)]
     pub fn dispatch(
         &self,
+        backend: &GpuBackend,
         pass: &mut GpuPass,
-        _num_colliders: u32,
         poses: &Tensor<Pose>,
         shapes: &Tensor<Shape>,
         vertices: &Tensor<PaddedVector>,
@@ -48,37 +89,29 @@ impl GpuNarrowPhase {
         collision_pairs: &Tensor<CollisionPair>,
         collision_pairs_len: &mut Tensor<u32>,
         contacts: &mut Tensor<GpuIndexedContact>,
-        contacts_len: &mut Tensor<u32>,
         contacts_indirect: &mut Tensor<[u32; 3]>,
-        contact_offsets: &mut Tensor<u32>,
-        pair_batch_counts: &mut Tensor<u32>,
-        pfm_batch_counts: &mut Tensor<u32>,
+        contact_plan: &mut Tensor<ContactPlan>,
         mb_sweep_indirect: &mut Tensor<[u32; 3]>,
         pfm_pairs: &mut Tensor<NarrowPhasePfmPair>,
         pfm_pairs_len: &mut Tensor<u32>,
         pfm_pairs_indirect: &mut Tensor<[u32; 3]>,
+        pfm_sort: &mut PfmSortState,
         batch_indices: &Tensor<crate::shaders::utils::BatchIndices>,
         collider_parent: &Tensor<u32>,
         collider_materials: &Tensor<crate::shaders::queries::ColliderMaterial>,
         sim_params: &Tensor<crate::shaders::dynamics::RbdSimParams>,
         // Optional: merge each collider pair's manifolds into one before the
-        // solvers see them. `false` skips the kernel entirely.
         reduce_contacts: bool,
         collision_pairs_indirect: &Tensor<[u32; 3]>,
+        collision_pairs_capacity: u32,
     ) -> Result<(), GpuBackendError> {
-        let num_batches = contacts_len.len() as u32;
-        self.reset_narrow_phase.call(
-            pass,
-            [num_batches, 1, 1],
-            contacts_len,
-            pfm_pairs_len,
-            pair_batch_counts,
-            pfm_batch_counts,
-        )?;
+        let reduce_contacts = reduce_contacts && cfg!(feature = "dim3");
 
-        // Pass 2: defer the complex shape pairs into `pfm_pairs` (kept as a
-        // separate dispatch so each pass fits 8 storage buffers).
-        self.narrow_phase_deferred.call(
+        self.shaders
+            .reset_narrow_phase
+            .call(pass, 1u32, pfm_pairs_len)?;
+
+        self.shaders.narrow_phase_deferred.call(
             pass,
             collision_pairs_indirect,
             collision_pairs,
@@ -93,92 +126,94 @@ impl GpuNarrowPhase {
             indices,
         )?;
 
-        self.count_pairs_per_batch.call(
-            pass,
-            collision_pairs_indirect,
-            collision_pairs,
-            collision_pairs_len,
-            pair_batch_counts,
-            batch_indices,
-        )?;
-        self.flat_list_dispatch
-            .call(pass, 1u32, pfm_pairs_len, pfm_pairs_indirect, batch_indices)?;
-        self.count_pfm_per_batch.call(
-            pass,
-            &*pfm_pairs_indirect,
-            pfm_pairs,
-            pfm_pairs_len,
-            pfm_batch_counts,
-            batch_indices,
-        )?;
-        self.contact_offsets_scan.call(
+        self.shaders.contact_plan.call(
             pass,
             1u32,
-            pair_batch_counts,
-            pfm_batch_counts,
             collision_pairs_len,
             pfm_pairs_len,
-            contact_offsets,
+            contact_plan,
+            &mut pfm_sort.sort_len,
             contacts_indirect,
-            batch_indices,
-        )?;
-        self.zero_contact_lens.call(
-            pass,
-            &*contacts_indirect,
-            contacts,
-            contact_offsets,
-            batch_indices,
-        )?;
-
-        self.narrow_phase.call(
-            pass,
-            collision_pairs_indirect,
-            collision_pairs,
-            contact_offsets,
-            poses,
-            shapes,
-            contacts,
-            contacts_len,
-            batch_indices,
-            collider_parent,
-            collider_materials,
-            sim_params,
-        )?;
-        self.narrow_phase_pfm_pfm.call(
-            pass,
-            &*pfm_pairs_indirect,
-            contacts,
-            contacts_len,
-            pfm_pairs,
-            contact_offsets,
-            batch_indices,
-            vertices,
-            indices,
-            collider_parent,
-            collider_materials,
-            sim_params,
-        )?;
-        #[cfg(feature = "dim3")]
-        if reduce_contacts {
-            self.reduce_contacts.call(
-                pass,
-                [1u32, num_batches, 1],
-                contacts,
-                contacts_len,
-                contact_offsets,
-                batch_indices,
-                sim_params,
-            )?;
-        }
-        #[cfg(not(feature = "dim3"))]
-        let _ = reduce_contacts;
-        self.init_contacts_indirect_args.call(
-            pass,
-            256u32,
-            contacts_len,
+            pfm_pairs_indirect,
             mb_sweep_indirect,
             batch_indices,
         )?;
+
+        self.shaders.narrow_phase.call(
+            pass,
+            collision_pairs_indirect,
+            collision_pairs,
+            &*contact_plan,
+            poses,
+            shapes,
+            contacts,
+            collider_parent,
+            collider_materials,
+            sim_params,
+        )?;
+
+        if reduce_contacts {
+            self.shaders.pfm_sort_keys.call(
+                pass,
+                &*pfm_pairs_indirect,
+                pfm_pairs,
+                &*contact_plan,
+                &mut pfm_sort.keys,
+            )?;
+            let sorting_bits =
+                (32 - collision_pairs_capacity.saturating_sub(1).leading_zeros()).max(1);
+            let PfmSortState {
+                keys,
+                identity,
+                sorted_keys,
+                sorted_values,
+                sort_len,
+                workspace,
+            } = pfm_sort;
+            self.sort.dispatch(
+                backend,
+                pass,
+                workspace,
+                keys,
+                identity,
+                sort_len,
+                sorting_bits,
+                1,
+                sorted_keys,
+                sorted_values,
+            )?;
+        }
+
+        let pfm_order = if reduce_contacts {
+            &pfm_sort.sorted_values
+        } else {
+            &pfm_sort.identity
+        };
+        self.shaders.narrow_phase_pfm_pfm.call(
+            pass,
+            &*pfm_pairs_indirect,
+            contacts,
+            pfm_pairs,
+            pfm_order,
+            &*contact_plan,
+            vertices,
+            indices,
+            collider_parent,
+            collider_materials,
+            sim_params,
+        )?;
+
+        #[cfg(feature = "dim3")]
+        if reduce_contacts {
+            self.shaders.reduce_contacts.call(
+                pass,
+                &*pfm_pairs_indirect,
+                contacts,
+                &pfm_sort.sorted_keys,
+                &*contact_plan,
+                sim_params,
+            )?;
+        }
 
         Ok(())
     }

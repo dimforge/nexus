@@ -3,19 +3,20 @@
 use super::multibody_set::*;
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
+use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
     GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
-    GpuMbComputeSolveBounds, GpuMbDelayTick, GpuMbFinalizeContactConstraints,
-    GpuMbFinalizeImpulseJointConstraints, GpuMbFinalizeJointConstraints, GpuMbGravityAndLu,
-    GpuMbGravityAndLuT1, GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32,
-    GpuMbInitContactConstraints, GpuMbInitJointConstraints, GpuMbIntegrate,
-    GpuMbIntegrateVelocities, GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
-    GpuMbSeedContactRestitution, GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart,
-    GpuMbSolveConstraints, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
-    GpuMbSolveJoints, GpuMbCountContactConstraints, GpuMbConsOffsetsScan, GpuMbSavePrevConsBounds,
-    GpuMbStashContactsLen, GpuMbTransferContactWarmstart,
-    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, Velocity,
-    WorldMassProperties,
+    GpuMbComputeSolveBounds, GpuMbConsOffsetsScan, GpuMbCountContactConstraints, GpuMbDelayTick,
+    GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
+    GpuMbFinalizeJointConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
+    GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
+    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
+    GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias, GpuMbSavePrevConsBounds,
+    GpuMbScatterContactIndex, GpuMbSeedContactRestitution, GpuMbSenseContactImpulses,
+    GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
+    GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbTransferContactWarmstart,
+    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, MbContactIndexEntry,
+    Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -70,12 +71,9 @@ pub struct GpuMultibodySolver {
     save_prev_cons_bounds: GpuMbSavePrevConsBounds,
     count_contact_constraints: GpuMbCountContactConstraints,
     cons_offsets_scan: GpuMbConsOffsetsScan,
+    scatter_contact_index: GpuMbScatterContactIndex,
     /// Carry the snapshotted impulses over to this frame's matching contacts.
     transfer_contact_warmstart: GpuMbTransferContactWarmstart,
-    /// Copy `contacts_len[batch]` into each `MultibodyInfo` once per step so
-    /// `init_contact_constraints` (at the 8-storage-buffer limit) can bound
-    /// its manifold scan by the actual count instead of the capacity.
-    stash_contacts_len: GpuMbStashContactsLen,
     /// Re-apply the accumulated contact impulse each substep (warmstart).
     warmstart_contact_constraints: GpuMbWarmstartContactConstraints,
     /// Capture each bouncy contact's approach velocity at the start of the step.
@@ -104,11 +102,10 @@ pub struct MultibodySolverArgs<'a> {
     pub collider_world_poses: &'a Tensor<Pose>,
     /// Free-body world mass properties (read by `init_contact_constraints`).
     pub mprops: &'a Tensor<WorldMassProperties>,
-    /// Per-batch contact manifold list (filled by narrow-phase).
     pub contacts: &'a Tensor<GpuIndexedContact>,
-    /// Per-batch contact count (parallel to `contacts`).
-    pub contacts_len: &'a Tensor<u32>,
-    pub contact_offsets: &'a Tensor<u32>,
+    pub contact_plan: &'a Tensor<ContactPlan>,
+    pub contacts_indirect: &'a Tensor<[u32; 3]>,
+    pub mb_contact_index: &'a mut Tensor<MbContactIndexEntry>,
     /// Free-body solver velocities (updated in place by `solve_contact_constraints`).
     pub solver_vels: &'a mut Tensor<Velocity>,
     /// Shared `BatchIndices` uniform — per-batch caps and packed-section
@@ -180,11 +177,7 @@ impl GpuMultibodySolver {
         self.compute_dynamics(&mut pass, mb, args)
     }
 
-    /// Copy `contacts_len[batch]` into each `MultibodyInfo`.
-    ///
-    /// This is a workaround for kernels that are already at the 8-storage-binding
-    /// web limit and could therefore not bind `contacts_len`.
-    pub fn stash_contacts_len(
+    pub fn layout_contact_constraints(
         &self,
         pass: &mut GpuPass,
         mb: &mut GpuMultibodySet,
@@ -193,27 +186,35 @@ impl GpuMultibodySolver {
         if mb.is_empty() {
             return Ok(());
         }
-        self.stash_contacts_len.call(
-            pass,
-            mb.flat_mb_dispatch(),
-            &mut mb.multibody_info,
-            args.contacts_len,
-            args.contact_offsets,
-            args.batch_indices,
-        )?;
         self.count_contact_constraints.call(
             pass,
-            mb.flat_mb_dispatch(),
-            &mut mb.multibody_info,
+            args.contacts_indirect,
+            &mb.multibody_info,
             args.contacts,
             &mb.body_to_link,
+            &mut mb.mb_cons_counts,
+            &mut mb.mb_index_counts,
+            args.contact_plan,
             args.batch_indices,
         )?;
         self.cons_offsets_scan.call(
             pass,
             1u32,
             &mut mb.multibody_info,
+            &mut mb.mb_cons_counts,
+            &mut mb.mb_index_counts,
             &mut mb.mb_cons_demand,
+            args.batch_indices,
+        )?;
+        self.scatter_contact_index.call(
+            pass,
+            args.contacts_indirect,
+            &mb.multibody_info,
+            args.contacts,
+            &mb.body_to_link,
+            &mut mb.mb_index_counts,
+            args.mb_contact_index,
+            args.contact_plan,
             args.batch_indices,
         )?;
         Ok(())
@@ -416,7 +417,7 @@ impl GpuMultibodySolver {
                 init_contact_dispatch,
                 &mut mb.multibody_info,
                 &mb.links_workspace,
-                &mb.body_to_link,
+                &*args.mb_contact_index,
                 &mut mb.contact_constraints,
                 &mb.constraint_softness,
                 args.batch_indices,
