@@ -129,6 +129,9 @@ struct Settings {
     enable_controls: bool,
     enable_springs: bool,
     actuator_strength: f32,
+    /// Multibody PGS iterations per substep. Servo-driven robots resting on
+    /// contacts need more than one to stop the motor and contact rows fighting.
+    pgs_iterations: u32,
     /// Index into the keyframe picker: 0 is "(none)", `i + 1` is keyframe `i`.
     keyframe: usize,
 }
@@ -144,6 +147,7 @@ impl Default for Settings {
             enable_controls: true,
             enable_springs: true,
             actuator_strength: 1.0,
+            pgs_iterations: 4,
             keyframe: 0,
         }
     }
@@ -158,8 +162,8 @@ impl Settings {
     }
 
     /// Whether moving from `self` to `next` requires rebuilding the scene.
-    /// Actuator strength is read live every step, and so is the keyframe while
-    /// the servos are driving.
+    /// Actuator strength is read live every step, the PGS iteration count is
+    /// pushed live, and so is the keyframe while the servos are driving.
     fn needs_reload(&self, next: &Self) -> bool {
         self.use_multibody != next.use_multibody
             || self.render_colliders != next.render_colliders
@@ -495,7 +499,9 @@ async fn load_scene(
     // multibody path instead raises the PGS iterations per substep. Mirrors the
     // reference example.
     let mut sim_params = nexus3d::rbd::shaders::dynamics::RbdSimParams::default();
-    if !settings.use_multibody {
+    if settings.use_multibody {
+        sim_params.num_internal_pgs_iterations = settings.pgs_iterations;
+    } else {
         sim_params.dt = 1.0 / 240.0;
         sim_params.num_solver_iterations = 12;
     }
@@ -504,9 +510,6 @@ async fn load_scene(
     state.finalize(viewer.backend()).await?;
     state.set_rbd_gravity(viewer.backend(), [0.0, 0.0, gravity]);
     if let Some(rbd) = state.rbd.as_mut() {
-        if settings.use_multibody {
-            rbd.multibodies_mut().set_num_internal_pgs_iterations(4);
-        }
         // MuJoCo-style explicit coriolis: a single plain mass matrix, with
         // coriolis / gyroscopic forces applied explicitly on the rhs.
         rbd.set_implicit_coriolis(viewer.backend(), false);
@@ -686,6 +689,11 @@ pub async fn run(
                         ui.checkbox(&mut next.disable_collisions, "Disable collisions");
                         ui.checkbox(&mut next.enable_controls, "Enable joint controls");
                         ui.checkbox(&mut next.enable_springs, "Enable joint springs");
+                        ui.add_enabled(
+                            next.use_multibody,
+                            egui::Slider::new(&mut next.pgs_iterations, 1..=16)
+                                .text("PGS iterations / substep"),
+                        );
                         ui.add(
                             egui::Slider::new(&mut next.actuator_strength, 0.02..=2.0)
                                 .text("Actuator strength"),
@@ -752,7 +760,14 @@ pub async fn run(
         let mut reload = false;
         if let Some(next) = pending_settings.take() {
             reload = settings.needs_reload(&next);
+            let pgs_changed = settings.pgs_iterations != next.pgs_iterations;
             settings = next;
+            if pgs_changed && !reload {
+                state.set_rbd_num_internal_pgs_iterations(
+                    viewer.backend(),
+                    settings.pgs_iterations,
+                );
+            }
         }
         // A model change always rebuilds, and resets the keyframe to the new
         // model's default.

@@ -167,6 +167,12 @@ pub struct RbdSimParams {
     /// `-1.0` merges every manifold of a collider pair regardless of normal:
     /// cheaper, but one averaged normal then stands in for a ridge or a step.
     pub contact_merge_cos: f32,
+
+    /// Multibody only: PGS iterations over the joint + contact constraints run
+    /// per substep, in the biased pass (default: `1`).
+    ///
+    /// Host-side only: it is a dispatch count, never read by a shader.
+    pub num_internal_pgs_iterations: u32,
 }
 
 impl RbdSimParams {
@@ -191,6 +197,7 @@ impl RbdSimParams {
             contact_merge_cos: crate::broad_phase::COS_MERGE_ANGLE,
             normalized_max_linear_velocity: 400.0,
             length_unit: 1.0,
+            num_internal_pgs_iterations: 1,
         }
     }
 }
