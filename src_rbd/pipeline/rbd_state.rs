@@ -502,6 +502,18 @@ impl RbdState {
         self.rebuild_batch_indices(backend);
     }
 
+    /// Sets the multibody refresh cadence: `refresh` rebuilds the joint and
+    /// contact constraints, mass matrix and LU factors every substep (the
+    /// default); off, they are built once per step and later substeps only
+    /// refresh the joint rhs and limit activity. `light` (ignored while
+    /// `refresh` is on) keeps the constraints per substep but the mass matrix
+    /// per step. Pure dispatch gating: no GPU layout changes.
+    #[cfg(feature = "dim3")]
+    pub fn set_substep_refresh(&mut self, refresh: bool, light: bool) {
+        self.multibodies.set_substep_refresh(refresh);
+        self.multibodies.set_substep_refresh_light(light);
+    }
+
     /// Sets the per-DoF dry joint friction (N·m).
     #[cfg(feature = "dim3")]
     pub fn set_dof_frictionloss(&mut self, backend: &GpuBackend, values: &[f32]) {

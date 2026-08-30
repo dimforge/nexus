@@ -217,6 +217,9 @@ pub struct NexusState {
     /// explicitly (mass matrix refreshed once per step). Applied at
     /// [`Self::finalize`] and by [`Self::set_rbd_implicit_coriolis`].
     rbd_implicit_coriolis: bool,
+    /// Multibody refresh cadence `(every substep, light)`; see
+    /// [`Self::set_rbd_substep_refresh`].
+    rbd_substep_refresh: (bool, bool),
     /// Set whenever the rapier worlds change; consumed by [`Self::finalize`] to
     /// decide whether the GPU [`RbdState`] needs rebuilding.
     rbd_dirty: bool,
@@ -250,6 +253,7 @@ impl NexusState {
             rbd_envs: vec![PhysicsWorld::default()],
             rbd_sim_params: vec![RbdSimParams::tgs_soft()],
             rbd_implicit_coriolis: true,
+            rbd_substep_refresh: (true, false),
             rbd_dirty: false,
             rbd_steps_per_frame: 1,
             rbd_reserve_per_env: 0,
@@ -408,6 +412,26 @@ impl NexusState {
     #[cfg(all(feature = "rbd", feature = "dim3"))]
     pub fn rbd_implicit_coriolis(&self) -> bool {
         self.rbd_implicit_coriolis
+    }
+
+    /// Multibody refresh cadence. `refresh` (default `true`) rebuilds the
+    /// constraints, mass matrix and LU factors every substep; off, once per
+    /// step, with later substeps only refreshing the joint rhs and limit
+    /// activity (closer to how MuJoCo and Genesis step, and cheaper). `light`
+    /// keeps the constraints per substep but the mass matrix per step; ignored
+    /// while `refresh` is on.
+    #[cfg(all(feature = "rbd", feature = "dim3"))]
+    pub fn set_rbd_substep_refresh(&mut self, refresh: bool, light: bool) {
+        self.rbd_substep_refresh = (refresh, light);
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.set_substep_refresh(refresh, light);
+        }
+    }
+
+    /// The multibody refresh cadence as `(every substep, light)`.
+    #[cfg(all(feature = "rbd", feature = "dim3"))]
+    pub fn rbd_substep_refresh(&self) -> (bool, bool) {
+        self.rbd_substep_refresh
     }
 
     // ── Rigid-body runtime settings ─────────────────────────────────────
@@ -1489,6 +1513,11 @@ impl NexusState {
             #[cfg(feature = "dim3")]
             if !self.rbd_implicit_coriolis {
                 rbd_state.set_implicit_coriolis(backend, false);
+            }
+            #[cfg(feature = "dim3")]
+            if self.rbd_substep_refresh != (true, false) {
+                rbd_state
+                    .set_substep_refresh(self.rbd_substep_refresh.0, self.rbd_substep_refresh.1);
             }
             self.rbd = Some(rbd_state);
             self.rbd_dirty = false;

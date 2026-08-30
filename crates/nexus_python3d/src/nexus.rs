@@ -1214,6 +1214,17 @@ impl NexusState {
         self.0.set_rbd_implicit_coriolis(viewer.backend(), enabled);
     }
 
+    /// Multibody refresh cadence. `refresh` (default `True`) rebuilds the
+    /// robots' constraints, mass matrix and LU factors every substep; `False`
+    /// builds them once per step and later substeps only refresh the joint
+    /// rhs and limit activity, which is cheaper. `light` keeps the constraints
+    /// per substep but the mass matrix per step (ignored while `refresh`).
+    #[pyo3(signature = (viewer, refresh, light=false))]
+    fn set_rbd_substep_refresh(&mut self, viewer: PyRef<NexusViewer>, refresh: bool, light: bool) {
+        let _ = viewer;
+        self.0.set_rbd_substep_refresh(refresh, light);
+    }
+
     /// The contact-solver parameters of environment 0 as a dict (see
     /// `set_rbd_solver_params`), for attestation.
     fn rbd_solver_params<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
@@ -1241,6 +1252,9 @@ impl NexusState {
             dict.set_item("internal_pgs_iterations", p.num_internal_pgs_iterations)?;
             dict.set_item("friction_in_bias_pass", p.friction_in_bias_pass != 0)?;
             dict.set_item("implicit_coriolis", self.0.rbd_implicit_coriolis())?;
+            let (refresh, light) = self.0.rbd_substep_refresh();
+            dict.set_item("substep_refresh", refresh)?;
+            dict.set_item("substep_refresh_light", light)?;
         }
         Ok(dict)
     }
