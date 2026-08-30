@@ -212,6 +212,11 @@ pub struct NexusState {
     rbd_envs: Vec<PhysicsWorld>,
     /// Per-environment simulation parameters (same length as `rbd_envs`).
     rbd_sim_params: Vec<RbdSimParams>,
+    /// Whether the multibody solver folds the Coriolis and gyroscopic terms
+    /// into the mass matrix (refreshed every substep) or applies them
+    /// explicitly (mass matrix refreshed once per step). Applied at
+    /// [`Self::finalize`] and by [`Self::set_rbd_implicit_coriolis`].
+    rbd_implicit_coriolis: bool,
     /// Set whenever the rapier worlds change; consumed by [`Self::finalize`] to
     /// decide whether the GPU [`RbdState`] needs rebuilding.
     rbd_dirty: bool,
@@ -244,6 +249,7 @@ impl NexusState {
             run_stats: RunStats::default(),
             rbd_envs: vec![PhysicsWorld::default()],
             rbd_sim_params: vec![RbdSimParams::tgs_soft()],
+            rbd_implicit_coriolis: true,
             rbd_dirty: false,
             rbd_steps_per_frame: 1,
             rbd_reserve_per_env: 0,
@@ -385,6 +391,23 @@ impl NexusState {
         if let Some(rbd) = self.rbd.as_mut() {
             rbd.set_num_internal_pgs_iterations(backend, n);
         }
+    }
+
+    /// Enables or disables the implicit treatment of the multibody Coriolis
+    /// and gyroscopic terms (default: enabled). Explicit terms skip the
+    /// per-substep mass-matrix refresh, the main cost of the implicit path.
+    #[cfg(all(feature = "rbd", feature = "dim3"))]
+    pub fn set_rbd_implicit_coriolis(&mut self, backend: &GpuBackend, enabled: bool) {
+        self.rbd_implicit_coriolis = enabled;
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.set_implicit_coriolis(backend, enabled);
+        }
+    }
+
+    /// Whether the multibody Coriolis terms are treated implicitly.
+    #[cfg(all(feature = "rbd", feature = "dim3"))]
+    pub fn rbd_implicit_coriolis(&self) -> bool {
+        self.rbd_implicit_coriolis
     }
 
     // ── Rigid-body runtime settings ─────────────────────────────────────
@@ -1347,7 +1370,8 @@ impl NexusState {
             // reservation (`reserve_rigid_bodies`) the buffers are sized for
             // spare slots so later `add_rigid_body` calls can append in place;
             // otherwise the state is sized exactly to the current body count.
-            let rbd_state = if self.rbd_reserve_per_env > 0 {
+            #[cfg_attr(not(feature = "dim3"), allow(unused_mut))]
+            let mut rbd_state = if self.rbd_reserve_per_env > 0 {
                 let num_envs = self.rbd_envs.len() as u32;
                 let max_count = self
                     .rbd_envs
@@ -1461,6 +1485,10 @@ impl NexusState {
                         );
                     }
                 }
+            }
+            #[cfg(feature = "dim3")]
+            if !self.rbd_implicit_coriolis {
+                rbd_state.set_implicit_coriolis(backend, false);
             }
             self.rbd = Some(rbd_state);
             self.rbd_dirty = false;
