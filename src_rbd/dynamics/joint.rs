@@ -312,8 +312,7 @@ impl GpuImpulseJointSet {
         // so the solver's flat sweeps put the same joint of consecutive
         // batches on adjacent lanes.
         let dummy_joint = ImpulseJoint::zeroed();
-        let mut all_joints =
-            vec![dummy_joint; num_batches as usize * max_joints as usize];
+        let mut all_joints = vec![dummy_joint; num_batches as usize * max_joints as usize];
         for (batch, sorted_joints) in per_env_sorted_joints.iter().enumerate() {
             for (j, joint) in sorted_joints.iter().enumerate() {
                 all_joints[j * num_batches as usize + batch] = *joint;

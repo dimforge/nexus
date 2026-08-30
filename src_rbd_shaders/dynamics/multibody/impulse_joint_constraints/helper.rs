@@ -278,15 +278,7 @@ pub(super) fn lock_jacobians_generic(
     out.ndofs_a = a.ndofs;
     out.j_id_a = j_id_a;
     if a.side_kind == SIDE_KIND_BODY {
-        fill_body_jacobians(
-            jacobians,
-            j_id_a,
-            a.side_id,
-            lin_jac,
-            ang_jac1,
-            mprops,
-            bix,
-        );
+        fill_body_jacobians(jacobians, j_id_a, a.side_id, lin_jac, ang_jac1, mprops, bix);
     } else if a.side_kind == SIDE_KIND_MB {
         fill_mb_jacobians(
             jacobians,
@@ -306,15 +298,7 @@ pub(super) fn lock_jacobians_generic(
     out.ndofs_b = b.ndofs;
     out.j_id_b = j_id_b;
     if b.side_kind == SIDE_KIND_BODY {
-        fill_body_jacobians(
-            jacobians,
-            j_id_b,
-            b.side_id,
-            lin_jac,
-            ang_jac2,
-            mprops,
-            bix,
-        );
+        fill_body_jacobians(jacobians, j_id_b, b.side_id, lin_jac, ang_jac2, mprops, bix);
     } else if b.side_kind == SIDE_KIND_MB {
         fill_mb_jacobians(
             jacobians,

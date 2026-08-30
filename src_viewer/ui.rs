@@ -267,7 +267,10 @@ fn performance_ui(
                 row("Multibodies:", counts.multibodies);
                 row("Multibody DOFs:", counts.multibody_dofs);
                 row("MB contact slots:", counts.mb_contact_constraints);
-                row("MB contact capacity:", counts.mb_contact_constraints_capacity);
+                row(
+                    "MB contact capacity:",
+                    counts.mb_contact_constraints_capacity,
+                );
             }
 
             if counts.particles > 0 {

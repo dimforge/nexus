@@ -1,9 +1,6 @@
 //! Contact "force sensor" readout for RL observations.
 
-use super::types::{
-    MB_CONTACT_KIND_NORMAL, MultibodyContactConstraint,
-    MultibodyInfo,
-};
+use super::types::{MB_CONTACT_KIND_NORMAL, MultibodyContactConstraint, MultibodyInfo};
 use crate::utils::BatchIndices;
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;

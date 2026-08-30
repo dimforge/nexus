@@ -661,7 +661,7 @@ impl RbdState {
         // Single global pair counter.
         let collision_pairs_len = Tensor::vector(
             backend,
-            &[0u32],
+            [0u32],
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
@@ -697,7 +697,7 @@ impl RbdState {
         // Single global PFM work-list counter.
         let pfm_pairs_len = Tensor::vector(
             backend,
-            &[0u32],
+            [0u32],
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
@@ -720,9 +720,12 @@ impl RbdState {
         // Zero-initialized: a resize readback can race the first step.
         // Written as a storage buffer by `gpu_contact_plan`, read as a uniform
         // by every consumer.
-        let contact_plan =
-            Tensor::scalar(backend, ContactPlan::default(), storage | BufferUsages::UNIFORM)
-                .unwrap();
+        let contact_plan = Tensor::scalar(
+            backend,
+            ContactPlan::default(),
+            storage | BufferUsages::UNIFORM,
+        )
+        .unwrap();
         let pfm_sort = PfmSortState::new(backend, pairs_capacity);
         let color_sorted_ids = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         // Zeroed (not uninit): the first frame's warmstart transfer walks the

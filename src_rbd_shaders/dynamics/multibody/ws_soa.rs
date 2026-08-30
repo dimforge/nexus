@@ -116,8 +116,7 @@ impl WsAddr {
     /// `WS_QUADS` quads at `(L * num_batches + b) * WS_QUADS`.
     #[inline]
     pub fn at(&self, k: u32, quad: u32) -> usize {
-        ((self.base + k as usize) * self.stride as usize + self.shift as usize)
-            * WS_QUADS as usize
+        ((self.base + k as usize) * self.stride as usize + self.shift as usize) * WS_QUADS as usize
             + quad as usize
     }
 }

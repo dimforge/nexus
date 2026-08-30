@@ -6,13 +6,13 @@
 
 #[cfg(all(test, feature = "dim3"))]
 mod bench_narrow_phase;
-#[cfg(all(test, feature = "dim3"))]
-mod test_batched_stacks;
 mod insertion_removal;
 mod lbvh_validation;
 mod rbd_state;
 mod rbd_state_from_rapier;
 mod rbd_step;
+#[cfg(all(test, feature = "dim3"))]
+mod test_batched_stacks;
 
 #[cfg(feature = "dim3")]
 pub use rbd_state::RbdSnapshot;

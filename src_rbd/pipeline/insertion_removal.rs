@@ -136,7 +136,7 @@ impl RbdState {
         // Single global pair counter.
         let collision_pairs_len = Tensor::vector(
             backend,
-            &[0u32],
+            [0u32],
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
@@ -162,7 +162,7 @@ impl RbdState {
         // Single global PFM work-list counter.
         let pfm_pairs_len = Tensor::vector(
             backend,
-            &[0u32],
+            [0u32],
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
@@ -183,9 +183,12 @@ impl RbdState {
             Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
         // Written as a storage buffer by `gpu_contact_plan`, read as a uniform
         // by every consumer.
-        let contact_plan =
-            Tensor::scalar(backend, ContactPlan::default(), storage | BufferUsages::UNIFORM)
-                .unwrap();
+        let contact_plan = Tensor::scalar(
+            backend,
+            ContactPlan::default(),
+            storage | BufferUsages::UNIFORM,
+        )
+        .unwrap();
         let color_sorted_ids = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         // Zeroed: see `RbdState::from_rapier`.
         let old_constraints_counts = Tensor::vector(

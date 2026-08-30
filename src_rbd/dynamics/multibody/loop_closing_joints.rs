@@ -286,8 +286,7 @@ impl GpuMultibodySet {
         let mut dummy: MbImpulseJointBuilder = bytemuck::Zeroable::zeroed();
         dummy.side_a_kind = SIDE_KIND_FIXED;
         dummy.side_b_kind = SIDE_KIND_FIXED;
-        let mut all_builders: Vec<MbImpulseJointBuilder> =
-            vec![dummy; joints_cap as usize * nb];
+        let mut all_builders: Vec<MbImpulseJointBuilder> = vec![dummy; joints_cap as usize * nb];
         for (b, env) in per_env_builders.iter().enumerate() {
             for (i, builder) in env.iter().enumerate() {
                 all_builders[i * nb + b] = *builder;

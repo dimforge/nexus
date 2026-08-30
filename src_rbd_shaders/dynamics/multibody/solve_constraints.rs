@@ -781,8 +781,7 @@ pub fn gpu_mb_solve_contacts_delassus(
 
                     if free_active {
                         let cons = contact_constraints.read(cons_base + s as usize);
-                        let mut free =
-                            solver_vels.read(cons.free_body_id as usize);
+                        let mut free = solver_vels.read(cons.free_body_id as usize);
                         free.linear += cons.lin_jac * (cons.free_body_im * delta0);
                         free.angular += cons.ii_ang_jac * delta0;
                         if has_pair {
@@ -805,12 +804,14 @@ pub fn gpu_mb_solve_contacts_delassus(
                     a_shared.write(j as usize, a_shared.read(j as usize) + acc);
                 }
                 if lane < ndofs {
-                    let col = contact_jac_cols
-                        .read(jc_base + (s as usize) * 2 * dofs_stride + dofs_stride + lane as usize);
+                    let col = contact_jac_cols.read(
+                        jc_base + (s as usize) * 2 * dofs_stride + dofs_stride + lane as usize,
+                    );
                     dof_v.write(lane as usize, dof_v.read(lane as usize) + delta0 * col);
                     if has_pair {
                         let col2 = contact_jac_cols.read(
-                            jc_base + ((s + 1) as usize) * 2 * dofs_stride
+                            jc_base
+                                + ((s + 1) as usize) * 2 * dofs_stride
                                 + dofs_stride
                                 + lane as usize,
                         );

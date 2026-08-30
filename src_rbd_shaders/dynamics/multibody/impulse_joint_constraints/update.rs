@@ -6,8 +6,8 @@ use khal_std::index::MaybeIndexUnchecked;
 
 use crate::dynamics::body::WorldMassProperties;
 use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK, SPATIAL_DIM};
-use crate::utils::{ISlice, BodyIx};
 use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
+use crate::utils::{BodyIx, ISlice};
 use crate::{DIM, Pose};
 
 use super::super::types::{MultibodyInfo, MultibodyLinkStatic};

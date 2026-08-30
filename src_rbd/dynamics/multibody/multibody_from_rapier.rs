@@ -786,7 +786,7 @@ impl GpuMultibodySet {
             joint_constraints_per_batch: cons_cap,
             joint_constraint_columns_per_batch: cons_col_cap,
             contact_constraints_capacity: contact_cons_cap,
-            mb_cons_demand: Tensor::vector(backend, &[0u32], storage | BufferUsages::COPY_SRC)
+            mb_cons_demand: Tensor::vector(backend, [0u32], storage | BufferUsages::COPY_SRC)
                 .unwrap(),
             // Zeroed: the count pass atomically accumulates into these and the
             // offsets scan re-zeroes them after consuming them.

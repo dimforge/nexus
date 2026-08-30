@@ -390,8 +390,7 @@ impl NexusState {
             #[cfg(feature = "dim3")]
             {
                 c.mb_contact_constraints = rbd.mb_contact_constraints_len() as usize;
-                c.mb_contact_constraints_capacity =
-                    rbd.mb_contact_constraints_capacity() as usize;
+                c.mb_contact_constraints_capacity = rbd.mb_contact_constraints_capacity() as usize;
             }
         }
         #[cfg(feature = "mpm")]

@@ -344,7 +344,11 @@ impl JointConstraintHelper {
 
 impl JointConstraint {
     /// Solves a joint constraint.
-    pub fn solve_joint_constraint(&mut self, solver_vels: &mut ISliceMut<Velocity>, use_bias: bool) {
+    pub fn solve_joint_constraint(
+        &mut self,
+        solver_vels: &mut ISliceMut<Velocity>,
+        use_bias: bool,
+    ) {
         let mut solver_vel1 = solver_vels[self.solver_vel_a as usize];
         let mut solver_vel2 = solver_vels[self.solver_vel_b as usize];
 

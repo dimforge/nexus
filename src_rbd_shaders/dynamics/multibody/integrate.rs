@@ -171,5 +171,4 @@ pub fn gpu_mb_integrate(
         }
         // num_ang == 0: no-op.
     }
-
 }

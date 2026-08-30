@@ -78,7 +78,7 @@ impl PfmSortState {
             identity: Tensor::vector(backend, &identity, storage).unwrap(),
             sorted_keys: Tensor::vector_uninit(backend, capacity.max(1), storage).unwrap(),
             sorted_values: Tensor::vector_uninit(backend, capacity.max(1), storage).unwrap(),
-            sort_len: Tensor::vector(backend, &[0u32], storage).unwrap(),
+            sort_len: Tensor::vector(backend, [0u32], storage).unwrap(),
             workspace: RadixSortWorkspace::new(backend),
         }
     }

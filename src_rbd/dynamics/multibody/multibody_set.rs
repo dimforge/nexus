@@ -805,13 +805,13 @@ impl GpuMultibodySet {
         self.contact_constraints_capacity
     }
 
-    /// Total contact-constraint slot demand of the last stepped frame (GPU
-    /// buffer, read back by the auto-resize).
     /// Debug: the body-id → (multibody, link) lookup buffer.
     pub fn body_to_link(&self) -> &Tensor<[u32; 2]> {
         &self.body_to_link
     }
 
+    /// Total contact-constraint slot demand of the last stepped frame (GPU
+    /// buffer, read back by the auto-resize).
     pub fn mb_cons_demand(&self) -> &Tensor<u32> {
         &self.mb_cons_demand
     }
