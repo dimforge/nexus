@@ -14,6 +14,8 @@
   `set_body_casts_shadows` excludes a body from the shadow map, and textures load with mip
   chains and 16x anisotropic filtering. Needs kiss3d's offscreen MSAA, cascade, atlas-layer and
   anisotropy controls.
+- `NexusState::set_rbd_implicit_coriolis` (Python: `set_rbd_implicit_coriolis`), also honored
+  when the state is finalized after the call; `rbd_solver_params` reports it.
 - Python: `NexusState.set_rbd_solver_params(friction_in_bias_pass=...)`,
   `ColliderBuilder.friction_combine_rule`, and the `debug_contacts` /
   `debug_multibody_contact_impulses` GPU readbacks for contact diagnostics.

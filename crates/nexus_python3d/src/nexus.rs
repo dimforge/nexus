@@ -1207,6 +1207,13 @@ impl NexusState {
         }
     }
 
+    /// Implicit (default) or explicit treatment of the robots' Coriolis and
+    /// gyroscopic terms. Explicit terms refresh the multibody mass matrix once
+    /// per step instead of every substep, which is cheaper on the GPU.
+    fn set_rbd_implicit_coriolis(&mut self, viewer: PyRef<NexusViewer>, enabled: bool) {
+        self.0.set_rbd_implicit_coriolis(viewer.backend(), enabled);
+    }
+
     /// The contact-solver parameters of environment 0 as a dict (see
     /// `set_rbd_solver_params`), for attestation.
     fn rbd_solver_params<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
@@ -1233,6 +1240,7 @@ impl NexusState {
             dict.set_item("prediction_distance", p.normalized_prediction_distance)?;
             dict.set_item("internal_pgs_iterations", p.num_internal_pgs_iterations)?;
             dict.set_item("friction_in_bias_pass", p.friction_in_bias_pass != 0)?;
+            dict.set_item("implicit_coriolis", self.0.rbd_implicit_coriolis())?;
         }
         Ok(dict)
     }
