@@ -495,6 +495,7 @@ impl RbdState {
             // `set_visible_dt` divides by the substep count, so that has to be
             // in place first or the multibody integrates at the wrong rate.
             mb.set_num_solver_iterations(num_solver_iterations);
+            mb.set_num_internal_pgs_iterations(sim_params.num_internal_pgs_iterations);
             mb.set_visible_dt(backend, multibody_dt);
             // Soft contact coefficients (rapier TGS-soft) from the substep sim
             // params, so multibody-vs-floor contacts use the same soft ERP + CFM

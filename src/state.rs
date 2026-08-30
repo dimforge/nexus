@@ -338,6 +338,18 @@ impl NexusState {
         }
     }
 
+    /// Sets how many PGS iterations the multibody solver's biased pass runs per
+    /// substep.
+    #[cfg(all(feature = "rbd", feature = "dim3"))]
+    pub fn set_rbd_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
+        for params in &mut self.rbd_sim_params {
+            params.num_internal_pgs_iterations = n.max(1);
+        }
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.set_num_internal_pgs_iterations(backend, n);
+        }
+    }
+
     // ── Rigid-body runtime settings ─────────────────────────────────────
 
     /// Overrides the per-environment collision-pair capacity used when the GPU

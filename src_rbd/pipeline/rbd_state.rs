@@ -407,6 +407,26 @@ impl RbdState {
         self.sim_params_cpu = params;
     }
 
+    /// Sets how many PGS iterations the multibody solver's biased pass runs per
+    /// substep, without rebuilding the GPU state.
+    #[cfg(feature = "dim3")]
+    pub fn set_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
+        let n = n.max(1);
+        self.multibodies.set_num_internal_pgs_iterations(n);
+        // Keep the mirror (and the uniform it backs) honest, even though no
+        // shader reads this field.
+        let mut params = self.sim_params_cpu;
+        params.num_internal_pgs_iterations = n;
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
+        self.sim_params_cpu = params;
+    }
+
+    /// PGS iterations per substep in the multibody solver's biased pass.
+    #[cfg(feature = "dim3")]
+    pub fn num_internal_pgs_iterations(&self) -> u32 {
+        self.multibodies.num_internal_pgs_iterations()
+    }
+
     /// The gravity uniform shared by every solver kernel.
     pub fn gravity(&self) -> &Tensor<glamx::Vec4> {
         &self.gravity
