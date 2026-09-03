@@ -1271,11 +1271,36 @@ impl GpuMultibodySet {
         let a = WsAddr::new(0, self.num_batches, batch_id);
         let mut out = Vec::new();
         for k in 0..self.links_per_batch {
-            let stat = &self.links_static_mirror[(batch_id * self.links_per_batch + k) as usize];
+            let stat = &self.links_static_mirror[(k * self.num_batches + batch_id) as usize];
             let locked = stat.data.locked_axes;
             for axis in 0..6u32 {
                 if locked & (1 << axis) == 0 {
                     out.push(ws_coord(&ws, a, k, axis));
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Reads back the generalized velocity of every DoF of batch `batch_id`, in
+    /// assembly order (the same order as [`Self::read_dof_coords`]'s
+    /// coordinates). Only the velocity section of [`Self::dof_state`] is read,
+    /// and it is DoF-major, so this de-interleaves the batch for callers.
+    pub async fn read_dof_velocities(
+        &self,
+        backend: &GpuBackend,
+        batch_id: u32,
+    ) -> Result<Vec<f32>, GpuBackendError> {
+        let state: Vec<f32> = backend.slow_read_vec(self.dof_state.buffer()).await?;
+        let nb = self.num_batches as usize;
+        let mut out = Vec::new();
+        for k in 0..self.links_per_batch {
+            let stat = &self.links_static_mirror[(k * self.num_batches + batch_id) as usize];
+            let locked = stat.data.locked_axes;
+            for axis in 0..6u32 {
+                if locked & (1 << axis) == 0 {
+                    let dof = out.len();
+                    out.push(state[dof * nb + batch_id as usize]);
                 }
             }
         }

@@ -806,6 +806,32 @@ impl NexusState {
         ))
     }
 
+    /// Reads `robot`'s simulated generalized velocities back from the GPU as
+    /// `qvel (n_dofs,)`, ordered exactly like `robot_state`'s `qpos`.
+    fn robot_qvel<'py>(
+        &self,
+        py: Python<'py>,
+        viewer: PyRef<NexusViewer>,
+        robot: PyRef<Robot>,
+    ) -> PyResult<Bound<'py, PyArray1<f32>>> {
+        let qvel = pollster::block_on(self.0.multibody_joint_velocities(
+            viewer.backend(),
+            robot.env,
+            robot.root,
+        ))
+        .ok_or_else(|| {
+            PyRuntimeError::new_err("robot velocities unavailable: call finalize() first")
+        })?;
+        if qvel.len() != robot.dof_axes.len() {
+            return Err(PyRuntimeError::new_err(format!(
+                "{} velocities read back for {} dofs",
+                qvel.len(),
+                robot.dof_axes.len()
+            )));
+        }
+        Ok(PyArray1::from_vec(py, qvel))
+    }
+
     /// Sets `robot`'s generalized coordinates and zeroes its joint velocities
     /// on the GPU (between steps, after `finalize`).
     fn set_robot_qpos(

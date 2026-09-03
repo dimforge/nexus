@@ -256,6 +256,14 @@ impl NexusViewer {
         }
     }
 
+    /// Ambient light color (RGB) of sensor camera `id`'s shaded render, a tint
+    /// on the fill light `set_sensor_camera_ambient` scales.
+    fn set_sensor_camera_ambient_color(&mut self, id: usize, rgb: [f32; 3]) {
+        if let Some(sensor) = self.inner_mut().sensor_camera_mut(id) {
+            sensor.set_ambient_color(rgb);
+        }
+    }
+
     /// Background color of sensor camera `id`'s shaded render.
     fn set_sensor_camera_background(&mut self, id: usize, rgba: [f32; 4]) {
         if let Some(sensor) = self.inner_mut().sensor_camera_mut(id) {
