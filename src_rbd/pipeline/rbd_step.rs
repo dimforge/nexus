@@ -5,7 +5,7 @@ use crate::broad_phase::{GpuNarrowPhase, Lbvh};
 use crate::dynamics::GpuMultibodySolver;
 use crate::dynamics::{
     CanonicalContactsArgs, ColoringArgs, GpuCanonicalOrder, GpuColoring, GpuJointSolver,
-    GpuMpropsUpdate, GpuSolver, GpuWarmstart, JointSolverArgs, SolverArgs,
+    GpuMassSplitting, GpuMpropsUpdate, GpuSolver, GpuWarmstart, JointSolverArgs, SolverArgs,
     warmstart::WarmstartArgs,
 };
 use crate::shaders::broad_phase::LbvhNode;
@@ -31,6 +31,7 @@ pub struct RbdPipeline {
     lbvh: Lbvh,
     coloring: GpuColoring,
     warmstart: GpuWarmstart,
+    mass_splitting: GpuMassSplitting,
     /// Optional (default `false`): merge each collider pair's manifolds
     /// (e.g. per-triangle trimesh contacts) into one before the solvers.
     pub contact_reduction: bool,
@@ -57,6 +58,7 @@ impl RbdPipeline {
             lbvh: Lbvh::from_backend(backend),
             coloring: GpuColoring::from_backend(backend)?,
             warmstart: GpuWarmstart::from_backend(backend)?,
+            mass_splitting: GpuMassSplitting::from_backend(backend)?,
             contact_reduction: false,
             canonical_order: GpuCanonicalOrder::from_backend(backend)?,
         })
@@ -397,6 +399,7 @@ impl RbdPipeline {
                 body_constraint_ids: &mut state.new_body_constraint_ids,
                 color_buckets: &state.color_buckets,
                 color_sorted_ids: &state.color_sorted_ids,
+                color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
                 color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
                 num_colors: 0,
@@ -413,6 +416,8 @@ impl RbdPipeline {
                 rb_contacts_inert: state.rb_contacts_inert,
                 friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
                 gravity: &state.gravity,
+                hubs: &mut state.hubs,
+                mass_splitting: &self.mass_splitting,
             };
             self.solver.prepare(
                 backend,
@@ -454,8 +459,13 @@ impl RbdPipeline {
                     contacts_len_indirect: &state.contacts_indirect,
                 };
 
+                drop(pass);
+                let mut pass =
+                    encoder.begin_pass("[RBD] prep/warmstart", timestamps.as_deref_mut());
                 self.warmstart
                     .transfer_warmstart_impulses(&mut pass, warmstart_args)?;
+                drop(pass);
+                let mut pass = encoder.begin_pass("[RBD] prep/coloring", timestamps.as_deref_mut());
 
                 let coloring_args = ColoringArgs {
                     contacts_len_indirect: &state.contacts_indirect,
@@ -472,6 +482,7 @@ impl RbdPipeline {
                     colored: &mut state.colored,
                     batch_indices: &state.batch_indices,
                     body_group: &state.body_group,
+                    coloring_indirect: &mut state.coloring_dispatch.coloring_indirect,
                 };
                 self.coloring
                     .dispatch_topo_gc_reset(&mut pass, coloring_args)?;
@@ -508,6 +519,7 @@ impl RbdPipeline {
                     colored: &mut state.colored,
                     batch_indices: &state.batch_indices,
                     body_group: &state.body_group,
+                    coloring_indirect: &mut state.coloring_dispatch.coloring_indirect,
                 };
                 self.coloring.dispatch_topo_gc_iterations(
                     &mut pass,
@@ -517,6 +529,8 @@ impl RbdPipeline {
 
                 // Bucket-sort the constraint ids by color so each colored solver
                 // sweep only touches its own constraints.
+                drop(pass);
+                let mut pass = encoder.begin_pass("[RBD] prep/buckets", timestamps.as_deref_mut());
                 let bucket_args = crate::dynamics::ColorBucketsArgs {
                     contacts_len_indirect: &state.contacts_indirect,
                     constraints_colors: &state.constraints_colors,
@@ -525,6 +539,8 @@ impl RbdPipeline {
                     color_buckets: &mut state.color_buckets,
                     color_sorted_ids: &mut state.color_sorted_ids,
                     batch_indices: &state.batch_indices,
+                    color_stats: &mut state.coloring_dispatch.color_stats,
+                    sweep_indirect: &mut state.coloring_dispatch.sweep_indirect,
                 };
                 self.coloring.dispatch_build_color_buckets(
                     backend,
@@ -575,6 +591,7 @@ impl RbdPipeline {
             body_constraint_ids: &mut state.new_body_constraint_ids,
             color_buckets: &state.color_buckets,
             color_sorted_ids: &state.color_sorted_ids,
+            color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
             color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
             num_colors,
@@ -596,6 +613,8 @@ impl RbdPipeline {
             rb_contacts_inert: state.rb_contacts_inert,
             friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
             gravity: &state.gravity,
+            hubs: &mut state.hubs,
+            mass_splitting: &self.mass_splitting,
         };
 
         // Phase 3: Solve constraints
@@ -671,12 +690,12 @@ impl RbdPipeline {
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
 
         // The readback holds `[total collision-pair count, total PFM-pair
-        // count, uncolored count]` (+ the multibody contact-constraint demand
-        // on dim3).
+        // count, coloring converged, highest color in use]` (+ the multibody
+        // contact-constraint demand on dim3).
         #[cfg(feature = "dim3")]
-        let mut counts = [0u32; 4];
+        let mut counts = [0u32; 5];
         #[cfg(not(feature = "dim3"))]
-        let mut counts = [0u32; 3];
+        let mut counts = [0u32; 4];
         if state.resize_readback.try_take(backend, &mut counts) {
             // TODO: make the coloring update optional (and pre-configurable) too?
             // The flat pair and PFM work-lists share one buffer capacity, so
@@ -693,6 +712,16 @@ impl RbdPipeline {
                 != RbdResizePolicy::Fixed
                 && coloring_converged == 0
                 && !state.rb_contacts_inert;
+            // Every color costs a coloring iteration and a dispatch per sweep: once the
+            // coloring converges, shrink the budget back to a few colors above those in use.
+            let highest_color = counts[3];
+            let min_colors = state.capacities.solver_colors.max(1);
+            let shrink_colors = state.capacities.solver_colors_resize_policy
+                != RbdResizePolicy::Fixed
+                && coloring_converged != 0
+                && !state.rb_contacts_inert
+                && highest_color + 8 < state.max_colors
+                && state.max_colors > min_colors;
 
             // Decide every resize up front, then drain the GPU once before
             // applying any of them: `rebuild_batch_indices` rewrites the shared
@@ -713,7 +742,7 @@ impl RbdPipeline {
 
             #[cfg(feature = "dim3")]
             let (resize_mb, new_mb) = {
-                let mb_demand = counts[3];
+                let mb_demand = counts[4];
                 state.mb_cons_demand_cpu = mb_demand;
                 let mb_capacity = state.multibodies.contact_constraints_capacity();
                 let safe_mb = mb_demand.saturating_add(mb_demand / 4);
@@ -736,13 +765,17 @@ impl RbdPipeline {
             #[cfg(not(feature = "dim3"))]
             let resize_mb = false;
 
-            if grow_colors || resize_pairs || resize_mb {
+            if grow_colors || shrink_colors || resize_pairs || resize_mb {
                 backend.synchronize()?;
                 state.graph_generation += 1;
             }
 
-            if grow_colors {
-                state.max_colors += 5;
+            if grow_colors || shrink_colors {
+                if grow_colors {
+                    state.max_colors += 5;
+                } else {
+                    state.max_colors = (highest_color + 4).max(min_colors);
+                }
 
                 // The color-bucket buffer is strided by `max_colors + 3`:
                 // regrow it and update the stride in `BatchIndices`.
@@ -825,6 +858,7 @@ impl RbdPipeline {
                     (state.collision_pairs_len.buffer(), 0, 1),
                     (state.pfm_pairs_len.buffer(), 0, 1),
                     (state.uncolored.buffer(), 0, 1),
+                    (state.coloring_dispatch.color_stats.buffer(), 1, 1),
                     (state.multibodies.mb_cons_demand().buffer(), 0, 1),
                 ],
             )?;
@@ -835,6 +869,7 @@ impl RbdPipeline {
                     (state.collision_pairs_len.buffer(), 0, 1),
                     (state.pfm_pairs_len.buffer(), 0, 1),
                     (state.uncolored.buffer(), 0, 1),
+                    (state.coloring_dispatch.color_stats.buffer(), 1, 1),
                 ],
             )?;
         }

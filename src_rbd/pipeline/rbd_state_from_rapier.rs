@@ -15,6 +15,7 @@ use crate::shaders::utils::BatchIndices;
 use crate::utils::PrefixSumWorkspace;
 
 use super::rbd_state::*;
+use crate::dynamics::HubState;
 use khal::BufferUsages;
 use khal::backend::{GpuBackend, GpuReadback};
 use vortx::tensor::Tensor;
@@ -688,9 +689,9 @@ impl RbdState {
         // Readback: pair count, PFM count, uncolored count (+ the multibody
         // contact-constraint demand on dim3).
         #[cfg(feature = "dim3")]
-        let resize_readback = GpuReadback::new(backend, 4).unwrap();
+        let resize_readback = GpuReadback::new(backend, 5).unwrap();
         #[cfg(not(feature = "dim3"))]
-        let resize_readback = GpuReadback::new(backend, 3).unwrap();
+        let resize_readback = GpuReadback::new(backend, 4).unwrap();
         let collision_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
 
@@ -811,8 +812,9 @@ impl RbdState {
             vels: Tensor::vector(backend, &all_vels, storage | BufferUsages::COPY_DST).unwrap(),
             #[cfg(feature = "dim3")]
             reset_templates_bodies: None,
-            solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
+            solver_vels: HubState::solver_vels(backend, &all_vels, storage),
             solver_vels_inc: Tensor::vector(backend, &all_vels, storage).unwrap(),
+            hubs: HubState::new(backend, all_vels.len()),
             joints,
             #[cfg(feature = "dim3")]
             multibodies,
@@ -903,6 +905,7 @@ impl RbdState {
                 BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
             )
             .unwrap(),
+            coloring_dispatch: ColoringDispatch::new(backend),
             uncolored_staging: Tensor::scalar(
                 backend,
                 0,

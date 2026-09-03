@@ -12,12 +12,12 @@ use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::TwoBodyConstraint;
 use crate::shaders::dynamics::{
     GpuClearCompletionFlagTopoGc, GpuColorBucketsCount, GpuColorBucketsReset,
-    GpuColorBucketsScatter, GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc, GpuResetLuby,
-    GpuResetTopoGc, GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
+    GpuColorBucketsScatter, GpuColorSweepGrid, GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc,
+    GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
-use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuPass, GpuTimestamps};
+use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuPass};
 use vortx::tensor::Tensor;
 
 /// GPU shaders for constraint graph coloring.
@@ -37,6 +37,8 @@ pub struct GpuColoring {
     fix_conflicts_topo_gc_kernel: GpuFixConflictsTopoGc,
     reset_completion_flag_topo_gc: GpuResetCompletionFlagTopoGc,
     clear_completion_flag_topo_gc: GpuClearCompletionFlagTopoGc,
+    /// Sizes the colored sweeps from the color buckets.
+    color_sweep_grid: GpuColorSweepGrid,
     // Workspace for bucket-sorting constraint ids by color so each color iteration
     // only touches their own constraint.
     color_buckets_reset: GpuColorBucketsReset,
@@ -62,6 +64,10 @@ pub struct ColorBucketsArgs<'a> {
     pub color_sorted_ids: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
+    /// Output: `[largest color bucket, highest color in use]`.
+    pub color_stats: &'a mut Tensor<u32>,
+    /// Output: the dispatch grid of the colored sweeps.
+    pub sweep_indirect: &'a mut Tensor<[u32; 3]>,
 }
 
 /// Arguments for graph coloring dispatch.
@@ -99,6 +105,8 @@ pub struct ColoringArgs<'a> {
     /// different bodies of the same multibody share a group and never share
     /// a color. For free bodies, `body_group[i] = i`.
     pub body_group: &'a Tensor<u32>,
+    /// Dispatch grid of the current topo-gc iteration (empty once converged).
+    pub coloring_indirect: &'a mut Tensor<[u32; 3]>,
 }
 
 impl GpuColoring {
@@ -154,6 +162,7 @@ impl GpuColoring {
             args.colored,
             args.constraints,
             args.contact_plan,
+            args.uncolored,
             args.constraints_pending_colors,
         )?;
         Ok(())
@@ -167,7 +176,7 @@ impl GpuColoring {
     ) -> Result<(), GpuBackendError> {
         self.step_graph_coloring_topo_gc_kernel.call(
             pass,
-            args.contacts_len_indirect,
+            &*args.coloring_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
             args.constraints,
@@ -190,7 +199,7 @@ impl GpuColoring {
     ) -> Result<(), GpuBackendError> {
         self.fix_conflicts_topo_gc_kernel.call(
             pass,
-            args.contacts_len_indirect,
+            &*args.coloring_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
             args.constraints,
@@ -289,6 +298,15 @@ impl GpuColoring {
             args.color_sorted_ids,
             args.batch_indices,
         )?;
+        // A single workgroup reduces over the colors.
+        self.color_sweep_grid.call(
+            pass,
+            64u32,
+            &*args.color_buckets,
+            args.color_stats,
+            args.sweep_indirect,
+            args.batch_indices,
+        )?;
         Ok(())
     }
 
@@ -324,76 +342,29 @@ impl GpuColoring {
         max_colors: u32,
     ) -> Result<(), GpuBackendError> {
         // The first fix-conflicts pass must validate the seeded colors even when the first step
-        // colors nothing, so it starts from a cleared ("not converged") flag. At least two rounds
-        // run so the last pass can still record the color count.
-        self.clear_completion_flag_topo_gc
-            .call(pass, 1u32, args.uncolored)?;
+        // colors nothing, so it starts from a cleared ("not converged") flag and a full grid. At
+        // least two rounds run so the last pass can still record the color count.
+        self.clear_completion_flag_topo_gc.call(
+            pass,
+            1u32,
+            &mut *args.uncolored,
+            args.contacts_len_indirect,
+            &mut *args.coloring_indirect,
+        )?;
         for i in 0..max_colors.max(2) {
             if i > 0 {
-                self.reset_completion_flag_topo_gc
-                    .call(pass, 1u32, args.uncolored)?;
+                self.reset_completion_flag_topo_gc.call(
+                    pass,
+                    1u32,
+                    &mut *args.uncolored,
+                    args.contacts_len_indirect,
+                    &mut *args.coloring_indirect,
+                )?;
             }
             self.dispatch_step_topo_gc(pass, &mut args)?;
             self.dispatch_fix_conflicts_topo_gc(pass, &mut args)?;
         }
 
         Ok(())
-    }
-
-    /// Executes the TOPO-GC (Topological Graph Coloring) algorithm.
-    ///
-    /// Returns `Some(num_colors)` (1-indexed) on success, or `None` if convergence
-    /// fails (caller should fall back to [`dispatch_luby`](Self::dispatch_luby)).
-    pub async fn dispatch_topo_gc<'a>(
-        &self,
-        backend: &GpuBackend,
-        mut args: ColoringArgs<'a>,
-        stats: &mut RunStats,
-        mut timestamps: Option<&mut GpuTimestamps>,
-    ) -> Option<u32> {
-        // Initialize TOPO-GC state
-        {
-            let mut encoder = backend.begin_encoding();
-            let mut pass = encoder.begin_pass("topo-gc-coloring-reset", timestamps.as_deref_mut());
-            self.dispatch_reset_topo_gc(&mut pass, &mut args).unwrap();
-            drop(pass);
-            backend.submit(encoder).unwrap();
-        }
-
-        let mut num_loops = 0;
-        loop {
-            num_loops += 1;
-            if num_loops > 64 {
-                return None;
-            }
-
-            // Batch multiple iterations to reduce CPU-GPU sync overhead
-            {
-                let mut encoder = backend.begin_encoding();
-                let mut pass =
-                    encoder.begin_pass("topo-gc-coloring-step", timestamps.as_deref_mut());
-                for _ in 0..10 {
-                    self.reset_completion_flag_topo_gc
-                        .call(&mut pass, 1u32, args.uncolored)
-                        .unwrap();
-                    self.dispatch_step_topo_gc(&mut pass, &mut args).unwrap();
-                    self.dispatch_fix_conflicts_topo_gc(&mut pass, &mut args)
-                        .unwrap();
-                }
-                drop(pass);
-                backend.submit(encoder).unwrap();
-            }
-
-            let max_color = backend
-                .slow_read_vec(args.uncolored.buffer())
-                .await
-                .unwrap()[0];
-
-            if max_color != 0 {
-                stats.num_colors = max_color;
-                stats.coloring_iterations = num_loops;
-                return Some(max_color + 1); // NOTE: color indices are 1-based.
-            }
-        }
     }
 }

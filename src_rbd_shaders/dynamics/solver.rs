@@ -15,6 +15,7 @@ use khal_std::{
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
 use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
+use super::mass_splitting::{HUB_COUNT_HUBS, HUB_COUNT_SLOTS, NOT_A_HUB};
 use super::sim_params::{RbdSimParams, decode_bias_mode};
 use super::solver_utils::warmstart_body;
 
@@ -255,13 +256,21 @@ pub fn gpu_solver_cleanup(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] vels: &[Velocity],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] mprops: &[WorldMassProperties],
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] hub_first_slot: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 4)] hub_counts: &mut [u32],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let num_slots = batch_ids.colliders_batch_capacity * batch_ids.num_batches;
 
+    if invocation_id.x == 0 {
+        hub_counts.write(HUB_COUNT_HUBS, 0);
+        hub_counts.write(HUB_COUNT_SLOTS, 0);
+    }
+
     for i in StepRng::new(invocation_id.x..num_slots, num_threads) {
         let idx = i as usize;
         body_constraint_counts.write(idx, 0);
+        hub_first_slot.write(idx, NOT_A_HUB);
 
         // HACK: to handle static bodies.
         if mprops.at(idx).inv_mass != Vector::ZERO {
@@ -337,6 +346,7 @@ pub fn gpu_warmstart_without_colors(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] hub_first_slot: &[u32],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
@@ -347,6 +357,10 @@ pub fn gpu_warmstart_without_colors(
     let mut solver_vels = SliceMut(solver_vels, 0);
 
     for body_id in StepRng::new(invocation_id.x..num_bodies, num_threads) {
+        // A split body is warmstarted through its sub-bodies (`gpu_hub_warmstart`).
+        if hub_first_slot.read(body_id as usize) != NOT_A_HUB {
+            continue;
+        }
         let mut solver_vel = solver_vels[body_id as usize];
         warmstart_body(
             body_id,
@@ -389,8 +403,8 @@ pub fn gpu_warmstart(
     for k in StepRng::new(start + invocation_id.x..end, num_threads) {
         let i = color_sorted_ids[k as usize];
         let constraint = &constraints[i as usize];
-        let solver_id1 = constraint.solver_body_a as usize;
-        let solver_id2 = constraint.solver_body_b as usize;
+        let solver_id1 = constraint.vel_slot_a as usize;
+        let solver_id2 = constraint.vel_slot_b as usize;
 
         let mut solver_vel1 = solver_vels[solver_id1];
         let mut solver_vel2 = solver_vels[solver_id2];
@@ -432,8 +446,8 @@ pub fn gpu_step_gauss_seidel(
 
     for k in StepRng::new(start + invocation_id.x..end, num_threads) {
         let i = color_sorted_ids[k as usize];
-        let solver_id1 = constraints[i as usize].solver_body_a as usize;
-        let solver_id2 = constraints[i as usize].solver_body_b as usize;
+        let solver_id1 = constraints[i as usize].vel_slot_a as usize;
+        let solver_id2 = constraints[i as usize].vel_slot_b as usize;
 
         let mut solver_vel1 = solver_vels[solver_id1];
         let mut solver_vel2 = solver_vels[solver_id2];
@@ -490,8 +504,8 @@ pub fn gpu_warmstart_fused(
             for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
                 let i = color_sorted_ids[k as usize];
                 let constraint = &constraints[i as usize];
-                let solver_id1 = constraint.solver_body_a as usize;
-                let solver_id2 = constraint.solver_body_b as usize;
+                let solver_id1 = constraint.vel_slot_a as usize;
+                let solver_id2 = constraint.vel_slot_b as usize;
 
                 let mut solver_vel1 = solver_vels[solver_id1];
                 let mut solver_vel2 = solver_vels[solver_id2];
@@ -554,8 +568,8 @@ pub fn gpu_step_gauss_seidel_fused(
         if start != end {
             for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
                 let i = color_sorted_ids[k as usize];
-                let solver_id1 = constraints[i as usize].solver_body_a as usize;
-                let solver_id2 = constraints[i as usize].solver_body_b as usize;
+                let solver_id1 = constraints[i as usize].vel_slot_a as usize;
+                let solver_id2 = constraints[i as usize].vel_slot_b as usize;
 
                 let mut solver_vel1 = solver_vels[solver_id1];
                 let mut solver_vel2 = solver_vels[solver_id2];

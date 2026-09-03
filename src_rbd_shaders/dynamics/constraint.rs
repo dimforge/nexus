@@ -151,8 +151,13 @@ pub struct TwoBodyConstraint {
     /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
     #[cfg(feature = "dim2")]
     pub warmstart_subshape: u32,
+    /// Index of body A's velocity in the solver velocity buffer: `solver_body_a`, or one of
+    /// the sub-body slots when body A is split (see `mass_splitting`).
+    pub vel_slot_a: u32,
+    /// Index of body B's velocity in the solver velocity buffer.
+    pub vel_slot_b: u32,
     #[cfg(feature = "dim3")]
-    pub _padding: [u32; 3],
+    pub _padding: u32,
 }
 
 /// Constraint data for a single contact point.

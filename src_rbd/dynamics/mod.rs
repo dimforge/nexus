@@ -5,6 +5,7 @@ pub use body::{BodyCoupling, BodyCouplingEntry, BodyDesc, GpuBodySet};
 pub use canonical_order::{CanonicalContactsArgs, GpuCanonicalOrder, contact_sort_collider_shift};
 pub use coloring::{ColorBucketsArgs, ColoringArgs, GpuColoring};
 pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs, convert_joint_motor};
+pub use mass_splitting::{GpuMassSplitting, HubState, SplitArgs};
 pub use mprops_update::{GpuMpropsUpdate, GpuSyncColliderPosesShader};
 #[cfg(feature = "dim3")]
 pub use multibody::{
@@ -18,6 +19,7 @@ pub mod body;
 mod canonical_order;
 mod coloring;
 mod joint;
+mod mass_splitting;
 mod mprops_update;
 #[cfg(feature = "dim3")]
 pub(crate) mod multibody;

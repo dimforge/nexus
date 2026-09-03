@@ -1,9 +1,9 @@
 //! GPU-resident rigid-body state ([`RbdState`]): buffer definitions, accessors,
 //! run statistics and capacity/resize policies.
 use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, LbvhState, PfmSortState};
-use crate::dynamics::GpuImpulseJointSet;
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
+use crate::dynamics::{GpuImpulseJointSet, HubState};
 use crate::math::{Pose, Vector};
 use crate::queries::{GpuColliderMaterial, GpuIndexedContact};
 use crate::shaders::PaddedVector;
@@ -164,6 +164,32 @@ pub enum RbdResizePolicy {
     Fit,
 }
 
+/// Dispatch grids and stats of the graph coloring and the colored sweeps.
+pub(crate) struct ColoringDispatch {
+    /// Grid of the current topo-gc iteration: empty once the coloring converged.
+    pub(crate) coloring_indirect: Tensor<[u32; 3]>,
+    /// Grid of the colored sweeps: sized to the largest color bucket.
+    pub(crate) sweep_indirect: Tensor<[u32; 3]>,
+    /// `[largest color bucket, highest color in use]`.
+    pub(crate) color_stats: Tensor<u32>,
+}
+
+impl ColoringDispatch {
+    pub(crate) fn new(backend: &GpuBackend) -> Self {
+        let indirect = BufferUsages::STORAGE | BufferUsages::INDIRECT;
+        Self {
+            coloring_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
+            sweep_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
+            color_stats: Tensor::vector(
+                backend,
+                vec![0u32; 2],
+                BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            )
+            .unwrap(),
+        }
+    }
+}
+
 /// GPU-resident physics simulation state containing all rigid bodies, shapes, and solver data.
 ///
 /// Holds all the buffers needed for a complete physics simulation on the GPU
@@ -191,8 +217,12 @@ pub struct RbdState {
     /// `publish_reset_templates` and consumed by `reset_envs_from_templates`.
     #[cfg(feature = "dim3")]
     pub(super) reset_templates_bodies: Option<ResetTemplatesBodies>,
+    /// Solver velocities: one slot per body, followed by the sub-body slots of split bodies
+    /// (see [`HubState`]).
     pub(super) solver_vels: Tensor<GpuVelocity>,
     pub(super) solver_vels_inc: Tensor<GpuVelocity>,
+    /// Mass-splitting state of bodies with many contacts.
+    pub(super) hubs: HubState,
     pub(super) vertex_buffers: Tensor<PaddedVector>,
     pub(super) index_buffers: Tensor<u32>,
     pub(super) shapes: Tensor<Shape>,
@@ -295,6 +325,8 @@ pub struct RbdState {
     /// [`Self::ensure_color_uniforms`].
     pub(super) color_uniforms: Vec<Tensor<u32>>,
     pub(super) uncolored: Tensor<u32>,
+    /// Dispatch grids and stats of the coloring and colored sweeps.
+    pub(super) coloring_dispatch: ColoringDispatch,
     pub(super) uncolored_staging: Tensor<u32>,
     pub(super) lbvh: LbvhState,
     pub(super) joints: GpuImpulseJointSet,

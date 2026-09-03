@@ -5,6 +5,7 @@
 //! `Soft-TGS` algorithm (as in Rapier).
 
 use crate::dynamics::joint::{GpuJointSolver, JointSolverArgs};
+use crate::dynamics::mass_splitting::{GpuMassSplitting, HubState, SplitArgs};
 #[cfg(feature = "dim3")]
 use crate::dynamics::multibody::{GpuMultibodySet, GpuMultibodySolver, MultibodySolverArgs};
 use crate::math::Pose;
@@ -137,6 +138,8 @@ pub struct SolverArgs<'a> {
     pub color_buckets: &'a Tensor<u32>,
     /// Constraint ids bucket-sorted by `(color, batch)`.
     pub color_sorted_ids: &'a Tensor<u32>,
+    /// Dispatch grid of each colored sweep: covers the largest color bucket.
+    pub color_sweep_indirect: &'a Tensor<[u32; 3]>,
     /// Per-color-index uniform tensors: `color_uniforms[c] == c`.
     pub color_uniforms: &'a [Tensor<u32>],
     /// Prefix sum shader for building constraint ranges.
@@ -171,6 +174,10 @@ pub struct SolverArgs<'a> {
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
     /// The one gravity uniform every rigid-body and multibody kernel reads.
     pub gravity: &'a Tensor<glamx::Vec4>,
+    /// Mass-splitting state of the bodies with many contacts.
+    pub hubs: &'a mut HubState,
+    /// Mass-splitting kernels.
+    pub mass_splitting: &'a GpuMassSplitting,
     /// GPU-written workgroup grid for the per-multibody contact-constraint
     /// dispatches (zero workgroups on contact-free steps).
     pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
@@ -194,6 +201,8 @@ impl GpuSolver {
             args.vels,
             args.mprops,
             args.batch_indices,
+            &mut args.hubs.first_slot,
+            &mut args.hubs.counts,
         )?;
 
         // Seed `solver_body_poses` from `body_poses`: rapier's
@@ -260,6 +269,22 @@ impl GpuSolver {
             args.contact_plan,
             args.body_constraint_ids,
             args.body_is_multibody,
+        )?;
+
+        args.mass_splitting.split(
+            pass,
+            args.hubs,
+            SplitArgs {
+                num_body_slots: args.num_colliders * args.num_batches,
+                body_constraint_counts: args.body_constraint_counts,
+                body_constraint_ids: args.body_constraint_ids,
+                constraints: args.constraints,
+                mprops: args.mprops,
+                body_group: args.body_group,
+                contact_plan: args.contact_plan,
+                contacts_len_indirect: args.contacts_len_indirect,
+                batch_indices: args.batch_indices,
+            },
         )?;
 
         Ok(())
@@ -454,8 +479,26 @@ impl GpuSolver {
                         args.constraints,
                         args.solver_vels,
                         args.batch_indices,
+                        &args.hubs.first_slot,
+                    )?;
+                    // Split bodies are warmstarted through their sub-bodies.
+                    args.mass_splitting
+                        .scatter(pass, args.hubs, args.solver_vels)?;
+                    args.mass_splitting.warmstart(
+                        pass,
+                        args.hubs,
+                        args.solver_vels,
+                        args.constraints,
+                    )?;
+                    args.mass_splitting.average(
+                        pass,
+                        args.hubs,
+                        args.solver_vels,
+                        args.body_constraint_counts,
                     )?;
                 } else if args.fused_color_sweeps {
+                    args.mass_splitting
+                        .scatter(pass, args.hubs, args.solver_vels)?;
                     // One dispatch, one workgroup per batch, colors looped
                     // internally. `color_uniforms[num_colors]` holds the
                     // constant `num_colors`.
@@ -470,11 +513,13 @@ impl GpuSolver {
                         args.batch_indices,
                     )?;
                 } else {
+                    args.mass_splitting
+                        .scatter(pass, args.hubs, args.solver_vels)?;
                     // NOTE: contact colors start at 1 (0 = unassigned).
                     for c in 1..=args.num_colors {
                         self.warmstart.call(
                             pass,
-                            args.contacts_len_indirect,
+                            args.color_sweep_indirect,
                             args.constraints,
                             args.solver_vels,
                             args.color_buckets,
@@ -483,6 +528,14 @@ impl GpuSolver {
                             args.batch_indices,
                         )?;
                     }
+                }
+                if !skip_rb && !args.colorless_warmstart {
+                    args.mass_splitting.average(
+                        pass,
+                        args.hubs,
+                        args.solver_vels,
+                        args.body_constraint_counts,
+                    )?;
                 }
             }
 
@@ -507,6 +560,10 @@ impl GpuSolver {
                         encoder.begin_pass("[RBD] slv/rb-solve-bias", timestamps.as_deref_mut());
                     let pass = &mut pass;
                     joint_solver.solve(pass, &mut joint_args, args.solver_vels, true)?;
+                    if !skip_rb {
+                        args.mass_splitting
+                            .scatter(pass, args.hubs, args.solver_vels)?;
+                    }
                     if skip_rb {
                         // Contact sweeps skipped (inert constraints).
                     } else if args.fused_color_sweeps {
@@ -526,7 +583,7 @@ impl GpuSolver {
                         for c in 1..=args.num_colors {
                             self.step_gauss_seidel.call(
                                 pass,
-                                args.contacts_len_indirect,
+                                args.color_sweep_indirect,
                                 args.constraints,
                                 args.solver_vels,
                                 args.color_buckets,
@@ -537,6 +594,14 @@ impl GpuSolver {
                                 &args.color_uniforms[bias_mode],
                             )?;
                         }
+                    }
+                    if !skip_rb {
+                        args.mass_splitting.average(
+                            pass,
+                            args.hubs,
+                            args.solver_vels,
+                            args.body_constraint_counts,
+                        )?;
                     }
                 }
             }
@@ -582,6 +647,10 @@ impl GpuSolver {
                     )?;
                 }
                 joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
+                if !skip_rb {
+                    args.mass_splitting
+                        .scatter(pass, args.hubs, args.solver_vels)?;
+                }
                 if skip_rb {
                     // Contact sweeps skipped (inert constraints).
                 } else if args.fused_color_sweeps {
@@ -601,7 +670,7 @@ impl GpuSolver {
                     for c in 1..=args.num_colors {
                         self.step_gauss_seidel.call(
                             pass,
-                            args.contacts_len_indirect,
+                            args.color_sweep_indirect,
                             args.constraints,
                             args.solver_vels,
                             args.color_buckets,
@@ -612,6 +681,14 @@ impl GpuSolver {
                             &args.color_uniforms[0],
                         )?;
                     }
+                }
+                if !skip_rb {
+                    args.mass_splitting.average(
+                        pass,
+                        args.hubs,
+                        args.solver_vels,
+                        args.body_constraint_counts,
+                    )?;
                 }
             }
         }

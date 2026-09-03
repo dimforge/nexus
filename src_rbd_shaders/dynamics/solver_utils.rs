@@ -144,6 +144,8 @@ impl IndexedManifold {
         constraint.limit = friction;
         constraint.solver_body_a = bid1;
         constraint.solver_body_b = bid2;
+        constraint.vel_slot_a = bid1;
+        constraint.vel_slot_b = bid2;
 
         #[cfg(feature = "dim3")]
         {
