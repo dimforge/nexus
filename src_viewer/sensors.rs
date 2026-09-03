@@ -200,6 +200,16 @@ impl SensorCamera {
         self.surface.set_ambient(ambient);
     }
 
+    /// Ambient light color (RGB) of the shaded render. The ambient term is
+    /// `ambient_color * ambient * albedo * ao`, so this tints the fill light
+    /// that [`Self::set_ambient`] scales; the surface only forwards the
+    /// intensity, so the color goes through the underlying window.
+    pub fn set_ambient_color(&mut self, rgb: [f32; 3]) {
+        self.surface
+            .window_mut()
+            .set_ambient_color(Color::new(rgb[0], rgb[1], rgb[2], 1.0));
+    }
+
     /// Background color (RGBA) of the shaded render.
     pub fn set_background_color(&mut self, rgba: [f32; 4]) {
         self.surface

@@ -991,6 +991,32 @@ impl NexusState {
         Ok(())
     }
 
+    /// Generalized velocities of the multibody containing `body` in environment
+    /// `env`, read back from the GPU in the same order as
+    /// [`Self::multibody_joint_positions`]'s coordinates. `None` before
+    /// `finalize`, or when `body` is not part of a multibody.
+    #[cfg(feature = "dim3")]
+    pub async fn multibody_joint_velocities(
+        &self,
+        backend: &GpuBackend,
+        env: usize,
+        body: RigidBodyHandle,
+    ) -> Option<Vec<f32>> {
+        let (_, info, _) = self.multibody_link_slots(env, body)?;
+        // The readback covers the whole batch, so slice out this multibody's
+        // DoF range.
+        let vels = self
+            .rbd
+            .as_ref()?
+            .multibodies()
+            .read_dof_velocities(backend, env as u32)
+            .await
+            .ok()?;
+        let first = info.first_dof as usize;
+        vels.get(first..first + info.ndofs as usize)
+            .map(<[f32]>::to_vec)
+    }
+
     /// Mutable access to environment `env`'s rapier world that does **not** mark
     /// the rbd state dirty, for use after [`Self::finalize`].
     ///

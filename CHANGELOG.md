@@ -20,6 +20,12 @@
 - Python: `NexusState.set_rbd_solver_params(friction_in_bias_pass=...)`,
   `ColliderBuilder.friction_combine_rule`, and the `debug_contacts` /
   `debug_multibody_contact_impulses` GPU readbacks for contact diagnostics.
+- `GpuMultibodySet::read_dof_velocities` and `NexusState::multibody_joint_velocities` read the
+  generalized velocities of a batch (resp. of one multibody) back from the GPU, in the same
+  assembly order `read_dof_coords` and `multibody_joint_positions` use. Python: `robot_qvel`,
+  the joint-velocity counterpart of `robot_state`'s `qpos`.
+- Viewer: `SensorCamera::set_ambient_color` (Python: `set_sensor_camera_ambient_color`) tints a
+  sensor camera's ambient fill light, whose brightness `set_sensor_camera_ambient` already set.
 
 ### Fixed
 
