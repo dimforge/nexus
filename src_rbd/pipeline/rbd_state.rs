@@ -12,8 +12,7 @@ use crate::shaders::broad_phase::{CollisionPair, ContactPlan, LbvhNode, NarrowPh
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
     LocalMassProperties as GpuLocalMassProperties, RbdSimParams, TwoBodyConstraint,
-    TwoBodyConstraintBuilder, Velocity as GpuVelocity,
-    WorldMassProperties as GpuWorldMassProperties,
+    Velocity as GpuVelocity, WorldMassProperties as GpuWorldMassProperties,
 };
 use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::shapes::Shape;
@@ -303,11 +302,9 @@ pub struct RbdState {
     /// `[multibodies_batch_capacity, num_batches, 1]`.
     pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
     pub(super) new_constraints: Tensor<TwoBodyConstraint>,
-    pub(super) new_constraint_builders: Tensor<TwoBodyConstraintBuilder>,
     pub(super) new_constraints_counts: Tensor<u32>,
     pub(super) new_body_constraint_ids: Tensor<u32>,
     pub(super) old_constraints: Tensor<TwoBodyConstraint>,
-    pub(super) old_constraint_builders: Tensor<TwoBodyConstraintBuilder>,
     pub(super) old_constraints_counts: Tensor<u32>,
     pub(super) old_body_constraint_ids: Tensor<u32>,
     pub(super) constraints_colors: Tensor<u32>,

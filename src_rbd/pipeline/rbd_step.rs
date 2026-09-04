@@ -384,7 +384,6 @@ impl RbdPipeline {
                 stable_mb_contact_index: None,
                 contacts_len_indirect: &state.contacts_indirect,
                 constraints: &mut state.new_constraints,
-                constraint_builders: &mut state.new_constraint_builders,
                 sim_params: &state.sim_params,
                 body_poses: &mut state.body_poses,
                 solver_body_poses: &mut state.solver_body_poses,
@@ -452,11 +451,9 @@ impl RbdPipeline {
                 let warmstart_args = WarmstartArgs {
                     contact_plan: &state.contact_plan,
                     old_body_constraint_counts: &state.old_constraints_counts,
-                    old_constraint_builders: &state.old_constraint_builders,
                     old_body_constraint_ids: &state.old_body_constraint_ids,
                     old_constraints: &state.old_constraints,
                     new_constraints: &mut state.new_constraints,
-                    new_constraint_builders: &state.new_constraint_builders,
                     contacts_len_indirect: &state.contacts_indirect,
                 };
 
@@ -577,7 +574,6 @@ impl RbdPipeline {
                 .then_some(&mut state.determinism.stable_mb_contact_index),
             contacts_len_indirect: &state.contacts_indirect,
             constraints: &mut state.new_constraints,
-            constraint_builders: &mut state.new_constraint_builders,
             sim_params: &state.sim_params,
             body_poses: &mut state.body_poses,
             solver_body_poses: &mut state.solver_body_poses,
@@ -656,10 +652,6 @@ impl RbdPipeline {
 
         // Swap buffers for warm-starting next frame
         std::mem::swap(&mut state.old_constraints, &mut state.new_constraints);
-        std::mem::swap(
-            &mut state.old_constraint_builders,
-            &mut state.new_constraint_builders,
-        );
         std::mem::swap(
             &mut state.old_body_constraint_ids,
             &mut state.new_body_constraint_ids,
@@ -814,13 +806,9 @@ impl RbdPipeline {
                     state.mb_contact_index = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 }
                 state.old_constraints = Tensor::vector_uninit(backend, new_contacts, storage)?;
-                state.old_constraint_builders =
-                    Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.old_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
                 state.new_constraints = Tensor::vector_uninit(backend, new_contacts, storage)?;
-                state.new_constraint_builders =
-                    Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.new_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
                 state.constraints_colors = Tensor::vector_uninit(backend, new_contacts, storage)?;

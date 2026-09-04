@@ -13,7 +13,7 @@
 
 use crate::broad_phase::ContactPlan;
 use crate::utils::{BatchIndices, Slice, SliceMut};
-use crate::{AngVector, Vector, gdot};
+use crate::{AngVector, Vector};
 use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
@@ -21,7 +21,7 @@ use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::{atomic_add_u32, workgroup_memory_barrier_with_group_sync};
 
 use super::body::{Velocity, WorldMassProperties};
-use super::constraint::{SUB_LEN, TwoBodyConstraint};
+use super::constraint::TwoBodyConstraint;
 
 const WORKGROUP_SIZE: u32 = 64;
 
@@ -150,38 +150,30 @@ pub fn gpu_hub_split_constraints(
         let slot = s0 + (entry - first);
         let cid = body_constraint_ids.read(entry as usize);
         let constraint = constraints.at_mut(cid as usize);
-        let len = constraint.len as usize;
 
         if constraint.solver_body_a == body {
             constraint.vel_slot_a = base + slot;
             constraint.im_a *= n;
-            for k in 0..len {
-                let element = constraint.elements.at_mut(k);
-                element.normal_part.ii_torque_dir_a *= n;
-                for j in 0..SUB_LEN {
-                    element.tangent_part.ii_torque_dir_a.at_mut(j).0 *= n;
-                }
+            #[cfg(feature = "dim2")]
+            {
+                constraint.ii_a *= n;
             }
+            #[cfg(feature = "dim3")]
+            constraint.ii_a.scale(n);
         } else {
             constraint.vel_slot_b = base + slot;
             constraint.im_b *= n;
-            for k in 0..len {
-                let element = constraint.elements.at_mut(k);
-                element.normal_part.ii_torque_dir_b *= n;
-                for j in 0..SUB_LEN {
-                    element.tangent_part.ii_torque_dir_b.at_mut(j).0 *= n;
-                }
+            #[cfg(feature = "dim2")]
+            {
+                constraint.ii_b *= n;
             }
+            #[cfg(feature = "dim3")]
+            constraint.ii_b.scale(n);
         }
 
         hub_slot_body.write(slot as usize, body);
         hub_slot_constraint.write(slot as usize, cid);
     }
-}
-
-#[inline(always)]
-fn inv(x: f32) -> f32 {
-    if x == 0.0 { 0.0 } else { 1.0 / x }
 }
 
 /// Recomputes the effective masses of the constraints touching a split hub, and sizes the
@@ -211,45 +203,8 @@ pub fn gpu_hub_update_effective_masses(
 
     for i in StepRng::new(invocation_id.x..contact_plan.bound, num_threads) {
         let c = constraints.at_mut(i as usize);
-        if c.len == 0 || (c.vel_slot_a == c.solver_body_a && c.vel_slot_b == c.solver_body_b) {
-            continue;
-        }
-
-        let dir = c.dir_a;
-        let imsum = c.im_a + c.im_b;
-        #[cfg(feature = "dim3")]
-        let tangents = [c.tangent_a, dir.cross(c.tangent_a)];
-
-        for k in 0..(c.len as usize) {
-            let e = c.elements.at_mut(k);
-            let n = &mut e.normal_part;
-            n.r = inv(dir.dot(imsum * dir)
-                + gdot(n.ii_torque_dir_a, n.torque_dir_a)
-                + gdot(n.ii_torque_dir_b, n.torque_dir_b));
-
-            let t = &mut e.tangent_part;
-            #[cfg(feature = "dim2")]
-            {
-                let tangent = crate::Vector::new(-dir.y, dir.x);
-                let r = tangent.dot(imsum * tangent)
-                    + gdot(t.ii_torque_dir_a.at(0).0, t.torque_dir_a.at(0).0)
-                    + gdot(t.ii_torque_dir_b.at(0).0, t.torque_dir_b.at(0).0);
-                t.r.write(0, inv(r));
-            }
-            #[cfg(feature = "dim3")]
-            {
-                for j in 0..SUB_LEN {
-                    let tj = tangents.read(j);
-                    let r = tj.dot(imsum * tj)
-                        + gdot(t.ii_torque_dir_a.at(j).0, t.torque_dir_a.at(j).0)
-                        + gdot(t.ii_torque_dir_b.at(j).0, t.torque_dir_b.at(j).0);
-                    t.r.write(j, r);
-                }
-                let cross = 2.0
-                    * (t.torque_dir_a.at(0).0.dot(t.ii_torque_dir_a.at(1).0)
-                        + t.torque_dir_b.at(0).0.dot(t.ii_torque_dir_b.at(1).0));
-                t.r.write(2, cross);
-            }
+        if c.len != 0 && (c.vel_slot_a != c.solver_body_a || c.vel_slot_b != c.solver_body_b) {
+            c.compute_effective_masses();
         }
     }
 }

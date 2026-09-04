@@ -3,7 +3,6 @@
 use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
     GpuSeedColorsFromWarmstart, GpuTransferWarmstartImpulses, TwoBodyConstraint,
-    TwoBodyConstraintBuilder,
 };
 use khal::Shader;
 use khal::backend::{GpuBackendError, GpuPass};
@@ -34,12 +33,8 @@ pub struct WarmstartArgs<'a> {
     pub old_body_constraint_ids: &'a Tensor<u32>,
     /// Solver constraints from previous frame.
     pub old_constraints: &'a Tensor<TwoBodyConstraint>,
-    /// Constraint builders from previous frame.
-    pub old_constraint_builders: &'a Tensor<TwoBodyConstraintBuilder>,
     /// Solver constraints for current frame (to be warmstarted).
     pub new_constraints: &'a mut Tensor<TwoBodyConstraint>,
-    /// Constraint builders for current frame.
-    pub new_constraint_builders: &'a Tensor<TwoBodyConstraintBuilder>,
     /// Indirect dispatch arguments based on contact count.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
 }
@@ -79,9 +74,7 @@ impl GpuWarmstart {
             args.old_body_constraint_counts,
             args.old_body_constraint_ids,
             args.old_constraints,
-            args.old_constraint_builders,
             args.new_constraints,
-            args.new_constraint_builders,
             args.contact_plan,
         )
     }

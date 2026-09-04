@@ -14,7 +14,7 @@ use khal_std::{
 };
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
-use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
+use super::constraint::TwoBodyConstraint;
 use super::mass_splitting::{HUB_COUNT_HUBS, HUB_COUNT_SLOTS, NOT_A_HUB};
 use super::sim_params::{RbdSimParams, decode_bias_mode};
 use super::solver_utils::warmstart_body;
@@ -37,15 +37,12 @@ pub fn gpu_solver_init_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &[IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    constraint_builders: &mut [TwoBodyConstraintBuilder],
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_is_multibody: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_is_multibody: &[u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] collider_world_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] vels: &[Velocity],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] mprops: &[WorldMassProperties],
-    #[spirv(uniform, descriptor_set = 1, binding = 4)] params: &RbdSimParams,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
@@ -74,9 +71,7 @@ pub fn gpu_solver_init_constraints(
             &collider_world_poses,
             &solver_body_poses,
             &vels,
-            params,
             constraints.at_mut(i),
-            constraint_builders.at_mut(i),
         );
     }
 }
@@ -135,37 +130,23 @@ fn touches_multibody(im: &IndexedManifold, body_is_multibody: &Slice<'_, u32>) -
     body_is_multibody[im.bodies.x as usize] != 0 || body_is_multibody[im.bodies.y as usize] != 0
 }
 
-/// Updates constraints for a new substep.
+/// Scales the warmstart impulses by the warmstart coefficient (only dispatched when it
+/// isn't 1).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
-pub fn gpu_solver_update_constraints(
+pub fn gpu_solver_scale_impulses(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] contact_plan: &ContactPlan,
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] params: &RbdSimParams,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-
-    let total = contact_plan.bound;
     let mut constraints = SliceMut(constraints, 0);
-    let constraint_builders = Slice(constraint_builders, 0);
-    let solver_body_poses = Slice(solver_body_poses, 0);
 
-    for i in StepRng::new(invocation_id.x..total, num_threads) {
-        if constraints[i as usize].len == 0 {
-            // Gap / inert slot.
-            continue;
-        }
-        constraints[i as usize].update_constraint(
-            &constraint_builders[i as usize],
-            &solver_body_poses,
-            params,
-        );
+    for i in StepRng::new(invocation_id.x..contact_plan.bound, num_threads) {
+        constraints[i as usize].scale_impulses(params.warmstart_coefficient);
     }
 }
 
@@ -395,16 +376,13 @@ pub fn gpu_step_gauss_seidel(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] curr_color: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
-    constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 1, binding = 2)] params: &RbdSimParams,
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
+    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let nb = batch_ids.num_batches;
 
     let mut constraints = SliceMut(constraints, 0);
-    let constraint_builders = Slice(constraint_builders, 0);
     let solver_body_poses = Slice(solver_body_poses, 0);
     let color_sorted_ids = Slice(color_sorted_ids, 0);
     let mut solver_vels = SliceMut(solver_vels, 0);
@@ -424,7 +402,6 @@ pub fn gpu_step_gauss_seidel(
         let mut solver_vel2 = solver_vels[solver_id2];
 
         constraints[i as usize].solve_constraint_gauss_seidel(
-            &constraint_builders[i as usize],
             &solver_body_poses,
             params,
             &mut solver_vel1,
@@ -518,17 +495,14 @@ pub fn gpu_step_gauss_seidel_fused(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
-    constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 1, binding = 2)] params: &RbdSimParams,
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
+    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
 ) {
     let lane = invocation_id.x;
     let batch_id = invocation_id.y;
     let nb = batch_ids.num_batches;
 
     let mut constraints = SliceMut(constraints, 0);
-    let constraint_builders = Slice(constraint_builders, 0);
     let solver_body_poses = Slice(solver_body_poses, 0);
     let color_sorted_ids = Slice(color_sorted_ids, 0);
     let mut solver_vels = SliceMut(solver_vels, 0);
@@ -555,7 +529,6 @@ pub fn gpu_step_gauss_seidel_fused(
                 let mut solver_vel2 = solver_vels[solver_id2];
 
                 constraints[i as usize].solve_constraint_gauss_seidel(
-                    &constraint_builders[i as usize],
                     &solver_body_poses,
                     params,
                     &mut solver_vel1,

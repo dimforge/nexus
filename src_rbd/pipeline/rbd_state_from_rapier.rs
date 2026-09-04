@@ -723,11 +723,7 @@ impl RbdState {
         )
         .unwrap();
         let old_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let old_constraint_builders =
-            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let new_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let new_constraint_builders =
-            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_colors =
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_pending_colors =
@@ -878,10 +874,8 @@ impl RbdState {
             pfm_pairs_len,
             pfm_pairs_indirect,
             old_constraints,
-            old_constraint_builders,
             old_constraints_counts,
             new_constraints,
-            new_constraint_builders,
             new_constraints_counts,
             constraints_colors,
             old_constraints_colors,

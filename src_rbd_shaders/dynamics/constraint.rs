@@ -1,9 +1,16 @@
 //! Contact constraint data structures for the iterative solver.
+//!
+//! A [`TwoBodyConstraint`] is one contact manifold between two bodies. It is kept compact
+//! since every solver sweep streams it: each contact point only stores its lever arms,
+//! anchors, impulses and effective masses, and the constraint stores both bodies' inverse
+//! mass and (symmetric) world inverse inertia, from which the angular Jacobians are
+//! recomputed on the fly.
 
-use crate::{AngVector, Pad, Vector};
+use crate::{AngVector, Vector, gcross, gdot};
+use khal_std::index::MaybeIndexUnchecked;
 
 #[cfg(feature = "dim3")]
-use glamx::Vec2;
+use glamx::{Vec2, Vec3};
 
 #[cfg(feature = "dim2")]
 /// Number of tangent constraint directions (2D: one tangent perpendicular to normal).
@@ -21,245 +28,277 @@ pub const MAX_CONSTRAINTS_PER_MANIFOLD: usize = 2;
 /// Maximum number of contact points per contact manifold (3D: up to 4).
 pub const MAX_CONSTRAINTS_PER_MANIFOLD: usize = 4;
 
-/// Metadata for building a two-body constraint from a contact point.
-///
-/// This data is used to initialize and update constraints at each solver substep.
-#[derive(Clone, Copy, Default)]
-#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
-#[repr(C)]
-#[cfg(feature = "dim2")] // Same as dim3, but with a different fields ordering to limit padding.
-pub struct TwoBodyConstraintInfos {
-    /// Tangent velocity (for conveyor belt effects, currently unused).
-    pub tangent_vel: Vector, // TODO PERF: could be one float less, be shared by both contact point infos?
-
-    /// Contact point in body A's local coordinates (for warmstarting).
-    /// Stored in local space to detect matching contacts across frames.
-    pub local_pt_a: Vector,
-
-    /// Contact point in body B's local coordinates (for warmstarting).
-    pub local_pt_b: Vector,
-
-    /// Normal relative velocity at the contact point (for restitution).
-    pub normal_vel: f32,
-
-    /// Penetration depth (negative = penetration, positive = separation).
-    pub dist: f32,
-}
-
+/// A world-space inverse angular inertia tensor (symmetric).
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 #[cfg(feature = "dim3")]
-pub struct TwoBodyConstraintInfos {
-    /// Tangent velocity (for conveyor belt effects, currently unused).
-    pub tangent_vel: Vector, // TODO PERF: could be one float less, be shared by both contact point infos?
-
-    /// Normal relative velocity at the contact point (for restitution).
-    pub normal_vel: f32,
-
-    /// Contact point in body A's local coordinates (for warmstarting).
-    /// Stored in local space to detect matching contacts across frames.
-    pub local_pt_a: Vector,
+pub struct SymInertia {
+    /// The diagonal `(xx, yy, zz)`.
+    pub diag: Vec3,
     pub _padding0: u32,
-
-    /// Contact point in body B's local coordinates (for warmstarting).
-    pub local_pt_b: Vector,
-
-    /// Penetration depth (negative = penetration, positive = separation).
-    pub dist: f32,
+    /// The off-diagonal terms `(xy, xz, yz)`.
+    pub off: Vec3,
+    pub _padding1: u32,
 }
 
-/// Builder data for constructing constraints from contact manifolds.
-///
-/// Stores auxiliary information needed to update constraints at each solver substep.
-#[derive(Clone, Copy, Default)]
-#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
-#[repr(C, align(16))]
-pub struct TwoBodyConstraintBuilder {
-    /// Information for each contact point in the manifold.
-    pub infos: [TwoBodyConstraintInfos; MAX_CONSTRAINTS_PER_MANIFOLD],
+#[cfg(feature = "dim3")]
+impl SymInertia {
+    /// The symmetric part of `m`'s upper-left 3x3 block.
+    #[inline(always)]
+    pub fn from_mat4(m: glamx::Mat4) -> Self {
+        Self {
+            diag: Vec3::new(m.x_axis.x, m.y_axis.y, m.z_axis.z),
+            _padding0: 0,
+            off: Vec3::new(m.y_axis.x, m.z_axis.x, m.z_axis.y),
+            _padding1: 0,
+        }
+    }
+
+    /// Multiplies `v` by this tensor.
+    #[inline(always)]
+    pub fn mul(&self, v: Vec3) -> Vec3 {
+        let d = self.diag;
+        let o = self.off;
+        Vec3::new(
+            d.x * v.x + o.x * v.y + o.y * v.z,
+            o.x * v.x + d.y * v.y + o.z * v.z,
+            o.y * v.x + o.z * v.y + d.z * v.z,
+        )
+    }
+
+    /// Scales every term of this tensor.
+    #[inline(always)]
+    pub fn scale(&mut self, s: f32) {
+        self.diag *= s;
+        self.off *= s;
+    }
 }
 
-/// A contact constraint between two rigid bodies.
-///
-/// Encodes all the data needed to solve a contact constraint, including:
-/// - Constraint directions (normal and tangent).
-/// - Effective masses and inverse masses.
-/// - Solver coefficients (CFM factor, friction limit).
-/// - Per-contact-point constraint elements.
-// PERF: differentiate two-bodies and one-body constraints?
+/// A contact manifold between two rigid bodies, as the solver sees it.
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
+#[cfg(feature = "dim3")]
 pub struct TwoBodyConstraint {
-    /// Contact normal direction from body A's perspective (points away from A).
-    /// Normal impulses are applied along this direction to prevent penetration.
-    pub dir_a: Vector, // Non-penetration force direction for the first body.
-    /// Collider A of the source manifold (3D; stored in the `dir_a` padding lane).
-    #[cfg(feature = "dim3")]
-    pub warmstart_collider_a: u32,
-
-    #[cfg(feature = "dim3")]
-    /// First tangent direction (3D only, orthogonal to normal).
-    /// Used for friction in the contact plane.
-    pub tangent_a: Vector, // One of the friction force directions.
-    /// Collider B of the source manifold (3D; stored in the `tangent_a` padding lane).
-    #[cfg(feature = "dim3")]
-    pub warmstart_collider_b: u32,
-
+    /// Contact normal from body A's perspective (points away from A).
+    pub dir_a: Vector,
+    /// Number of active contact points in this manifold.
+    pub len: u32,
+    /// First friction direction (orthogonal to the normal); the second is `dir_a × tangent_a`.
+    pub tangent_a: Vector,
+    /// Friction coefficient.
+    pub limit: f32,
     /// Inverse mass of body A along each axis.
-    /// Used to compute linear velocity changes from impulses.
     pub im_a: Vector,
-    /// [`IndexedManifold::subshape`] of the source manifold (3D; `im_a` padding lane).
-    ///
-    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
-    #[cfg(feature = "dim3")]
-    pub warmstart_subshape: u32,
-
+    /// Index of body A (poses, mass properties).
+    pub solver_body_a: u32,
     /// Inverse mass of body B along each axis.
     pub im_b: Vector,
-    #[cfg(feature = "dim3")]
-    pub _padding3: f32,
-
-    /// Constraint Force Mixing (CFM) factor for regularization.
-    /// Softens the constraint: new_impulse = cfm_factor * (old_impulse - ...)
-    pub cfm_factor: f32,
-
-    /// Friction coefficient (μ in Coulomb friction model).
-    /// Friction impulse magnitude limited to: |f_tangent| <= limit * f_normal
-    pub limit: f32,
-
-    /// Index of body A in the solver arrays.
-    pub solver_body_a: u32,
-
-    /// Index of body B in the solver arrays.
+    /// Index of body B.
     pub solver_body_b: u32,
-
-    /// Per-contact-point constraint data (up to MAX_CONSTRAINTS_PER_MANIFOLD).
-    pub elements: [TwoBodyConstraintElement; MAX_CONSTRAINTS_PER_MANIFOLD],
-
-    /// Number of active contact points in this manifold (1-4 in 3D, 1-2 in 2D).
-    pub len: u32,
-    /// Collider A of the source manifold (2D; appended, no spare padding lane).
-    #[cfg(feature = "dim2")]
-    pub warmstart_collider_a: u32,
-    /// Collider B of the source manifold (2D).
-    #[cfg(feature = "dim2")]
-    pub warmstart_collider_b: u32,
-    /// [`IndexedManifold::subshape`] of the source manifold (2D).
-    ///
-    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
-    #[cfg(feature = "dim2")]
-    pub warmstart_subshape: u32,
+    /// World-space inverse inertia of body A.
+    pub ii_a: SymInertia,
+    /// World-space inverse inertia of body B.
+    pub ii_b: SymInertia,
     /// Index of body A's velocity in the solver velocity buffer: `solver_body_a`, or one of
     /// the sub-body slots when body A is split (see `mass_splitting`).
     pub vel_slot_a: u32,
     /// Index of body B's velocity in the solver velocity buffer.
     pub vel_slot_b: u32,
-    #[cfg(feature = "dim3")]
-    pub _padding: u32,
+    /// Collider A of the source manifold, which identifies it across steps with
+    /// `warmstart_collider_b` and `warmstart_subshape` (for the warmstart and color seeding).
+    pub warmstart_collider_a: u32,
+    /// Collider B of the source manifold.
+    pub warmstart_collider_b: u32,
+    /// [`IndexedManifold::subshape`] of the source manifold.
+    ///
+    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
+    pub warmstart_subshape: u32,
+    pub _padding: [u32; 3],
+    /// The contact points (the first `len` are active).
+    pub points: [ContactPoint; MAX_CONSTRAINTS_PER_MANIFOLD],
 }
 
-/// Constraint data for a single contact point.
+/// A contact manifold between two rigid bodies, as the solver sees it.
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
-pub struct TwoBodyConstraintElement {
-    /// Normal constraint: prevents penetration.
-    pub normal_part: TwoBodyConstraintNormalPart,
-
-    /// Tangent constraint(s): models friction.
-    pub tangent_part: TwoBodyConstraintTangentPart,
+#[cfg(feature = "dim2")]
+pub struct TwoBodyConstraint {
+    /// Contact normal from body A's perspective (points away from A).
+    pub dir_a: Vector,
+    /// Number of active contact points in this manifold.
+    pub len: u32,
+    /// Friction coefficient.
+    pub limit: f32,
+    /// Inverse mass of body A along each axis.
+    pub im_a: Vector,
+    /// Inverse mass of body B along each axis.
+    pub im_b: Vector,
+    /// World-space inverse inertia of body A.
+    pub ii_a: f32,
+    /// World-space inverse inertia of body B.
+    pub ii_b: f32,
+    /// Index of body A (poses, mass properties).
+    pub solver_body_a: u32,
+    /// Index of body B.
+    pub solver_body_b: u32,
+    /// Index of body A's velocity in the solver velocity buffer: `solver_body_a`, or one of
+    /// the sub-body slots when body A is split (see `mass_splitting`).
+    pub vel_slot_a: u32,
+    /// Index of body B's velocity in the solver velocity buffer.
+    pub vel_slot_b: u32,
+    /// Collider A of the source manifold, which identifies it across steps with
+    /// `warmstart_collider_b` and `warmstart_subshape` (for the warmstart and color seeding).
+    pub warmstart_collider_a: u32,
+    /// Collider B of the source manifold.
+    pub warmstart_collider_b: u32,
+    /// [`IndexedManifold::subshape`] of the source manifold.
+    ///
+    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
+    pub warmstart_subshape: u32,
+    pub _padding: [u32; 3],
+    /// The contact points (the first `len` are active).
+    pub points: [ContactPoint; MAX_CONSTRAINTS_PER_MANIFOLD],
 }
 
-/// Normal constraint data (non-penetration).
-///
-/// Implements the constraint: C >= 0 (bodies cannot interpenetrate)
-/// Solved as a unilateral constraint (impulse >= 0).
+/// One contact point of a [`TwoBodyConstraint`].
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
-pub struct TwoBodyConstraintNormalPart {
-    /// Angular contribution for body A: r_a × normal
-    /// (In 2D: scalar cross product, in 3D: vector cross product)
-    pub torque_dir_a: AngVector,
-    #[cfg(feature = "dim3")]
-    pub _padding0: f32,
-    /// `torque_dir_a` multiplied by the inverse angular inertia tensor.
-    pub ii_torque_dir_a: AngVector,
-    #[cfg(feature = "dim3")]
-    pub _padding1: f32,
-
-    /// Angular contribution for body B: r_b × normal
-    pub torque_dir_b: AngVector,
-    #[cfg(feature = "dim3")]
-    pub _padding2: f32,
-    /// `torque_dir_b` multiplied by the inverse angular inertia tensor.
-    pub ii_torque_dir_b: AngVector,
-
-    /// Right-hand side: target relative velocity (includes bias for correction).
-    /// rhs = desired_velocity + bias_velocity
-    pub rhs: f32,
-
-    /// Right-hand side without bias term (used in substep iterations).
-    /// rhs_wo_bias = desired_velocity (without position correction)
-    pub rhs_wo_bias: f32,
-
-    /// Current impulse magnitude for this iteration.
-    /// Updated during solving, used for warmstarting next frame.
-    pub impulse: f32,
-
-    /// Inverse effective mass: 1 / (m_eff)
-    /// where m_eff = projected mass along constraint direction
-    pub r: f32,
-
-    /// Per-point softness: separated (speculative, `dist > 0`) points are solved
-    /// rigidly (`cfm_factor = 1`): perfectly inelastic touchdowns damp stack
-    /// rocking; a constraint-wide cfm under-stops each touchdown and pumps tall
-    /// stacks. Refreshed by `update_constraint` each substep.
-    pub cfm_factor: f32,
+#[cfg(feature = "dim3")]
+pub struct ContactPoint {
+    /// The contact point relative to body A's center of mass, in world space (frozen at the
+    /// start of the step, like the Jacobians).
+    pub r_a: Vector,
+    /// Accumulated normal impulse.
+    pub normal_impulse: f32,
+    /// The contact point relative to body B's center of mass, in world space.
+    pub r_b: Vector,
+    /// Inverse of the effective mass along the normal.
+    pub normal_mass: f32,
+    /// The contact point in body A's (center-of-mass) frame, to track its current position.
+    pub local_pt_a: Vector,
+    /// Signed distance at the start of the step (negative = penetration).
+    pub dist: f32,
+    /// The contact point in body B's frame.
+    pub local_pt_b: Vector,
+    /// Target normal relative velocity (restitution).
+    pub normal_vel: f32,
+    /// Accumulated friction impulses (along `tangent_a` and `dir_a × tangent_a`).
+    pub tangent_impulse: Vec2,
+    /// Effective mass of the friction directions: `[k00, k11, 2 k01]` (not inverted).
+    pub tangent_k: [f32; 3],
+    pub _padding: [u32; 3],
 }
 
-/// Tangent constraint data (friction).
-///
-/// Implements Coulomb friction: |f_tangent| <= μ * f_normal
-/// Solved as a bilateral constraint with limits.
+/// One contact point of a [`TwoBodyConstraint`].
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
-pub struct TwoBodyConstraintTangentPart {
-    /// Angular contributions for body A (one per tangent direction).
-    pub torque_dir_a: [Pad<AngVector, u32>; SUB_LEN],
-    /// `torque_dir_a` multiplied by the inverse angular inertia tensor.
-    pub ii_torque_dir_a: [Pad<AngVector, u32>; SUB_LEN],
+#[cfg(feature = "dim2")]
+pub struct ContactPoint {
+    /// The contact point relative to body A's center of mass, in world space.
+    pub r_a: Vector,
+    /// The contact point relative to body B's center of mass, in world space.
+    pub r_b: Vector,
+    /// The contact point in body A's (center-of-mass) frame.
+    pub local_pt_a: Vector,
+    /// The contact point in body B's frame.
+    pub local_pt_b: Vector,
+    /// Accumulated normal impulse.
+    pub normal_impulse: f32,
+    /// Inverse of the effective mass along the normal.
+    pub normal_mass: f32,
+    /// Signed distance at the start of the step (negative = penetration).
+    pub dist: f32,
+    /// Target normal relative velocity (restitution).
+    pub normal_vel: f32,
+    /// Accumulated friction impulse.
+    pub tangent_impulse: [f32; 1],
+    /// Inverse of the effective mass along the tangent.
+    pub tangent_mass: f32,
+    pub _padding: [u32; 2],
+}
 
-    /// Angular contributions for body B (one per tangent direction).
-    pub torque_dir_b: [Pad<AngVector, u32>; SUB_LEN],
-    /// `torque_dir_b` multiplied by the inverse angular inertia tensor.
-    pub ii_torque_dir_b: [Pad<AngVector, u32>; SUB_LEN],
+#[inline(always)]
+fn inv(x: f32) -> f32 {
+    if x == 0.0 { 0.0 } else { 1.0 / x }
+}
 
-    /// Right-hand sides (one per tangent direction).
-    pub rhs: [f32; SUB_LEN],
+impl TwoBodyConstraint {
+    /// Body A's inverse inertia times `v`.
+    #[inline(always)]
+    pub fn ii_a_mul(&self, v: AngVector) -> AngVector {
+        #[cfg(feature = "dim2")]
+        return self.ii_a * v;
+        #[cfg(feature = "dim3")]
+        return self.ii_a.mul(v);
+    }
 
-    /// Right-hand sides without bias (one per tangent direction).
-    pub rhs_wo_bias: [f32; SUB_LEN],
+    /// Body B's inverse inertia times `v`.
+    #[inline(always)]
+    pub fn ii_b_mul(&self, v: AngVector) -> AngVector {
+        #[cfg(feature = "dim2")]
+        return self.ii_b * v;
+        #[cfg(feature = "dim3")]
+        return self.ii_b.mul(v);
+    }
 
-    #[cfg(feature = "dim2")]
-    /// Current tangent impulse (2D: single scalar for one tangent direction).
-    pub impulse: [f32; 1],
+    /// The friction directions.
+    #[inline(always)]
+    pub fn tangents(&self) -> [Vector; SUB_LEN] {
+        #[cfg(feature = "dim2")]
+        return [Vector::new(-self.dir_a.y, self.dir_a.x)];
+        #[cfg(feature = "dim3")]
+        return [self.tangent_a, self.dir_a.cross(self.tangent_a)];
+    }
 
-    #[cfg(feature = "dim2")]
-    /// Inverse effective mass (2D: single value).
-    pub r: [f32; 1],
+    /// Computes the effective masses of every contact point from the lever arms, inverse
+    /// masses and inertias.
+    #[inline(always)]
+    pub fn compute_effective_masses(&mut self) {
+        let dir = self.dir_a;
+        let imsum = self.im_a + self.im_b;
+        let tangents = self.tangents();
 
-    #[cfg(feature = "dim3")]
-    /// Current tangent impulses (3D: vec2 for two tangent directions).
-    pub impulse: Vec2,
+        for k in 0..self.len as usize {
+            let r_a = self.points.at(k).r_a;
+            let r_b = self.points.at(k).r_b;
 
-    #[cfg(feature = "dim3")]
-    /// Inverse effective mass components (3D: 3 values for 2x2 mass matrix).
-    /// `r[0]` = r_00, `r[1]` = r_11, `r[2]` = r_01 (symmetric, so r_10 = r_01)
-    pub r: [f32; 3],
-    #[cfg(feature = "dim3")]
-    pub _padding0: [u32; 3],
+            let ta = gcross(r_a, dir);
+            let tb = gcross(r_b, -dir);
+            let k_n =
+                dir.dot(imsum * dir) + gdot(self.ii_a_mul(ta), ta) + gdot(self.ii_b_mul(tb), tb);
+            self.points.at_mut(k).normal_mass = inv(k_n);
+
+            #[cfg(feature = "dim2")]
+            {
+                let t = tangents.read(0);
+                let ta = gcross(r_a, t);
+                let tb = gcross(r_b, -t);
+                let k_t =
+                    t.dot(imsum * t) + gdot(self.ii_a_mul(ta), ta) + gdot(self.ii_b_mul(tb), tb);
+                self.points.at_mut(k).tangent_mass = inv(k_t);
+            }
+
+            #[cfg(feature = "dim3")]
+            {
+                let t0 = tangents.read(0);
+                let t1 = tangents.read(1);
+                let ta0 = gcross(r_a, t0);
+                let tb0 = gcross(r_b, -t0);
+                let ta1 = gcross(r_a, t1);
+                let tb1 = gcross(r_b, -t1);
+                let iia1 = self.ii_a_mul(ta1);
+                let iib1 = self.ii_b_mul(tb1);
+                let k00 =
+                    t0.dot(imsum * t0) + self.ii_a_mul(ta0).dot(ta0) + self.ii_b_mul(tb0).dot(tb0);
+                let k11 = t1.dot(imsum * t1) + iia1.dot(ta1) + iib1.dot(tb1);
+                let k01 = 2.0 * (ta0.dot(iia1) + tb0.dot(iib1));
+                self.points.at_mut(k).tangent_k = [k00, k11, k01];
+            }
+        }
+    }
 }

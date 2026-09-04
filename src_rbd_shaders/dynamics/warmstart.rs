@@ -7,7 +7,7 @@ use crate::broad_phase::ContactPlan;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 
-use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
+use super::constraint::TwoBodyConstraint;
 use crate::utils::{Slice, SliceMut};
 use khal_std::index::MaybeIndexUnchecked;
 
@@ -21,20 +21,14 @@ pub fn gpu_transfer_warmstart_impulses(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     old_constraints: &[TwoBodyConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
-    old_constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     new_constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
-    new_constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] contact_plan: &ContactPlan,
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] contact_plan: &ContactPlan,
 ) {
     let total = contact_plan.bound;
     let old_body_constraint_counts = Slice(old_body_constraint_counts, 0);
     let old_body_constraint_ids = Slice(old_body_constraint_ids, 0);
     let old_constraints = Slice(old_constraints, 0);
-    let old_constraint_builders = Slice(old_constraint_builders, 0);
     let mut new_constraints = SliceMut(new_constraints, 0);
-    let new_constraint_builders = Slice(new_constraint_builders, 0);
 
     let cid_new = invocation_id.x;
 
@@ -48,9 +42,7 @@ pub fn gpu_transfer_warmstart_impulses(
             &old_body_constraint_counts,
             &old_body_constraint_ids,
             &old_constraints,
-            &old_constraint_builders,
             &mut new_constraints,
-            &new_constraint_builders,
         );
     }
 }
@@ -156,9 +148,7 @@ pub fn transfer_warmstart_impulses(
     old_body_constraint_counts: &Slice<u32>,
     old_body_constraint_ids: &Slice<u32>,
     old_constraints: &Slice<TwoBodyConstraint>,
-    old_constraint_builders: &Slice<TwoBodyConstraintBuilder>,
     new_constraints: &mut SliceMut<TwoBodyConstraint>,
-    new_constraint_builders: &Slice<TwoBodyConstraintBuilder>,
 ) {
     let i = cid_new as usize;
 
@@ -226,16 +216,15 @@ pub fn transfer_warmstart_impulses(
             // within 10cm of each other, so taking the first candidate would hand
             // every point the same (first) impulse.
             for k_new in 0..(new_constraints[i].len as usize) {
-                let pt_new_a = new_constraint_builders[i].infos.at(k_new).local_pt_a;
-                let pt_new_b = new_constraint_builders[i].infos.at(k_new).local_pt_b;
+                let pt_new_a = new_constraints[i].points.at(k_new).local_pt_a;
+                let pt_new_b = new_constraints[i].points.at(k_new).local_pt_b;
 
                 let mut best_k_old = usize::MAX;
                 let mut best_sq = sq_threshold;
                 for k_old in 0..(old_constraints[cid_old].len as usize) {
-                    let pt_old_a = old_constraint_builders[cid_old].infos.at(k_old).local_pt_a;
-                    let pt_old_b = old_constraint_builders[cid_old].infos.at(k_old).local_pt_b;
-                    let dpt_a = pt_old_a - pt_new_a;
-                    let dpt_b = pt_old_b - pt_new_b;
+                    let old_point = old_constraints[cid_old].points.at(k_old);
+                    let dpt_a = old_point.local_pt_a - pt_new_a;
+                    let dpt_b = old_point.local_pt_b - pt_new_b;
                     let sq = dpt_a.dot(dpt_a).max(dpt_b.dot(dpt_b));
                     if sq < best_sq {
                         best_sq = sq;
@@ -249,29 +238,16 @@ pub fn transfer_warmstart_impulses(
                         // Contact point match found! Transfer the accumulated impulse.
                         // The impulse field contains the last substep's impulse, which serves
                         // as the warmstart value for this frame.
-                        new_constraints[i]
-                            .elements
-                            .at_mut(k_new)
-                            .normal_part
-                            .impulse = old_constraints[cid_old]
-                            .elements
-                            .at(k_old)
-                            .normal_part
-                            .impulse;
+                        let old_point = old_constraints[cid_old].points.at(k_old);
+                        new_constraints[i].points.at_mut(k_new).normal_impulse =
+                            old_point.normal_impulse;
 
                         // 2D: the tangent is derived deterministically from the
                         // normal, so the scalar component carries over as-is.
                         #[cfg(feature = "dim2")]
                         {
-                            new_constraints[i]
-                                .elements
-                                .at_mut(k_new)
-                                .tangent_part
-                                .impulse = old_constraints[cid_old]
-                                .elements
-                                .at(k_old)
-                                .tangent_part
-                                .impulse;
+                            new_constraints[i].points.at_mut(k_new).tangent_impulse =
+                                old_point.tangent_impulse;
                         }
 
                         // 3D: reproject the friction impulse through world space
@@ -281,16 +257,12 @@ pub fn transfer_warmstart_impulses(
                             let old_c = &old_constraints[cid_old];
                             let old_t0 = old_c.tangent_a;
                             let old_t1 = old_c.dir_a.cross(old_t0);
-                            let old_impulse = old_c.elements.at(k_old).tangent_part.impulse;
+                            let old_impulse = old_point.tangent_impulse;
                             let world = old_t0 * old_impulse.x + old_t1 * old_impulse.y;
 
                             let new_t0 = new_constraints[i].tangent_a;
                             let new_t1 = new_constraints[i].dir_a.cross(new_t0);
-                            new_constraints[i]
-                                .elements
-                                .at_mut(k_new)
-                                .tangent_part
-                                .impulse =
+                            new_constraints[i].points.at_mut(k_new).tangent_impulse =
                                 khal_std::glamx::Vec2::new(world.dot(new_t0), world.dot(new_t1));
                         }
                     }

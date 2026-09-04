@@ -17,10 +17,9 @@ use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize, GpuSolverInitConstraints,
-    GpuSolverSortConstraints, GpuSolverUpdateConstraints, GpuStepGaussSeidel,
-    GpuStepGaussSeidelFused, GpuWarmstart, GpuWarmstartFused, GpuWarmstartWithoutColors,
-    LocalMassProperties, RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity,
-    WorldMassProperties,
+    GpuSolverScaleImpulses, GpuSolverSortConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused,
+    GpuWarmstart, GpuWarmstartFused, GpuWarmstartWithoutColors, LocalMassProperties, RbdSimParams,
+    TwoBodyConstraint, Velocity, WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -36,8 +35,8 @@ pub struct GpuSolver {
     /// Companion counting pass to `init_constraints` (split out to keep each
     /// pass within the 8-storage-buffer WebGPU limit).
     count_constraints: GpuSolverCountConstraints,
-    /// Updates nonlinear constraint terms during substeps.
-    update_constraints: GpuSolverUpdateConstraints,
+    /// Scales the warmstart impulses (warmstart coefficients other than 1).
+    scale_impulses: GpuSolverScaleImpulses,
     /// Clears solver velocities and constraint counts.
     cleanup: GpuSolverCleanup,
     /// Applies warmstart impulses from previous frame.
@@ -92,8 +91,6 @@ pub struct SolverArgs<'a> {
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Solver constraints (output from constraint initialization).
     pub constraints: &'a mut Tensor<TwoBodyConstraint>,
-    /// Builder data for initializing constraints.
-    pub constraint_builders: &'a mut Tensor<TwoBodyConstraintBuilder>,
     /// Global simulation parameters.
     pub sim_params: &'a Tensor<RbdSimParams>,
     /// Rigid body world-origin poses. Mirrors rapier's `RigidBody::position`.
@@ -227,14 +224,12 @@ impl GpuSolver {
             args.contacts_len_indirect,
             args.contacts,
             args.constraints,
-            args.constraint_builders,
             args.contact_plan,
             args.body_is_multibody,
             args.collider_world_poses,
             args.solver_body_poses,
             args.vels,
             args.mprops,
-            args.sim_params,
         )?;
 
         // Counting runs as a separate dispatch (same indirect grid) so the
@@ -457,13 +452,11 @@ impl GpuSolver {
                 // The sweeps compute the normal right-hand sides themselves: this pass is
                 // only needed to scale the warmstart impulses.
                 if !skip_rb && args.scale_warmstart_impulses {
-                    self.update_constraints.call(
+                    self.scale_impulses.call(
                         pass,
                         args.contacts_len_indirect,
                         args.constraints,
-                        args.constraint_builders,
                         args.contact_plan,
-                        args.solver_body_poses,
                         args.sim_params,
                     )?;
                 }
@@ -579,7 +572,6 @@ impl GpuSolver {
                             args.batch_indices,
                             // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
                             &args.color_uniforms[bias_mode],
-                            args.constraint_builders,
                             args.solver_body_poses,
                             args.sim_params,
                         )?;
@@ -596,7 +588,6 @@ impl GpuSolver {
                                 args.batch_indices,
                                 // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
                                 &args.color_uniforms[bias_mode],
-                                args.constraint_builders,
                                 args.solver_body_poses,
                                 args.sim_params,
                             )?;
@@ -661,7 +652,6 @@ impl GpuSolver {
                         args.batch_indices,
                         // use_bias = 0 (the `color_uniform[0]` contains the value 0)
                         &args.color_uniforms[0],
-                        args.constraint_builders,
                         args.solver_body_poses,
                         args.sim_params,
                     )?;
@@ -678,7 +668,6 @@ impl GpuSolver {
                             args.batch_indices,
                             // use_bias = 0 (the `color_uniform[0]` contains the value 0)
                             &args.color_uniforms[0],
-                            args.constraint_builders,
                             args.solver_body_poses,
                             args.sim_params,
                         )?;
