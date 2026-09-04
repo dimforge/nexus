@@ -382,33 +382,6 @@ impl TwoBodyConstraint {
 
         self.cfm_factor = cfm_factor;
     }
-
-    /// Relax-pass refresh: recompute the unbiased normal rhs (speculative term
-    /// included) from the current solver poses.
-    #[inline(always)]
-    pub fn refresh_rhs_wo_bias(
-        &mut self,
-        builder: &TwoBodyConstraintBuilder,
-        poses: &Slice<Pose>,
-        params: &RbdSimParams,
-    ) {
-        let body1 = self.solver_body_a as usize;
-        let body2 = self.solver_body_b as usize;
-        let inv_dt_val = params.inv_dt();
-
-        let pose1 = poses[body1];
-        let pose2 = poses[body2];
-        let num_contacts = self.len as usize;
-
-        for j in 0..num_contacts {
-            let info = builder.infos.at(j);
-            let p1 = pose1 * info.local_pt_a;
-            let p2 = pose2 * info.local_pt_b;
-            let dist = info.dist + (p1 - p2).dot(self.dir_a);
-            self.elements.at_mut(j).normal_part.rhs_wo_bias =
-                info.normal_vel + dist.max(0.0) * inv_dt_val;
-        }
-    }
 }
 
 /// Applies warmstart impulses to a single body (gather-style, no graph coloring required).
@@ -544,9 +517,16 @@ impl TwoBodyConstraint {
     /// Main constraint solver iteration (Projected Gauss-Seidel). `solve_friction`
     /// gates the tangent rows: the stabilization sweep always solves them, the
     /// biased pass only when `RbdSimParams::friction_in_bias_pass` is set.
+    ///
+    /// The normal right-hand sides are computed here from the current solver poses (rather
+    /// than stored by a separate pass): with bias for the biased sweep, without for the
+    /// relaxation sweep, which runs after the positions are integrated.
     #[inline(always)]
     pub fn solve_constraint_gauss_seidel(
         &mut self,
+        builder: &TwoBodyConstraintBuilder,
+        poses: &Slice<Pose>,
+        params: &RbdSimParams,
         solver_vel1: &mut Velocity,
         solver_vel2: &mut Velocity,
         use_bias: bool,
@@ -557,17 +537,40 @@ impl TwoBodyConstraint {
         let im_a = self.im_a;
         let im_b = self.im_b;
 
+        let is_static = im_a == Vector::ZERO || im_b == Vector::ZERO;
+        let (cfm_factor, erp_inv_dt) = if is_static {
+            (
+                params.static_contact_cfm_factor(),
+                params.static_contact_erp_inv_dt(),
+            )
+        } else {
+            (params.contact_cfm_factor(), params.contact_erp_inv_dt())
+        };
+        let inv_dt = params.inv_dt();
+        let max_corr_velocity = params.max_corrective_velocity();
+        let pose1 = poses[self.solver_body_a as usize];
+        let pose2 = poses[self.solver_body_b as usize];
+
         // Solve the normal parts of the constraint.
         for k in 0..(self.len as usize) {
+            let info = builder.infos.at(k);
+            let p1 = pose1 * info.local_pt_a;
+            let p2 = pose2 * info.local_pt_b;
+            let dist = info.dist + (p1 - p2).dot(dir_a);
+            let rhs_wo_bias = info.normal_vel + dist.max(0.0) * inv_dt;
+            let (rhs, cfm_factor) = if use_bias {
+                let rhs_bias = (dist * erp_inv_dt).clamp(-max_corr_velocity, 0.0);
+                // Separated (speculative) points are solved rigidly.
+                let cfm = if dist <= 0.0 { cfm_factor } else { 1.0 };
+                (rhs_wo_bias + rhs_bias, cfm)
+            } else {
+                (rhs_wo_bias, 1.0)
+            };
+
             let c = &self.elements.at(k).normal_part;
             // Copy values we need after the assignment
             let ii_torque_dir_a = c.ii_torque_dir_a;
             let ii_torque_dir_b = c.ii_torque_dir_b;
-            let (rhs, cfm_factor) = if use_bias {
-                (c.rhs, c.cfm_factor)
-            } else {
-                (c.rhs_wo_bias, 1.0)
-            };
             let dvel = dir_a.dot(solver_vel1.linear) + gdot(c.torque_dir_a, solver_vel1.angular)
                 - dir_a.dot(solver_vel2.linear)
                 + gdot(c.torque_dir_b, solver_vel2.angular)

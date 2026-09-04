@@ -418,6 +418,7 @@ impl RbdPipeline {
                 gravity: &state.gravity,
                 hubs: &mut state.hubs,
                 mass_splitting: &self.mass_splitting,
+                scale_warmstart_impulses: state.sim_params_cpu.warmstart_coefficient != 1.0,
             };
             self.solver.prepare(
                 backend,
@@ -615,6 +616,7 @@ impl RbdPipeline {
             gravity: &state.gravity,
             hubs: &mut state.hubs,
             mass_splitting: &self.mass_splitting,
+            scale_warmstart_impulses: state.sim_params_cpu.warmstart_coefficient != 1.0,
         };
 
         // Phase 3: Solve constraints

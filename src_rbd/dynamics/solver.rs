@@ -17,10 +17,10 @@ use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
     GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
     GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize, GpuSolverInitConstraints,
-    GpuSolverRefreshRhsWoBias, GpuSolverSortConstraints, GpuSolverUpdateConstraints,
-    GpuStepGaussSeidel, GpuStepGaussSeidelFused, GpuWarmstart, GpuWarmstartFused,
-    GpuWarmstartWithoutColors, LocalMassProperties, RbdSimParams, TwoBodyConstraint,
-    TwoBodyConstraintBuilder, Velocity, WorldMassProperties,
+    GpuSolverSortConstraints, GpuSolverUpdateConstraints, GpuStepGaussSeidel,
+    GpuStepGaussSeidelFused, GpuWarmstart, GpuWarmstartFused, GpuWarmstartWithoutColors,
+    LocalMassProperties, RbdSimParams, TwoBodyConstraint, TwoBodyConstraintBuilder, Velocity,
+    WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -38,9 +38,6 @@ pub struct GpuSolver {
     count_constraints: GpuSolverCountConstraints,
     /// Updates nonlinear constraint terms during substeps.
     update_constraints: GpuSolverUpdateConstraints,
-    /// Refreshes the unbiased normal rhs from the post-integration poses,
-    /// between the position integration and the no-bias sweeps of each substep.
-    refresh_rhs_wo_bias: GpuSolverRefreshRhsWoBias,
     /// Clears solver velocities and constraint counts.
     cleanup: GpuSolverCleanup,
     /// Applies warmstart impulses from previous frame.
@@ -178,6 +175,8 @@ pub struct SolverArgs<'a> {
     pub hubs: &'a mut HubState,
     /// Mass-splitting kernels.
     pub mass_splitting: &'a GpuMassSplitting,
+    /// Whether the warmstart impulses are scaled (a warmstart coefficient other than 1).
+    pub scale_warmstart_impulses: bool,
     /// GPU-written workgroup grid for the per-multibody contact-constraint
     /// dispatches (zero workgroups on contact-free steps).
     pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
@@ -455,7 +454,9 @@ impl GpuSolver {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-build-warmstart", timestamps.as_deref_mut());
                 let pass = &mut pass;
-                if !skip_rb {
+                // The sweeps compute the normal right-hand sides themselves: this pass is
+                // only needed to scale the warmstart impulses.
+                if !skip_rb && args.scale_warmstart_impulses {
                     self.update_constraints.call(
                         pass,
                         args.contacts_len_indirect,
@@ -578,6 +579,9 @@ impl GpuSolver {
                             args.batch_indices,
                             // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
                             &args.color_uniforms[bias_mode],
+                            args.constraint_builders,
+                            args.solver_body_poses,
+                            args.sim_params,
                         )?;
                     } else {
                         for c in 1..=args.num_colors {
@@ -592,6 +596,9 @@ impl GpuSolver {
                                 args.batch_indices,
                                 // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
                                 &args.color_uniforms[bias_mode],
+                                args.constraint_builders,
+                                args.solver_body_poses,
+                                args.sim_params,
                             )?;
                         }
                     }
@@ -635,17 +642,6 @@ impl GpuSolver {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-solve-nobias", timestamps.as_deref_mut());
                 let pass = &mut pass;
-                if !skip_rb {
-                    self.refresh_rhs_wo_bias.call(
-                        pass,
-                        args.contacts_len_indirect,
-                        args.constraints,
-                        args.constraint_builders,
-                        args.contact_plan,
-                        args.solver_body_poses,
-                        args.sim_params,
-                    )?;
-                }
                 joint_solver.solve(pass, &mut joint_args, args.solver_vels, false)?;
                 if !skip_rb {
                     args.mass_splitting
@@ -665,6 +661,9 @@ impl GpuSolver {
                         args.batch_indices,
                         // use_bias = 0 (the `color_uniform[0]` contains the value 0)
                         &args.color_uniforms[0],
+                        args.constraint_builders,
+                        args.solver_body_poses,
+                        args.sim_params,
                     )?;
                 } else {
                     for c in 1..=args.num_colors {
@@ -679,6 +678,9 @@ impl GpuSolver {
                             args.batch_indices,
                             // use_bias = 0 (the `color_uniform[0]` contains the value 0)
                             &args.color_uniforms[0],
+                            args.constraint_builders,
+                            args.solver_body_poses,
+                            args.sim_params,
                         )?;
                     }
                 }

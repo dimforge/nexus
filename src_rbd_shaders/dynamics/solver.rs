@@ -169,41 +169,6 @@ pub fn gpu_solver_update_constraints(
     }
 }
 
-/// Relax-pass refresh: recomputes the unbiased normal rhs of every contact
-/// constraint from the current (post-integration) solver poses.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_solver_refresh_rhs_wo_bias(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-
-    let total = contact_plan.bound;
-    let mut constraints = SliceMut(constraints, 0);
-    let constraint_builders = Slice(constraint_builders, 0);
-    let solver_body_poses = Slice(solver_body_poses, 0);
-
-    for i in StepRng::new(invocation_id.x..total, num_threads) {
-        if constraints[i as usize].len == 0 {
-            // Gap / inert slot.
-            continue;
-        }
-        constraints[i as usize].refresh_rhs_wo_bias(
-            &constraint_builders[i as usize],
-            &solver_body_poses,
-            params,
-        );
-    }
-}
-
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solver_sort_constraints(
@@ -430,11 +395,17 @@ pub fn gpu_step_gauss_seidel(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] curr_color: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
+    constraint_builders: &[TwoBodyConstraintBuilder],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
+    #[spirv(uniform, descriptor_set = 1, binding = 2)] params: &RbdSimParams,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let nb = batch_ids.num_batches;
 
     let mut constraints = SliceMut(constraints, 0);
+    let constraint_builders = Slice(constraint_builders, 0);
+    let solver_body_poses = Slice(solver_body_poses, 0);
     let color_sorted_ids = Slice(color_sorted_ids, 0);
     let mut solver_vels = SliceMut(solver_vels, 0);
     let color = *curr_color;
@@ -453,6 +424,9 @@ pub fn gpu_step_gauss_seidel(
         let mut solver_vel2 = solver_vels[solver_id2];
 
         constraints[i as usize].solve_constraint_gauss_seidel(
+            &constraint_builders[i as usize],
+            &solver_body_poses,
+            params,
             &mut solver_vel1,
             &mut solver_vel2,
             use_bias,
@@ -544,12 +518,18 @@ pub fn gpu_step_gauss_seidel_fused(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
+    constraint_builders: &[TwoBodyConstraintBuilder],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
+    #[spirv(uniform, descriptor_set = 1, binding = 2)] params: &RbdSimParams,
 ) {
     let lane = invocation_id.x;
     let batch_id = invocation_id.y;
     let nb = batch_ids.num_batches;
 
     let mut constraints = SliceMut(constraints, 0);
+    let constraint_builders = Slice(constraint_builders, 0);
+    let solver_body_poses = Slice(solver_body_poses, 0);
     let color_sorted_ids = Slice(color_sorted_ids, 0);
     let mut solver_vels = SliceMut(solver_vels, 0);
     let num_colors = *num_colors;
@@ -575,6 +555,9 @@ pub fn gpu_step_gauss_seidel_fused(
                 let mut solver_vel2 = solver_vels[solver_id2];
 
                 constraints[i as usize].solve_constraint_gauss_seidel(
+                    &constraint_builders[i as usize],
+                    &solver_body_poses,
+                    params,
                     &mut solver_vel1,
                     &mut solver_vel2,
                     use_bias,
