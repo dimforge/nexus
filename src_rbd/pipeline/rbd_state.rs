@@ -4,8 +4,9 @@ use crate::broad_phase::{LbvhState, PfmSortState};
 use crate::dynamics::GpuImpulseJointSet;
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
-use crate::math::Pose;
+use crate::math::{Pose, Vector};
 use crate::queries::{GpuColliderMaterial, GpuIndexedContact};
+use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::PaddedVector;
 use crate::shaders::broad_phase::{CollisionPair, ContactPlan, NarrowPhasePfmPair};
 #[cfg(feature = "dim3")]
@@ -23,6 +24,35 @@ use khal::BufferUsages;
 use khal::backend::{Backend, GpuBackend, GpuReadback};
 use std::time::Duration;
 use vortx::tensor::Tensor;
+
+/// One world-space contact point, read back by [`RbdState::debug_contacts`].
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct DebugContact {
+    /// Contact point on the first collider, in world space.
+    pub point: Vector,
+    /// World-space contact normal, pointing away from the first collider.
+    pub normal: Vector,
+    /// Signed distance along the normal (negative if penetrating).
+    pub dist: f32,
+    /// Batch (environment) the contact belongs to.
+    pub batch: u32,
+    /// Env-local indices of the two colliders.
+    pub colliders: [u32; 2],
+    /// Env-local indices of the parent rigid-bodies of the two colliders.
+    pub bodies: [u32; 2],
+}
+
+impl DebugContact {
+    /// The contact point on the second collider, in world space.
+    pub fn point_b(&self) -> Vector {
+        self.point + self.normal * self.dist
+    }
+
+    /// The point the contact constraint acts on: the middle of the two contact points.
+    pub fn solver_point(&self) -> Vector {
+        self.point + self.normal * (self.dist * 0.5)
+    }
+}
 
 /// Performance statistics collected during a physics simulation step.
 #[derive(Default, Clone, Debug)]
@@ -553,6 +583,50 @@ impl RbdState {
     /// step (impulses included). For debugging.
     pub fn rigid_contact_constraints(&self) -> &Tensor<TwoBodyConstraint> {
         &self.new_constraints
+    }
+
+    /// Debug: reads the contacts back from the GPU, as world-space points of all batches.
+    /// Slow: copies the whole contact and collider-pose buffers to the CPU.
+    pub async fn debug_contacts(&self, backend: &GpuBackend) -> Vec<DebugContact> {
+        let Ok(manifolds) = backend
+            .slow_read_vec::<GpuIndexedContact>(self.contacts.buffer())
+            .await
+        else {
+            return Vec::new();
+        };
+        let Ok(poses) = backend
+            .slow_read_vec::<Pose>(self.collider_world_poses.buffer())
+            .await
+        else {
+            return Vec::new();
+        };
+
+        // All slots of the flat contact buffer are written each frame (`len == 0` if empty).
+        // Collider and body ids are global: `global = local * num_batches + batch`.
+        let nb = self.num_batches.max(1);
+        let mut result = Vec::new();
+
+        for manifold in &manifolds {
+            let collider_a = manifold.colliders.x;
+            let Some(pose_a) = poses.get(collider_a as usize) else {
+                continue;
+            };
+            let normal = pose_a.transform_vector(manifold.contact.normal_a);
+
+            for k in 0..(manifold.contact.len as usize).min(MAX_MANIFOLD_POINTS) {
+                let point = manifold.contact.points_a[k];
+                result.push(DebugContact {
+                    point: pose_a.transform_point(point.pt),
+                    normal,
+                    dist: point.dist,
+                    batch: collider_a % nb,
+                    colliders: [manifold.colliders.x / nb, manifold.colliders.y / nb],
+                    bodies: [manifold.bodies.x / nb, manifold.bodies.y / nb],
+                });
+            }
+        }
+
+        result
     }
 
     /// Debug: read back active contacts as `(collider_a, collider_b, body_a,

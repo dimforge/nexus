@@ -53,6 +53,7 @@ use nexus::state::{NexusCounts, NexusState};
 use rapier::prelude::{RigidBodyHandle, SharedShape};
 
 use crate::backend::BackendType;
+use crate::debug_render::{DebugRenderSettings, DebugRenderer};
 use crate::graphics::RenderContext;
 #[cfg(feature = "dim3")]
 use crate::graphics::VisualTexture;
@@ -131,6 +132,9 @@ pub struct UiState {
     /// Per-particle coloring mode for MPM rendering (view-only; not a sim
     /// setting). Drives the `WgPrepReadback` render config in `sync`.
     pub mpm_render_mode: MpmRenderMode,
+    /// Debug rendering of the physics state. Off by default: it reads the
+    /// state back from the GPU every frame.
+    pub debug_render: DebugRenderSettings,
 }
 
 /// Editable simulation settings exposed in the viewer UI. The viewer pulls
@@ -278,6 +282,8 @@ pub struct NexusViewer {
     /// Empty on the zero-readback path.
     #[cfg(feature = "dim3")]
     body_pose_cache: Vec<Pose>,
+    /// Debug geometry, rebuilt by [`Self::sync`] and drawn by [`Self::render_frame`].
+    debug_renderer: DebugRenderer,
     pub ui: UiState,
 }
 
@@ -404,6 +410,7 @@ impl NexusViewer {
             sensor_shadow_resolution: (DEFAULT_SHADOW_RESOLUTION, DEFAULT_SHADOW_ATLAS_LAYERS),
             #[cfg(feature = "dim3")]
             body_pose_cache: Vec::new(),
+            debug_renderer: DebugRenderer::default(),
             ui: UiState {
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
@@ -425,6 +432,7 @@ impl NexusViewer {
                 has_rbd: false,
                 counts: NexusCounts::default(),
                 mpm_render_mode: MpmRenderMode::default(),
+                debug_render: DebugRenderSettings::default(),
             },
         };
 
@@ -1377,6 +1385,11 @@ impl NexusViewer {
             self.sync_with_readback(state).await?;
         }
 
+        let debug_settings = self.ui.debug_render.clone();
+        let debug_backend = self.backend().clone();
+        self.debug_renderer
+            .sync(state, &debug_backend, &debug_settings)
+            .await;
         self.sync_timestamps(timestamps).await;
 
         // `pipeline.step` overwrites `run_stats` (with empty pass timings) every
@@ -1392,6 +1405,30 @@ impl NexusViewer {
         self.ui.sync_time = t0.elapsed();
         self.ui.counts = state.counts();
         Ok(())
+    }
+
+    /// Adds the debug geometry to the point/line renderers of this frame.
+    /// They are drawn and cleared by the next `window.render`.
+    fn draw_debug_render(&mut self) {
+        let line_width = self.ui.debug_render.line_width;
+        let point_size = self.ui.debug_render.point_size;
+
+        for line in self.debug_renderer.lines() {
+            let color = Color::new(line.color[0], line.color[1], line.color[2], line.color[3]);
+            #[cfg(feature = "dim3")]
+            self.window
+                .draw_line(line.a, line.b, color, line_width, false);
+            #[cfg(feature = "dim2")]
+            self.window.draw_line_2d(line.a, line.b, color, line_width);
+        }
+
+        for pt in self.debug_renderer.points() {
+            let color = Color::new(pt.color[0], pt.color[1], pt.color[2], pt.color[3]);
+            #[cfg(feature = "dim3")]
+            self.window.draw_point(pt.point, color, point_size);
+            #[cfg(feature = "dim2")]
+            self.window.draw_point_2d(pt.point, color, point_size);
+        }
     }
 
     /// Creates a unit point-cloud base node (a cube in 3D, a rectangle in 2D)
@@ -1467,6 +1504,7 @@ impl NexusViewer {
         self.scene2d = SceneNode2d::empty();
         self.nexus_render.clear();
         self.mpm_node = None;
+        self.debug_renderer.clear_scene();
     }
 
     /// Whether the simulation should advance this frame, honoring the
@@ -1491,6 +1529,9 @@ impl NexusViewer {
     /// selected). This is the no-scene-argument counterpart of the legacy
     /// scene-argument `render`.
     pub async fn render_frame(&mut self) -> bool {
+        // Added before `render`, which draws then clears the point/line renderers.
+        self.draw_debug_render();
+
         let cont = self
             .window
             .render(

@@ -11,6 +11,7 @@ pub extern crate rapier2d as rapier;
 pub extern crate rapier3d as rapier;
 
 mod backend;
+pub mod debug_render;
 mod graphics;
 #[cfg(feature = "dim3")]
 pub mod sensors;
@@ -18,6 +19,7 @@ mod ui;
 pub mod viewer;
 
 pub use backend::BackendType;
+pub use debug_render::{DebugRenderSettings, DebugRenderer};
 #[cfg(feature = "dim3")]
 pub use graphics::{RenderMaterial, VisualTexture};
 #[cfg(feature = "dim3")]
