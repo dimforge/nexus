@@ -41,12 +41,16 @@ pub struct LbvhNode {
     pub right: u32,
     /// Parent node index.
     pub parent: u32,
-    /// During refit: bottom-up arrival counter; each thread atomically
-    /// increments it and only the second one continues upward (both children
-    /// ready). After refit, `refit_leaves` sets it to the maximum sorted leaf
-    /// index in this node’s subtree, which the pair traversal uses to prune
+    /// Bottom-up refit arrival counter (internal nodes): each child's thread atomically
+    /// increments it and only the second one continues upward (both children ready).
+    pub refit_count: u32,
+    /// The first sorted leaf index in this node's subtree.
+    pub first_leaf: u32,
+    /// The last sorted leaf index in this node's subtree. The pair traversal uses it to prune
     /// subtrees that can only produce duplicate pairs.
-    pub refit_count_or_max_subtree_index: u32,
+    pub last_leaf: u32,
+    /// Padding to keep nodes 16-byte aligned.
+    pub _padding: [u32; 2],
 }
 
 /// Resets the (single, global) collision pairs counter.
@@ -263,8 +267,9 @@ pub fn gpu_lbvh_build(
 
         tree.at_mut(node_id as usize).left = left as u32;
         tree.at_mut(node_id as usize).right = right as u32;
-        tree.at_mut(node_id as usize)
-            .refit_count_or_max_subtree_index = 0; // Might as well reset the refit count here.
+        tree.at_mut(node_id as usize).refit_count = 0;
+        tree.at_mut(node_id as usize).first_leaf = ii.min(j) as u32;
+        tree.at_mut(node_id as usize).last_leaf = ii.max(j) as u32;
         tree.at_mut(left as usize).parent = node_id;
         tree.at_mut(right as usize).parent = node_id;
     }
@@ -281,11 +286,9 @@ pub fn gpu_lbvh_refit_leaves(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] sorted_colliders: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] tree: &mut [LbvhNode],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] refit_frontier_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] vertices: &[PaddedVector],
 ) {
-    // TODO PERF: we could use shared memory atomics between threads belonging to the same
-    //            workgroup.
-    // Bottom-up refit. Leaf index starts at `num_colliders`.
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let batch_id = invocation_id.y;
     let colliders_start = scratch_start(batch_ids, batch_id);
@@ -305,180 +308,184 @@ pub fn gpu_lbvh_refit_leaves(
 
         tree.at_mut(curr_leaf_id as usize).aabb = leaf_shape.compute_aabb(leaf_pose, vertices);
         tree.at_mut(curr_leaf_id as usize).left = leaf_collider;
-        // For leaves, we can set their index here. They don’t use the `refit_count`
-        // mechanism which is for internal nodes only.
-        tree.at_mut(curr_leaf_id as usize)
-            .refit_count_or_max_subtree_index = i;
+        tree.at_mut(curr_leaf_id as usize).first_leaf = i;
+        tree.at_mut(curr_leaf_id as usize).last_leaf = i;
+    }
+
+    // The bottom-up refit appends to this batch's frontier list.
+    if invocation_id.x == 0 {
+        refit_frontier_len.write(batch_id as usize, 0);
     }
 }
 
-/// Bottom-up AABB propagation using atomic synchronization.
-/// This version uses uniform control flow for web compatibility.
+/// Number of sorted leaves refit by one workgroup of [`gpu_lbvh_refit_chunks`].
+pub const REFIT_CHUNK: u32 = 256;
+/// Bound on the depth of the tree walked by the bottom-up refits.
+const REFIT_MAX_DEPTH: u32 = 64;
+
+/// Workgroup barrier making storage writes of the workgroup visible to its other lanes.
+#[inline(always)]
+fn refit_barrier() {
+    control_barrier::<
+        { khal_std::memory::Scope::Workgroup as u32 },
+        { khal_std::memory::Scope::QueueFamily as u32 },
+        {
+            khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
+                | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
+        },
+    >();
+}
+
+/// Whether any lane of the workgroup is still `active`. Must be reached by every lane.
+#[inline(always)]
+fn any_lane_active(lane: u32, active: bool, flag: &mut [u32; 1]) -> bool {
+    if lane == 0 {
+        flag.write(0, 0);
+    }
+    workgroup_memory_barrier_with_group_sync();
+    if active {
+        // Every active lane stores the same value.
+        flag.write(0, 1);
+    }
+    workgroup_memory_barrier_with_group_sync();
+    let any = flag.read(0) != 0;
+    // Lane 0 resets the flag at the next call: keep it from racing with these reads.
+    workgroup_memory_barrier_with_group_sync();
+    any
+}
+
+/// Merges the AABBs of `node`'s children into its own.
+#[inline(always)]
+fn refit_node(tree: &mut SliceMut<LbvhNode>, node: u32) {
+    let left = tree.at(node as usize).left;
+    let right = tree.at(node as usize).right;
+    let aabb = tree
+        .at(left as usize)
+        .aabb
+        .merged(&tree.at(right as usize).aabb);
+    tree.at_mut(node as usize).aabb = aabb;
+}
+
+/// First phase of the bottom-up refit: one workgroup per chunk of [`REFIT_CHUNK`] sorted
+/// leaves refits every node whose leaves all lie in its chunk.
+///
+/// Both children of such a node are refit by lanes of the same workgroup, so the usual
+/// arrival counter only needs workgroup barriers. A lane stops at a node whose parent's leaves
+/// cross the chunk boundary, and appends it to the batch's frontier list, which
+/// [`gpu_lbvh_refit_frontier`] finishes.
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
-pub fn gpu_lbvh_refit_internal(
+pub fn gpu_lbvh_refit_chunks(
     #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tree: &mut [LbvhNode],
-    #[spirv(uniform, descriptor_set = 0, binding = 1)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] refit_frontier: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] refit_frontier_len: &mut [u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] any_active_flag: &mut [u32; 1],
 ) {
-    // TODO PERF: we could use shared memory atomics between threads belonging to the same
-    //            workgroup.
-    // Bottom-up refit. Leaf index starts at `num_colliders`.
-    let num_threads = 256u32;
+    let lane = local_id.x;
+    let chunk = workgroup_id.x;
     let batch_id = workgroup_id.y;
     let colliders_start = scratch_start(batch_ids, batch_id);
-    let num_bodies = batch_ids.colliders_len;
-    let first_leaf_id = num_bodies - 1;
-
+    let num_leaves = batch_ids.colliders_len;
+    // Uniform across the workgroup.
+    if num_leaves < 2 || chunk * REFIT_CHUNK >= num_leaves {
+        return;
+    }
+    let first_leaf_id = num_leaves - 1;
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
-    let num_iterations = num_bodies.div_ceil(num_threads);
 
-    // NOTE: using unchecked indexing (via MaybeIndexUnchecked) because otherwise the bounds
-    //        checking inserted by rustgpu breaks the shader when targeting some NVidia graphics
-    //        (works fine on AMD).
-    for iter in 0..num_iterations {
-        let i = local_id.x + iter * num_threads;
-        let mut thread_is_active = i < num_bodies;
+    let leaf = chunk * REFIT_CHUNK + lane;
+    let mut active = leaf < num_leaves;
+    let mut child = first_leaf_id + leaf;
+    let mut node = 0u32;
+    if active {
+        node = tree.at(child as usize).parent;
+    }
 
-        let mut curr_id = 0u32;
-        if thread_is_active {
-            let curr_leaf_id = first_leaf_id + i;
-            curr_id = tree.at(curr_leaf_id as usize).parent;
+    for _ in 0..REFIT_MAX_DEPTH {
+        if !any_lane_active(lane, active, any_active_flag) {
+            break;
         }
 
-        // Process the tree level by level with uniform barriers.
-        // Maximum tree depth is log2(num_colliders), but we use 32 as a safe upper bound.
-        for _level in 0..32u32 {
-            if thread_is_active {
-                let refit_count = atomic_add_u32(
-                    &mut tree
-                        .at_mut(curr_id as usize)
-                        .refit_count_or_max_subtree_index,
-                    1,
-                );
-
-                if refit_count == 0 {
-                    // If `refit_count` was 0 then the other thread hasn't reached this node
-                    // yet and the sibling aabb might not be available yet.
-                    // Stop the propagation to the parents here, the other thread will do it.
-                    thread_is_active = false;
+        if active {
+            let first = tree.at(node as usize).first_leaf;
+            let last = tree.at(node as usize).last_leaf;
+            if first / REFIT_CHUNK != chunk || last / REFIT_CHUNK != chunk {
+                // `child` is complete but its parent spans several chunks.
+                let k = atomic_add_u32(refit_frontier_len.at_mut(batch_id as usize), 1);
+                refit_frontier.write((colliders_start + k) as usize, child);
+                active = false;
+            } else if atomic_add_u32(&mut tree.at_mut(node as usize).refit_count, 1) == 0 {
+                // The sibling isn't ready: its lane continues when it arrives.
+                active = false;
+            } else {
+                refit_node(&mut tree, node);
+                if node == 0 {
+                    // The root: the whole tree fits in this chunk.
+                    active = false;
                 } else {
-                    // If `refit_count` was 1 then the other thread has already reached this node
-                    // and we know the sibblings aabb is available. So we can continue the propagation.
+                    child = node;
+                    node = tree.at(node as usize).parent;
+                }
+            }
+        }
 
-                    // TODO PERF: instead of re-reading both aabbs, we could keep the aabb from the
-                    //            previous loop so we don't have to re-fetch one of the two aabbs.
-                    let left_idx = tree.at(curr_id as usize).left;
-                    let right_idx = tree.at(curr_id as usize).right;
-                    let left = tree.at(left_idx as usize).aabb;
-                    let right = tree.at(right_idx as usize).aabb;
-                    tree.at_mut(curr_id as usize).aabb = left.merged(&right);
+        refit_barrier();
+    }
+}
 
-                    // Set `refit_count_or_max_subtree_index` to the max subtree leaf index.
-                    let max_l = tree.at(left_idx as usize).refit_count_or_max_subtree_index;
-                    let max_r = tree.at(right_idx as usize).refit_count_or_max_subtree_index;
-                    tree.at_mut(curr_id as usize)
-                        .refit_count_or_max_subtree_index = max_l.max(max_r);
+/// Second phase of the bottom-up refit: one workgroup per batch refits the nodes spanning
+/// several chunks, starting from the frontier left by [`gpu_lbvh_refit_chunks`].
+#[spirv_bindgen]
+#[spirv(compute(threads(256)))]
+pub fn gpu_lbvh_refit_frontier(
+    #[spirv(local_invocation_id)] local_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tree: &mut [LbvhNode],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] refit_frontier: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] refit_frontier_len: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] any_active_flag: &mut [u32; 1],
+) {
+    let lane = local_id.x;
+    let batch_id = workgroup_id.y;
+    let colliders_start = scratch_start(batch_ids, batch_id);
+    let num_leaves = batch_ids.colliders_len;
+    let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
+    // Uniform across the workgroup: every lane reads the same count.
+    let frontier_len = refit_frontier_len.read(batch_id as usize).min(num_leaves);
 
-                    if curr_id == 0 {
-                        // We reached the root, can't go higher.
-                        thread_is_active = false;
+    for round in 0..frontier_len.div_ceil(REFIT_CHUNK) {
+        let k = round * REFIT_CHUNK + lane;
+        let mut active = k < frontier_len;
+        let mut node = 0u32;
+        if active {
+            let child = refit_frontier.read((colliders_start + k) as usize);
+            node = tree.at(child as usize).parent;
+        }
+
+        for _ in 0..REFIT_MAX_DEPTH {
+            if !any_lane_active(lane, active, any_active_flag) {
+                break;
+            }
+
+            if active {
+                if atomic_add_u32(&mut tree.at_mut(node as usize).refit_count, 1) == 0 {
+                    active = false;
+                } else {
+                    refit_node(&mut tree, node);
+                    if node == 0 {
+                        // The root.
+                        active = false;
                     } else {
-                        curr_id = tree.at(curr_id as usize).parent;
+                        node = tree.at(node as usize).parent;
                     }
                 }
             }
 
-            // workgroup_memory_barrier_with_group_sync();
-            // Barrier ensures all AABB writes (to device/storage buffer memory) are complete
-            // before the next iteration's atomics. Uses QueueFamily scope (device-equivalent
-            // under the Vulkan memory model) with UNIFORM_MEMORY to cover storage buffers.
-            control_barrier::<
-                { khal_std::memory::Scope::Workgroup as u32 },
-                { khal_std::memory::Scope::QueueFamily as u32 },
-                {
-                    khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
-                        | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
-                },
-            >();
-        }
-    }
-}
-
-/// Full refit: computes leaf AABBs and propagates to ancestors.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_lbvh_refit(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] poses: &[Pose],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] shapes: &[Shape],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] sorted_colliders: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] tree: &mut [LbvhNode],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] vertices: &[PaddedVector],
-) {
-    // TODO PERF: we could use shared memory atomics between threads belonging to the same
-    //            workgroup.
-    // Bottom-up refit. Leaf index starts at `num_colliders`.
-    let batch_id = invocation_id.y;
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let colliders_start = scratch_start(batch_ids, batch_id);
-    let num_bodies = batch_ids.colliders_len;
-    let first_leaf_id = num_bodies - 1;
-
-    let poses = batch_ids.ib(batch_id, poses);
-    let shapes = batch_ids.ib(batch_id, shapes);
-    let sorted_colliders = Slice(sorted_colliders, colliders_start as usize);
-    let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
-
-    for i in StepRng::new(invocation_id.x..num_bodies, num_threads) {
-        let curr_leaf_id = first_leaf_id + i;
-        let leaf_collider = sorted_colliders[i as usize];
-        let leaf_pose = poses[leaf_collider as usize];
-        let leaf_shape = &shapes[leaf_collider as usize];
-
-        tree.at_mut(curr_leaf_id as usize).aabb = leaf_shape.compute_aabb(leaf_pose, vertices);
-        tree.at_mut(curr_leaf_id as usize).left = leaf_collider;
-
-        // Propagate to ancestors.
-        let mut curr_id = tree.at(curr_leaf_id as usize).parent;
-
-        // NOTE: bounded `for` (tree depth <= 32 in practice) instead of `loop`
-        //       to avoid the MacOS miscompilation bug.
-        for _ in 0..32u32 {
-            let refit_count = atomic_add_u32(
-                &mut tree
-                    .at_mut(curr_id as usize)
-                    .refit_count_or_max_subtree_index,
-                1,
-            );
-
-            if refit_count == 0 {
-                // If `refit_count` was 0 then the other thread hasn't reached this node
-                // yet and the sibling aabb might not be available yet.
-                // Stop the propagation to the parents here, the other thread will do it.
-                break;
-            }
-
-            // If `refit_count` was 1 then the other thread has already reached this node,
-            // and we know the siblings aabb is available. So we can continue the propagation.
-
-            // TODO PERF: instead of re-reading both aabbs, we could keep the aabb from the
-            //            previous loop so we don't have to re-fetch one of the two aabbs.
-            let left_idx = tree.at(curr_id as usize).left;
-            let right_idx = tree.at(curr_id as usize).right;
-            let left = tree.at(left_idx as usize).aabb;
-            let right = tree.at(right_idx as usize).aabb;
-            tree.at_mut(curr_id as usize).aabb = left.merged(&right);
-
-            if curr_id == 0 {
-                // We reached the root, can't go higher.
-                break;
-            }
-
-            curr_id = tree.at(curr_id as usize).parent;
+            refit_barrier();
         }
     }
 }
@@ -584,7 +591,7 @@ pub fn gpu_lbvh_find_collision_pairs(
                 // Descend only if the subtree contains leaf id smaller than
                 // `leaf_i`. That way we prune the part of the tree that’s
                 // on the "left" of `leaf_i`, avoiding duplicate pairs/traversals.
-                if leaf_i < tree.at(left as usize).refit_count_or_max_subtree_index
+                if leaf_i < tree.at(left as usize).last_leaf
                     && aabb1.intersects(&tree.at(left as usize).aabb)
                     && stack_len < 64
                 {
@@ -592,7 +599,7 @@ pub fn gpu_lbvh_find_collision_pairs(
                     stack_len += 1;
                 }
 
-                if leaf_i < tree.at(right as usize).refit_count_or_max_subtree_index
+                if leaf_i < tree.at(right as usize).last_leaf
                     && aabb1.intersects(&tree.at(right as usize).aabb)
                     && stack_len < 64
                 {

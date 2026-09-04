@@ -8,8 +8,8 @@ use crate::shaders::PaddedVector;
 use crate::shaders::bounding_volumes::Aabb;
 use crate::shaders::broad_phase::{
     CollisionPair, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch, GpuLbvhBuild,
-    GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhFindCollisionPairs, GpuLbvhRefitInternal,
-    GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs, LbvhNode,
+    GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhFindCollisionPairs, GpuLbvhRefitChunks,
+    GpuLbvhRefitFrontier, GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs, LbvhNode,
 };
 use crate::shaders::shapes::Shape;
 use crate::utils::{RadixSort, RadixSortWorkspace};
@@ -29,7 +29,8 @@ pub struct GpuLbvh {
     compute_morton: GpuLbvhComputeMorton,
     build: GpuLbvhBuild,
     refit_leaves: GpuLbvhRefitLeaves,
-    refit_internal: GpuLbvhRefitInternal,
+    refit_chunks: GpuLbvhRefitChunks,
+    refit_frontier: GpuLbvhRefitFrontier,
     reset_collision_pairs: GpuLbvhResetCollisionPairs,
     find_collision_pairs: GpuLbvhFindCollisionPairs,
     /// Writes the `[total/64, 1, 1]` indirect grid from the single global pair
@@ -60,6 +61,11 @@ pub struct LbvhState {
     unsorted_colliders: Tensor<u32>,
     sorted_colliders: Tensor<u32>,
     tree: Tensor<LbvhNode>,
+    /// Per batch (strided like the colliders): the nodes left by the chunked refit for its
+    /// second phase.
+    refit_frontier: Tensor<u32>,
+    /// Per batch: the length of its refit frontier.
+    refit_frontier_len: Tensor<u32>,
     sort_workspace: RadixSortWorkspace,
     /// Per-collider world AABBs, only used by the brute-force tiny-batch path
     /// (strided by the per-batch collider capacity, like the other
@@ -97,6 +103,8 @@ impl LbvhState {
             unsorted_colliders: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             sorted_colliders: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             tree: Tensor::vector_uninit(backend, 0, usages).unwrap(),
+            refit_frontier: Tensor::vector_uninit(backend, 0, usages).unwrap(),
+            refit_frontier_len: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             sort_workspace: RadixSortWorkspace::new(backend),
             aabbs: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             buffer_usages: usages,
@@ -115,6 +123,8 @@ impl LbvhState {
         if (self.domain_aabb.len() as u32) < num_batches {
             self.generation += 1;
             self.domain_aabb =
+                Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
+            self.refit_frontier_len =
                 Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
         }
 
@@ -138,6 +148,8 @@ impl LbvhState {
                 Tensor::vector_uninit(backend, colliders_len, self.buffer_usages).unwrap();
             self.tree =
                 Tensor::vector_uninit(backend, 2 * colliders_len, self.buffer_usages).unwrap();
+            self.refit_frontier =
+                Tensor::vector_uninit(backend, colliders_len, self.buffer_usages).unwrap();
 
             // FIXME: this doesn’t account for batches having mismatched numbers of colliders.
             // n_sort is a per-batch vector: each element is the per-batch *active*
@@ -269,15 +281,27 @@ impl Lbvh {
             &state.sorted_colliders,
             &mut state.tree,
             batch_indices,
+            &mut state.refit_frontier_len,
             vertex_buffers,
         )?;
         drop(pass);
 
         let mut pass = encoder.begin_pass("[RBD] lbvh-refit-internal", timestamps);
-        self.shaders.refit_internal.call(
+        // One workgroup per chunk of sorted leaves, then one per batch for the top of the tree.
+        self.shaders.refit_chunks.call(
+            &mut pass,
+            [colliders_per_batch, num_batches, 1],
+            &mut state.tree,
+            &mut state.refit_frontier,
+            &mut state.refit_frontier_len,
+            batch_indices,
+        )?;
+        self.shaders.refit_frontier.call(
             &mut pass,
             [1u32, num_batches, 1],
             &mut state.tree,
+            &state.refit_frontier,
+            &state.refit_frontier_len,
             batch_indices,
         )?;
         drop(pass);
