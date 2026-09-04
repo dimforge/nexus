@@ -104,7 +104,8 @@ pub fn gpu_seed_colors_from_warmstart(
 
         let len_a = last_a - first_a;
         let len_b = last_b - first_b;
-        let (first_ref, last_ref) = if len_a != 0 && len_a < len_b {
+        // Static bodies have no list: search the other one.
+        let (first_ref, last_ref) = if len_b == 0 || (len_a != 0 && len_a < len_b) {
             (first_a, last_a)
         } else {
             (first_b, last_b)
@@ -181,11 +182,12 @@ pub fn transfer_warmstart_impulses(
     // Select the smallest list with a nonzero size (for example static bodies would have
     // a zero-length list despite having some constraints).
     // TODO: compare this approach with just using a hashmap.
-    let (first_constraint_id_ref, last_constraint_id_ref) = if len_a != 0 && len_a < len_b {
-        (first_constraint_id_a, last_constraint_id_a)
-    } else {
-        (first_constraint_id_b, last_constraint_id_b)
-    };
+    let (first_constraint_id_ref, last_constraint_id_ref) =
+        if len_b == 0 || (len_a != 0 && len_a < len_b) {
+            (first_constraint_id_a, last_constraint_id_a)
+        } else {
+            (first_constraint_id_b, last_constraint_id_b)
+        };
 
     // Search through old constraints for matching body pair
     for j in first_constraint_id_ref..last_constraint_id_ref {
