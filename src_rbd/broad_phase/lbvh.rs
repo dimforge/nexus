@@ -8,8 +8,9 @@ use crate::shaders::PaddedVector;
 use crate::shaders::bounding_volumes::Aabb;
 use crate::shaders::broad_phase::{
     CollisionPair, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch, GpuLbvhBuild,
-    GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhFindCollisionPairs, GpuLbvhRefitChunks,
-    GpuLbvhRefitFrontier, GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs, LbvhNode,
+    GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhEscapes, GpuLbvhFindCollisionPairs,
+    GpuLbvhRefitChunks, GpuLbvhRefitFrontier, GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs,
+    LbvhNode,
 };
 use crate::shaders::shapes::Shape;
 use crate::utils::{RadixSort, RadixSortWorkspace};
@@ -28,6 +29,7 @@ pub struct GpuLbvh {
     compute_domain: GpuLbvhComputeDomain,
     compute_morton: GpuLbvhComputeMorton,
     build: GpuLbvhBuild,
+    escapes: GpuLbvhEscapes,
     refit_leaves: GpuLbvhRefitLeaves,
     refit_chunks: GpuLbvhRefitChunks,
     refit_frontier: GpuLbvhRefitFrontier,
@@ -267,6 +269,12 @@ impl Lbvh {
             &mut pass,
             [colliders_per_batch.saturating_sub(1), num_batches, 1],
             &state.sorted_morton_keys,
+            &mut state.tree,
+            batch_indices,
+        )?;
+        self.shaders.escapes.call(
+            &mut pass,
+            [(2 * colliders_per_batch).saturating_sub(1), num_batches, 1],
             &mut state.tree,
             batch_indices,
         )?;

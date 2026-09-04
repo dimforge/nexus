@@ -159,26 +159,26 @@ impl Aabb {
     #[cfg(feature = "dim2")]
     #[inline]
     pub fn intersects(&self, other: &Aabb) -> bool {
-        // TODO PERF: is could we use some sort of `self.mins <= other.maxs`
-        //            directly instead of detailing each component.
-        self.mins.x <= other.maxs.x
-            && self.maxs.x >= other.mins.x
-            && self.mins.y <= other.maxs.y
-            && self.maxs.y >= other.mins.y
+        // Non-short-circuit `&`: `&&` compiles to nested branches, each loading its operands
+        // only after the previous test, which serializes the loads of a storage AABB.
+        (self.mins.x <= other.maxs.x)
+            & (self.maxs.x >= other.mins.x)
+            & (self.mins.y <= other.maxs.y)
+            & (self.maxs.y >= other.mins.y)
     }
 
     /// Tests if this AABB intersects another AABB.
     #[cfg(feature = "dim3")]
     #[inline]
     pub fn intersects(&self, other: &Aabb) -> bool {
-        // TODO PERF: is could we use some sort of `self.mins <= other.maxs`
-        //            directly instead of detailing each component.
-        self.mins.x <= other.maxs.x
-            && self.maxs.x >= other.mins.x
-            && self.mins.y <= other.maxs.y
-            && self.maxs.y >= other.mins.y
-            && self.mins.z <= other.maxs.z
-            && self.maxs.z >= other.mins.z
+        // Non-short-circuit `&`: `&&` compiles to nested branches, each loading its operands
+        // only after the previous test, which serializes the loads of a storage AABB.
+        (self.mins.x <= other.maxs.x)
+            & (self.maxs.x >= other.mins.x)
+            & (self.mins.y <= other.maxs.y)
+            & (self.maxs.y >= other.mins.y)
+            & (self.mins.z <= other.maxs.z)
+            & (self.maxs.z >= other.mins.z)
     }
 
     /// Tests if this AABB contains a point.

@@ -49,9 +49,25 @@ pub struct LbvhNode {
     /// The last sorted leaf index in this node's subtree. The pair traversal uses it to prune
     /// subtrees that can only produce duplicate pairs.
     pub last_leaf: u32,
-    /// Padding to keep nodes 16-byte aligned.
-    pub _padding: [u32; 2],
+    /// The node following this one's subtree in depth-first order ([`NO_ESCAPE`] for the
+    /// last one), for stackless traversals.
+    pub escape: u32,
+    /// The largest AABB extent of the leaves in this node's subtree.
+    pub max_extent: f32,
 }
+
+/// The largest extent of an AABB.
+#[inline(always)]
+fn max_extent(aabb: &Aabb) -> f32 {
+    let e = aabb.maxs - aabb.mins;
+    #[cfg(feature = "dim3")]
+    return e.x.max(e.y).max(e.z);
+    #[cfg(feature = "dim2")]
+    return e.x.max(e.y);
+}
+
+/// The escape index of the nodes ending a depth-first traversal.
+pub const NO_ESCAPE: u32 = u32::MAX;
 
 /// Resets the (single, global) collision pairs counter.
 #[spirv_bindgen]
@@ -275,6 +291,40 @@ pub fn gpu_lbvh_build(
     }
 }
 
+/// Computes the escape index of every node: the right sibling of its first ancestor (itself
+/// included) that is a left child.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_lbvh_escapes(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tree: &mut [LbvhNode],
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] batch_ids: &BatchIndices,
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let batch_id = invocation_id.y;
+    let colliders_start = scratch_start(batch_ids, batch_id);
+    let num_nodes = (2 * batch_ids.colliders_len).max(2) - 1;
+    let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
+
+    for i in StepRng::new(invocation_id.x..num_nodes, num_threads) {
+        let mut escape = NO_ESCAPE;
+        let mut node = i;
+        for _ in 0..REFIT_MAX_DEPTH {
+            if node == 0 {
+                break;
+            }
+            let parent = tree.at(node as usize).parent;
+            if tree.at(parent as usize).left == node {
+                escape = tree.at(parent as usize).right;
+                break;
+            }
+            node = parent;
+        }
+        tree.at_mut(i as usize).escape = escape;
+    }
+}
+
 /// Computes leaf AABBs from shapes.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
@@ -306,7 +356,9 @@ pub fn gpu_lbvh_refit_leaves(
         let leaf_pose = poses[leaf_collider as usize];
         let leaf_shape = &shapes[leaf_collider as usize];
 
-        tree.at_mut(curr_leaf_id as usize).aabb = leaf_shape.compute_aabb(leaf_pose, vertices);
+        let aabb = leaf_shape.compute_aabb(leaf_pose, vertices);
+        tree.at_mut(curr_leaf_id as usize).aabb = aabb;
+        tree.at_mut(curr_leaf_id as usize).max_extent = max_extent(&aabb);
         tree.at_mut(curr_leaf_id as usize).left = leaf_collider;
         tree.at_mut(curr_leaf_id as usize).first_leaf = i;
         tree.at_mut(curr_leaf_id as usize).last_leaf = i;
@@ -363,7 +415,12 @@ fn refit_node(tree: &mut SliceMut<LbvhNode>, node: u32) {
         .at(left as usize)
         .aabb
         .merged(&tree.at(right as usize).aabb);
+    let extent = tree
+        .at(left as usize)
+        .max_extent
+        .max(tree.at(right as usize).max_extent);
     tree.at_mut(node as usize).aabb = aabb;
+    tree.at_mut(node as usize).max_extent = extent;
 }
 
 /// First phase of the bottom-up refit: one workgroup per chunk of [`REFIT_CHUNK`] sorted
@@ -490,11 +547,29 @@ pub fn gpu_lbvh_refit_frontier(
     }
 }
 
+/// `if c { a } else { b }` as a select instead of a branch.
+#[inline(always)]
+fn select_u32(c: bool, a: u32, b: u32) -> u32 {
+    let mask = 0u32.wrapping_sub(c as u32);
+    (a & mask) | (b & !mask)
+}
+
+/// Pairs each thread of [`gpu_lbvh_find_collision_pairs`] buffers in workgroup memory.
+const PAIRS_PER_THREAD: usize = 8;
+
 /// Finds collision pairs by traversing the LBVH tree.
+///
+/// A pair belongs to its smaller leaf when one leaf is more than twice the other's size, and to
+/// its first sorted leaf otherwise: a large leaf (e.g. the ground) then prunes the tree right
+/// away instead of visiting every small leaf it overlaps on a single thread.
+///
+/// Each workgroup gathers its pairs in workgroup memory and reserves their range of the pair
+/// buffer with one atomic, so a workgroup's pairs (of nearby leaves) stay contiguous.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_find_collision_pairs(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tree: &[LbvhNode],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
@@ -504,8 +579,13 @@ pub fn gpu_lbvh_find_collision_pairs(
     collision_groups: &[InteractionGroups],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pair_filter: &[[u32; 2]],
+    #[spirv(workgroup)] wg_pairs: &mut [UVec2; PAIRS_PER_THREAD * WORKGROUP_SIZE as usize],
+    #[spirv(workgroup)] wg_scan: &mut [u32; WORKGROUP_SIZE as usize],
+    #[spirv(workgroup)] wg_base: &mut [u32; 1],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let tid = local_id.x as usize;
+    let mut num_buffered = 0usize;
     let batch_id = invocation_id.y;
     let colliders_start = scratch_start(batch_ids, batch_id);
     let num_bodies = batch_ids.colliders_len;
@@ -520,93 +600,119 @@ pub fn gpu_lbvh_find_collision_pairs(
         let groups_i = collision_groups[i as usize];
         let filter_i = pair_filter[i as usize];
         let mut aabb1 = tree.at((first_leaf_id + leaf_i) as usize).aabb;
+        let extent1 = max_extent(&aabb1);
         let prediction = 2.0e-3; // TODO: should be configurable.
         let dilation = Vector::splat(prediction);
         aabb1.mins -= dilation;
         aabb1.maxs += dilation;
 
-        // Traverse the tree using a stack.
-        let mut stack = [0u32; 64];
-        let mut stack_len = 1u32;
-        stack.write(0, 0);
-
+        // Stackless depth-first traversal: a node's escape index skips its subtree.
+        let mut curr_id = 0u32;
         // NOTE: we use a fixed-size for loop to avoid miscompilation issues of
-        //       while loops on MacOs. Each tree node is pushed at most once per
+        //       while loops on MacOs. Each node is visited at most once per
         //       traversal, so `2 * num_bodies` (≥ node count) bounds the loop.
         for _ in 0..2 * num_bodies {
-            if stack_len == 0 {
+            if curr_id == NO_ESCAPE {
                 break;
             }
-            stack_len -= 1;
-            let curr_id = stack.read(stack_len as usize);
             let node = tree.at(curr_id as usize);
+            let is_leaf = curr_id >= first_leaf_id;
 
-            if curr_id >= first_leaf_id {
-                // We reached a leaf, register a collision pair.
-                let j = node.left;
-                let groups_j = collision_groups[j as usize];
-
-                // Skip pairs whose collision groups don't authorize an interaction.
-                if !groups_i.test(groups_j) {
-                    continue;
-                }
-
-                // Apply computed filters (same-body and self-contact).
-                let filter_j = pair_filter[j as usize];
-                if filter_i[0] == filter_j[0] || (filter_i[1] != 0 && filter_i[1] == filter_j[1]) {
-                    continue;
-                }
-
-                // Single global counter: every batch appends to the same flat
-                // buffer (pairs from different batches interleave freely).
-                let target_pair_index = atomic_add_u32(collision_pairs_len.at_mut(0), 1);
-
-                // NOTE: if the index is out-of-bounds (meaning the `collision_pairs` isn't
-                //       big enough), don't write. But keep traversing so we get the exact count we need
-                //       for reallocating the buffers.
-                if target_pair_index < batch_ids.collision_pairs_capacity {
-                    // NOTE: we only store the collider pair here, with global
-                    //       collider ids (the owning batch is recovered from the
-                    //       id downstream). The parent body ids are resolved
-                    //       lazily, at the very last moment, when the
-                    //       narrow-phase writes the `IndexedManifold` consumed
-                    //       by the solver — keeping this hot buffer (and the
-                    //       intermediate pfm-pair buffer) narrow, and keeping
-                    //       `collider_parent` out of the broad phase entirely.
-                    let (ci, cj) = if i < j { (i, j) } else { (j, i) };
-                    collision_pairs.write(
-                        target_pair_index as usize,
-                        CollisionPair {
-                            colliders: UVec2::new(
-                                batch_ids.body_global(batch_id, ci) as u32,
-                                batch_ids.body_global(batch_id, cj) as u32,
-                            ),
-                        },
-                    );
-                }
-            } else {
-                let left = node.left;
-                let right = node.right;
-
-                // Descend only if the subtree contains leaf id smaller than
-                // `leaf_i`. That way we prune the part of the tree that’s
-                // on the "left" of `leaf_i`, avoiding duplicate pairs/traversals.
-                if leaf_i < tree.at(left as usize).last_leaf
-                    && aabb1.intersects(&tree.at(left as usize).aabb)
-                    && stack_len < 64
-                {
-                    stack.write(stack_len as usize, node.left);
-                    stack_len += 1;
-                }
-
-                if leaf_i < tree.at(right as usize).last_leaf
-                    && aabb1.intersects(&tree.at(right as usize).aabb)
-                    && stack_len < 64
-                {
-                    stack.write(stack_len as usize, node.right);
-                    stack_len += 1;
-                }
+            // Only subtrees with a leaf this one owns a pair with: a much larger leaf, or a
+            // similar one after `leaf_i`. For a leaf, that's whether it owns the pair. The next
+            // node is selected without branching, so the node's fields load at once.
+            let owned = (node.max_extent > 2.0 * extent1)
+                | ((leaf_i < node.last_leaf) & (node.max_extent >= 0.5 * extent1));
+            let hit = owned & aabb1.intersects(&node.aabb);
+            let descend = hit & !is_leaf;
+            curr_id = select_u32(descend, node.left, node.escape);
+            if !(hit & is_leaf) {
+                continue;
             }
+
+            // We reached a leaf, register a collision pair.
+            let j = node.left;
+            let groups_j = collision_groups[j as usize];
+
+            // Skip pairs whose collision groups don't authorize an interaction.
+            if !groups_i.test(groups_j) {
+                continue;
+            }
+
+            // Apply computed filters (same-body and self-contact).
+            let filter_j = pair_filter[j as usize];
+            if filter_i[0] == filter_j[0] || (filter_i[1] != 0 && filter_i[1] == filter_j[1]) {
+                continue;
+            }
+
+            let (ci, cj) = if i < j { (i, j) } else { (j, i) };
+            let pair = UVec2::new(
+                batch_ids.body_global(batch_id, ci) as u32,
+                batch_ids.body_global(batch_id, cj) as u32,
+            );
+            // Slot-major, so that consecutive threads hit consecutive words.
+            if num_buffered < PAIRS_PER_THREAD {
+                wg_pairs.write(num_buffered * WORKGROUP_SIZE as usize + tid, pair);
+                num_buffered += 1;
+                continue;
+            }
+
+            // Single global counter: every batch appends to the same flat
+            // buffer (pairs from different batches interleave freely).
+            let target_pair_index = atomic_add_u32(collision_pairs_len.at_mut(0), 1);
+
+            // NOTE: if the index is out-of-bounds (meaning the `collision_pairs` isn't
+            //       big enough), don't write. But keep traversing so we get the exact count we need
+            //       for reallocating the buffers.
+            if target_pair_index < batch_ids.collision_pairs_capacity {
+                // NOTE: we only store the collider pair here, with global
+                //       collider ids (the owning batch is recovered from the
+                //       id downstream). The parent body ids are resolved
+                //       lazily, at the very last moment, when the
+                //       narrow-phase writes the `IndexedManifold` consumed
+                //       by the solver — keeping this hot buffer (and the
+                //       intermediate pfm-pair buffer) narrow, and keeping
+                //       `collider_parent` out of the broad phase entirely.
+                collision_pairs.write(
+                    target_pair_index as usize,
+                    CollisionPair { colliders: pair },
+                );
+            }
+        }
+    }
+
+    // Offsets of the buffered pairs in the workgroup's range (inclusive Hillis-Steele scan).
+    wg_scan.write(tid, num_buffered as u32);
+    let mut offset = 1usize;
+    for _ in 0..6u32 {
+        workgroup_memory_barrier_with_group_sync();
+        let v = if tid >= offset {
+            wg_scan.read(tid - offset)
+        } else {
+            0
+        };
+        workgroup_memory_barrier_with_group_sync();
+        let s = wg_scan.read(tid) + v;
+        wg_scan.write(tid, s);
+        offset *= 2;
+    }
+    workgroup_memory_barrier_with_group_sync();
+    if tid == WORKGROUP_SIZE as usize - 1 {
+        let total = wg_scan.read(tid);
+        wg_base.write(0, atomic_add_u32(collision_pairs_len.at_mut(0), total));
+    }
+    workgroup_memory_barrier_with_group_sync();
+
+    let first = wg_base.read(0) + wg_scan.read(tid) - num_buffered as u32;
+    for k in 0..PAIRS_PER_THREAD {
+        let target_pair_index = first + k as u32;
+        if k < num_buffered && target_pair_index < batch_ids.collision_pairs_capacity {
+            collision_pairs.write(
+                target_pair_index as usize,
+                CollisionPair {
+                    colliders: wg_pairs.read(k * WORKGROUP_SIZE as usize + tid),
+                },
+            );
         }
     }
 }
