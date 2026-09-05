@@ -1,17 +1,24 @@
-//! Constraint warmstarting (impulse caching across frames).
+//! Constraint warmstarting (impulse caching across frames) and contact recycling.
 //!
 //! Transfers impulses from frame `n-1` to frame `n` as initial guesses for the solver.
-//! Contacts are matched by proximity in local coordinates (threshold: 10cm).
+//! Contacts are matched by proximity in local coordinates (threshold: 10cm). A pair that
+//! barely moved since its contacts were computed keeps them instead (rapier's contact
+//! recycling).
 
 use crate::broad_phase::ContactPlan;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
+#[allow(unused_imports)] // Needed on the GPU for `sqrt`.
+use khal_std::num_traits::Float;
 
-use super::constraint::TwoBodyConstraint;
+use super::body::Velocity;
+use super::constraint::{ContactRecycleState, TwoBodyConstraint};
 use crate::utils::{Slice, SliceMut};
+use crate::{Pose, Rotation, gcross_av};
 use khal_std::index::MaybeIndexUnchecked;
 
-/// Transfers warmstart impulses from previous frame to current frame.
+/// Transfers warmstart impulses from previous frame to current frame, or recycles the
+/// previous frame's contacts.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_transfer_warmstart_impulses(
@@ -23,12 +30,22 @@ pub fn gpu_transfer_warmstart_impulses(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     new_constraints: &mut [TwoBodyConstraint],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] contact_plan: &ContactPlan,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
+    old_recycle_states: &[ContactRecycleState],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
+    recycle_states: &mut [ContactRecycleState],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] collider_world_poses: &[Pose],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 8)] vels: &[Velocity],
 ) {
     let total = contact_plan.bound;
     let old_body_constraint_counts = Slice(old_body_constraint_counts, 0);
     let old_body_constraint_ids = Slice(old_body_constraint_ids, 0);
     let old_constraints = Slice(old_constraints, 0);
     let mut new_constraints = SliceMut(new_constraints, 0);
+    let old_recycle_states = Slice(old_recycle_states, 0);
+    let mut recycle_states = SliceMut(recycle_states, 0);
+    let collider_world_poses = Slice(collider_world_poses, 0);
+    let vels = Slice(vels, 0);
 
     let cid_new = invocation_id.x;
 
@@ -43,6 +60,10 @@ pub fn gpu_transfer_warmstart_impulses(
             &old_body_constraint_ids,
             &old_constraints,
             &mut new_constraints,
+            &old_recycle_states,
+            &mut recycle_states,
+            &collider_world_poses,
+            &vels,
         );
     }
 }
@@ -139,19 +160,92 @@ pub fn gpu_seed_colors_from_warmstart(
     }
 }
 
-/// Transfers warmstart impulses from previous frame to current frame.
+/// Whether a pair whose contacts were computed at `state` can keep them at the collider poses
+/// `pose_a` and `pose_b` (rapier's `relative_pose_drift` and `relative_rot_cos` tests).
+#[inline(always)]
+fn can_recycle(state: &ContactRecycleState, pose_a: Pose, pose_b: Pose) -> bool {
+    let pos12_old = state.pose_a.inverse() * state.pose_b;
+    let pos12 = pose_a.inverse() * pose_b;
+    let trans = (pos12.translation - pos12_old.translation).length();
+    let drot = pos12.rotation * pos12_old.rotation.inverse();
+    // Bound on the rotation's displacement of a point within `max_extent` of the origin.
+    #[cfg(feature = "dim3")]
+    let chord = 2.0 * glamx::Vec3::new(drot.x, drot.y, drot.z).length() * state.max_extent;
+    #[cfg(feature = "dim2")]
+    let chord = {
+        let denom = 2.0 * (1.0 + drot.re);
+        let half_sin = if denom > 1.0e-6 {
+            drot.im.abs() / denom.sqrt()
+        } else {
+            1.0
+        };
+        2.0 * half_sin * state.max_extent
+    };
+    // The frozen normal and lever arms also bound each collider's own rotation.
+    let rot_cos = rot_cos(state.pose_a.rotation, pose_a.rotation)
+        .min(rot_cos(state.pose_b.rotation, pose_b.rotation));
+    state.max_drift > 0.0 && trans + chord <= state.max_drift && rot_cos > 0.98
+}
+
+/// The cosine of the angle between two rotations.
+#[inline(always)]
+fn rot_cos(a: Rotation, b: Rotation) -> f32 {
+    #[cfg(feature = "dim3")]
+    {
+        let c = a.dot(b);
+        2.0 * c * c - 1.0
+    }
+    #[cfg(feature = "dim2")]
+    {
+        a.re * b.re + a.im * b.im
+    }
+}
+
+/// Replaces the contacts of `new` with those of `old`, with their impulses: the normal, lever arms
+/// and anchors stay frozen, only the masses and restitution velocities follow the bodies.
+#[inline(always)]
+fn recycle_contacts(
+    old: &TwoBodyConstraint,
+    new: &mut TwoBodyConstraint,
+    vel1: &Velocity,
+    vel2: &Velocity,
+) {
+    new.dir_a = old.dir_a;
+    #[cfg(feature = "dim3")]
+    {
+        new.tangent_a = old.tangent_a;
+    }
+    new.len = old.len;
+    for k in 0..old.len as usize {
+        let mut point = *old.points.at(k);
+        let v1 = vel1.linear + gcross_av(vel1.angular, point.r_a);
+        let v2 = vel2.linear + gcross_av(vel2.angular, point.r_b);
+        point.normal_vel = new.restitution * (v1 - v2).dot(old.dir_a);
+        new.points.write(k, point);
+    }
+    new.compute_effective_masses();
+}
+
+/// Transfers warmstart impulses from previous frame to current frame, or recycles the previous
+/// frame's contacts if the pair barely moved since they were computed.
 ///
 /// NOTE: this assumes that the solver body ids in the constraints match the index of the body itself.
 ///       This also assumes that bodies in a given constraint pair are always in the same order (they don't
 ///       get swapped from one frame to another).
+#[allow(clippy::too_many_arguments)]
 pub fn transfer_warmstart_impulses(
     cid_new: u32,
     old_body_constraint_counts: &Slice<u32>,
     old_body_constraint_ids: &Slice<u32>,
     old_constraints: &Slice<TwoBodyConstraint>,
     new_constraints: &mut SliceMut<TwoBodyConstraint>,
+    old_recycle_states: &Slice<ContactRecycleState>,
+    recycle_states: &mut SliceMut<ContactRecycleState>,
+    collider_world_poses: &Slice<Pose>,
+    vels: &Slice<Velocity>,
 ) {
     let i = cid_new as usize;
+    let colliders = recycle_states[i].colliders;
 
     // Get the two bodies involved in this new constraint
     let body_a = new_constraints[i].solver_body_a;
@@ -197,16 +291,26 @@ pub fn transfer_warmstart_impulses(
         // and sub-shape. A body pair alone is ambiguous (one manifold per trimesh triangle or
         // polyline segment, or per collider of a compound body), and matching the first one
         // hands the same impulses to every manifold of the pair.
-        let same_manifold = old_constraints[cid_old].warmstart_collider_a
-            == new_constraints[i].warmstart_collider_a
-            && old_constraints[cid_old].warmstart_collider_b
-                == new_constraints[i].warmstart_collider_b
-            && old_constraints[cid_old].warmstart_subshape == new_constraints[i].warmstart_subshape;
-        if old_constraints[cid_old].solver_body_a == body_a
-            && old_constraints[cid_old].solver_body_b == body_b
-            && same_manifold
-        {
-            // Body pair match found! Now match individual contact points.
+        let old = &old_constraints[cid_old];
+        let same_manifold = (old.warmstart_collider_a == new_constraints[i].warmstart_collider_a)
+            & (old.warmstart_collider_b == new_constraints[i].warmstart_collider_b)
+            & (old.warmstart_subshape == new_constraints[i].warmstart_subshape);
+        if (old.solver_body_a == body_a) & (old.solver_body_b == body_b) & same_manifold {
+            let old_state = old_recycle_states[cid_old];
+            let pose_a = collider_world_poses[colliders.x as usize];
+            let pose_b = collider_world_poses[colliders.y as usize];
+            if can_recycle(&old_state, pose_a, pose_b) {
+                recycle_contacts(
+                    &old_constraints[cid_old],
+                    &mut new_constraints[i],
+                    &vels[body_a as usize],
+                    &vels[body_b as usize],
+                );
+                recycle_states[i] = old_state;
+                break;
+            }
+
+            // Collider pair match found! Now match individual contact points.
             // We don't have feature IDs, so matching is done by proximity in local space.
 
             // Distance threshold for matching contact points (10cm)

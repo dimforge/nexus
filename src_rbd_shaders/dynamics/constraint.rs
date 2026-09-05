@@ -6,7 +6,8 @@
 //! mass and (symmetric) world inverse inertia, from which the angular Jacobians are
 //! recomputed on the fly.
 
-use crate::{AngVector, Vector, gcross, gdot};
+use crate::{AngVector, Pose, Vector, gcross, gdot};
+use glamx::UVec2;
 use khal_std::index::MaybeIndexUnchecked;
 
 #[cfg(feature = "dim3")]
@@ -115,7 +116,9 @@ pub struct TwoBodyConstraint {
     ///
     /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
     pub warmstart_subshape: u32,
-    pub _padding: [u32; 3],
+    /// Combined restitution coefficient.
+    pub restitution: f32,
+    pub _padding: [u32; 2],
     /// The contact points (the first `len` are active).
     pub points: [ContactPoint; MAX_CONSTRAINTS_PER_MANIFOLD],
 }
@@ -158,9 +161,29 @@ pub struct TwoBodyConstraint {
     ///
     /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
     pub warmstart_subshape: u32,
-    pub _padding: [u32; 3],
+    /// Combined restitution coefficient.
+    pub restitution: f32,
+    pub _padding: [u32; 2],
     /// The contact points (the first `len` are active).
     pub points: [ContactPoint; MAX_CONSTRAINTS_PER_MANIFOLD],
+}
+
+/// When the contacts of a [`TwoBodyConstraint`] were last computed, for contact recycling (see
+/// `RbdSimParams::normalized_contact_recycle_distance`).
+#[derive(Clone, Copy, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct ContactRecycleState {
+    /// World pose of the first collider.
+    pub pose_a: Pose,
+    /// World pose of the second collider.
+    pub pose_b: Pose,
+    /// The collider pair.
+    pub colliders: UVec2,
+    /// See `IndexedManifold::recycle_extent`.
+    pub max_extent: f32,
+    /// The drift allowed before the contacts are computed again (0 if they can't be recycled).
+    pub max_drift: f32,
 }
 
 /// One contact point of a [`TwoBodyConstraint`].

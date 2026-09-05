@@ -200,11 +200,15 @@ pub struct RbdSimParams {
     /// Host-side only: it selects the bias-mode uniform passed to the solve
     /// kernels, never read by a shader.
     pub friction_in_bias_pass: u32,
+
+    /// A contact pair whose relative pose drifted less than this since its contacts were computed
+    /// keeps them, frozen on the bodies (default: `0.05` as in rapier, `0` disables recycling).
+    ///
+    /// This value is implicitly scaled by `length_unit`.
+    pub normalized_contact_recycle_distance: f32,
     // Uniform-layout padding to a 16-byte multiple (scalars: an array member
     // here would itself need 16-byte alignment).
     pub _padding0: u32,
-    pub _padding1: u32,
-    pub _padding2: u32,
 }
 
 impl RbdSimParams {
@@ -231,9 +235,8 @@ impl RbdSimParams {
             length_unit: 1.0,
             num_internal_pgs_iterations: 1,
             friction_in_bias_pass: 0,
+            normalized_contact_recycle_distance: 0.05,
             _padding0: 0,
-            _padding1: 0,
-            _padding2: 0,
         }
     }
 }
@@ -377,6 +380,12 @@ impl RbdSimParams {
     /// (default: `0.02m` multiplied by `length_unit`).
     pub fn prediction_distance(&self) -> f32 {
         self.normalized_prediction_distance * self.length_unit
+    }
+
+    /// The distance below which a contact pair's drift lets it keep its contacts (default:
+    /// `0.05` multiplied by `length_unit`, `0` when recycling is disabled).
+    pub fn contact_recycle_distance(&self) -> f32 {
+        self.normalized_contact_recycle_distance * self.length_unit
     }
 
     /// Maximum linear velocity a body may have after each solver substep.

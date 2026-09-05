@@ -384,6 +384,7 @@ impl RbdPipeline {
                 stable_mb_contact_index: None,
                 contacts_len_indirect: &state.contacts_indirect,
                 constraints: &mut state.new_constraints,
+                recycle_states: &mut state.recycle_states,
                 sim_params: &state.sim_params,
                 body_poses: &mut state.body_poses,
                 solver_body_poses: &mut state.solver_body_poses,
@@ -454,6 +455,10 @@ impl RbdPipeline {
                     old_body_constraint_ids: &state.old_body_constraint_ids,
                     old_constraints: &state.old_constraints,
                     new_constraints: &mut state.new_constraints,
+                    old_recycle_states: &state.old_recycle_states,
+                    recycle_states: &mut state.recycle_states,
+                    collider_world_poses: &state.collider_world_poses,
+                    vels: &state.vels,
                     contacts_len_indirect: &state.contacts_indirect,
                 };
 
@@ -574,6 +579,7 @@ impl RbdPipeline {
                 .then_some(&mut state.determinism.stable_mb_contact_index),
             contacts_len_indirect: &state.contacts_indirect,
             constraints: &mut state.new_constraints,
+            recycle_states: &mut state.recycle_states,
             sim_params: &state.sim_params,
             body_poses: &mut state.body_poses,
             solver_body_poses: &mut state.solver_body_poses,
@@ -652,6 +658,7 @@ impl RbdPipeline {
 
         // Swap buffers for warm-starting next frame
         std::mem::swap(&mut state.old_constraints, &mut state.new_constraints);
+        std::mem::swap(&mut state.old_recycle_states, &mut state.recycle_states);
         std::mem::swap(
             &mut state.old_body_constraint_ids,
             &mut state.new_body_constraint_ids,
@@ -809,6 +816,8 @@ impl RbdPipeline {
                 state.old_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
                 state.new_constraints = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.old_recycle_states = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.recycle_states = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.new_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
                 state.constraints_colors = Tensor::vector_uninit(backend, new_contacts, storage)?;

@@ -11,8 +11,8 @@ use crate::shaders::broad_phase::{CollisionPair, ContactPlan, LbvhNode, NarrowPh
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
-    LocalMassProperties as GpuLocalMassProperties, RbdSimParams, TwoBodyConstraint,
-    Velocity as GpuVelocity, WorldMassProperties as GpuWorldMassProperties,
+    ContactRecycleState, LocalMassProperties as GpuLocalMassProperties, RbdSimParams,
+    TwoBodyConstraint, Velocity as GpuVelocity, WorldMassProperties as GpuWorldMassProperties,
 };
 use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::shapes::Shape;
@@ -305,6 +305,10 @@ pub struct RbdState {
     pub(super) new_constraints_counts: Tensor<u32>,
     pub(super) new_body_constraint_ids: Tensor<u32>,
     pub(super) old_constraints: Tensor<TwoBodyConstraint>,
+    /// When the previous frame's contacts were computed (contact recycling), per constraint.
+    pub(super) old_recycle_states: Tensor<ContactRecycleState>,
+    /// When the current frame's contacts were computed, per constraint.
+    pub(super) recycle_states: Tensor<ContactRecycleState>,
     pub(super) old_constraints_counts: Tensor<u32>,
     pub(super) old_body_constraint_ids: Tensor<u32>,
     pub(super) constraints_colors: Tensor<u32>,
@@ -674,6 +678,16 @@ impl RbdState {
         // shader reads this field.
         let mut params = self.sim_params_cpu;
         params.num_internal_pgs_iterations = n;
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
+        self.sim_params_cpu = params;
+    }
+
+    /// Sets the drift below which a contact pair keeps its contacts instead of computing them
+    /// again, before scaling by `length_unit` (see
+    /// [`RbdSimParams::normalized_contact_recycle_distance`]). `0` disables contact recycling.
+    pub fn set_contact_recycle_distance(&mut self, backend: &GpuBackend, normalized_distance: f32) {
+        let mut params = self.sim_params_cpu;
+        params.normalized_contact_recycle_distance = normalized_distance;
         let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
         self.sim_params_cpu = params;
     }

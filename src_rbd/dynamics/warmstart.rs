@@ -1,8 +1,10 @@
 //! Warmstarting: reuses previous-frame impulses for faster solver convergence.
 
+use crate::math::Pose;
 use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
-    GpuSeedColorsFromWarmstart, GpuTransferWarmstartImpulses, TwoBodyConstraint,
+    ContactRecycleState, GpuSeedColorsFromWarmstart, GpuTransferWarmstartImpulses,
+    TwoBodyConstraint, Velocity,
 };
 use khal::Shader;
 use khal::backend::{GpuBackendError, GpuPass};
@@ -35,6 +37,14 @@ pub struct WarmstartArgs<'a> {
     pub old_constraints: &'a Tensor<TwoBodyConstraint>,
     /// Solver constraints for current frame (to be warmstarted).
     pub new_constraints: &'a mut Tensor<TwoBodyConstraint>,
+    /// When the previous frame's contacts were computed.
+    pub old_recycle_states: &'a Tensor<ContactRecycleState>,
+    /// When the current frame's contacts were computed (the recycled ones are updated).
+    pub recycle_states: &'a mut Tensor<ContactRecycleState>,
+    /// Per-collider world poses.
+    pub collider_world_poses: &'a Tensor<Pose>,
+    /// Rigid body velocities.
+    pub vels: &'a Tensor<Velocity>,
     /// Indirect dispatch arguments based on contact count.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
 }
@@ -62,7 +72,8 @@ pub struct SeedColorsArgs<'a> {
 }
 
 impl GpuWarmstart {
-    /// Transfers warmstart impulses from old constraints to new constraints.
+    /// Transfers warmstart impulses from old constraints to new constraints, or recycles the old
+    /// contacts of the pairs that barely moved.
     pub fn transfer_warmstart_impulses<'a>(
         &self,
         pass: &mut GpuPass,
@@ -76,6 +87,10 @@ impl GpuWarmstart {
             args.old_constraints,
             args.new_constraints,
             args.contact_plan,
+            args.old_recycle_states,
+            args.recycle_states,
+            args.collider_world_poses,
+            args.vels,
         )
     }
 

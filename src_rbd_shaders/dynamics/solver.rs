@@ -14,7 +14,7 @@ use khal_std::{
 };
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
-use super::constraint::TwoBodyConstraint;
+use super::constraint::{ContactRecycleState, TwoBodyConstraint};
 use super::mass_splitting::{HUB_COUNT_HUBS, HUB_COUNT_SLOTS, NOT_A_HUB};
 use super::sim_params::{RbdSimParams, decode_bias_mode};
 use super::solver_utils::warmstart_body;
@@ -24,7 +24,7 @@ use crate::utils::{BatchIndices, Slice, SliceMut};
 
 const WORKGROUP_SIZE: u32 = 64;
 
-/// Initializes constraints from contact manifolds.
+/// Initializes constraints from contact manifolds, and the recycle state of their fresh contacts.
 ///
 /// Split into two passes to stay within WebGPU's 8-storage-buffer per-stage
 /// limit: this pass builds the per-contact constraint/builder;
@@ -43,8 +43,12 @@ pub fn gpu_solver_init_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] vels: &[Velocity],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] mprops: &[WorldMassProperties],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 4)]
+    recycle_states: &mut [ContactRecycleState],
+    #[spirv(uniform, descriptor_set = 1, binding = 5)] params: &RbdSimParams,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let recycle_distance = params.contact_recycle_distance();
 
     let total = contact_plan.bound;
     let collider_world_poses = Slice(collider_world_poses, 0);
@@ -72,6 +76,19 @@ pub fn gpu_solver_init_constraints(
             &solver_body_poses,
             &vels,
             constraints.at_mut(i),
+        );
+        // Every constraint's contacts are fresh here; the warmstart transfer puts the recycled
+        // ones' state back.
+        let extent = im.recycle_extent;
+        recycle_states.write(
+            i,
+            ContactRecycleState {
+                pose_a: collider_world_poses[im.colliders.x as usize],
+                pose_b: collider_world_poses[im.colliders.y as usize],
+                colliders: im.colliders,
+                max_extent: extent,
+                max_drift: if extent >= 0.0 { recycle_distance } else { 0.0 },
+            },
         );
     }
 }

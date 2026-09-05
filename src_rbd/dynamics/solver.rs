@@ -15,11 +15,11 @@ use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
-    GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc, GpuIntegrateLinearized,
-    GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize, GpuSolverInitConstraints,
-    GpuSolverScaleImpulses, GpuSolverSortConstraints, GpuStepGaussSeidel, GpuStepGaussSeidelFused,
-    GpuWarmstart, GpuWarmstartFused, GpuWarmstartWithoutColors, LocalMassProperties, RbdSimParams,
-    TwoBodyConstraint, Velocity, WorldMassProperties,
+    ContactRecycleState, GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc,
+    GpuIntegrateLinearized, GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
+    GpuSolverInitConstraints, GpuSolverScaleImpulses, GpuSolverSortConstraints, GpuStepGaussSeidel,
+    GpuStepGaussSeidelFused, GpuWarmstart, GpuWarmstartFused, GpuWarmstartWithoutColors,
+    LocalMassProperties, RbdSimParams, TwoBodyConstraint, Velocity, WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -91,6 +91,8 @@ pub struct SolverArgs<'a> {
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Solver constraints (output from constraint initialization).
     pub constraints: &'a mut Tensor<TwoBodyConstraint>,
+    /// When each constraint's contacts were computed (output from constraint initialization).
+    pub recycle_states: &'a mut Tensor<ContactRecycleState>,
     /// Global simulation parameters.
     pub sim_params: &'a Tensor<RbdSimParams>,
     /// Rigid body world-origin poses. Mirrors rapier's `RigidBody::position`.
@@ -230,6 +232,8 @@ impl GpuSolver {
             args.solver_body_poses,
             args.vels,
             args.mprops,
+            args.recycle_states,
+            args.sim_params,
         )?;
 
         // Counting runs as a separate dispatch (same indirect grid) so the

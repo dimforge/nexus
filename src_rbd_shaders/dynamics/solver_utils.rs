@@ -6,7 +6,7 @@
 use super::body::{Velocity, WorldMassProperties};
 use super::constraint::{SUB_LEN, TwoBodyConstraint};
 use super::sim_params::RbdSimParams;
-use crate::{Pose, Vector, gcross, gdot};
+use crate::{Pose, Vector, gcross, gcross_av, gdot};
 use khal_std::index::MaybeIndexUnchecked;
 
 #[cfg(feature = "dim3")]
@@ -56,18 +56,6 @@ fn compute_tangent_contact_directions(force_dir1: Vector) -> [Vector; SUB_LEN] {
     let tangent1 = orthonormal_vector(force_dir1);
     let bitangent1 = force_dir1.cross(tangent1);
     [tangent1, bitangent1]
-}
-
-#[cfg(feature = "dim2")]
-/// Cross product for angular velocity (2D).
-fn gcross_(a: f32, b: Vector) -> Vector {
-    a * b
-}
-
-#[cfg(feature = "dim3")]
-/// Cross product for angular velocity (3D).
-fn gcross_(a: Vector, b: Vector) -> Vector {
-    a.cross(b)
 }
 
 impl IndexedManifold {
@@ -124,6 +112,7 @@ impl IndexedManifold {
         constraint.im_a = mprops1.inv_mass;
         constraint.im_b = mprops2.inv_mass;
         constraint.limit = self.friction;
+        constraint.restitution = restitution;
         constraint.solver_body_a = bid1;
         constraint.solver_body_b = bid2;
         constraint.vel_slot_a = bid1;
@@ -141,8 +130,8 @@ impl IndexedManifold {
             // the world COM); use the latter to mirror rapier's solver convention.
             let dp1 = pt - spose1.translation;
             let dp2 = pt - spose2.translation;
-            let contact_vel1 = vel1.linear + gcross_(vel1.angular, dp1);
-            let contact_vel2 = vel2.linear + gcross_(vel2.angular, dp2);
+            let contact_vel1 = vel1.linear + gcross_av(vel1.angular, dp1);
+            let contact_vel2 = vel2.linear + gcross_av(vel2.angular, dp2);
 
             // TODO: handle is_bouncy?
             let point = constraint.points.at_mut(k);

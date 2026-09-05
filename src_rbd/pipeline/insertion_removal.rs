@@ -172,6 +172,9 @@ impl RbdState {
         .unwrap();
         let old_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let new_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let old_recycle_states =
+            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let recycle_states = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_colors =
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_pending_colors =
@@ -295,6 +298,8 @@ impl RbdState {
             old_constraints,
             old_constraints_counts,
             new_constraints,
+            old_recycle_states,
+            recycle_states,
             new_constraints_counts,
             constraints_colors,
             old_constraints_colors,
