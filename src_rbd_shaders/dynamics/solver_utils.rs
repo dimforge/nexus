@@ -307,7 +307,9 @@ impl TwoBodyConstraint {
             let dist = point.dist + (p1 - p2).dot(dir_a);
             let rhs_wo_bias = point.normal_vel + dist.max(0.0) * inv_dt;
             let (rhs, cfm_factor) = if use_bias {
-                let rhs_bias = (dist * erp_inv_dt).clamp(-max_corr_velocity, 0.0);
+                // Not `clamp`: its `min <= max` assertion exits the kernel early, which breaks
+                // the uniform control flow of the fused sweeps' barriers on the web.
+                let rhs_bias = (dist * erp_inv_dt).max(-max_corr_velocity).min(0.0);
                 // Separated (speculative) points are solved rigidly.
                 let cfm = if dist <= 0.0 { cfm_factor } else { 1.0 };
                 (rhs_wo_bias + rhs_bias, cfm)

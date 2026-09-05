@@ -1411,11 +1411,11 @@ impl NexusState {
             dict.set_item("inv_mass_a", c.im_a.x)?;
             dict.set_item("inv_mass_b", c.im_b.x)?;
             let normal: Vec<f32> = (0..c.len as usize)
-                .map(|k| c.elements[k].normal_part.impulse)
+                .map(|k| c.points[k].normal_impulse)
                 .collect();
             let tangent: Vec<[f32; 2]> = (0..c.len as usize)
                 .map(|k| {
-                    let t = c.elements[k].tangent_part.impulse;
+                    let t = c.points[k].tangent_impulse;
                     [t.x, t.y]
                 })
                 .collect();

@@ -1054,6 +1054,7 @@ impl NexusViewer {
     /// Renders sensor camera `id`'s shaded RGB image (row-major, top-left
     /// origin, `width * height * 3` bytes).
     #[cfg(feature = "dim3")]
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn render_sensor_rgb(&mut self, id: usize) -> Option<Vec<u8>> {
         let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_rgb(&mut self.scene3d).await)
@@ -1061,6 +1062,7 @@ impl NexusViewer {
 
     /// Renders sensor camera `id`'s linear metric depth (`0.0` = background).
     #[cfg(feature = "dim3")]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render_sensor_depth(&mut self, id: usize) -> Option<Vec<f32>> {
         let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_depth(&mut self.scene3d))
@@ -1068,6 +1070,7 @@ impl NexusViewer {
 
     /// Renders sensor camera `id`'s per-pixel segmentation ids (`0` = background).
     #[cfg(feature = "dim3")]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render_sensor_segmentation(&mut self, id: usize) -> Option<Vec<u32>> {
         let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_segmentation(&mut self.scene3d))

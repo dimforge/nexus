@@ -282,11 +282,33 @@ pub fn gpu_hub_average(
     let num_hubs = hub_counts.read(HUB_COUNT_HUBS).min(max_hubs);
     let mut solver_vels = SliceMut(solver_vels, 0);
 
-    // Uniform across the workgroup, so the barriers below are reached by every lane.
-    for k in StepRng::new(workgroup_id.x..num_hubs, num_workgroups.x) {
-        let body = hub_list.read(k as usize);
-        let s0 = hub_first_slot.read(body as usize);
-        let (first, last) = constraint_range(&counts, body);
+    // Uniform across the workgroup, so the barriers below are reached by every lane. The WGSL
+    // uniformity analysis doesn't trust `workgroup_id`, so on the web the rounds are bounded by
+    // `max_hubs` (read-only storage) and the out-of-range hubs run them inactive.
+    #[cfg(not(feature = "web-compat"))]
+    #[allow(clippy::implicit_saturating_sub)]
+    let num_rounds = if num_hubs > workgroup_id.x {
+        (num_hubs - workgroup_id.x).div_ceil(num_workgroups.x)
+    } else {
+        0
+    };
+    #[cfg(feature = "web-compat")]
+    let num_rounds = max_hubs.div_ceil(HUB_AVERAGE_WORKGROUPS);
+
+    for round in 0..num_rounds {
+        let k = workgroup_id.x + round * num_workgroups.x;
+        let active = k < num_hubs;
+        let body = if active { hub_list.read(k as usize) } else { 0 };
+        let s0 = if active {
+            hub_first_slot.read(body as usize)
+        } else {
+            0
+        };
+        let (first, last) = if active {
+            constraint_range(&counts, body)
+        } else {
+            (0, 0)
+        };
         let n = last - first;
 
         let mut linear = Vector::ZERO;

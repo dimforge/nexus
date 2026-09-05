@@ -447,6 +447,7 @@ fn refit_barrier() {
 }
 
 /// Whether any lane of the workgroup is still `active`. Must be reached by every lane.
+#[cfg(not(feature = "web-compat"))]
 #[inline(always)]
 fn any_lane_active(lane: u32, active: bool, flag: &mut [u32; 1]) -> bool {
     if lane == 0 {
@@ -500,12 +501,19 @@ pub fn gpu_lbvh_refit_chunks(
     #[spirv(workgroup)] any_active_flag: &mut [u32; 1],
 ) {
     let lane = local_id.x;
+    #[cfg(feature = "web-compat")]
+    let _ = any_active_flag;
     let chunk = workgroup_id.x;
     let batch_id = workgroup_id.y;
     let colliders_start = scratch_start(batch_ids, batch_id);
     let num_leaves = batch_ids.colliders_len;
-    // Uniform across the workgroup.
-    if num_leaves < 2 || chunk * REFIT_CHUNK >= num_leaves {
+    if num_leaves < 2 {
+        return;
+    }
+    // Uniform across the workgroup, but derived from `workgroup_id`, which the WGSL uniformity
+    // analysis doesn't trust: on the web, out-of-range chunks run the loop inactive instead.
+    #[cfg(not(feature = "web-compat"))]
+    if chunk * REFIT_CHUNK >= num_leaves {
         return;
     }
     let first_leaf_id = num_leaves - 1;
@@ -520,6 +528,9 @@ pub fn gpu_lbvh_refit_chunks(
     }
 
     for _ in 0..REFIT_MAX_DEPTH {
+        // On the web, every level runs: the early exit reads workgroup memory, which the WGSL
+        // uniformity analysis can't prove uniform (no `workgroupUniformLoad` in rust-gpu).
+        #[cfg(not(feature = "web-compat"))]
         if !any_lane_active(lane, active, any_active_flag) {
             break;
         }
@@ -565,14 +576,22 @@ pub fn gpu_lbvh_refit_frontier(
     #[spirv(workgroup)] any_active_flag: &mut [u32; 1],
 ) {
     let lane = local_id.x;
+    #[cfg(feature = "web-compat")]
+    let _ = any_active_flag;
     let batch_id = workgroup_id.y;
     let colliders_start = scratch_start(batch_ids, batch_id);
     let num_leaves = batch_ids.colliders_len;
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
     // Uniform across the workgroup: every lane reads the same count.
     let frontier_len = refit_frontier_len.read(batch_id as usize).min(num_leaves);
+    // The WGSL uniformity analysis doesn't trust values derived from `workgroup_id`: on the web,
+    // the rounds are bounded by the leaf count (from a uniform) instead.
+    #[cfg(not(feature = "web-compat"))]
+    let num_rounds = frontier_len.div_ceil(REFIT_CHUNK);
+    #[cfg(feature = "web-compat")]
+    let num_rounds = num_leaves.div_ceil(REFIT_CHUNK);
 
-    for round in 0..frontier_len.div_ceil(REFIT_CHUNK) {
+    for round in 0..num_rounds {
         let k = round * REFIT_CHUNK + lane;
         let mut active = k < frontier_len;
         let mut node = 0u32;
@@ -582,6 +601,8 @@ pub fn gpu_lbvh_refit_frontier(
         }
 
         for _ in 0..REFIT_MAX_DEPTH {
+            // See `gpu_lbvh_refit_chunks`: every level runs on the web.
+            #[cfg(not(feature = "web-compat"))]
             if !any_lane_active(lane, active, any_active_flag) {
                 break;
             }

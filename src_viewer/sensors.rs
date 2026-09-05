@@ -15,6 +15,7 @@ use glamx::{Mat4, Pose3, Vec3};
 use kiss3d::camera::Camera3d;
 use kiss3d::event::WindowEvent;
 use kiss3d::prelude::Color;
+#[cfg(not(target_arch = "wasm32"))]
 use kiss3d::scene::SceneNode3d;
 use kiss3d::window::{Canvas, NumSamples, OffscreenSurface};
 use nexus::rbd::math::Pose;
@@ -248,6 +249,7 @@ impl SensorCamera {
 
     /// Renders the shaded scene and returns it as row-major, top-left origin
     /// RGB bytes (`width * height * 3`).
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn render_rgb(&mut self, scene: &mut SceneNode3d) -> Vec<u8> {
         self.surface.render_3d(scene, &mut self.camera).await;
         self.surface.snap_image().into_raw()
@@ -255,6 +257,7 @@ impl SensorCamera {
 
     /// Renders linear eye-space depth in world units, row-major with a top-left
     /// origin; background pixels are `0.0`.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render_depth(&mut self, scene: &mut SceneNode3d) -> Vec<f32> {
         self.surface.snap_depth_raw(scene, &mut self.camera)
     }
@@ -262,6 +265,7 @@ impl SensorCamera {
     /// Renders the per-pixel segmentation id (`0` for background), row-major
     /// with a top-left origin. Ids are the objects' `segmentation_id`s, which
     /// the viewer sets per body.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render_segmentation(&mut self, scene: &mut SceneNode3d) -> Vec<u32> {
         self.surface.snap_segmentation(scene, &mut self.camera)
     }
