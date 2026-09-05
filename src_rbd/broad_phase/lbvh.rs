@@ -7,10 +7,10 @@ use crate::math::Pose;
 use crate::shaders::PaddedVector;
 use crate::shaders::bounding_volumes::Aabb;
 use crate::shaders::broad_phase::{
-    CollisionPair, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch, GpuLbvhBuild,
-    GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhEscapes, GpuLbvhFindCollisionPairs,
-    GpuLbvhRefitChunks, GpuLbvhRefitFrontier, GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs,
-    LbvhNode,
+    CollisionPair, DOMAIN_WORKGROUPS, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch,
+    GpuLbvhBuild, GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhDomainMerge, GpuLbvhEscapes,
+    GpuLbvhFindCollisionPairs, GpuLbvhRefitChunks, GpuLbvhRefitFrontier, GpuLbvhRefitLeaves,
+    GpuLbvhResetCollisionPairs, LbvhNode,
 };
 use crate::shaders::shapes::Shape;
 use crate::utils::{RadixSort, RadixSortWorkspace};
@@ -27,6 +27,7 @@ use vortx::tensor::Tensor;
 #[derive(Shader)]
 pub struct GpuLbvh {
     compute_domain: GpuLbvhComputeDomain,
+    domain_merge: GpuLbvhDomainMerge,
     compute_morton: GpuLbvhComputeMorton,
     build: GpuLbvhBuild,
     escapes: GpuLbvhEscapes,
@@ -50,6 +51,8 @@ pub struct GpuLbvh {
 pub struct LbvhState {
     buffer_usages: BufferUsages,
     domain_aabb: Tensor<Aabb>,
+    /// Per-workgroup domains of each batch, merged into `domain_aabb`.
+    domain_partials: Tensor<Aabb>,
     n_sort: Tensor<u32>,
     /// Per-batch active key count currently uploaded to `n_sort`, as
     /// `(active_per_batch, num_batches)`. `None` forces a re-upload (e.g. after
@@ -100,6 +103,7 @@ impl LbvhState {
             n_sort_active: None,
             generation: 0,
             domain_aabb: Tensor::scalar_uninit(backend, usages).unwrap(),
+            domain_partials: Tensor::vector_uninit(backend, DOMAIN_WORKGROUPS, usages).unwrap(),
             unsorted_morton_keys: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             sorted_morton_keys: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             unsorted_colliders: Tensor::vector_uninit(backend, 0, usages).unwrap(),
@@ -126,6 +130,9 @@ impl LbvhState {
             self.generation += 1;
             self.domain_aabb =
                 Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
+            self.domain_partials =
+                Tensor::vector_uninit(backend, num_batches * DOMAIN_WORKGROUPS, self.buffer_usages)
+                    .unwrap();
             self.refit_frontier_len =
                 Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
         }
@@ -229,12 +236,22 @@ impl Lbvh {
         let colliders_per_batch = active_per_batch;
 
         let mut pass = encoder.begin_pass("[RBD] lbvh-compute-domain", timestamps.as_deref_mut());
+        // About 4k colliders per workgroup.
+        let domain_workgroups = colliders_per_batch
+            .div_ceil(4096)
+            .clamp(1, DOMAIN_WORKGROUPS);
         self.shaders.compute_domain.call(
             &mut pass,
-            [1u32, num_batches, 1],
+            [domain_workgroups * 128, num_batches, 1],
             poses,
-            &mut state.domain_aabb,
+            &mut state.domain_partials,
             batch_indices,
+        )?;
+        self.shaders.domain_merge.call(
+            &mut pass,
+            [DOMAIN_WORKGROUPS, num_batches, 1],
+            &state.domain_partials,
+            &mut state.domain_aabb,
         )?;
         drop(pass);
 

@@ -104,24 +104,33 @@ pub fn gpu_flat_list_dispatch(
     }
 }
 
-/// Runs a reduction to compute the AABB of the collider positions.
-/// Needs to be called with a single workgroup.
+/// Most workgroups per batch of [`gpu_lbvh_compute_domain`].
+pub const DOMAIN_WORKGROUPS: u32 = 64;
+
+/// Min/max reduction of the collider positions, first pass: each of the batch's workgroups
+/// reduces a share of them into `partials`, merged by [`gpu_lbvh_domain_merge`].
 #[spirv_bindgen]
 #[spirv(compute(threads(128)))]
 pub fn gpu_lbvh_compute_domain(
-    #[spirv(global_invocation_id)] global_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] poses: &[Pose],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] domain_aabb: &mut [Aabb],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] partials: &mut [Aabb],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
     #[spirv(workgroup)] workspace_mins: &mut [Vector; 128],
     #[spirv(workgroup)] workspace_maxs: &mut [Vector; 128],
 ) {
-    let batch_id = global_id.y;
-    let thread_id = global_id.x;
+    let batch_id = workgroup_id.y;
+    let thread_id = local_id.x;
+    let group = workgroup_id.x;
+    let num_groups = num_workgroups.x.min(DOMAIN_WORKGROUPS);
+    let first = group * REDUCTION_WORKGROUP_SIZE + thread_id;
+    let stride = num_groups * REDUCTION_WORKGROUP_SIZE;
     *workspace_mins.at_mut(thread_id as usize) = Vector::splat(MAX_FLT);
     *workspace_maxs.at_mut(thread_id as usize) = Vector::splat(-MAX_FLT);
 
-    for i in StepRng::new(thread_id..batch_ids.colliders_len, REDUCTION_WORKGROUP_SIZE) {
+    for i in StepRng::new(first..batch_ids.colliders_len, stride) {
         let val_i = poses.at(batch_ids.body_global(batch_id, i)).translation;
         *workspace_mins.at_mut(thread_id as usize) =
             workspace_mins.at(thread_id as usize).min(val_i);
@@ -144,6 +153,55 @@ pub fn gpu_lbvh_compute_domain(
         }
     );
     step_reduce!(64);
+    step_reduce!(32);
+    step_reduce!(16);
+    step_reduce!(8);
+    step_reduce!(4);
+    step_reduce!(2);
+    step_reduce!(1);
+
+    let base = (batch_id * DOMAIN_WORKGROUPS) as usize;
+    if thread_id == 0 && group < num_groups {
+        partials.at_mut(base + group as usize).mins = *workspace_mins.at(0);
+        partials.at_mut(base + group as usize).maxs = *workspace_maxs.at(0);
+    }
+    // The first workgroup empties the slots no workgroup fills.
+    if group == 0 && thread_id >= num_groups && thread_id < DOMAIN_WORKGROUPS {
+        partials.at_mut(base + thread_id as usize).mins = Vector::splat(MAX_FLT);
+        partials.at_mut(base + thread_id as usize).maxs = Vector::splat(-MAX_FLT);
+    }
+}
+
+/// Min/max reduction of the collider positions, second pass: one workgroup per batch merges
+/// the partial domains of [`gpu_lbvh_compute_domain`].
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_lbvh_domain_merge(
+    #[spirv(local_invocation_id)] local_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] partials: &[Aabb],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] domain_aabb: &mut [Aabb],
+    #[spirv(workgroup)] workspace_mins: &mut [Vector; 64],
+    #[spirv(workgroup)] workspace_maxs: &mut [Vector; 64],
+) {
+    let batch_id = workgroup_id.y;
+    let thread_id = local_id.x;
+    let partial = partials.at((batch_id * DOMAIN_WORKGROUPS + thread_id) as usize);
+    *workspace_mins.at_mut(thread_id as usize) = partial.mins;
+    *workspace_maxs.at_mut(thread_id as usize) = partial.maxs;
+    workgroup_memory_barrier_with_group_sync();
+
+    macro_rules! step_reduce(
+        ($stride: expr) => {
+            if thread_id < $stride {
+                *workspace_mins.at_mut(thread_id as usize) = workspace_mins.at(thread_id as usize)
+                    .min(*workspace_mins.at((thread_id + $stride) as usize));
+                *workspace_maxs.at_mut(thread_id as usize) = workspace_maxs.at(thread_id as usize)
+                    .max(*workspace_maxs.at((thread_id + $stride) as usize));
+            }
+            workgroup_memory_barrier_with_group_sync();
+        }
+    );
     step_reduce!(32);
     step_reduce!(16);
     step_reduce!(8);
