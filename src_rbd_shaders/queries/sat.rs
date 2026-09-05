@@ -9,8 +9,6 @@ use parry::shape::SupportMap;
 
 #[cfg(feature = "dim3")]
 use glamx::Vec3;
-#[cfg(feature = "dim3")]
-use khal_std::index::MaybeIndexUnchecked;
 
 /// Result of a separating axis test.
 #[derive(Clone, Copy, Default)]
@@ -78,25 +76,9 @@ pub fn cuboid_cuboid_find_local_separating_edge_twoway(
     let y2 = pos12.rotation * Vec3::new(0.0, 1.0, 0.0);
     let z2 = pos12.rotation * Vec3::new(0.0, 0.0, 1.0);
 
-    // We have 3 * 3 = 9 axes to test.
-    let axes = [
-        // Vector::{x, y ,z}().cross(x2)
-        Vec3::new(0.0, -x2.z, x2.y),
-        Vec3::new(x2.z, 0.0, -x2.x),
-        Vec3::new(-x2.y, x2.x, 0.0),
-        // Vector::{x, y ,z}().cross(y2)
-        Vec3::new(0.0, -y2.z, y2.y),
-        Vec3::new(y2.z, 0.0, -y2.x),
-        Vec3::new(-y2.y, y2.x, 0.0),
-        // Vector::{x, y ,z}().cross(z2)
-        Vec3::new(0.0, -z2.z, z2.y),
-        Vec3::new(z2.z, 0.0, -z2.x),
-        Vec3::new(-z2.y, z2.x, 0.0),
-    ];
-
-    // TODO: unroll loop
-    for i in 0..9 {
-        let axis1 = axes.read(i);
+    // We have 3 * 3 = 9 axes to test, unrolled: a loop over an array of axes would index it
+    // dynamically, which puts it in private memory.
+    let mut test_axis = |axis1: Vec3| {
         let norm1 = axis1.length();
         if norm1 > EPSILON {
             let sep = cuboid_cuboid_compute_separation_wrt_local_line(
@@ -110,7 +92,19 @@ pub fn cuboid_cuboid_find_local_separating_edge_twoway(
                 best_sep = sep;
             }
         }
-    }
+    };
+    // Vector::{x, y ,z}().cross(x2)
+    test_axis(Vec3::new(0.0, -x2.z, x2.y));
+    test_axis(Vec3::new(x2.z, 0.0, -x2.x));
+    test_axis(Vec3::new(-x2.y, x2.x, 0.0));
+    // Vector::{x, y ,z}().cross(y2)
+    test_axis(Vec3::new(0.0, -y2.z, y2.y));
+    test_axis(Vec3::new(y2.z, 0.0, -y2.x));
+    test_axis(Vec3::new(-y2.y, y2.x, 0.0));
+    // Vector::{x, y ,z}().cross(z2)
+    test_axis(Vec3::new(0.0, -z2.z, z2.y));
+    test_axis(Vec3::new(z2.z, 0.0, -z2.x));
+    test_axis(Vec3::new(-z2.y, z2.x, 0.0));
 
     best_sep
 }

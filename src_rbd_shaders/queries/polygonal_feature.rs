@@ -582,10 +582,110 @@ mod dim3 {
         result
     }
 
+    // The functions below index their small arrays with constants only (loops are unrolled,
+    // runtime indices become selects): an array indexed dynamically lives in private memory,
+    // which is slow on the GPU.
+
+    /// Expands `$body` once per listed index, with `$i` bound to it.
+    macro_rules! unroll {
+        ($i:ident in [$($n:literal),*] $body:block) => {
+            $({
+                let $i: usize = $n;
+                $body
+            })*
+        };
+    }
+
+    /// `arr[i]` for a runtime `i < 4`.
+    #[inline(always)]
+    fn pick4<T: Copy>(arr: &[T; 4], i: usize) -> T {
+        let mut r = arr[0];
+        if i == 1 {
+            r = arr[1];
+        }
+        if i == 2 {
+            r = arr[2];
+        }
+        if i == 3 {
+            r = arr[3];
+        }
+        r
+    }
+
+    /// `arr[i]` for a runtime `i < MAX_CANDIDATE_POINTS`.
+    #[inline(always)]
+    fn pick_candidate(arr: &[ContactPoint; MAX_CANDIDATE_POINTS], i: usize) -> ContactPoint {
+        let mut r = arr[0];
+        unroll!(k in [1, 2, 3, 4, 5, 6, 7] {
+            if i == k {
+                r = arr[k];
+            }
+        });
+        r
+    }
+
+    /// Whether `p` is outside the (convex) polygon `poly` of `len` vertices: the signs of its
+    /// side tests along the edges differ.
+    #[inline(always)]
+    #[allow(unused_assignments)] // The last unrolled iteration's updates aren't read.
+    fn is_outside(poly: &[Vec2; 4], len: usize, p: Vec2) -> bool {
+        let last = pick4(poly, len - 1);
+        let mut sign = perp(poly[0] - last, p - last);
+        let mut outside = false;
+        unroll!(j in [0, 1, 2] {
+            if j + 1 < len && !outside {
+                let new_sign = perp(poly[j + 1] - poly[j], p - poly[j]);
+                if sign == 0.0 {
+                    sign = new_sign;
+                } else if sign * new_sign < 0.0 {
+                    outside = true;
+                }
+            }
+        });
+        outside
+    }
+
+    /// Appends a candidate (dropped when the candidates are full).
+    #[inline(always)]
+    fn push_candidate(
+        candidates: &mut [ContactPoint; MAX_CANDIDATE_POINTS],
+        num_candidates: &mut u32,
+        point: ContactPoint,
+    ) {
+        let n = *num_candidates as usize;
+        unroll!(k in [0, 1, 2, 3, 4, 5, 6, 7] {
+            if n == k {
+                candidates[k] = point;
+            }
+        });
+        if n < MAX_CANDIDATE_POINTS {
+            *num_candidates += 1;
+        }
+    }
+
+    /// The candidate for the points `local_p1` (in face 1's frame) and `local_p2_1` (face 2's,
+    /// expressed in face 1's frame), on the side of the flipped features if `flipped`.
+    #[inline(always)]
+    fn candidate(
+        pose12: glamx::Pose3,
+        local_p1: Vec3,
+        local_p2_1: Vec3,
+        dist: f32,
+        flipped: bool,
+    ) -> ContactPoint {
+        let pt = if !flipped {
+            local_p1
+        } else {
+            pose12.inverse_transform_point(local_p2_1)
+        };
+        ContactPoint { pt, dist }
+    }
+
     /// Reduces the candidate set to at most `MAX_MANIFOLD_POINTS` solver
     /// contacts. Mirrors `reduce_manifold_naive`: pick the deepest point, then
     /// the one furthest from it, then the two extremes along the tangent of
     /// that segment, considering only points within `prediction`.
+    #[allow(unused_assignments)] // The last unrolled iteration's updates aren't read.
     pub fn manifold_reduction(
         candidates: &[ContactPoint; MAX_CANDIDATE_POINTS],
         num_candidates: u32,
@@ -596,9 +696,11 @@ mod dim3 {
         let num = num_candidates as usize;
 
         if num <= MAX_MANIFOLD_POINTS {
-            for i in 0..num {
-                result.points_a.write(i, candidates.read(i));
-            }
+            unroll!(i in [0, 1, 2, 3] {
+                if i < num {
+                    result.points_a[i] = candidates[i];
+                }
+            });
             result.len = num_candidates;
             return result;
         }
@@ -606,80 +708,87 @@ mod dim3 {
         const NONE: usize = MAX_CANDIDATE_POINTS;
 
         // 1. Find the deepest contact.
-        let mut selected = [NONE, NONE, NONE, NONE];
+        let mut selected0 = NONE;
         let mut deepest_dist = MAX_FLT;
-        for i in 0..num {
-            if candidates.at(i).dist < deepest_dist {
-                deepest_dist = candidates.at(i).dist;
-                selected.write(0, i);
+        unroll!(i in [0, 1, 2, 3, 4, 5, 6, 7] {
+            if i < num && candidates[i].dist < deepest_dist {
+                deepest_dist = candidates[i].dist;
+                selected0 = i;
             }
-        }
+        });
 
-        if selected.read(0) == NONE {
+        if selected0 == NONE {
             return result;
         }
 
         // 2. Find the point that is the furthest from the deepest one.
-        let selected_a = candidates.at(selected.read(0)).pt;
+        let point0 = pick_candidate(candidates, selected0);
+        let selected_a = point0.pt;
+        let mut selected1 = NONE;
         let mut furthest_dist = -MAX_FLT;
-        for i in 0..num {
-            let d = candidates.at(i).pt - selected_a;
-            let dist = d.dot(d);
-            if i != selected.read(0) && candidates.at(i).dist <= prediction && dist > furthest_dist
-            {
-                furthest_dist = dist;
-                selected.write(1, i);
+        unroll!(i in [0, 1, 2, 3, 4, 5, 6, 7] {
+            if i < num {
+                let d = candidates[i].pt - selected_a;
+                let dist = d.dot(d);
+                if i != selected0 && candidates[i].dist <= prediction && dist > furthest_dist {
+                    furthest_dist = dist;
+                    selected1 = i;
+                }
             }
-        }
+        });
 
-        result.points_a.write(0, candidates.read(selected.read(0)));
+        result.points_a[0] = point0;
         result.len = 1;
-        if selected.read(1) == NONE {
+        if selected1 == NONE {
             return result;
         }
 
         // 3. Now find the two points furthest from the segment we built so far.
         // A zero-length segment has no tangent, so it stays a single contact.
-        let selected_b = candidates.at(selected.read(1)).pt;
+        let point1 = pick_candidate(candidates, selected1);
+        let selected_b = point1.pt;
         if selected_a == selected_b {
             return result;
         }
 
         let tangent = (selected_b - selected_a).cross(normal);
+        let mut selected2 = NONE;
+        let mut selected3 = NONE;
         let mut min_dot = MAX_FLT;
         let mut max_dot = -MAX_FLT;
-        for i in 0..num {
-            if i == selected.read(0) || i == selected.read(1) || candidates.at(i).dist > prediction
+        unroll!(i in [0, 1, 2, 3, 4, 5, 6, 7] {
+            if i < num
+                && i != selected0
+                && i != selected1
+                && candidates[i].dist <= prediction
             {
-                continue;
+                let d = (candidates[i].pt - selected_a).dot(tangent);
+                if d < min_dot {
+                    min_dot = d;
+                    selected2 = i;
+                }
+                if d > max_dot {
+                    max_dot = d;
+                    selected3 = i;
+                }
             }
+        });
 
-            let d = (candidates.at(i).pt - selected_a).dot(tangent);
-            if d < min_dot {
-                min_dot = d;
-                selected.write(2, i);
-            }
-            if d > max_dot {
-                max_dot = d;
-                selected.write(3, i);
-            }
-        }
-
-        result.points_a.write(1, candidates.read(selected.read(1)));
+        result.points_a[1] = point1;
         result.len = 2;
-        if selected.read(2) == NONE {
+        if selected2 == NONE {
             return result;
         }
 
-        result.points_a.write(2, candidates.read(selected.read(2)));
+        result.points_a[2] = pick_candidate(candidates, selected2);
         result.len = 3;
         // The min and max extremes come from one pass, so a single remaining
         // candidate is picked for both; keeping it once leaves three contacts.
-        if selected.read(2) == selected.read(3) {
+        if selected2 == selected3 {
             return result;
         }
 
-        result.points_a.write(3, candidates.read(selected.read(3)));
+        result.points_a[3] = pick_candidate(candidates, selected3);
         result.len = 4;
         result
     }
@@ -696,208 +805,132 @@ mod dim3 {
         let mut num_candidates = 0u32;
 
         let basis = orthonormal_basis3(sep_axis1);
-        let projected_face1 = [
-            Vec2::new(
-                face1.vertices.read(0).dot(basis.read(0)),
-                face1.vertices.read(0).dot(basis.read(1)),
-            ),
-            Vec2::new(
-                face1.vertices.read(1).dot(basis.read(0)),
-                face1.vertices.read(1).dot(basis.read(1)),
-            ),
-            Vec2::new(
-                face1.vertices.read(2).dot(basis.read(0)),
-                face1.vertices.read(2).dot(basis.read(1)),
-            ),
-            Vec2::new(
-                face1.vertices.read(3).dot(basis.read(0)),
-                face1.vertices.read(3).dot(basis.read(1)),
-            ),
-        ];
-
+        let (basis0, basis1) = (basis[0], basis[1]);
+        let project = |p: Vec3| Vec2::new(p.dot(basis0), p.dot(basis1));
+        let vertices1 = face1.vertices;
         let vertices2_1 = [
-            pose12.transform_point(face2.vertices.read(0)),
-            pose12.transform_point(face2.vertices.read(1)),
-            pose12.transform_point(face2.vertices.read(2)),
-            pose12.transform_point(face2.vertices.read(3)),
+            pose12.transform_point(face2.vertices[0]),
+            pose12.transform_point(face2.vertices[1]),
+            pose12.transform_point(face2.vertices[2]),
+            pose12.transform_point(face2.vertices[3]),
+        ];
+        let projected_face1 = [
+            project(vertices1[0]),
+            project(vertices1[1]),
+            project(vertices1[2]),
+            project(vertices1[3]),
         ];
         let projected_face2 = [
-            Vec2::new(
-                vertices2_1.read(0).dot(basis.read(0)),
-                vertices2_1.read(0).dot(basis.read(1)),
-            ),
-            Vec2::new(
-                vertices2_1.read(1).dot(basis.read(0)),
-                vertices2_1.read(1).dot(basis.read(1)),
-            ),
-            Vec2::new(
-                vertices2_1.read(2).dot(basis.read(0)),
-                vertices2_1.read(2).dot(basis.read(1)),
-            ),
-            Vec2::new(
-                vertices2_1.read(3).dot(basis.read(0)),
-                vertices2_1.read(3).dot(basis.read(1)),
-            ),
+            project(vertices2_1[0]),
+            project(vertices2_1[1]),
+            project(vertices2_1[2]),
+            project(vertices2_1[3]),
         ];
+        let num_vertices1 = face1.num_vertices as usize;
+        let num_vertices2 = face2.num_vertices as usize;
+
+        // Set once a vertex test found every contact.
+        let mut done = false;
 
         // Check vertices of face1 inside face2
-        if face2.num_vertices > 2 {
-            let normal2_1 = (vertices2_1.read(2) - vertices2_1.read(1))
-                .cross(vertices2_1.read(0) - vertices2_1.read(1));
+        if num_vertices2 > 2 {
+            let normal2_1 =
+                (vertices2_1[2] - vertices2_1[1]).cross(vertices2_1[0] - vertices2_1[1]);
             let denom = normal2_1.dot(sep_axis1);
 
             if !relative_eq_scalar(denom, 0.0) {
-                let last_index2 = face2.num_vertices as usize - 1;
                 let mut any_point_is_outside = false;
 
-                for i in 0..face1.num_vertices as usize {
-                    let p1 = projected_face1.read(i);
+                unroll!(i in [0, 1, 2, 3] {
+                    if i < num_vertices1 {
+                        let point_is_outside =
+                            is_outside(&projected_face2, num_vertices2, projected_face1[i]);
+                        any_point_is_outside = any_point_is_outside || point_is_outside;
+                        let dist = (vertices2_1[0] - vertices1[i]).dot(normal2_1) / denom;
 
-                    let mut sign = perp(
-                        projected_face2.read(0) - projected_face2.read(last_index2),
-                        p1 - projected_face2.read(last_index2),
-                    );
-
-                    let mut point_is_outside = false;
-                    for j in 0..last_index2 {
-                        let new_sign = perp(
-                            projected_face2.read(j + 1) - projected_face2.read(j),
-                            p1 - projected_face2.read(j),
-                        );
-
-                        if sign == 0.0 {
-                            sign = new_sign;
-                        } else if sign * new_sign < 0.0 {
-                            point_is_outside = true;
-                            break;
+                        if !point_is_outside && dist <= prediction {
+                            let local_p1 = vertices1[i];
+                            let local_p2_1 = vertices1[i] + dist * sep_axis1;
+                            push_candidate(
+                                &mut candidates,
+                                &mut num_candidates,
+                                candidate(pose12, local_p1, local_p2_1, dist, flipped),
+                            );
                         }
                     }
+                });
 
-                    any_point_is_outside = any_point_is_outside || point_is_outside;
-                    let dist =
-                        (vertices2_1.read(0) - face1.vertices.read(i)).dot(normal2_1) / denom;
-
-                    if !point_is_outside && dist <= prediction {
-                        let local_p1 = face1.vertices.read(i);
-                        let local_p2_1 = face1.vertices.read(i) + dist * sep_axis1;
-
-                        if !flipped {
-                            candidates.at_mut(num_candidates as usize).pt = local_p1;
-                            candidates.at_mut(num_candidates as usize).dist = dist;
-                        } else {
-                            let local_p2 = pose12.inverse_transform_point(local_p2_1);
-                            candidates.at_mut(num_candidates as usize).pt = local_p2;
-                            candidates.at_mut(num_candidates as usize).dist = dist;
-                        }
-                        num_candidates += 1;
-                    }
-                }
-
-                if !any_point_is_outside {
-                    return manifold_reduction(&candidates, num_candidates, sep_axis1, prediction);
-                }
+                done = !any_point_is_outside;
             }
         }
 
         // Check vertices of face2 inside face1
-        if face1.num_vertices > 2 {
-            let normal1 = (face1.vertices.read(2) - face1.vertices.read(1))
-                .cross(face1.vertices.read(0) - face1.vertices.read(1));
+        if !done && num_vertices1 > 2 {
+            let normal1 = (vertices1[2] - vertices1[1]).cross(vertices1[0] - vertices1[1]);
 
             let denom = -normal1.dot(sep_axis1);
             if !relative_eq_scalar(denom, 0.0) {
-                let last_index1 = face1.num_vertices as usize - 1;
                 let mut any_point_is_outside = false;
 
-                for i in 0..face2.num_vertices as usize {
-                    let p2 = projected_face2.read(i);
+                unroll!(i in [0, 1, 2, 3] {
+                    if i < num_vertices2 {
+                        let point_is_outside =
+                            is_outside(&projected_face1, num_vertices1, projected_face2[i]);
+                        any_point_is_outside = any_point_is_outside || point_is_outside;
+                        let dist = (vertices1[0] - vertices2_1[i]).dot(normal1) / denom;
 
-                    let mut sign = perp(
-                        projected_face1.read(0) - projected_face1.read(last_index1),
-                        p2 - projected_face1.read(last_index1),
-                    );
-
-                    let mut point_is_outside = false;
-                    for j in 0..last_index1 {
-                        let new_sign = perp(
-                            projected_face1.read(j + 1) - projected_face1.read(j),
-                            p2 - projected_face1.read(j),
-                        );
-
-                        if sign == 0.0 {
-                            sign = new_sign;
-                        } else if sign * new_sign < 0.0 {
-                            point_is_outside = true;
-                            break;
+                        if !point_is_outside && dist <= prediction {
+                            let local_p2_1 = vertices2_1[i];
+                            let local_p1 = vertices2_1[i] - dist * sep_axis1;
+                            push_candidate(
+                                &mut candidates,
+                                &mut num_candidates,
+                                candidate(pose12, local_p1, local_p2_1, dist, flipped),
+                            );
                         }
                     }
+                });
 
-                    any_point_is_outside = any_point_is_outside || point_is_outside;
-                    let dist = (face1.vertices.read(0) - vertices2_1.read(i)).dot(normal1) / denom;
-
-                    if !point_is_outside && dist <= prediction {
-                        let local_p2_1 = vertices2_1.read(i);
-                        let local_p1 = vertices2_1.read(i) - dist * sep_axis1;
-
-                        if !flipped {
-                            candidates.at_mut(num_candidates as usize).pt = local_p1;
-                            candidates.at_mut(num_candidates as usize).dist = dist;
-                        } else {
-                            let local_p2 = pose12.inverse_transform_point(local_p2_1);
-                            candidates.at_mut(num_candidates as usize).pt = local_p2;
-                            candidates.at_mut(num_candidates as usize).dist = dist;
-                        }
-                        num_candidates += 1;
-                    }
-                }
-
-                if !any_point_is_outside {
-                    return manifold_reduction(&candidates, num_candidates, sep_axis1, prediction);
-                }
+                done = !any_point_is_outside;
             }
         }
 
-        // Check edge-edge intersections
-        for j in 0..face2.num_vertices as usize {
-            for i in 0..face1.num_vertices as usize {
-                let bcoords = closest_points_line2d(
-                    projected_face1.read(i),
-                    projected_face1.read((i + 1) % face1.num_vertices as usize),
-                    projected_face2.read(j),
-                    projected_face2.read((j + 1) % face2.num_vertices as usize),
-                );
-                if bcoords.x > 0.0 && bcoords.x < 1.0 && bcoords.y > 0.0 && bcoords.y < 1.0 {
-                    let edge1_a = face1.vertices.read(i);
-                    let edge1_b = face1.vertices.read((i + 1) % face1.num_vertices as usize);
-                    let edge2_a = vertices2_1.read(j);
-                    let edge2_b = vertices2_1.read((j + 1) % face2.num_vertices as usize);
-                    let local_p1 = edge1_a * (1.0 - bcoords.x) + edge1_b * bcoords.x;
-                    let local_p2_1 = edge2_a * (1.0 - bcoords.y) + edge2_b * bcoords.y;
-                    let dist = (local_p2_1 - local_p1).dot(sep_axis1);
-
-                    if dist <= prediction {
-                        if !flipped {
-                            candidates.at_mut(num_candidates as usize).pt = local_p1;
-                            candidates.at_mut(num_candidates as usize).dist = dist;
-                        } else {
-                            let local_p2 = pose12.inverse_transform_point(local_p2_1);
-                            candidates.at_mut(num_candidates as usize).pt = local_p2;
-                            candidates.at_mut(num_candidates as usize).dist = dist;
-                        }
-                        num_candidates += 1;
-                    }
-
-                    if num_candidates as usize == MAX_CANDIDATE_POINTS {
-                        return manifold_reduction(
-                            &candidates,
-                            num_candidates,
-                            sep_axis1,
-                            prediction,
+        // Check edge-edge intersections (the candidates stop growing once full).
+        unroll!(j in [0, 1, 2, 3] {
+            if !done && j < num_vertices2 {
+                let next_j = if j + 1 < num_vertices2 { j + 1 } else { 0 };
+                let edge2_a = vertices2_1[j];
+                let edge2_b = pick4(&vertices2_1, next_j);
+                let proj2_a = projected_face2[j];
+                let proj2_b = pick4(&projected_face2, next_j);
+                unroll!(i in [0, 1, 2, 3] {
+                    if i < num_vertices1 && (num_candidates as usize) < MAX_CANDIDATE_POINTS {
+                        let next_i = if i + 1 < num_vertices1 { i + 1 } else { 0 };
+                        let bcoords = closest_points_line2d(
+                            projected_face1[i],
+                            pick4(&projected_face1, next_i),
+                            proj2_a,
+                            proj2_b,
                         );
+                        if bcoords.x > 0.0 && bcoords.x < 1.0 && bcoords.y > 0.0 && bcoords.y < 1.0 {
+                            let edge1_a = vertices1[i];
+                            let edge1_b = pick4(&vertices1, next_i);
+                            let local_p1 = edge1_a * (1.0 - bcoords.x) + edge1_b * bcoords.x;
+                            let local_p2_1 = edge2_a * (1.0 - bcoords.y) + edge2_b * bcoords.y;
+                            let dist = (local_p2_1 - local_p1).dot(sep_axis1);
+
+                            if dist <= prediction {
+                                push_candidate(
+                                    &mut candidates,
+                                    &mut num_candidates,
+                                    candidate(pose12, local_p1, local_p2_1, dist, flipped),
+                                );
+                            }
+                        }
                     }
-                }
+                });
             }
-        }
+        });
 
         manifold_reduction(&candidates, num_candidates, sep_axis1, prediction)
     }
