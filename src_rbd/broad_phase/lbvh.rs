@@ -133,6 +133,9 @@ impl LbvhState {
             self.domain_partials =
                 Tensor::vector_uninit(backend, num_batches * DOMAIN_WORKGROUPS, self.buffer_usages)
                     .unwrap();
+        }
+        // Its own check: it starts empty, while `domain_aabb` starts with one batch.
+        if (self.refit_frontier_len.len() as u32) < num_batches {
             self.refit_frontier_len =
                 Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
         }
