@@ -127,6 +127,8 @@ struct CliOptions {
     metal: bool,
     run: bool,
     deterministic: bool,
+    snapshot: Option<(u32, String)>,
+    headless: bool,
 }
 
 fn parse_command_line() -> CliOptions {
@@ -140,6 +142,8 @@ fn parse_command_line() -> CliOptions {
         metal: false,
         run: false,
         deterministic: false,
+        snapshot: None,
+        headless: false,
     };
 
     while let Some(arg) = args.next() {
@@ -152,6 +156,11 @@ fn parse_command_line() -> CliOptions {
             "--metal" => opts.metal = true,
             "--run" => opts.run = true,
             "--deterministic" => opts.deterministic = true,
+            "--snapshot" => {
+                let frame = args.next().and_then(|f| f.parse().ok());
+                opts.snapshot = frame.zip(args.next());
+            }
+            "--headless" => opts.headless = true,
             _ => {}
         }
     }
@@ -187,7 +196,11 @@ pub async fn main() {
         }
     }
 
-    let mut viewer = NexusViewer::new(demos.clone()).await;
+    let mut viewer = if opts.headless {
+        NexusViewer::new_headless_with_size(demos.clone(), 1600, 1200).await
+    } else {
+        NexusViewer::new(demos.clone()).await
+    };
     viewer = viewer.with_selected_demo(selected);
     if opts.cpu {
         viewer = viewer.with_cpu();
@@ -208,6 +221,10 @@ pub async fn main() {
     }
     if opts.deterministic {
         viewer = viewer.with_deterministic(true);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some((frame, path)) = opts.snapshot.clone() {
+        viewer = viewer.with_snapshot(frame, path);
     }
 
     // The GPU pipelines are owned here (not by `NexusState`) so they can be

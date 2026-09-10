@@ -263,6 +263,11 @@ pub struct NexusViewer {
     /// Whether [`Self::render_frame`] draws the built-in egui panel. Disable
     /// for clean frame capture ([`Self::snap_rgb`]).
     draw_ui: bool,
+    /// Frame to save as an image, and where (see [`Self::with_snapshot`]).
+    #[cfg(not(target_arch = "wasm32"))]
+    snapshot: Option<(u32, std::path::PathBuf)>,
+    /// Number of frames rendered so far.
+    frames_rendered: u32,
     /// Lazily-created path tracer for [`Self::raytrace_frame`]. Kept across
     /// frames so samples keep accumulating while the scene is static.
     #[cfg(feature = "dim3")]
@@ -408,6 +413,9 @@ impl NexusViewer {
             last_gpu_pass_times: Vec::new(),
             last_gpu_total_time_ms: 0.0,
             draw_ui: true,
+            #[cfg(not(target_arch = "wasm32"))]
+            snapshot: None,
+            frames_rendered: 0,
             #[cfg(feature = "dim3")]
             raytracer: None,
             #[cfg(feature = "dim3")]
@@ -473,6 +481,13 @@ impl NexusViewer {
     /// Starts with the deterministic mode enabled (see [`NexusState::set_deterministic`]).
     pub fn with_deterministic(mut self, enabled: bool) -> Self {
         self.ui.sim_settings.deterministic = enabled;
+        self
+    }
+
+    /// Saves the `frame`-th rendered frame (counting from 1) as an image at `path`, then quits.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn with_snapshot(mut self, frame: u32, path: impl Into<std::path::PathBuf>) -> Self {
+        self.snapshot = Some((frame, path.into()));
         self
     }
 
@@ -1589,6 +1604,18 @@ impl NexusViewer {
             .await;
 
         if !cont {
+            self.ui.transition = Some(Transition::Quit);
+            return false;
+        }
+
+        self.frames_rendered += 1;
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some((frame, path)) = &self.snapshot
+            && self.frames_rendered == *frame
+        {
+            if let Err(err) = self.window.snap_image().save(path) {
+                eprintln!("Failed to save the snapshot to {}: {err}", path.display());
+            }
             self.ui.transition = Some(Transition::Quit);
             return false;
         }
