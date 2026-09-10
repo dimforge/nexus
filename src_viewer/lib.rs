@@ -48,6 +48,8 @@ pub enum UiSection {
 pub enum DemoKind {
     Rbd,
     Mpm,
+    /// Large rigid-body scenes for performance work.
+    Stress,
 }
 
 /// A loop transition requested from the UI: stop entirely, or switch to another

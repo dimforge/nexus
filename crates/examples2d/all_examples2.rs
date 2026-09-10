@@ -25,6 +25,9 @@ mod mpm_hourglass2;
 mod mpm_sand2;
 mod mpm_snowball2;
 
+// Large stress scenes, listed in their own picker group.
+mod stress_scenes;
+
 /// Declares the demo registry: a `(name, kind)` list for the picker UI and a
 /// name -> `run()` dispatcher. Keeping both in one macro keeps them in sync.
 macro_rules! demos {
@@ -32,6 +35,7 @@ macro_rules! demos {
         fn demo_list() -> Vec<(String, DemoKind)> {
             let mut demos: Vec<(String, DemoKind)> =
                 vec![ $( ($name.to_string(), DemoKind::$kind) ),* ];
+            demos.extend(stress_scenes::demo_list());
             demos.sort_by(|a, b| match (a.0.starts_with('('), b.0.starts_with('(')) {
                 (true, true) | (false, false) => a.0.cmp(&b.0),
                 (true, false) => std::cmp::Ordering::Greater,
@@ -46,7 +50,11 @@ macro_rules! demos {
                 // migrated to the `NexusState` API); discard whatever it yields
                 // so every arm has the same `()` type.
                 $( $name => { let _ = $module::run(viewer, pipeline).await; }, )*
-                _ => eprintln!("Unknown demo: '{name}'"),
+                _ => {
+                    if stress_scenes::run(name, viewer, pipeline).await.is_none() {
+                        eprintln!("Unknown demo: '{name}'");
+                    }
+                }
             }
         }
     };

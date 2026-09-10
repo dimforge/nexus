@@ -38,6 +38,9 @@ mod mpm_jelly_drop3;
 mod mpm_sand3;
 mod mpm_snow3;
 
+// Large stress scenes, listed in their own picker group.
+mod stress_scenes;
+
 /// Declares the demo registry: a `(name, kind)` list for the picker UI and a
 /// name -> `run()` dispatcher. Keeping both in one macro keeps them in sync.
 /// Entries can carry attributes (e.g. `#[cfg(...)]`) to exclude a demo from
@@ -53,6 +56,7 @@ macro_rules! demos {
                 $(#[$attr])*
                 demos.push(($name.to_string(), DemoKind::$kind));
             )*
+            demos.extend(stress_scenes::demo_list());
             // Lexicographic sort, with stress tests (names starting with '(')
             // moved to the end of the list.
             demos.sort_by(|a, b| match (a.0.starts_with('('), b.0.starts_with('(')) {
@@ -69,7 +73,11 @@ macro_rules! demos {
                 // migrated to the `NexusState` API); discard whatever it yields
                 // so every arm has the same `()` type.
                 $( $(#[$attr])* $name => { let _ = $module::run(viewer, pipeline).await; }, )*
-                _ => eprintln!("Unknown demo: '{name}'"),
+                _ => {
+                    if stress_scenes::run(name, viewer, pipeline).await.is_none() {
+                        eprintln!("Unknown demo: '{name}'");
+                    }
+                }
             }
         }
     };
