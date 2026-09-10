@@ -562,6 +562,27 @@ pub fn gpu_lbvh_refit_chunks(
     }
 }
 
+/// Reduce the actual frontier sizes to a uniform loop bound for the web refit.
+/// A storage load indexed by `workgroup_id` does not pass WGSL uniformity analysis;
+/// a separate uniform buffer does, without iterating over every possible leaf.
+#[spirv_bindgen]
+#[spirv(compute(threads(1)))]
+pub fn gpu_lbvh_refit_plan(
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] frontier_len: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] rounds: &mut u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+) {
+    let mut largest = 0;
+    for batch in 0..batch_ids.num_batches {
+        largest = largest.max(
+            frontier_len
+                .read(batch as usize)
+                .min(batch_ids.colliders_len),
+        );
+    }
+    *rounds = largest.div_ceil(REFIT_CHUNK);
+}
+
 /// Second phase of the bottom-up refit: one workgroup per batch refits the nodes spanning
 /// several chunks, starting from the frontier left by [`gpu_lbvh_refit_chunks`].
 #[spirv_bindgen]
@@ -573,6 +594,7 @@ pub fn gpu_lbvh_refit_frontier(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] refit_frontier: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] refit_frontier_len: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] refit_rounds: &u32,
     #[spirv(workgroup)] any_active_flag: &mut [u32; 1],
 ) {
     let lane = local_id.x;
@@ -584,12 +606,14 @@ pub fn gpu_lbvh_refit_frontier(
     let mut tree = SliceMut(tree, root_id(colliders_start) as usize);
     // Uniform across the workgroup: every lane reads the same count.
     let frontier_len = refit_frontier_len.read(batch_id as usize).min(num_leaves);
-    // The WGSL uniformity analysis doesn't trust values derived from `workgroup_id`: on the web,
-    // the rounds are bounded by the leaf count (from a uniform) instead.
+    // The web bound is the largest actual frontier over the batches, uploaded by
+    // the preceding GPU planning pass. Every lane reaches the same barriers.
     #[cfg(not(feature = "web-compat"))]
     let num_rounds = frontier_len.div_ceil(REFIT_CHUNK);
     #[cfg(feature = "web-compat")]
-    let num_rounds = num_leaves.div_ceil(REFIT_CHUNK);
+    let num_rounds = *refit_rounds;
+    #[cfg(not(feature = "web-compat"))]
+    let _ = refit_rounds;
 
     for round in 0..num_rounds {
         let k = round * REFIT_CHUNK + lane;
@@ -899,4 +923,33 @@ fn root_id(collider_start_id: u32) -> u32 {
     //       id. We don’t do this for the simplicity of not having to deal with the
     //       `- b`.
     collider_start_id * 2
+}
+
+#[cfg(all(test, not(target_arch_is_gpu)))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn web_refit_plan_covers_all_batches_and_clamps_stale_counts() {
+        for (counts, leaves, expected) in [
+            (vec![], 513, 0),
+            (vec![0, 0, 0], 513, 0),
+            (vec![1, 256, 0], 513, 1),
+            (vec![0, 257, 512], 513, 2),
+            (vec![513, 1, 0], 513, 3),
+            (vec![u32::MAX, 1], 256, 1),
+        ] {
+            let mut rounds = 999;
+            gpu_lbvh_refit_plan(
+                &counts,
+                &mut rounds,
+                &BatchIndices {
+                    num_batches: counts.len() as u32,
+                    colliders_len: leaves,
+                    ..Default::default()
+                },
+            );
+            assert_eq!(rounds, expected);
+        }
+    }
 }

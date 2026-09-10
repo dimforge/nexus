@@ -34,6 +34,8 @@ pub struct GpuLbvh {
     refit_leaves: GpuLbvhRefitLeaves,
     refit_chunks: GpuLbvhRefitChunks,
     refit_frontier: GpuLbvhRefitFrontier,
+    #[cfg(target_arch = "wasm32")]
+    refit_plan: crate::shaders::broad_phase::GpuLbvhRefitPlan,
     reset_collision_pairs: GpuLbvhResetCollisionPairs,
     find_collision_pairs: GpuLbvhFindCollisionPairs,
     /// Writes the `[total/64, 1, 1]` indirect grid from the single global pair
@@ -71,6 +73,8 @@ pub struct LbvhState {
     refit_frontier: Tensor<u32>,
     /// Per batch: the length of its refit frontier.
     refit_frontier_len: Tensor<u32>,
+    /// GPU-written uniform bound for all batches of the web frontier refit.
+    refit_rounds: Tensor<u32>,
     sort_workspace: RadixSortWorkspace,
     /// Per-collider world AABBs, only used by the brute-force tiny-batch path
     /// (strided by the per-batch collider capacity, like the other
@@ -111,6 +115,7 @@ impl LbvhState {
             tree: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             refit_frontier: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             refit_frontier_len: Tensor::vector_uninit(backend, 0, usages).unwrap(),
+            refit_rounds: Tensor::scalar(backend, 0, usages | BufferUsages::UNIFORM).unwrap(),
             sort_workspace: RadixSortWorkspace::new(backend),
             aabbs: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             buffer_usages: usages,
@@ -324,6 +329,14 @@ impl Lbvh {
             &mut state.refit_frontier_len,
             batch_indices,
         )?;
+        #[cfg(target_arch = "wasm32")]
+        self.shaders.refit_plan.call(
+            &mut pass,
+            1u32,
+            &state.refit_frontier_len,
+            &mut state.refit_rounds,
+            batch_indices,
+        )?;
         self.shaders.refit_frontier.call(
             &mut pass,
             [1u32, num_batches, 1],
@@ -331,6 +344,7 @@ impl Lbvh {
             &state.refit_frontier,
             &state.refit_frontier_len,
             batch_indices,
+            &state.refit_rounds,
         )?;
         drop(pass);
 

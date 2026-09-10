@@ -22,3 +22,6 @@ pub use rbd_state::{
     DebugContact, DebugLbvhNode, RbdCapacities, RbdGraphKey, RbdResizePolicy, RbdState, RunStats,
 };
 pub use rbd_step::RbdPipeline;
+
+#[cfg(test)]
+mod test_web_preparation;
