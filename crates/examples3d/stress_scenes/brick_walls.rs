@@ -1,6 +1,6 @@
 //! Rows of triangular brick walls smashed by two heavy spheres.
 
-use super::builder::{Camera, Scene};
+use super::builder::{Camera, Scene, hsl};
 use super::common::{brick, ground, rolling_ball};
 
 /// `columns` × `rows` triangular brick walls, `base` bricks wide, smashed by two heavy spheres
@@ -48,4 +48,21 @@ pub fn brick_walls_27k() -> Scene {
         .azimuth(-69.0)
         .elevation(0.12);
     brick_walls(camera, columns, rows, base, ball_columns)
+}
+
+/// 16 × 68 walls of 465 bricks (505,920 bricks) and two rolling spheres.
+pub fn pyramids_500k() -> Scene {
+    let camera = Camera::new(650.0, [0.0, -25.0, 5.0])
+        .azimuth(-69.0)
+        .elevation(0.55);
+    let mut scene = brick_walls(camera, 16, 68, 30, [6, 9]);
+    scene.set_color(0, 0x808080);
+    for i in 1..scene.bodies.len() - 2 {
+        // A repeatable palette makes individual bricks visible in the dense field.
+        scene.set_color(i, hsl((i * 37 % 101) as f32 / 101.0, 0.45, 0.65));
+    }
+    let n = scene.bodies.len();
+    scene.set_color(n - 2, 0xad70d6);
+    scene.set_color(n - 1, 0xd677a7);
+    scene
 }

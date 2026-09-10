@@ -7,6 +7,7 @@ const SCENES: &[(&str, fn() -> Scene)] = &[
     ("Brick ring (28k)", brick_ring::brick_ring_28k),
     ("Brick ring (110k)", brick_ring::brick_ring_110k),
     ("Brick walls (27k)", brick_walls::brick_walls_27k),
+    ("Pyramids (500k)", brick_walls::pyramids_500k),
     (
         "Ragdolls on cloth (24k)",
         ragdolls_on_cloth::ragdolls_on_cloth,
