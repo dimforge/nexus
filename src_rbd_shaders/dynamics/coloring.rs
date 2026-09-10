@@ -35,6 +35,19 @@ fn hash(packed_key: u32) -> u32 {
     key
 }
 
+/// Lowest free color. The upper word only contributes when the lower word is full.
+/// Adding both words' trailing-zero counts can select an occupied color when a previous
+/// frame seeded colors above 31, repeatedly recreating the same conflict.
+#[inline(always)]
+pub(super) fn first_free_color(mask: (u32, u32)) -> u32 {
+    let low = (!mask.0).trailing_zeros();
+    if low < 32 {
+        low
+    } else {
+        32 + (!mask.1).trailing_zeros()
+    }
+}
+
 /// Returns the `n`-th free color of a 64-bit mask (`n = 0` is the lowest), or 63 if none.
 /// Spreads the picks of the same round over different colors to avoid conflicts.
 #[inline]
@@ -397,8 +410,7 @@ pub fn gpu_step_graph_coloring_topo_gc(
                 // `colored` is not written here since the rank loops read it.
                 // The fix pass sets it, based on `pending_colors[i]`.
             } else {
-                constraints_colors[i] =
-                    (!color_mask.0).trailing_zeros() + (!color_mask.1).trailing_zeros();
+                constraints_colors[i] = first_free_color(color_mask);
                 colored[i] = 1;
             }
             // We are not finished coloring. 0 indicates the algorithm must continue.
@@ -553,3 +565,7 @@ pub fn gpu_fix_conflicts_topo_gc(
         }
     }
 }
+
+#[cfg(all(test, not(target_arch_is_gpu)))]
+#[path = "../tests/coloring.rs"]
+mod tests;
