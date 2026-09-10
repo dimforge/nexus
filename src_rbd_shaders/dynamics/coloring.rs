@@ -514,7 +514,7 @@ pub fn gpu_fix_conflicts_topo_gc(
             for j in first_constraint_id_a..last_constraint_id_a {
                 let constraint_j = body_constraint_ids[j];
 
-                if constraint_j != constraint_i {
+                if constraint_i < constraint_j {
                     let cj = constraint_j as usize;
                     let pending_j = if deterministic {
                         pending_colors[cj]
@@ -526,32 +526,36 @@ pub fn gpu_fix_conflicts_topo_gc(
                     } else {
                         constraints_colors[cj]
                     };
-                    if color_i == color_j && constraint_i < constraint_j {
+                    if color_i == color_j {
                         // Found a conflict, uncolor this node.
                         colored[i] = 0;
+                        break;
                     }
                 }
             }
 
-            // Traverse all constraints from body B.
-            for j in first_constraint_id_b..last_constraint_id_b {
-                let constraint_j = body_constraint_ids[j];
+            if colored[i] != 0 {
+                // Traverse all constraints from body B.
+                for j in first_constraint_id_b..last_constraint_id_b {
+                    let constraint_j = body_constraint_ids[j];
 
-                if constraint_j != constraint_i {
-                    let cj = constraint_j as usize;
-                    let pending_j = if deterministic {
-                        pending_colors[cj]
-                    } else {
-                        MAX_U32
-                    };
-                    let color_j = if pending_j != MAX_U32 {
-                        pending_j
-                    } else {
-                        constraints_colors[cj]
-                    };
-                    if color_i == color_j && constraint_i < constraint_j {
-                        // Found a conflict, uncolor this node.
-                        colored[i] = 0;
+                    if constraint_i < constraint_j {
+                        let cj = constraint_j as usize;
+                        let pending_j = if deterministic {
+                            pending_colors[cj]
+                        } else {
+                            MAX_U32
+                        };
+                        let color_j = if pending_j != MAX_U32 {
+                            pending_j
+                        } else {
+                            constraints_colors[cj]
+                        };
+                        if color_i == color_j {
+                            // Found a conflict, uncolor this node.
+                            colored[i] = 0;
+                            break;
+                        }
                     }
                 }
             }
