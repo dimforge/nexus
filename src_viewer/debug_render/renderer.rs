@@ -1,6 +1,7 @@
 //! The debug renderer: turns the GPU state into debug segments.
 
 use super::backend::{DebugLine, DebugPoint, LineCollector, hsla_to_rgba};
+use super::mpm::{MpmDebugRenderMode, render_grid, render_particles};
 use crate::rapier::pipeline::{DebugRenderMode, DebugRenderPipeline, DebugRenderStyle};
 use crate::rapier::prelude::{ColliderSet, RigidBodyHandle, RigidBodySet};
 use khal::backend::{Backend, GpuBackend};
@@ -12,8 +13,10 @@ use nexus::state::NexusState;
 pub struct DebugRenderSettings {
     /// Main switch. When off, nothing is drawn or read back.
     pub enabled: bool,
-    /// What to draw (see [`DebugRenderMode`]).
+    /// What to draw for the rigid-bodies (see [`DebugRenderMode`]).
     pub mode: DebugRenderMode,
+    /// What to draw for MPM (see [`MpmDebugRenderMode`]).
+    pub mpm_mode: MpmDebugRenderMode,
     /// Width of the debug segments, in pixels.
     pub line_width: f32,
     /// Size of the debug points, in pixels.
@@ -22,6 +25,8 @@ pub struct DebugRenderSettings {
     pub contact_normal_length: f32,
     /// World-space length of the rigid-body axes.
     pub rigid_body_axes_length: f32,
+    /// The time (in seconds) an MPM velocity segment stands for.
+    pub mpm_velocity_scale: f32,
 }
 
 impl Default for DebugRenderSettings {
@@ -34,10 +39,13 @@ impl Default for DebugRenderSettings {
             mode: DebugRenderMode::CONTACTS
                 | DebugRenderMode::JOINTS
                 | DebugRenderMode::RIGID_BODY_AXES,
+            // The viewer already draws the particles, so only the grid is on by default.
+            mpm_mode: MpmDebugRenderMode::GRID_BLOCKS,
             line_width: 2.0,
             point_size: 6.0,
             contact_normal_length: style.contact_normal_length,
             rigid_body_axes_length: style.rigid_body_axes_length,
+            mpm_velocity_scale: 0.1,
         }
     }
 }
@@ -90,34 +98,71 @@ impl DebugRenderer {
         self.lines.clear();
         self.points.clear();
 
-        if !settings.enabled || settings.mode.is_empty() {
+        if !settings.enabled {
             return;
         }
-        let Some(rbd) = state.rbd.as_ref() else {
-            return;
-        };
 
-        self.pipeline.mode = settings.mode;
-        self.pipeline.style.contact_normal_length = settings.contact_normal_length;
-        self.pipeline.style.rigid_body_axes_length = settings.rigid_body_axes_length;
+        if let Some(rbd) = state.rbd.as_ref()
+            && !settings.mode.is_empty()
+        {
+            self.pipeline.mode = settings.mode;
+            self.pipeline.style.contact_normal_length = settings.contact_normal_length;
+            self.pipeline.style.rigid_body_axes_length = settings.rigid_body_axes_length;
 
-        // Only the wireframes need the poses, so skip the readback for contacts alone.
-        let wireframe = DebugRenderMode::COLLIDER_SHAPES
-            | DebugRenderMode::COLLIDER_AABBS
-            | DebugRenderMode::RIGID_BODY_AXES
-            | DebugRenderMode::JOINTS;
-        if settings.mode.intersects(wireframe) {
-            let poses = backend
-                .slow_read_vec::<Pose>(rbd.body_poses().buffer())
-                .await
-                .unwrap_or_default();
-            self.sync_mirrors(state, &poses);
-            self.render_wireframes(state);
+            // Only the wireframes need the poses, so skip the readback for contacts alone.
+            let wireframe = DebugRenderMode::COLLIDER_SHAPES
+                | DebugRenderMode::COLLIDER_AABBS
+                | DebugRenderMode::RIGID_BODY_AXES
+                | DebugRenderMode::JOINTS;
+            if settings.mode.intersects(wireframe) {
+                let poses = backend
+                    .slow_read_vec::<Pose>(rbd.body_poses().buffer())
+                    .await
+                    .unwrap_or_default();
+                self.sync_mirrors(state, &poses);
+                self.render_wireframes(state);
+            }
+
+            let contact_modes = DebugRenderMode::CONTACTS | DebugRenderMode::SOLVER_CONTACTS;
+            if settings.mode.intersects(contact_modes) {
+                self.render_contacts(rbd, backend, settings).await;
+            }
         }
 
-        let contact_modes = DebugRenderMode::CONTACTS | DebugRenderMode::SOLVER_CONTACTS;
-        if settings.mode.intersects(contact_modes) {
-            self.render_contacts(rbd, backend, settings).await;
+        if let Some(mpm) = state.mpm.as_ref()
+            && !settings.mpm_mode.is_empty()
+        {
+            self.render_mpm(mpm, backend, settings).await;
+        }
+    }
+
+    /// Draws the MPM particles and grid, read back from the GPU.
+    async fn render_mpm(
+        &mut self,
+        mpm: &nexus::mpm::pipeline::MpmState,
+        backend: &GpuBackend,
+        settings: &DebugRenderSettings,
+    ) {
+        if settings.mpm_mode.needs_particles() {
+            let particles = mpm.debug_particles(backend).await;
+            render_particles(
+                &particles,
+                settings.mpm_mode,
+                settings.mpm_velocity_scale,
+                &mut self.lines,
+                &mut self.points,
+            );
+        }
+
+        if settings.mpm_mode.needs_grid() {
+            let grid = mpm.debug_grid(backend).await;
+            render_grid(
+                &grid,
+                settings.mpm_mode,
+                settings.mpm_velocity_scale,
+                &mut self.lines,
+                &mut self.points,
+            );
         }
     }
 

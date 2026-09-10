@@ -6,7 +6,7 @@ use nexus::state::NexusCounts;
 use std::time::Duration;
 
 use crate::backend::BackendType;
-use crate::debug_render::DebugRenderSettings;
+use crate::debug_render::{DebugRenderSettings, MpmDebugRenderMode};
 use crate::rapier::pipeline::DebugRenderMode;
 use egui::{Button, CollapsingHeader, Color32, ComboBox, CornerRadius, RichText, Stroke};
 
@@ -226,14 +226,19 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
         }
         ui.label("Rigid bodies");
         ui.add(egui::Slider::new(&mut s.rbd_steps_per_frame, 1..=20).text("steps / frame"));
-
-        ui.add_space(4.0);
-        debug_render_settings(ui, &mut state.debug_render);
     }
+
+    ui.add_space(4.0);
+    debug_render_settings(ui, &mut state.debug_render, has_mpm, has_rbd);
 }
 
 /// Debug-renderer controls: what to draw, and how.
-fn debug_render_settings(ui: &mut egui::Ui, s: &mut DebugRenderSettings) {
+fn debug_render_settings(
+    ui: &mut egui::Ui,
+    s: &mut DebugRenderSettings,
+    has_mpm: bool,
+    has_rbd: bool,
+) {
     ui.checkbox(&mut s.enabled, "Debug render").on_hover_text(
         "Wireframe overlay of the physics state. Reads the scene back from the \
          GPU every frame, so it slows the viewer down.",
@@ -246,73 +251,142 @@ fn debug_render_settings(ui: &mut egui::Ui, s: &mut DebugRenderSettings) {
         .id_salt("debug_render_options")
         .default_open(true)
         .show(ui, |ui| {
-            let mut flag = |ui: &mut egui::Ui, mode: DebugRenderMode, label: &str, hover: &str| {
-                let mut on = s.mode.contains(mode);
-                if ui.checkbox(&mut on, label).on_hover_text(hover).changed() {
-                    s.mode.set(mode, on);
+            if has_rbd {
+                if has_mpm {
+                    ui.label("Rigid bodies");
                 }
-            };
+                let mut flag =
+                    |ui: &mut egui::Ui, mode: DebugRenderMode, label: &str, hover: &str| {
+                        let mut on = s.mode.contains(mode);
+                        if ui.checkbox(&mut on, label).on_hover_text(hover).changed() {
+                            s.mode.set(mode, on);
+                        }
+                    };
 
-            flag(
-                ui,
-                DebugRenderMode::COLLIDER_SHAPES,
-                "Collider shapes",
-                "Wireframe outline of every collider, colored by body type",
-            );
-            flag(
-                ui,
-                DebugRenderMode::COLLIDER_AABBS,
-                "Collider AABBs",
-                "World-space bounding box of every collider",
-            );
-            flag(
-                ui,
-                DebugRenderMode::RIGID_BODY_AXES,
-                "Rigid-body axes",
-                "Local coordinate axes at each body's center of mass",
-            );
-            flag(
-                ui,
-                DebugRenderMode::IMPULSE_JOINTS,
-                "Impulse joints",
-                "Anchor and separation segments of each impulse joint",
-            );
-            flag(
-                ui,
-                DebugRenderMode::MULTIBODY_JOINTS,
-                "Multibody joints",
-                "Anchor and separation segments of each multibody joint",
-            );
-            flag(
-                ui,
-                DebugRenderMode::CONTACTS,
-                "Contacts",
-                "Geometric contacts: the segment joining the two contact points, \
-                 plus the contact normal",
-            );
-            flag(
-                ui,
-                DebugRenderMode::SOLVER_CONTACTS,
-                "Solver contacts",
-                "The points the contact constraints actually act on (the midpoint \
-                 of each contact pair)",
-            );
+                flag(
+                    ui,
+                    DebugRenderMode::COLLIDER_SHAPES,
+                    "Collider shapes",
+                    "Wireframe outline of every collider, colored by body type",
+                );
+                flag(
+                    ui,
+                    DebugRenderMode::COLLIDER_AABBS,
+                    "Collider AABBs",
+                    "World-space bounding box of every collider",
+                );
+                flag(
+                    ui,
+                    DebugRenderMode::RIGID_BODY_AXES,
+                    "Rigid-body axes",
+                    "Local coordinate axes at each body's center of mass",
+                );
+                flag(
+                    ui,
+                    DebugRenderMode::IMPULSE_JOINTS,
+                    "Impulse joints",
+                    "Anchor and separation segments of each impulse joint",
+                );
+                flag(
+                    ui,
+                    DebugRenderMode::MULTIBODY_JOINTS,
+                    "Multibody joints",
+                    "Anchor and separation segments of each multibody joint",
+                );
+                flag(
+                    ui,
+                    DebugRenderMode::CONTACTS,
+                    "Contacts",
+                    "Geometric contacts: the segment joining the two contact points, \
+                     plus the contact normal",
+                );
+                flag(
+                    ui,
+                    DebugRenderMode::SOLVER_CONTACTS,
+                    "Solver contacts",
+                    "The points the contact constraints actually act on (the midpoint \
+                     of each contact pair)",
+                );
+            }
+
+            if has_mpm {
+                if has_rbd {
+                    ui.add_space(4.0);
+                    ui.label("MPM");
+                }
+                let mut flag =
+                    |ui: &mut egui::Ui, mode: MpmDebugRenderMode, label: &str, hover: &str| {
+                        let mut on = s.mpm_mode.contains(mode);
+                        if ui.checkbox(&mut on, label).on_hover_text(hover).changed() {
+                            s.mpm_mode.set(mode, on);
+                        }
+                    };
+
+                flag(
+                    ui,
+                    MpmDebugRenderMode::PARTICLES,
+                    "Particles",
+                    "A point at every particle position; pinned particles are red",
+                );
+                flag(
+                    ui,
+                    MpmDebugRenderMode::PARTICLE_VELOCITIES,
+                    "Particle velocities",
+                    "A segment per particle along its velocity",
+                );
+                flag(
+                    ui,
+                    MpmDebugRenderMode::PARTICLE_CDF,
+                    "Particle contact normals",
+                    "The CPIC contact normal of each particle close enough to a \
+                     collider to see one",
+                );
+                flag(
+                    ui,
+                    MpmDebugRenderMode::GRID_BLOCKS,
+                    "Grid blocks",
+                    "Wireframe box of every block the sparse grid allocated; dimmer \
+                     when the block only holds particles spilling in from a neighbour",
+                );
+                flag(
+                    ui,
+                    MpmDebugRenderMode::GRID_NODES,
+                    "Grid nodes",
+                    "A point at every grid node carrying mass",
+                );
+                flag(
+                    ui,
+                    MpmDebugRenderMode::GRID_VELOCITIES,
+                    "Grid velocities",
+                    "A segment per mass-carrying node along its velocity",
+                );
+            }
 
             ui.add_space(4.0);
             ui.add(egui::Slider::new(&mut s.line_width, 0.5..=10.0).text("line width"))
                 .on_hover_text("Width of the debug segments, in pixels");
             ui.add(egui::Slider::new(&mut s.point_size, 1.0..=20.0).text("point size"))
-                .on_hover_text("Size of the contact points, in pixels");
-            ui.add(
-                egui::Slider::new(&mut s.contact_normal_length, 0.01..=10.0)
-                    .logarithmic(true)
-                    .text("normal length"),
-            );
-            ui.add(
-                egui::Slider::new(&mut s.rigid_body_axes_length, 0.01..=10.0)
-                    .logarithmic(true)
-                    .text("axes length"),
-            );
+                .on_hover_text("Size of the debug points, in pixels");
+            if has_rbd {
+                ui.add(
+                    egui::Slider::new(&mut s.contact_normal_length, 0.01..=10.0)
+                        .logarithmic(true)
+                        .text("normal length"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut s.rigid_body_axes_length, 0.01..=10.0)
+                        .logarithmic(true)
+                        .text("axes length"),
+                );
+            }
+            if has_mpm {
+                ui.add(
+                    egui::Slider::new(&mut s.mpm_velocity_scale, 0.001..=1.0)
+                        .logarithmic(true)
+                        .text("mpm velocity scale"),
+                )
+                .on_hover_text("Seconds of travel an MPM velocity segment stands for");
+            }
         });
 }
 
