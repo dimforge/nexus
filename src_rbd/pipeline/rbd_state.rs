@@ -117,15 +117,15 @@ pub struct RbdCapacities {
     /// GPU->CPU buffer readback, resulting in a larger performance gain than just setting
     /// only one of them to `Fixed`.
     pub collisions_resize_policy: RbdResizePolicy,
-    /// Maximum number of colors used by the solver for constraints coloring.
+    /// Initial/minimum coloring budget. Large adaptive scenes start with additional
+    /// convergence margin; sparse contact graphs can shrink back to this minimum.
     pub solver_colors: u32,
     /// How internal constraints coloring gets automatically adjusted (or not).
     ///
     /// While this doesn’t change any buffer allocation, this affects the number of
     /// iterations the constraints coloring step applies, which has a computational cost.
     ///
-    /// Note that `RbdResizePolicy::Fit` for solver colors will currently act like `::Grow`
-    /// (i.e. the color won’t go back down yet).
+    /// Adaptive policies grow on failed convergence and shrink above the minimum budget.
     ///
     /// Note that setting both [`Self::collisions_resize_policy`] and
     /// [`Self::solver_colors_resize_policy`] to [`RbdResizePolicy::Fixed`] eliminates a
@@ -144,6 +144,28 @@ impl Default for RbdCapacities {
             collisions_resize_policy: RbdResizePolicy::Grow,
             solver_colors: 8,
             solver_colors_resize_policy: RbdResizePolicy::Grow,
+        }
+    }
+}
+
+impl RbdCapacities {
+    pub(super) fn minimum_solver_colors(
+        &self,
+        active_colliders: u32,
+        highest_color: Option<u32>,
+    ) -> u32 {
+        // Before feedback, and for dense contact graphs, leave room to converge before
+        // CPU feedback arrives. Sparse graphs need no such floor: extra empty color
+        // dispatches can cost more than their actual solver work.
+        let dense = highest_color.is_none_or(|highest| highest >= 16);
+        if active_colliders >= 4096
+            && dense
+            && self.solver_colors_resize_policy != RbdResizePolicy::Fixed
+        {
+            self.solver_colors
+                .max(if active_colliders >= 65536 { 64 } else { 32 })
+        } else {
+            self.solver_colors
         }
     }
 }

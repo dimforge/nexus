@@ -735,7 +735,8 @@ impl RbdState {
             Tensor::vector(backend, vec![0u32; contacts_capacity as usize], storage).unwrap();
         let colored = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_rands = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let color_buckets_stride = capacities.solver_colors + 3;
+        let max_colors = capacities.minimum_solver_colors(num_colliders as u32, None);
+        let color_buckets_stride = max_colors + 3;
         let color_buckets =
             Tensor::vector_uninit(backend, color_buckets_stride * num_batches, storage).unwrap();
         // Clamped per-frame list totals (see `gpu_contact_plan`).
@@ -916,7 +917,7 @@ impl RbdState {
             prefix_sum_workspace: PrefixSumWorkspace::default(),
             bucket_prefix_workspace: PrefixSumWorkspace::default(),
             lbvh: LbvhState::with_usages(backend, lbvh_usages),
-            max_colors: capacities.solver_colors,
+            max_colors,
             rb_contacts_inert,
             num_active_colliders: num_colliders as u32,
             num_active_bodies: num_bodies as u32,

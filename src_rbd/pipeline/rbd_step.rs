@@ -709,14 +709,20 @@ impl RbdPipeline {
             // TODO: Fit will act like Grow. To be able to auto-shrink the max color count, we need
             //       to readback the actual color count. This would also allow us to grow the color
             //       count earlier, before it gets a chance to fail.
+            let min_colors = state
+                .capacities
+                .minimum_solver_colors(
+                    state.num_active_colliders,
+                    (coloring_converged != 0).then_some(counts[3]),
+                )
+                .max(1);
             let grow_colors = state.capacities.solver_colors_resize_policy
                 != RbdResizePolicy::Fixed
-                && coloring_converged == 0
+                && (coloring_converged == 0 || state.max_colors < min_colors)
                 && !state.rb_contacts_inert;
             // Every color costs a coloring iteration and a dispatch per sweep: once the
             // coloring converges, shrink the budget back to a few colors above those in use.
             let highest_color = counts[3];
-            let min_colors = state.capacities.solver_colors.max(1);
             let shrink_colors = state.capacities.solver_colors_resize_policy
                 != RbdResizePolicy::Fixed
                 && coloring_converged != 0
@@ -773,7 +779,7 @@ impl RbdPipeline {
 
             if grow_colors || shrink_colors {
                 if grow_colors {
-                    state.max_colors += 5;
+                    state.max_colors = (state.max_colors + 5).max(min_colors);
                 } else {
                     state.max_colors = (highest_color + 4).max(min_colors);
                 }
