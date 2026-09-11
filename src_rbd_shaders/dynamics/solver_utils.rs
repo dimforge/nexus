@@ -58,6 +58,40 @@ fn compute_tangent_contact_directions(force_dir1: Vector) -> [Vector; SUB_LEN] {
     [tangent1, bitangent1]
 }
 
+// Constant indices let the shader compiler scalarize each manifold point.
+// Preserve Gauss-Seidel point order; only the loop control changes.
+macro_rules! for_contact_point {
+    ($k:ident, $len:expr, $body:block) => {{
+        let len = $len as usize;
+        {
+            let $k = 0usize;
+            if $k < len {
+                $body
+            }
+        }
+        {
+            let $k = 1usize;
+            if $k < len {
+                $body
+            }
+        }
+        #[cfg(feature = "dim3")]
+        {
+            let $k = 2usize;
+            if $k < len {
+                $body
+            }
+        }
+        #[cfg(feature = "dim3")]
+        {
+            let $k = 3usize;
+            if $k < len {
+                $body
+            }
+        }
+    }};
+}
+
 impl IndexedManifold {
     /// Converts a contact manifold to a solver constraint.
     ///
@@ -251,12 +285,12 @@ impl TwoBodyConstraint {
         #[cfg(feature = "dim3")]
         let (mut torque_a, mut torque_b) = (Vec3::ZERO, Vec3::ZERO);
 
-        for k in 0..self.len as usize {
+        for_contact_point!(k, self.len, {
             let f = self.point_impulse(k, &tangents);
             force += f;
             torque_a += gcross(self.points.at(k).r_a, f);
             torque_b += gcross(self.points.at(k).r_b, f);
-        }
+        });
 
         solver_vel1.linear += self.im_a * force;
         solver_vel1.angular += self.ii_a_mul(torque_a);
@@ -300,7 +334,7 @@ impl TwoBodyConstraint {
         let pose2 = poses[self.solver_body_b as usize];
 
         // Solve the normal parts of the constraint.
-        for k in 0..(self.len as usize) {
+        for_contact_point!(k, self.len, {
             let point = self.points.at(k);
             let p1 = pose1 * point.local_pt_a;
             let p2 = pose2 * point.local_pt_b;
@@ -334,7 +368,7 @@ impl TwoBodyConstraint {
 
             solver_vel2.linear += dir_a * im_b * -delta_impulse;
             solver_vel2.angular += self.ii_b_mul(torque_dir_b) * delta_impulse;
-        }
+        });
 
         // Friction is solved during the stabilization sweep, and during the
         // biased pass only when `friction_in_bias_pass` is set.
@@ -346,7 +380,7 @@ impl TwoBodyConstraint {
         let tangents = self.tangents();
 
         // Solve the tangent parts of the constraint.
-        for k in 0..(self.len as usize) {
+        for_contact_point!(k, self.len, {
             let point = self.points.at(k);
             let limit = friction_coeff * point.normal_impulse;
 
@@ -408,6 +442,10 @@ impl TwoBodyConstraint {
                 solver_vel2.angular += self
                     .ii_b_mul(torque_dir_b0 * delta_impulse.x + torque_dir_b1 * delta_impulse.y);
             }
-        }
+        });
     }
 }
+
+#[cfg(all(test, not(target_arch_is_gpu)))]
+#[path = "../tests/contact_solver.rs"]
+mod tests;
