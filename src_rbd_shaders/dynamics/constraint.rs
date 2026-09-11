@@ -168,6 +168,64 @@ pub struct TwoBodyConstraint {
     pub points: [ContactPoint; MAX_CONSTRAINTS_PER_MANIFOLD],
 }
 
+/// The topology and identity of a contact constraint, in contact order.
+///
+/// Matching, mass splitting and graph coloring only read these; the solver data of the
+/// constraints lives in color-ordered tiles (see `contact_tiles`).
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct ContactLink {
+    /// Number of active contact points: 0 for gap, inert and multibody-owned slots.
+    pub len: u32,
+    /// Index of body A (poses, mass properties).
+    pub solver_body_a: u32,
+    /// Index of body B.
+    pub solver_body_b: u32,
+    /// Index of body A's velocity in the solver velocity buffer: `solver_body_a`, or one of
+    /// the sub-body slots when body A is split (see `mass_splitting`).
+    pub vel_slot_a: u32,
+    /// Index of body B's velocity in the solver velocity buffer.
+    pub vel_slot_b: u32,
+    /// Collider A of the source manifold, which identifies it across steps with
+    /// `warmstart_collider_b` and `warmstart_subshape` (for the warmstart and color seeding).
+    pub warmstart_collider_a: u32,
+    /// Collider B of the source manifold.
+    pub warmstart_collider_b: u32,
+    /// [`IndexedManifold::subshape`] of the source manifold.
+    ///
+    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
+    pub warmstart_subshape: u32,
+    /// Matching previous-frame constraint, or `u32::MAX`.
+    pub previous_constraint: u32,
+    /// Index of the matching previous-frame constraint in the previous frame's tiles.
+    pub previous_constraint_index: u32,
+    /// Whether the previous constraint's contacts are reused instead of recomputed (contact
+    /// recycling).
+    pub recycled: u32,
+    /// Factor of body A's inverse mass and inertia: its sub-body count when split, else 1.
+    pub mass_scale_a: f32,
+    /// Factor of body B's inverse mass and inertia.
+    pub mass_scale_b: f32,
+    /// Combined restitution coefficient.
+    pub restitution: f32,
+    /// The contact slot of this link, for its color-ordered copy (see `gpu_color_buckets_scatter`).
+    pub contact: u32,
+    pub _padding: u32,
+}
+
+/// Element offsets into the two disjoint halves of the recycling-state buffer.
+/// The host swaps immutable uniforms each frame; no state data is copied.
+#[derive(Clone, Copy, Default)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct ContactRecycleOffsets {
+    pub old_base: u32,
+    pub new_base: u32,
+    pub _padding0: u32,
+    pub _padding1: u32,
+}
+
 /// When the contacts of a [`TwoBodyConstraint`] were last computed, for contact recycling (see
 /// `RbdSimParams::normalized_contact_recycle_distance`).
 #[derive(Clone, Copy, Default)]
