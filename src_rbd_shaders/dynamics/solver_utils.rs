@@ -4,7 +4,7 @@
 //! constraint-based methods, using the `Soft-TGS` approach (as in Rapier).
 
 use super::body::{Velocity, WorldMassProperties};
-use super::constraint::{SUB_LEN, TwoBodyConstraint};
+use super::constraint::{ContactPoint, MAX_CONSTRAINTS_PER_MANIFOLD, SUB_LEN, TwoBodyConstraint};
 use super::sim_params::RbdSimParams;
 use crate::{Pose, Vector, gcross, gcross_av, gdot};
 use khal_std::index::MaybeIndexUnchecked;
@@ -315,6 +315,114 @@ impl TwoBodyConstraint {
         use_bias: bool,
         solve_friction: bool,
     ) {
+        let data = ContactSolverData::from_constraint(self);
+        data.solve_points(
+            &mut self.points,
+            poses,
+            params,
+            solver_vel1,
+            solver_vel2,
+            use_bias,
+            solve_friction,
+        );
+    }
+}
+
+#[cfg(feature = "dim3")]
+type SolverInertia = super::constraint::SymInertia;
+#[cfg(feature = "dim2")]
+type SolverInertia = f32;
+
+/// Contact geometry shared by all point rows, cached independently of mutable impulses.
+#[derive(Clone, Copy)]
+pub(crate) struct ContactSolverData {
+    pub dir_a: Vector,
+    pub len: u32,
+    #[cfg(feature = "dim3")]
+    pub tangent_a: Vector,
+    pub limit: f32,
+    pub im_a: Vector,
+    pub solver_body_a: u32,
+    pub im_b: Vector,
+    pub solver_body_b: u32,
+    pub ii_a: SolverInertia,
+    pub ii_b: SolverInertia,
+}
+
+#[cfg(feature = "dim3")]
+type TangentImpulse = Vec2;
+#[cfg(feature = "dim2")]
+type TangentImpulse = [f32; 1];
+pub(crate) trait ContactPointAccess {
+    fn read_point(&self, k: usize) -> ContactPoint;
+    fn write_normal_impulse(&mut self, k: usize, value: f32);
+    fn write_tangent_impulse(&mut self, k: usize, value: TangentImpulse);
+}
+impl ContactPointAccess for [ContactPoint; MAX_CONSTRAINTS_PER_MANIFOLD] {
+    #[inline(always)]
+    fn read_point(&self, k: usize) -> ContactPoint {
+        *self.at(k)
+    }
+    #[inline(always)]
+    fn write_normal_impulse(&mut self, k: usize, value: f32) {
+        self.at_mut(k).normal_impulse = value;
+    }
+    #[inline(always)]
+    fn write_tangent_impulse(&mut self, k: usize, value: TangentImpulse) {
+        self.at_mut(k).tangent_impulse = value;
+    }
+}
+
+impl ContactSolverData {
+    #[inline(always)]
+    pub(crate) fn from_constraint(c: &TwoBodyConstraint) -> Self {
+        Self {
+            dir_a: c.dir_a,
+            len: c.len,
+            #[cfg(feature = "dim3")]
+            tangent_a: c.tangent_a,
+            limit: c.limit,
+            im_a: c.im_a,
+            solver_body_a: c.solver_body_a,
+            im_b: c.im_b,
+            solver_body_b: c.solver_body_b,
+            ii_a: c.ii_a,
+            ii_b: c.ii_b,
+        }
+    }
+    #[inline(always)]
+    pub(crate) fn ii_a_mul(&self, v: crate::AngVector) -> crate::AngVector {
+        #[cfg(feature = "dim2")]
+        return self.ii_a * v;
+        #[cfg(feature = "dim3")]
+        return self.ii_a.mul(v);
+    }
+    #[inline(always)]
+    pub(crate) fn ii_b_mul(&self, v: crate::AngVector) -> crate::AngVector {
+        #[cfg(feature = "dim2")]
+        return self.ii_b * v;
+        #[cfg(feature = "dim3")]
+        return self.ii_b.mul(v);
+    }
+    #[inline(always)]
+    pub(crate) fn tangents(&self) -> [Vector; SUB_LEN] {
+        #[cfg(feature = "dim2")]
+        return [Vector::new(-self.dir_a.y, self.dir_a.x)];
+        #[cfg(feature = "dim3")]
+        return [self.tangent_a, self.dir_a.cross(self.tangent_a)];
+    }
+
+    #[inline(always)]
+    pub fn solve_points<P: ContactPointAccess>(
+        &self,
+        points: &mut P,
+        poses: &Slice<Pose>,
+        params: &RbdSimParams,
+        solver_vel1: &mut Velocity,
+        solver_vel2: &mut Velocity,
+        use_bias: bool,
+        solve_friction: bool,
+    ) {
         let dir_a = self.dir_a;
         let im_a = self.im_a;
         let im_b = self.im_b;
@@ -335,7 +443,7 @@ impl TwoBodyConstraint {
 
         // Solve the normal parts of the constraint.
         for_contact_point!(k, self.len, {
-            let point = self.points.at(k);
+            let point = points.read_point(k);
             let p1 = pose1 * point.local_pt_a;
             let p2 = pose2 * point.local_pt_b;
             let dist = point.dist + (p1 - p2).dot(dir_a);
@@ -361,7 +469,7 @@ impl TwoBodyConstraint {
             let new_impulse = cfm_factor * (impulse - point.normal_mass * dvel).max(0.0);
             let delta_impulse = new_impulse - impulse;
 
-            self.points.at_mut(k).normal_impulse = new_impulse;
+            points.write_normal_impulse(k, new_impulse);
 
             solver_vel1.linear += dir_a * im_a * delta_impulse;
             solver_vel1.angular += self.ii_a_mul(torque_dir_a) * delta_impulse;
@@ -381,7 +489,7 @@ impl TwoBodyConstraint {
 
         // Solve the tangent parts of the constraint.
         for_contact_point!(k, self.len, {
-            let point = self.points.at(k);
+            let point = points.read_point(k);
             let limit = friction_coeff * point.normal_impulse;
 
             #[cfg(feature = "dim2")]
@@ -397,7 +505,7 @@ impl TwoBodyConstraint {
                 let new_impulse = (impulse - point.tangent_mass * dvel).max(-limit).min(limit);
                 let delta_impulse = new_impulse - impulse;
 
-                self.points.at_mut(k).tangent_impulse = [new_impulse];
+                points.write_tangent_impulse(k, [new_impulse]);
 
                 solver_vel1.linear += t * im_a * delta_impulse;
                 solver_vel1.angular += self.ii_a_mul(torque_dir_a) * delta_impulse;
@@ -431,7 +539,7 @@ impl TwoBodyConstraint {
                 let impulse = point.tangent_impulse;
                 let new_impulse = cap_magnitude(impulse - delta_impulse, limit);
                 let delta_impulse = new_impulse - impulse;
-                self.points.at_mut(k).tangent_impulse = new_impulse;
+                points.write_tangent_impulse(k, new_impulse);
 
                 let lin = t0 * delta_impulse.x + t1 * delta_impulse.y;
                 solver_vel1.linear += lin * im_a;
