@@ -690,6 +690,30 @@ impl RbdState {
         self.sim_params_cpu = params;
     }
 
+    /// Sets the duration of a full physics step and its TGS substep count,
+    /// without rebuilding bodies.
+    pub fn set_timestep(&mut self, backend: &GpuBackend, dt: f32, substeps: u32) {
+        let substeps = substeps.max(1);
+        let substep_dt = dt / substeps as f32;
+        if self.num_solver_iterations == substeps && self.sim_params_cpu.dt == substep_dt {
+            return;
+        }
+        let mut params = self.sim_params_cpu;
+        params.dt = substep_dt;
+        params.num_solver_iterations = substeps;
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
+        self.sim_params_cpu = params;
+        self.num_solver_iterations = substeps;
+        #[cfg(feature = "dim3")]
+        {
+            self.multibodies.set_num_solver_iterations(substeps);
+            self.multibodies.set_visible_dt(backend, dt);
+            self.multibodies.set_constraint_softness(backend, &params);
+        }
+        // Multibody uniforms were replaced and captured dispatch counts changed.
+        self.graph_generation += 1;
+    }
+
     /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
     /// and multibody sweeps alike), without rebuilding the GPU state.
     #[cfg(feature = "dim3")]

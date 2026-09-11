@@ -252,6 +252,11 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
         }
         ui.label("Rigid bodies");
         ui.add(egui::Slider::new(&mut s.rbd_steps_per_frame, 1..=20).text("steps / frame"));
+        ui.add(egui::Slider::new(&mut s.rbd_substeps, 1..=20).text("iterations (substeps)"))
+            .on_hover_text(
+                "TGS substeps per physics step. More substeps improve accuracy at a higher \
+                 cost, without changing the amount of simulated time.",
+            );
     }
 
     ui.add_space(4.0);

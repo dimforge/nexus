@@ -852,6 +852,24 @@ impl NexusState {
         }
     }
 
+    /// Sets the TGS substep count for every environment, clamped to at least one.
+    /// Updates a running simulation without resetting bodies, preserving each
+    /// physics step's duration.
+    pub fn set_rbd_substeps(&mut self, backend: &GpuBackend, substeps: u32) {
+        let substeps = substeps.max(1);
+        for params in &mut self.rbd_sim_params {
+            params.num_solver_iterations = substeps;
+        }
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.set_timestep(backend, self.rbd_sim_params[0].dt, substeps);
+        }
+    }
+
+    /// Number of TGS substeps per rigid-body physics step.
+    pub fn rbd_substeps(&self) -> u32 {
+        self.rbd_sim_params[0].num_solver_iterations
+    }
+
     /// The multibody rooted at (or containing) `body` in environment `env`, as
     /// its index in the environment's multibody iteration order, the GPU
     /// descriptor of that multibody, and every link's rigid body paired with its
@@ -1608,6 +1626,9 @@ impl NexusState {
             if self.deterministic {
                 rbd_state.set_deterministic(backend, true);
             }
+            // Reserved-slot builds start with default parameters too: apply the scene's timestep.
+            let params = self.rbd_sim_params[0];
+            rbd_state.set_timestep(backend, params.dt, params.num_solver_iterations);
             self.rbd = Some(rbd_state);
             self.rbd_dirty = false;
         }

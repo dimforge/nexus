@@ -155,6 +155,8 @@ pub struct SimSettings {
     pub mpm_gravity: Vector,
     /// Rigid-body solver steps advanced per rendered frame.
     pub rbd_steps_per_frame: u32,
+    /// TGS substeps per rigid-body solver step.
+    pub rbd_substeps: u32,
     /// Identical runs (see [`NexusState::set_deterministic`]). A viewer setting,
     /// kept across demos.
     pub deterministic: bool,
@@ -167,6 +169,7 @@ impl Default for SimSettings {
             mpm_use_cpic: true,
             mpm_gravity: Vector::ZERO,
             rbd_steps_per_frame: 1,
+            rbd_substeps: nexus::rbd::dynamics::RbdSimParams::default().num_solver_iterations,
             deterministic: false,
         }
     }
@@ -1402,6 +1405,7 @@ impl NexusViewer {
             self.ui.sim_settings.mpm_use_cpic = state.mpm_use_cpic();
             self.ui.sim_settings.mpm_gravity = state.mpm_gravity();
             self.ui.sim_settings.rbd_steps_per_frame = state.rbd_steps_per_frame();
+            self.ui.sim_settings.rbd_substeps = state.rbd_substeps();
             self.ui.settings_demo = Some(self.ui.selected_demo);
         } else {
             let s = self.ui.sim_settings.clone();
@@ -1409,6 +1413,7 @@ impl NexusViewer {
             state.set_mpm_use_cpic(s.mpm_use_cpic);
             state.set_mpm_gravity(s.mpm_gravity);
             state.set_rbd_steps_per_frame(s.rbd_steps_per_frame);
+            state.set_rbd_substeps(self.backend(), s.rbd_substeps);
         }
         // The compute-graph toggle is a testbed-wide choice, not a scene
         // setting: it always flows from the backend panel into the scene.
