@@ -220,6 +220,18 @@ fn optimized_iterations_match_original_point_order() {
                             use_bias,
                             solve_friction,
                         );
+                        super::super::coulomb_tiles::assert_tile_equivalent(
+                            c,
+                            &poses,
+                            &params,
+                            a,
+                            b,
+                            use_bias,
+                            solve_friction,
+                            &expected,
+                            expected_a,
+                            expected_b,
+                        );
                         c.solve_constraint_gauss_seidel(
                             &poses,
                             &params,

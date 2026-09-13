@@ -23,6 +23,8 @@ mod canonical_order;
 mod color_buckets;
 mod coloring;
 mod contact_links;
+pub mod contact_tiles;
+pub mod coulomb_tiles;
 mod mass_splitting;
 mod mprops_update;
 mod prep_render;

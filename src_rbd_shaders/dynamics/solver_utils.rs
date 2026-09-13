@@ -4,7 +4,9 @@
 //! constraint-based methods, using the `Soft-TGS` approach (as in Rapier).
 
 use super::body::{Velocity, WorldMassProperties};
-use super::constraint::{ContactPoint, MAX_CONSTRAINTS_PER_MANIFOLD, SUB_LEN, TwoBodyConstraint};
+use super::constraint::{
+    ContactLink, ContactPoint, MAX_CONSTRAINTS_PER_MANIFOLD, SUB_LEN, TwoBodyConstraint,
+};
 use super::sim_params::RbdSimParams;
 use crate::{Pose, Vector, gcross, gcross_av, gdot};
 use khal_std::index::MaybeIndexUnchecked;
@@ -92,7 +94,44 @@ macro_rules! for_contact_point {
     }};
 }
 
+pub(crate) use for_contact_point;
+
 impl IndexedManifold {
+    /// Initializes the manifold identity and current mass/material data without rebuilding points.
+    #[inline(always)]
+    pub fn contact_to_constraint_header(
+        &self,
+        mprops: &Slice<WorldMassProperties>,
+        constraint: &mut TwoBodyConstraint,
+    ) {
+        let bid1 = self.bodies.x;
+        let bid2 = self.bodies.y;
+        let mprops1 = &mprops[bid1 as usize];
+        let mprops2 = &mprops[bid2 as usize];
+        #[cfg(feature = "dim3")]
+        {
+            constraint.ii_a = super::constraint::SymInertia::from_mat4(mprops1.inv_inertia);
+            constraint.ii_b = super::constraint::SymInertia::from_mat4(mprops2.inv_inertia);
+        }
+        #[cfg(feature = "dim2")]
+        {
+            constraint.ii_a = mprops1.inv_inertia;
+            constraint.ii_b = mprops2.inv_inertia;
+        }
+        constraint.im_a = mprops1.inv_mass;
+        constraint.im_b = mprops2.inv_mass;
+        constraint.limit = self.friction;
+        constraint.restitution = self.restitution;
+        constraint.solver_body_a = bid1;
+        constraint.solver_body_b = bid2;
+        constraint.vel_slot_a = bid1;
+        constraint.vel_slot_b = bid2;
+        constraint.warmstart_collider_a = self.colliders.x;
+        constraint.warmstart_collider_b = self.colliders.y;
+        constraint.warmstart_subshape = self.subshape;
+        constraint.len = self.contact.len;
+    }
+
     /// Converts a contact manifold to a solver constraint.
     ///
     /// `collider_world_poses` are used to recover the world-space contact normal
@@ -108,19 +147,30 @@ impl IndexedManifold {
         vels: &Slice<Velocity>,
         constraint: &mut TwoBodyConstraint,
     ) {
-        let id1 = self.colliders.x;
+        self.contact_to_constraint_header(mprops, constraint);
+        self.contact_to_constraint_points(
+            collider_world_poses[self.colliders.x as usize],
+            solver_body_poses[self.bodies.x as usize],
+            solver_body_poses[self.bodies.y as usize],
+            vels,
+            constraint,
+        );
+    }
+
+    /// Initializes the contact points of `constraint`, whose header was initialized from this
+    /// manifold, and their effective masses.
+    #[inline(always)]
+    pub fn contact_to_constraint_points(
+        &self,
+        cpose1: Pose,
+        spose1: Pose,
+        spose2: Pose,
+        vels: &Slice<Velocity>,
+        constraint: &mut TwoBodyConstraint,
+    ) {
         let contact = &self.contact;
         let bid1 = self.bodies.x;
         let bid2 = self.bodies.y;
-
-        let mprops1 = &mprops[bid1 as usize];
-        let mprops2 = &mprops[bid2 as usize];
-        // Contact features (`points_a`, `normal_a`) are stored in collider A's
-        // local space, so only `cpose1` is needed to recover their world-space
-        // forms; collider B's pose isn't read here.
-        let cpose1 = collider_world_poses[id1 as usize];
-        let spose1 = solver_body_poses[bid1 as usize];
-        let spose2 = solver_body_poses[bid2 as usize];
         let vel1 = &vels[bid1 as usize];
         let vel2 = &vels[bid2 as usize];
 
@@ -135,26 +185,7 @@ impl IndexedManifold {
         #[cfg(feature = "dim3")]
         {
             constraint.tangent_a = compute_tangent_contact_directions(force_dir1).read(0);
-            constraint.ii_a = super::constraint::SymInertia::from_mat4(mprops1.inv_inertia);
-            constraint.ii_b = super::constraint::SymInertia::from_mat4(mprops2.inv_inertia);
         }
-        #[cfg(feature = "dim2")]
-        {
-            constraint.ii_a = mprops1.inv_inertia;
-            constraint.ii_b = mprops2.inv_inertia;
-        }
-        constraint.im_a = mprops1.inv_mass;
-        constraint.im_b = mprops2.inv_mass;
-        constraint.limit = self.friction;
-        constraint.restitution = restitution;
-        constraint.solver_body_a = bid1;
-        constraint.solver_body_b = bid2;
-        constraint.vel_slot_a = bid1;
-        constraint.vel_slot_b = bid2;
-
-        constraint.warmstart_collider_a = self.colliders.x;
-        constraint.warmstart_collider_b = self.colliders.y;
-        constraint.warmstart_subshape = self.subshape;
 
         for k in 0..(contact.len as usize) {
             let pt = cpose1
@@ -347,6 +378,8 @@ pub(crate) struct ContactSolverData {
     pub solver_body_b: u32,
     pub ii_a: SolverInertia,
     pub ii_b: SolverInertia,
+    pub vel_slot_a: u32,
+    pub vel_slot_b: u32,
 }
 
 #[cfg(feature = "dim3")]
@@ -388,6 +421,8 @@ impl ContactSolverData {
             solver_body_b: c.solver_body_b,
             ii_a: c.ii_a,
             ii_b: c.ii_b,
+            vel_slot_a: c.vel_slot_a,
+            vel_slot_b: c.vel_slot_b,
         }
     }
     #[inline(always)]
@@ -557,3 +592,90 @@ impl ContactSolverData {
 #[cfg(all(test, not(target_arch_is_gpu)))]
 #[path = "../tests/contact_solver.rs"]
 mod tests;
+
+impl TwoBodyConstraint {
+    #[inline(always)]
+    pub fn init_header(&mut self, manifold: &IndexedManifold, mprops: &Slice<WorldMassProperties>) {
+        manifold.contact_to_constraint_header(mprops, self);
+    }
+    /// Initializes the contact points of a constraint whose header was initialized from
+    /// `manifold`.
+    #[inline(always)]
+    pub fn init_points_with_poses(
+        &mut self,
+        manifold: &IndexedManifold,
+        collider_a: Pose,
+        solver_a: Pose,
+        solver_b: Pose,
+        vels: &Slice<Velocity>,
+    ) {
+        manifold.contact_to_constraint_points(collider_a, solver_a, solver_b, vels, self);
+    }
+    /// Applies the velocity slots and mass scales chosen by mass splitting.
+    #[inline(always)]
+    pub fn apply_link(&mut self, link: &ContactLink) {
+        self.vel_slot_a = link.vel_slot_a;
+        self.vel_slot_b = link.vel_slot_b;
+        self.restitution = link.restitution;
+        self.im_a *= link.mass_scale_a;
+        self.im_b *= link.mass_scale_b;
+        #[cfg(feature = "dim2")]
+        {
+            self.ii_a *= link.mass_scale_a;
+            self.ii_b *= link.mass_scale_b;
+        }
+        #[cfg(feature = "dim3")]
+        {
+            self.ii_a.scale(link.mass_scale_a);
+            self.ii_b.scale(link.mass_scale_b);
+        }
+    }
+    #[inline(always)]
+    pub fn recycle_from(&mut self, old: &Self, vel1: &Velocity, vel2: &Velocity) {
+        self.dir_a = old.dir_a;
+        #[cfg(feature = "dim3")]
+        {
+            self.tangent_a = old.tangent_a;
+        }
+        self.len = old.len;
+        for k in 0..old.len as usize {
+            let mut point = *old.points.at(k);
+            let v1 = vel1.linear + gcross_av(vel1.angular, point.r_a);
+            let v2 = vel2.linear + gcross_av(vel2.angular, point.r_b);
+            point.normal_vel = self.restitution * (v1 - v2).dot(old.dir_a);
+            self.points.write(k, point);
+        }
+        self.compute_effective_masses();
+    }
+    #[inline(always)]
+    pub fn local_anchors(&self, k: usize) -> (Vector, Vector) {
+        let p = self.points.at(k);
+        (p.local_pt_a, p.local_pt_b)
+    }
+    // Pass only the friction impulse through the matching loop, rather than
+    // copying the entire old manifold for every matched point.
+    #[cfg(feature = "dim3")]
+    #[inline(always)]
+    pub fn friction_warmstart(&self, k: usize) -> Vector {
+        let t = self.points.at(k).tangent_impulse;
+        self.tangent_a * t.x + self.dir_a.cross(self.tangent_a) * t.y
+    }
+    #[cfg(feature = "dim2")]
+    #[inline(always)]
+    pub fn friction_warmstart(&self, k: usize) -> f32 {
+        self.points.at(k).tangent_impulse[0]
+    }
+    #[cfg(feature = "dim3")]
+    #[inline(always)]
+    pub fn transfer_friction_point(&mut self, world: Vector, k: usize) {
+        self.points.at_mut(k).tangent_impulse = Vec2::new(
+            world.dot(self.tangent_a),
+            world.dot(self.dir_a.cross(self.tangent_a)),
+        );
+    }
+    #[cfg(feature = "dim2")]
+    #[inline(always)]
+    pub fn transfer_friction_point(&mut self, impulse: f32, k: usize) {
+        self.points.at_mut(k).tangent_impulse = [impulse];
+    }
+}
