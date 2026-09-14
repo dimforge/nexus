@@ -530,6 +530,11 @@ impl NexusViewer {
         &mut self.scene3d
     }
 
+    /// Sets the backdrop for an application-owned scene.
+    pub fn set_background_color(&mut self, color: Color) {
+        self.window.set_background_color(color);
+    }
+
     pub fn backend(&self) -> &KhalGpuBackend {
         match self.ui.backend_type {
             BackendType::Gpu => self.webgpu.as_ref().unwrap(),
@@ -556,6 +561,29 @@ impl NexusViewer {
         let mut camera = OrbitCamera3d::new(eye, target);
         camera.set_up_axis(self.up_axis);
         self.camera3d = camera;
+    }
+
+
+    /// Converts a physical-pixel window coordinate to a world-space camera ray.
+    /// Added by nexus_robot_arm_kit_v2 for 3D TCP target picking.
+    #[cfg(feature = "dim3")]
+    pub fn unproject_3d(
+        &self,
+        window_coord: glamx::Vec2,
+        window_size: glamx::Vec2,
+    ) -> (glamx::Vec3, glamx::Vec3) {
+        kiss3d::camera::Camera3d::unproject(&self.camera3d, window_coord, window_size)
+    }
+
+    /// Allows applications to reserve clicks for scene picking. Modified clicks
+    /// (e.g. Shift + click) never rotate the camera; wheel/pan remain available.
+    #[cfg(feature = "dim3")]
+    pub fn set_camera_rotation_enabled(&mut self, enabled: bool) {
+        self.camera3d.rebind_rotate_button(
+            enabled.then_some(kiss3d::event::MouseButton::Button1),
+        );
+        self.camera3d
+            .set_rotate_modifiers(Some(kiss3d::event::Modifiers::empty()));
     }
 
     /// Sets the camera's up axis (e.g. `Vec3::Z` for Z-up scenes like MJCF
