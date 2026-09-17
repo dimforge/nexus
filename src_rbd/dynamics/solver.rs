@@ -10,8 +10,9 @@
 
 use super::contact_kernels::{
     ContactConstraints, GpuGatherWarmstartVelocities, GpuPrepareConstraints,
-    GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsFused,
-    GpuWarmstartConstraints, GpuWarmstartConstraintsFused,
+    GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsBiased,
+    GpuSolveConstraintsFused, GpuSolveConstraintsUnbiased, GpuWarmstartConstraints,
+    GpuWarmstartConstraintsFused,
 };
 use crate::dynamics::joint::{GpuJointSolver, JointSolverArgs};
 use crate::dynamics::mass_splitting::{GpuMassSplitting, HubState, SplitArgs};
@@ -58,6 +59,10 @@ pub struct GpuSolver {
     warmstart_constraints_fused: GpuWarmstartConstraintsFused,
     /// Gauss-Seidel iteration over one color, in the mode given by a uniform.
     solve_constraints: GpuSolveConstraints,
+    /// Fixed bias-only mode for the usual biased iteration.
+    solve_constraints_biased: GpuSolveConstraintsBiased,
+    /// Fixed friction/stabilization mode for the unbiased iteration.
+    solve_constraints_unbiased: GpuSolveConstraintsUnbiased,
     /// The iterations over every color with one workgroup per batch, used when per-batch
     /// constraint counts are small.
     solve_constraints_fused: GpuSolveConstraintsFused,
@@ -632,19 +637,27 @@ impl GpuSolver {
                         )?;
                     } else {
                         for c in 1..=args.num_colors {
-                            self.solve_constraints.call(
-                                pass,
-                                args.color_sweep_indirect,
-                                &mut args.constraints.tiles,
-                                args.solver_vels,
-                                args.color_buckets,
-                                args.solver_body_poses,
-                                &args.color_uniforms[c as usize],
-                                args.batch_indices,
-                                // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
-                                &args.color_uniforms[bias_mode],
-                                args.sim_params,
-                            )?;
+                            macro_rules! solve_color {
+                                ($kernel:expr) => {
+                                    $kernel.call(
+                                        pass,
+                                        args.color_sweep_indirect,
+                                        &mut args.constraints.tiles,
+                                        args.solver_vels,
+                                        args.color_buckets,
+                                        args.solver_body_poses,
+                                        &args.color_uniforms[c as usize],
+                                        args.batch_indices,
+                                        &args.color_uniforms[bias_mode],
+                                        args.sim_params,
+                                    )?
+                                };
+                            }
+                            if args.friction_in_bias_pass {
+                                solve_color!(self.solve_constraints);
+                            } else {
+                                solve_color!(self.solve_constraints_biased);
+                            }
                         }
                     }
                     if !skip_rb {
@@ -710,7 +723,7 @@ impl GpuSolver {
                     )?;
                 } else {
                     for c in 1..=args.num_colors {
-                        self.solve_constraints.call(
+                        self.solve_constraints_unbiased.call(
                             pass,
                             args.color_sweep_indirect,
                             &mut args.constraints.tiles,

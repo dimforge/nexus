@@ -156,45 +156,54 @@ pub fn gpu_scale_constraint_impulses(
     write_constraint(tiles, index, &c);
 }
 
-/// Solves the constraints of one color, in the mode given by a uniform (see
-/// `decode_bias_mode`).
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_solve_constraints(
-    #[spirv(global_invocation_id)] gid: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tiles: &mut [ContactTile],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] curr_color: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] mode: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &RbdSimParams,
-) {
-    let (use_bias, solve_friction) = decode_bias_mode(*mode);
-    let poses = Slice(solver_body_poses, 0);
-    let (start, end) = color_constraints(buckets, ids, *curr_color);
-    for index in StepRng::new(start + gid.x..end, num_workgroups.x * WORKGROUP_SIZE) {
-        let index = index as usize;
-        let h = header(tiles, index);
-        let mut a = solver_vels.read(h.vel_slot_a as usize);
-        let mut b = solver_vels.read(h.vel_slot_b as usize);
-        solve_constraint(
-            &h,
-            tiles,
-            index,
-            &poses,
-            params,
-            &mut a,
-            &mut b,
-            use_bias,
-            solve_friction,
-        );
-        solver_vels.write(h.vel_slot_a as usize, a);
-        solver_vels.write(h.vel_slot_b as usize, b);
-    }
+/// Solves the constraints of one color.
+macro_rules! tile_solver_kernel {
+    ($name:ident, $mode:ident, $mode_value:expr) => {
+        #[spirv_bindgen]
+        #[spirv(compute(threads(64)))]
+        pub fn $name(
+            #[spirv(global_invocation_id)] gid: UVec3,
+            #[spirv(num_workgroups)] num_workgroups: UVec3,
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tiles: &mut [ContactTile],
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+            solver_vels: &mut [Velocity],
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &[u32],
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] solver_body_poses: &[Pose],
+            #[spirv(uniform, descriptor_set = 0, binding = 4)] curr_color: &u32,
+            #[spirv(uniform, descriptor_set = 0, binding = 5)] ids: &BatchIndices,
+            #[spirv(uniform, descriptor_set = 0, binding = 6)] $mode: &u32,
+            #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &RbdSimParams,
+        ) {
+            let _ = $mode;
+            let (use_bias, solve_friction) = $mode_value;
+            let poses = Slice(solver_body_poses, 0);
+            let (start, end) = color_constraints(buckets, ids, *curr_color);
+            for index in StepRng::new(start + gid.x..end, num_workgroups.x * WORKGROUP_SIZE) {
+                let index = index as usize;
+                let h = header(tiles, index);
+                let mut a = solver_vels.read(h.vel_slot_a as usize);
+                let mut b = solver_vels.read(h.vel_slot_b as usize);
+                solve_constraint(
+                    &h,
+                    tiles,
+                    index,
+                    &poses,
+                    params,
+                    &mut a,
+                    &mut b,
+                    use_bias,
+                    solve_friction,
+                );
+                solver_vels.write(h.vel_slot_a as usize, a);
+                solver_vels.write(h.vel_slot_b as usize, b);
+            }
+        }
+    };
 }
+
+tile_solver_kernel!(gpu_solve_constraints, mode, decode_bias_mode(*mode));
+tile_solver_kernel!(gpu_solve_constraints_biased, mode, (true, false));
+tile_solver_kernel!(gpu_solve_constraints_unbiased, mode, (false, true));
 
 /// Solves every color with one 64-lane workgroup per batch, with a barrier between colors.
 /// Used for small scenes where the contact count is small wrt. the environment count.

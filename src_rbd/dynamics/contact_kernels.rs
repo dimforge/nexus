@@ -7,8 +7,9 @@ use vortx::tensor::Tensor;
 
 pub(crate) use crate::shaders::dynamics::coulomb_tiles::{
     GpuGatherWarmstartVelocities, GpuHubWarmstartConstraints, GpuPrepareConstraints,
-    GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsFused,
-    GpuWarmstartConstraints, GpuWarmstartConstraintsFused,
+    GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsBiased,
+    GpuSolveConstraintsFused, GpuSolveConstraintsUnbiased, GpuWarmstartConstraints,
+    GpuWarmstartConstraintsFused,
 };
 
 /// The color-ordered tiles of the contact constraints.
