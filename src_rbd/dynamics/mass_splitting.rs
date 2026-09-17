@@ -3,11 +3,10 @@
 //! See the `mass_splitting` shader module: a hub body is split into one sub-body per contact,
 //! each with its own solver velocity slot, so its contacts don't all need different colors.
 
-use crate::shaders::broad_phase::ContactPlan;
+use super::contact_kernels::{ContactTiles, GpuHubWarmstartConstraints};
 use crate::shaders::dynamics::{
-    GpuHubAssign, GpuHubAverage, GpuHubScatter, GpuHubSplitConstraints,
-    GpuHubUpdateEffectiveMasses, GpuHubWarmstart, HUB_MIN_CONSTRAINTS, NOT_A_HUB,
-    TwoBodyConstraint, Velocity, WorldMassProperties,
+    ContactLink, GpuHubAssign, GpuHubAverage, GpuHubDispatch, GpuHubScatter,
+    GpuHubSplitConstraints, HUB_MIN_CONSTRAINTS, NOT_A_HUB, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::backend::{GpuBackend, GpuBackendError, GpuPass};
@@ -75,10 +74,10 @@ impl HubState {
 #[derive(Shader)]
 pub struct GpuMassSplitting {
     assign: GpuHubAssign,
+    dispatch: GpuHubDispatch,
     split_constraints: GpuHubSplitConstraints,
-    update_effective_masses: GpuHubUpdateEffectiveMasses,
     scatter: GpuHubScatter,
-    warmstart: GpuHubWarmstart,
+    warmstart: GpuHubWarmstartConstraints,
     average: GpuHubAverage,
 }
 
@@ -90,14 +89,12 @@ pub struct SplitArgs<'a> {
     pub body_constraint_counts: &'a Tensor<u32>,
     /// Per-body constraint lists.
     pub body_constraint_ids: &'a Tensor<u32>,
-    /// The contact constraints of the step.
-    pub constraints: &'a mut Tensor<TwoBodyConstraint>,
+    /// The contact links of the step.
+    pub links: &'a mut Tensor<ContactLink>,
     /// World-space mass properties.
     pub mprops: &'a Tensor<WorldMassProperties>,
     /// Per-body graph-coloring group (multibody links are never split).
     pub body_group: &'a Tensor<u32>,
-    /// The flat contact sweep bound.
-    pub contact_plan: &'a Tensor<ContactPlan>,
     /// Dispatch grid over the contacts.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Shared per-batch indices.
@@ -105,7 +102,7 @@ pub struct SplitArgs<'a> {
 }
 
 impl GpuMassSplitting {
-    /// Picks the hubs and points their constraints at the sub-bodies. Runs once per step,
+    /// Picks the hubs and points their constraint links at the sub-bodies. Runs once per step,
     /// after the per-body constraint lists are built and before the coloring.
     pub fn split(
         &self,
@@ -124,6 +121,13 @@ impl GpuMassSplitting {
             &mut hubs.counts,
             args.batch_indices,
         )?;
+        self.dispatch.call(
+            pass,
+            1u32,
+            &hubs.counts,
+            &mut hubs.slots_indirect,
+            &mut hubs.average_indirect,
+        )?;
         // Each constraint has two entries in the per-body lists; the kernel strides over them.
         self.split_constraints.call(
             pass,
@@ -131,20 +135,11 @@ impl GpuMassSplitting {
             args.body_constraint_counts,
             args.body_constraint_ids,
             &hubs.first_slot,
-            &mut *args.constraints,
+            &mut *args.links,
             &mut hubs.slot_body,
             &mut hubs.slot_constraint,
             &hubs.counts,
             args.batch_indices,
-        )?;
-        self.update_effective_masses.call(
-            pass,
-            args.contacts_len_indirect,
-            args.constraints,
-            &hubs.counts,
-            &mut hubs.slots_indirect,
-            &mut hubs.average_indirect,
-            args.contact_plan,
         )?;
         Ok(())
     }
@@ -171,15 +166,17 @@ impl GpuMassSplitting {
         pass: &mut GpuPass,
         hubs: &HubState,
         solver_vels: &mut Tensor<Velocity>,
-        constraints: &Tensor<TwoBodyConstraint>,
+        tiles: &ContactTiles,
+        constraint_indices: &Tensor<u32>,
     ) -> Result<(), GpuBackendError> {
         self.warmstart.call(
             pass,
             &hubs.slots_indirect,
             solver_vels,
-            constraints,
+            tiles,
             &hubs.slot_constraint,
             &hubs.counts,
+            constraint_indices,
         )
     }
 

@@ -722,11 +722,13 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
-        let old_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let new_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let old_recycle_states =
-            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let recycle_states = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let old_constraints =
+            crate::dynamics::ContactConstraints::new(backend, contacts_capacity, storage).unwrap();
+        let new_constraints =
+            crate::dynamics::ContactConstraints::new(backend, contacts_capacity, storage).unwrap();
+        let recycle_states =
+            crate::dynamics::ContactRecycleStates::new(backend, contacts_capacity, storage)
+                .unwrap();
         let constraints_colors =
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_pending_colors =
@@ -750,7 +752,7 @@ impl RbdState {
         )
         .unwrap();
         let pfm_sort = PfmSortState::new(backend, pairs_capacity);
-        let color_sorted_ids = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let sorted_links = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         // Zeroed (not uninit): the first frame's warmstart transfer walks the
         // "old" counts before any step has written them; zero counts = empty
         // ranges.
@@ -880,7 +882,6 @@ impl RbdState {
             old_constraints,
             old_constraints_counts,
             new_constraints,
-            old_recycle_states,
             recycle_states,
             new_constraints_counts,
             constraints_colors,
@@ -888,7 +889,7 @@ impl RbdState {
             colored,
             constraints_rands,
             color_buckets,
-            color_sorted_ids,
+            sorted_links,
             curr_color: Tensor::scalar(
                 backend,
                 0u32,

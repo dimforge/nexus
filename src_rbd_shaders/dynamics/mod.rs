@@ -16,7 +16,6 @@ mod joint_constraint_builder;
 mod multibody;
 mod sim_params;
 mod solver_utils;
-mod warmstart;
 
 // GPU compute shader kernels
 mod canonical_order;
@@ -50,5 +49,3 @@ pub use mass_splitting::*;
 pub use mprops_update::*;
 pub use prep_render::*;
 pub use solver::*;
-pub use solver_utils::warmstart_body;
-pub use warmstart::*;

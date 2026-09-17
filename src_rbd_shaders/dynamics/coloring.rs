@@ -11,7 +11,7 @@ use khal_std::{iter::StepRng, sync::atomic_add_u32};
 use crate::utils::{BatchIndices, Slice, SliceMut};
 use khal_std::index::MaybeIndexUnchecked;
 
-use super::constraint::TwoBodyConstraint;
+use super::ContactLink;
 
 const WORKGROUP_SIZE: u32 = 64;
 
@@ -86,7 +86,7 @@ pub fn gpu_reset_luby(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints_rands: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
 ) {
     let total = contact_plan.bound;
@@ -114,7 +114,7 @@ pub fn gpu_step_graph_coloring_luby(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] constraints_rands: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] uncolored: &mut u32,
@@ -222,7 +222,7 @@ pub fn gpu_reset_topo_gc(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] colored: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] num_colors: &mut u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pending_colors: &mut [u32],
@@ -299,7 +299,7 @@ pub fn gpu_step_graph_coloring_topo_gc(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,
@@ -430,7 +430,7 @@ pub fn gpu_fix_conflicts_topo_gc(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,

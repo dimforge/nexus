@@ -4,6 +4,8 @@ pub use crate::shaders::dynamics::RbdSimParams;
 pub use body::{BodyCoupling, BodyCouplingEntry, BodyDesc, GpuBodySet};
 pub use canonical_order::{CanonicalContactsArgs, GpuCanonicalOrder, contact_sort_collider_shift};
 pub use coloring::{ColorBucketsArgs, ColoringArgs, GpuColoring};
+pub use contact_kernels::{ContactConstraints, ContactImpulseSnapshot, ContactTiles};
+pub use contact_recycling::ContactRecycleStates;
 pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs, convert_joint_motor};
 pub use mass_splitting::{GpuMassSplitting, HubState, SplitArgs};
 pub use mprops_update::{GpuMpropsUpdate, GpuSyncColliderPosesShader};
@@ -13,11 +15,13 @@ pub use multibody::{
 };
 pub use prep_render::{RbdInstanceDesc, WgRbdPrepRender};
 pub use solver::{GpuSolver, SolverArgs};
-pub use warmstart::{GpuWarmstart, WarmstartArgs};
+pub use warmstart::{GpuWarmstart, SeedColorsArgs};
 
 pub mod body;
 mod canonical_order;
 mod coloring;
+pub(crate) mod contact_kernels;
+mod contact_recycling;
 mod joint;
 mod mass_splitting;
 mod mprops_update;

@@ -3,7 +3,16 @@
 //! Constraint-based physics solver running entirely on the GPU, using graph
 //! coloring to solve constraints in parallel without data races. Uses the
 //! `Soft-TGS` algorithm (as in Rapier).
+//!
+//! The contact constraints are stored in color-ordered tiles (see the `contact_tiles` shader
+//! module): every iteration walks a contiguous range of them. Their topology and identity stay
+//! in contact order, in the contact links used for the matching, mass splitting and coloring.
 
+use super::contact_kernels::{
+    ContactConstraints, GpuGatherWarmstartVelocities, GpuPrepareConstraints,
+    GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsFused,
+    GpuWarmstartConstraints, GpuWarmstartConstraintsFused,
+};
 use crate::dynamics::joint::{GpuJointSolver, JointSolverArgs};
 use crate::dynamics::mass_splitting::{GpuMassSplitting, HubState, SplitArgs};
 #[cfg(feature = "dim3")]
@@ -15,11 +24,10 @@ use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
-    ContactRecycleState, GpuApplySolverVelsInc, GpuInitSolverBodies, GpuInitSolverVelsInc,
-    GpuIntegrateLinearized, GpuSolverCleanup, GpuSolverCountConstraints, GpuSolverFinalize,
-    GpuSolverInitConstraints, GpuSolverScaleImpulses, GpuSolverSortConstraints, GpuStepGaussSeidel,
-    GpuStepGaussSeidelFused, GpuWarmstart, GpuWarmstartFused, GpuWarmstartWithoutColors,
-    LocalMassProperties, RbdSimParams, TwoBodyConstraint, Velocity, WorldMassProperties,
+    ContactLink, GpuApplySolverVelsInc, GpuInitContactLinks, GpuInitSolverBodies,
+    GpuInitSolverVelsInc, GpuIntegrateLinearized, GpuMatchContactLinks, GpuSolverCleanup,
+    GpuSolverCountConstraints, GpuSolverFinalize, GpuSolverSortConstraints, LocalMassProperties,
+    RbdSimParams, Velocity, WorldMassProperties,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -29,29 +37,32 @@ use vortx::tensor::Tensor;
 /// GPU shader bundle for the constraint solver.
 #[derive(Shader)]
 pub struct GpuSolver {
-    sort_constraints: GpuSolverSortConstraints,
-    /// Initializes constraints from contact manifolds.
-    init_constraints: GpuSolverInitConstraints,
-    /// Companion counting pass to `init_constraints` (split out to keep each
-    /// pass within the 8-storage-buffer WebGPU limit).
+    /// Initializes the contact links from the contact manifolds.
+    init_links: GpuInitContactLinks,
+    /// Matches the contact links with the previous step's (warmstart and contact recycling).
+    match_links: GpuMatchContactLinks,
+    /// Counts the constraints of each body.
     count_constraints: GpuSolverCountConstraints,
+    /// Lists the constraints of each body.
+    sort_constraints: GpuSolverSortConstraints,
+    /// Builds the contact constraints and gives them their previous impulses, or recycled
+    /// contacts.
+    prepare_constraints: GpuPrepareConstraints,
     /// Scales the warmstart impulses (warmstart coefficients other than 1).
-    scale_impulses: GpuSolverScaleImpulses,
+    scale_constraint_impulses: GpuScaleConstraintImpulses,
+    /// Sums the warmstart velocity changes of each body's constraints.
+    gather_warmstart_velocities: GpuGatherWarmstartVelocities,
+    /// Applies the warmstart of one color's constraints (scatter-style).
+    warmstart_constraints: GpuWarmstartConstraints,
+    /// Applies the warmstart of every color, with one workgroup per batch.
+    warmstart_constraints_fused: GpuWarmstartConstraintsFused,
+    /// Gauss-Seidel iteration over one color, in the mode given by a uniform.
+    solve_constraints: GpuSolveConstraints,
+    /// The iterations over every color with one workgroup per batch, used when per-batch
+    /// constraint counts are small.
+    solve_constraints_fused: GpuSolveConstraintsFused,
     /// Clears solver velocities and constraint counts.
     cleanup: GpuSolverCleanup,
-    /// Applies warmstart impulses from previous frame.
-    #[allow(dead_code)]
-    warmstart: GpuWarmstart,
-    /// Applies warmstart impulses from previous frame, without relying on graph coloring.
-    warmstart_without_colors: GpuWarmstartWithoutColors,
-    /// Gauss-Seidel iteration step (sequential per color).
-    step_gauss_seidel: GpuStepGaussSeidel,
-    /// Fused variant of the colored warmstart sweep: one workgroup per batch
-    /// loops every color internally (barrier between colors). Used when
-    /// per-batch constraint counts are small.
-    warmstart_fused: GpuWarmstartFused,
-    /// Fused variant of the colored Gauss-Seidel sweep (same rationale).
-    step_gauss_seidel_fused: GpuStepGaussSeidelFused,
     /// Initializes solver velocity increments.
     init_solver_vels_inc: GpuInitSolverVelsInc,
     /// Seeds the COM-centered solver poses from the body world poses
@@ -66,8 +77,7 @@ pub struct GpuSolver {
     finalize: GpuSolverFinalize,
 }
 
-/// Arguments for constraint solver dispatch, used by [`GpuSolver::prepare`] and
-/// [`GpuSolver::solve_tgs`].
+/// Arguments for constraint preparation and TGS dispatch.
 pub struct SolverArgs<'a> {
     /// Total number of colors from graph coloring.
     pub num_colors: u32,
@@ -89,10 +99,16 @@ pub struct SolverArgs<'a> {
     pub stable_mb_contact_index: Option<&'a mut Tensor<MbContactIndexEntry>>,
     /// Flat dispatch grid over the whole contacts range.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
-    /// Solver constraints (output from constraint initialization).
-    pub constraints: &'a mut Tensor<TwoBodyConstraint>,
-    /// When each constraint's contacts were computed (output from constraint initialization).
-    pub recycle_states: &'a mut Tensor<ContactRecycleState>,
+    /// This step's contact constraints.
+    pub constraints: &'a mut ContactConstraints,
+    /// The previous step's contact constraints, with their final impulses.
+    pub old_constraints: &'a ContactConstraints,
+    /// Previous-step per-body adjacency ends.
+    pub old_body_constraint_counts: &'a Tensor<u32>,
+    /// Previous-step adjacency entries.
+    pub old_body_constraint_ids: &'a Tensor<u32>,
+    /// Previous and current contact validity metadata (updated during preparation).
+    pub recycle_states: &'a mut super::ContactRecycleStates,
     /// Global simulation parameters.
     pub sim_params: &'a Tensor<RbdSimParams>,
     /// Rigid body world-origin poses. Mirrors rapier's `RigidBody::position`.
@@ -130,10 +146,10 @@ pub struct SolverArgs<'a> {
     /// to the multibody’s root.
     pub body_constraint_ids: &'a mut Tensor<u32>,
     /// The `(color, batch)` bucket buffer (color-major, post-scatter exclusive
-    /// ends): bucket `k` of `color_sorted_ids` spans `[buckets[k-1], buckets[k])`.
+    /// ends): bucket `k` of `sorted_links` spans `[buckets[k-1], buckets[k])`.
     pub color_buckets: &'a Tensor<u32>,
-    /// Constraint ids bucket-sorted by `(color, batch)`.
-    pub color_sorted_ids: &'a Tensor<u32>,
+    /// The constraint links bucket-sorted by `(color, batch)`.
+    pub sorted_links: &'a Tensor<ContactLink>,
     /// Dispatch grid of each colored sweep: covers the largest color bucket.
     pub color_sweep_indirect: &'a Tensor<[u32; 3]>,
     /// Per-color-index uniform tensors: `color_uniforms[c] == c`.
@@ -182,7 +198,8 @@ pub struct SolverArgs<'a> {
 }
 
 impl GpuSolver {
-    /// Prepares constraints for solving (init, prefix sum, sort).
+    /// Prepares the constraints before their coloring: their links, per-body lists, match
+    /// with the previous step and mass splitting.
     pub fn prepare<'a>(
         &self,
         backend: &GpuBackend,
@@ -206,8 +223,6 @@ impl GpuSolver {
         // Seed `solver_body_poses` from `body_poses`: rapier's
         // `SolverBodies::copy_from`. After this, only the COM-centered solver
         // poses are touched until the final `finalize` writeback.
-        // Independent of `cleanup` (different buffers), but `init_constraints`
-        // below reads `solver_body_poses` so we barrier before it.
         self.init_solver_bodies.call(
             pass,
             args.num_colliders * args.num_batches,
@@ -221,23 +236,15 @@ impl GpuSolver {
             return Ok(());
         }
 
-        self.init_constraints.call(
+        self.init_links.call(
             pass,
             args.contacts_len_indirect,
             args.contacts,
-            args.constraints,
-            args.contact_plan,
+            &mut args.constraints.links,
             args.body_is_multibody,
-            args.collider_world_poses,
-            args.solver_body_poses,
-            args.vels,
-            args.mprops,
-            args.recycle_states,
-            args.sim_params,
+            args.contact_plan,
         )?;
 
-        // Counting runs as a separate dispatch (same indirect grid) so the
-        // build pass above stays within 8 storage buffers.
         self.count_constraints.call(
             pass,
             args.contacts_len_indirect,
@@ -269,6 +276,23 @@ impl GpuSolver {
             args.body_is_multibody,
         )?;
 
+        let (recycle_states, recycle_offsets) = args.recycle_states.bindings();
+        self.match_links.call(
+            pass,
+            args.contacts_len_indirect,
+            args.contacts,
+            &mut args.constraints.links,
+            args.old_body_constraint_counts,
+            args.old_body_constraint_ids,
+            &args.old_constraints.links,
+            &args.old_constraints.constraint_indices,
+            recycle_states,
+            args.collider_world_poses,
+            args.contact_plan,
+            args.sim_params,
+            recycle_offsets,
+        )?;
+
         args.mass_splitting.split(
             pass,
             args.hubs,
@@ -276,16 +300,41 @@ impl GpuSolver {
                 num_body_slots: args.num_colliders * args.num_batches,
                 body_constraint_counts: args.body_constraint_counts,
                 body_constraint_ids: args.body_constraint_ids,
-                constraints: args.constraints,
+                links: &mut args.constraints.links,
                 mprops: args.mprops,
                 body_group: args.body_group,
-                contact_plan: args.contact_plan,
                 contacts_len_indirect: args.contacts_len_indirect,
                 batch_indices: args.batch_indices,
             },
         )?;
 
         Ok(())
+    }
+
+    /// Builds the contact constraints once their order is known (after the color bucket sort).
+    pub fn build_constraints(
+        &self,
+        pass: &mut GpuPass,
+        args: &mut SolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
+        if args.rb_contacts_inert {
+            return Ok(());
+        }
+        let (recycle_states, recycle_offsets) = args.recycle_states.bindings();
+        self.prepare_constraints.call(
+            pass,
+            args.contacts_len_indirect,
+            args.sorted_links,
+            args.contacts,
+            args.mprops,
+            &*args.solver_body_poses,
+            &*args.vels,
+            &*recycle_states,
+            &args.old_constraints.tiles,
+            &mut args.constraints.tiles,
+            args.contact_plan,
+            recycle_offsets,
+        )
     }
 
     /// Solves constraints using the TGS (Total Gauss-Seidel) algorithm.
@@ -311,7 +360,9 @@ impl GpuSolver {
         let skip_rb = args.rb_contacts_inert;
         let joints_empty = joint_args.joints.is_empty();
         #[cfg(feature = "dim3")]
-        let stable_mb_contact_index = args.stable_mb_contact_index;
+        let mut args = args;
+        #[cfg(feature = "dim3")]
+        let stable_mb_contact_index = args.stable_mb_contact_index.take();
 
         /*
          * Init solver vel increments.
@@ -453,14 +504,15 @@ impl GpuSolver {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-build-warmstart", timestamps.as_deref_mut());
                 let pass = &mut pass;
-                // The sweeps compute the normal right-hand sides themselves: this pass is
-                // only needed to scale the warmstart impulses.
+                // The solve kernels compute the normal right-hand sides themselves: this pass only
+                // rescales the warmstart impulses, for warmstart coefficients other than 1.
                 if !skip_rb && args.scale_warmstart_impulses {
-                    self.scale_impulses.call(
+                    self.scale_constraint_impulses.call(
                         pass,
                         args.contacts_len_indirect,
-                        args.constraints,
-                        args.contact_plan,
+                        args.color_buckets,
+                        &mut args.constraints.tiles,
+                        args.batch_indices,
                         args.sim_params,
                     )?;
                 }
@@ -469,15 +521,16 @@ impl GpuSolver {
                     // Contact warmstart skipped: no rigid-body contact
                     // constraint can carry an impulse here.
                 } else if args.colorless_warmstart {
-                    self.warmstart_without_colors.call(
+                    self.gather_warmstart_velocities.call(
                         pass,
                         args.num_colliders * args.num_batches,
                         args.body_constraint_counts,
                         args.body_constraint_ids,
-                        args.constraints,
+                        &args.constraints.constraint_indices,
+                        &args.constraints.tiles,
                         args.solver_vels,
-                        args.batch_indices,
                         &args.hubs.first_slot,
+                        args.batch_indices,
                     )?;
                     // Split bodies are warmstarted through their sub-bodies.
                     args.mass_splitting
@@ -486,7 +539,8 @@ impl GpuSolver {
                         pass,
                         args.hubs,
                         args.solver_vels,
-                        args.constraints,
+                        &args.constraints.tiles,
+                        &args.constraints.constraint_indices,
                     )?;
                     args.mass_splitting.average(
                         pass,
@@ -500,13 +554,12 @@ impl GpuSolver {
                     // One dispatch, one workgroup per batch, colors looped
                     // internally. `color_uniforms[num_colors]` holds the
                     // constant `num_colors`.
-                    self.warmstart_fused.call(
+                    self.warmstart_constraints_fused.call(
                         pass,
                         [64, args.num_batches, 1],
-                        args.constraints,
+                        &args.constraints.tiles,
                         args.solver_vels,
                         args.color_buckets,
-                        args.color_sorted_ids,
                         &args.color_uniforms[args.num_colors as usize],
                         args.batch_indices,
                     )?;
@@ -515,13 +568,12 @@ impl GpuSolver {
                         .scatter(pass, args.hubs, args.solver_vels)?;
                     // NOTE: contact colors start at 1 (0 = unassigned).
                     for c in 1..=args.num_colors {
-                        self.warmstart.call(
+                        self.warmstart_constraints.call(
                             pass,
                             args.color_sweep_indirect,
-                            args.constraints,
+                            &args.constraints.tiles,
                             args.solver_vels,
                             args.color_buckets,
-                            args.color_sorted_ids,
                             &args.color_uniforms[c as usize],
                             args.batch_indices,
                         )?;
@@ -565,34 +617,32 @@ impl GpuSolver {
                     if skip_rb {
                         // Contact sweeps skipped (inert constraints).
                     } else if args.fused_color_sweeps {
-                        self.step_gauss_seidel_fused.call(
+                        self.solve_constraints_fused.call(
                             pass,
                             [64, args.num_batches, 1],
-                            args.constraints,
+                            &mut args.constraints.tiles,
                             args.solver_vels,
                             args.color_buckets,
-                            args.color_sorted_ids,
+                            args.solver_body_poses,
                             &args.color_uniforms[args.num_colors as usize],
                             args.batch_indices,
                             // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
                             &args.color_uniforms[bias_mode],
-                            args.solver_body_poses,
                             args.sim_params,
                         )?;
                     } else {
                         for c in 1..=args.num_colors {
-                            self.step_gauss_seidel.call(
+                            self.solve_constraints.call(
                                 pass,
                                 args.color_sweep_indirect,
-                                args.constraints,
+                                &mut args.constraints.tiles,
                                 args.solver_vels,
                                 args.color_buckets,
-                                args.color_sorted_ids,
+                                args.solver_body_poses,
                                 &args.color_uniforms[c as usize],
                                 args.batch_indices,
                                 // Biased pass: `color_uniforms[bias_mode]` holds `bias_mode`.
                                 &args.color_uniforms[bias_mode],
-                                args.solver_body_poses,
                                 args.sim_params,
                             )?;
                         }
@@ -645,34 +695,31 @@ impl GpuSolver {
                 if skip_rb {
                     // Contact sweeps skipped (inert constraints).
                 } else if args.fused_color_sweeps {
-                    self.step_gauss_seidel_fused.call(
+                    // `color_uniforms[0]` holds 0: no bias, with friction.
+                    self.solve_constraints_fused.call(
                         pass,
                         [64, args.num_batches, 1],
-                        args.constraints,
+                        &mut args.constraints.tiles,
                         args.solver_vels,
                         args.color_buckets,
-                        args.color_sorted_ids,
+                        args.solver_body_poses,
                         &args.color_uniforms[args.num_colors as usize],
                         args.batch_indices,
-                        // use_bias = 0 (the `color_uniform[0]` contains the value 0)
                         &args.color_uniforms[0],
-                        args.solver_body_poses,
                         args.sim_params,
                     )?;
                 } else {
                     for c in 1..=args.num_colors {
-                        self.step_gauss_seidel.call(
+                        self.solve_constraints.call(
                             pass,
                             args.color_sweep_indirect,
-                            args.constraints,
+                            &mut args.constraints.tiles,
                             args.solver_vels,
                             args.color_buckets,
-                            args.color_sorted_ids,
+                            args.solver_body_poses,
                             &args.color_uniforms[c as usize],
                             args.batch_indices,
-                            // use_bias = 0 (the `color_uniform[0]` contains the value 0)
                             &args.color_uniforms[0],
-                            args.solver_body_poses,
                             args.sim_params,
                         )?;
                     }

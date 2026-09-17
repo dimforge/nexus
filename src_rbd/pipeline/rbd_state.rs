@@ -11,8 +11,8 @@ use crate::shaders::broad_phase::{CollisionPair, ContactPlan, LbvhNode, NarrowPh
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
-    ContactRecycleState, LocalMassProperties as GpuLocalMassProperties, RbdSimParams,
-    TwoBodyConstraint, Velocity as GpuVelocity, WorldMassProperties as GpuWorldMassProperties,
+    LocalMassProperties as GpuLocalMassProperties, RbdSimParams, Velocity as GpuVelocity,
+    WorldMassProperties as GpuWorldMassProperties,
 };
 use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::shapes::Shape;
@@ -323,14 +323,12 @@ pub struct RbdState {
     /// Workgroup grid for the per-multibody contact-constraint dispatches:
     /// `[multibodies_batch_capacity, num_batches, 1]`.
     pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
-    pub(super) new_constraints: Tensor<TwoBodyConstraint>,
+    pub(super) new_constraints: crate::dynamics::ContactConstraints,
     pub(super) new_constraints_counts: Tensor<u32>,
     pub(super) new_body_constraint_ids: Tensor<u32>,
-    pub(super) old_constraints: Tensor<TwoBodyConstraint>,
-    /// When the previous frame's contacts were computed (contact recycling), per constraint.
-    pub(super) old_recycle_states: Tensor<ContactRecycleState>,
-    /// When the current frame's contacts were computed, per constraint.
-    pub(super) recycle_states: Tensor<ContactRecycleState>,
+    pub(super) old_constraints: crate::dynamics::ContactConstraints,
+    /// Previous and current recycling metadata in one storage allocation.
+    pub(super) recycle_states: crate::dynamics::ContactRecycleStates,
     pub(super) old_constraints_counts: Tensor<u32>,
     pub(super) old_body_constraint_ids: Tensor<u32>,
     pub(super) constraints_colors: Tensor<u32>,
@@ -341,8 +339,8 @@ pub struct RbdState {
     /// `(max_colors + 3) * num_batches`: counts, then scanned exclusive
     /// starts, then post-scatter exclusive ends (what the sweeps read).
     pub(super) color_buckets: Tensor<u32>,
-    /// Constraint indices bucket-sorted by `(color, batch)`.
-    pub(super) color_sorted_ids: Tensor<u32>,
+    /// The constraint links bucket-sorted by `(color, batch)`.
+    pub(super) sorted_links: Tensor<crate::shaders::dynamics::ContactLink>,
     pub(super) curr_color: Tensor<u32>,
     /// Pre-built per-color-index uniforms: `color_uniforms[c] == c`.
     /// [`Self::ensure_color_uniforms`].
@@ -595,7 +593,6 @@ impl RbdState {
         zero(backend, &mut self.determinism.pending_colors);
         zero(backend, &mut self.old_constraints_colors);
         zero(backend, &mut self.colored);
-        zero(backend, &mut self.color_sorted_ids);
         zero(backend, &mut self.determinism.contact_sort_keys);
         zero(backend, &mut self.determinism.contact_sort_ids);
         zero(backend, &mut self.determinism.contact_sort_keys_out);
@@ -843,8 +840,8 @@ impl RbdState {
 
     /// GPU buffer holding the rigid-body contact constraints of the current
     /// step (impulses included). For debugging.
-    pub fn rigid_contact_constraints(&self) -> &Tensor<TwoBodyConstraint> {
-        &self.new_constraints
+    pub fn rigid_contact_constraints(&self) -> &crate::dynamics::ContactConstraints {
+        &self.old_constraints
     }
 
     /// Debug: reads the contacts back from the GPU, as world-space points of all batches.
@@ -971,9 +968,6 @@ impl RbdState {
     ///
     /// Reads the `old_*` buffers, i.e. the constraints and colors of the last step.
     pub fn debug_constraint_colors(&self, backend: &GpuBackend) -> Vec<(u32, u32, u32, u32, u32)> {
-        let cons: Vec<TwoBodyConstraint> =
-            futures::executor::block_on(backend.slow_read_vec(self.old_constraints.buffer()))
-                .unwrap_or_default();
         let colors: Vec<u32> = futures::executor::block_on(
             backend.slow_read_vec(self.old_constraints_colors.buffer()),
         )
@@ -986,15 +980,28 @@ impl RbdState {
         .and_then(|plan| plan.first().map(|p| p.bound as usize))
         .unwrap_or(0);
 
+        let cons = futures::executor::block_on(self.old_constraints.read_impulses(backend, bound))
+            .unwrap_or_default();
         let mut out = Vec::new();
         for (i, c) in cons.iter().enumerate().take(bound) {
             if c.len == 0 {
                 continue;
             }
             let color = colors.get(i).copied().unwrap_or(u32::MAX);
-            out.push((i as u32, c.solver_body_a, c.solver_body_b, color, c.len));
+            out.push((i as u32, c.body_a, c.body_b, color, c.len));
         }
         out
+    }
+
+    /// Diagnostic readback of the last step's active contact range.
+    pub async fn read_rigid_contact_impulses(
+        &self,
+        backend: &GpuBackend,
+    ) -> Result<Vec<crate::dynamics::ContactImpulseSnapshot>, khal::backend::GpuBackendError> {
+        let plan: Vec<ContactPlan> = backend.slow_read_vec(self.contact_plan.buffer()).await?;
+        self.old_constraints
+            .read_impulses(backend, plan[0].bound as usize)
+            .await
     }
 
     /// The number of colliders per batch.

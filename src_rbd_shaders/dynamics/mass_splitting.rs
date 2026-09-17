@@ -11,7 +11,6 @@
 //! velocity is scattered to its sub-bodies, and after the sweep their velocities are averaged
 //! back into the hub, which applies the sum of every contact impulse to the real body.
 
-use crate::broad_phase::ContactPlan;
 use crate::utils::{BatchIndices, Slice, SliceMut};
 use crate::{AngVector, Vector};
 use khal_std::glamx::UVec3;
@@ -20,8 +19,8 @@ use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::{atomic_add_u32, workgroup_memory_barrier_with_group_sync};
 
+use super::ContactLink;
 use super::body::{Velocity, WorldMassProperties};
-use super::constraint::TwoBodyConstraint;
 
 const WORKGROUP_SIZE: u32 = 64;
 
@@ -99,8 +98,8 @@ pub fn gpu_hub_assign(
     }
 }
 
-/// Points each hub constraint at its sub-body velocity slot and scales the hub side's inverse
-/// mass and inertia by the number of sub-bodies.
+/// Points each hub constraint at its sub-body velocity slot, and scales the hub side's inverse
+/// mass and inertia by the number of sub-bodies (applied when the constraints are built).
 ///
 /// One thread per entry of the per-body constraint lists.
 #[spirv_bindgen]
@@ -111,8 +110,7 @@ pub fn gpu_hub_split_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] hub_first_slot: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
-    constraints: &mut [TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints: &mut [ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] hub_slot_body: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] hub_slot_constraint: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] hub_counts: &[u32],
@@ -153,22 +151,10 @@ pub fn gpu_hub_split_constraints(
 
         if constraint.solver_body_a == body {
             constraint.vel_slot_a = base + slot;
-            constraint.im_a *= n;
-            #[cfg(feature = "dim2")]
-            {
-                constraint.ii_a *= n;
-            }
-            #[cfg(feature = "dim3")]
-            constraint.ii_a.scale(n);
+            constraint.mass_scale_a = n;
         } else {
             constraint.vel_slot_b = base + slot;
-            constraint.im_b *= n;
-            #[cfg(feature = "dim2")]
-            {
-                constraint.ii_b *= n;
-            }
-            #[cfg(feature = "dim3")]
-            constraint.ii_b.scale(n);
+            constraint.mass_scale_b = n;
         }
 
         hub_slot_body.write(slot as usize, body);
@@ -176,37 +162,20 @@ pub fn gpu_hub_split_constraints(
     }
 }
 
-/// Recomputes the effective masses of the constraints touching a split hub, and sizes the
-/// scatter and average dispatches.
+/// Sizes hub-only dispatches after assignment, including the zero-hub case.
 #[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_hub_update_effective_masses(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] hub_counts: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] slots_indirect: &mut [[u32; 3]],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] average_indirect: &mut [[u32; 3]],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] contact_plan: &ContactPlan,
+#[spirv(compute(threads(1)))]
+pub fn gpu_hub_dispatch(
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] hub_counts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] slots_indirect: &mut [[u32; 3]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] average_indirect: &mut [[u32; 3]],
 ) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-
-    if invocation_id.x == 0 {
-        let pool = hub_counts.read(HUB_COUNT_POOL);
-        let slots = hub_counts.read(HUB_COUNT_SLOTS).min(pool);
-        let max_hubs = pool / HUB_MIN_CONSTRAINTS + 1;
-        let hubs = hub_counts.read(HUB_COUNT_HUBS).min(max_hubs);
-        slots_indirect.write(0, [slots.div_ceil(WORKGROUP_SIZE), 1, 1]);
-        average_indirect.write(0, [hubs.min(HUB_AVERAGE_WORKGROUPS), 1, 1]);
-    }
-
-    for i in StepRng::new(invocation_id.x..contact_plan.bound, num_threads) {
-        let c = constraints.at_mut(i as usize);
-        if c.len != 0 && (c.vel_slot_a != c.solver_body_a || c.vel_slot_b != c.solver_body_b) {
-            c.compute_effective_masses();
-        }
-    }
+    let pool = hub_counts.read(HUB_COUNT_POOL);
+    let slots = hub_counts.read(HUB_COUNT_SLOTS).min(pool);
+    let max_hubs = pool / HUB_MIN_CONSTRAINTS + 1;
+    let hubs = hub_counts.read(HUB_COUNT_HUBS).min(max_hubs);
+    slots_indirect.write(0, [slots.div_ceil(WORKGROUP_SIZE), 1, 1]);
+    average_indirect.write(0, [hubs.min(HUB_AVERAGE_WORKGROUPS), 1, 1]);
 }
 
 /// Copies each hub's velocity into its sub-body slots.
@@ -227,35 +196,6 @@ pub fn gpu_hub_scatter(
         let body = hub_slot_body.read(slot as usize);
         let vel = solver_vels.read(body as usize);
         solver_vels.write((base + slot) as usize, vel);
-    }
-}
-
-/// Applies the warmstart impulse of each hub constraint to its sub-body (the hub's own
-/// warmstart gather skips them).
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_hub_warmstart(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] hub_slot_constraint: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] hub_counts: &[u32],
-) {
-    let slot = invocation_id.x;
-    let slots = hub_counts
-        .read(HUB_COUNT_SLOTS)
-        .min(hub_counts.read(HUB_COUNT_POOL));
-    if slot < slots {
-        let vel_slot = hub_counts.read(HUB_COUNT_BASE) + slot;
-        let constraint = constraints.at(hub_slot_constraint.read(slot as usize) as usize);
-        let mut vel = solver_vels.read(vel_slot as usize);
-        let mut other = Velocity::default();
-        if constraint.vel_slot_a == vel_slot {
-            constraint.warmstart_constraint(&mut vel, &mut other);
-        } else {
-            constraint.warmstart_constraint(&mut other, &mut vel);
-        }
-        solver_vels.write(vel_slot as usize, vel);
     }
 }
 

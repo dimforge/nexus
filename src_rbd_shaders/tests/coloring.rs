@@ -24,7 +24,7 @@ fn conflict_pruning_matches_full_graph_with_seeded_and_pending_colors() {
     for deterministic in [0, 1] {
         for seed in 0..32u32 {
             let groups = [0u32, 1, 1, 2, 3, 4, 5, 5];
-            let mut constraints = vec![TwoBodyConstraint::default(); 96];
+            let mut constraints = vec![ContactLink::default(); 96];
             let mut colors = vec![0; 96];
             let mut pending = vec![MAX_U32; 96];
             let mut colored = vec![1; 96];

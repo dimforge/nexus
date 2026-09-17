@@ -1390,37 +1390,23 @@ impl NexusState {
         py: Python<'py>,
         viewer: PyRef<NexusViewer>,
     ) -> PyResult<Vec<Bound<'py, pyo3::types::PyDict>>> {
-        use nexus3d::rbd::shaders::dynamics::TwoBodyConstraint;
         use pyo3::types::PyDict;
         let Some(rbd) = self.0.rbd.as_ref() else {
             return Ok(Vec::new());
         };
-        let cons: Vec<TwoBodyConstraint> = pollster::block_on(
-            viewer
-                .backend()
-                .slow_read_vec(rbd.rigid_contact_constraints().buffer()),
-        )
-        .map_err(gpu_err)?;
+        let cons = pollster::block_on(rbd.read_rigid_contact_impulses(viewer.backend()))
+            .map_err(gpu_err)?;
         let mut out = Vec::new();
         for c in cons.iter().filter(|c| c.len > 0) {
             let dict = PyDict::new(py);
-            dict.set_item("body_a", c.solver_body_a)?;
-            dict.set_item("body_b", c.solver_body_b)?;
+            dict.set_item("body_a", c.body_a)?;
+            dict.set_item("body_b", c.body_b)?;
             dict.set_item("dir_a", [c.dir_a.x, c.dir_a.y, c.dir_a.z])?;
-            dict.set_item("friction", c.limit)?;
-            dict.set_item("inv_mass_a", c.im_a.x)?;
-            dict.set_item("inv_mass_b", c.im_b.x)?;
-            let normal: Vec<f32> = (0..c.len as usize)
-                .map(|k| c.points[k].normal_impulse)
-                .collect();
-            let tangent: Vec<[f32; 2]> = (0..c.len as usize)
-                .map(|k| {
-                    let t = c.points[k].tangent_impulse;
-                    [t.x, t.y]
-                })
-                .collect();
-            dict.set_item("normal_impulse", normal)?;
-            dict.set_item("tangent_impulse", tangent)?;
+            dict.set_item("friction", c.friction)?;
+            dict.set_item("inv_mass_a", c.inv_mass_a.x)?;
+            dict.set_item("inv_mass_b", c.inv_mass_b.x)?;
+            dict.set_item("normal_impulse", &c.normal_impulse)?;
+            dict.set_item("tangent_impulse", &c.tangent_impulse)?;
             out.push(dict);
         }
         Ok(out)

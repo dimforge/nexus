@@ -256,55 +256,6 @@ impl TwoBodyConstraint {
     }
 }
 
-/// Applies warmstart impulses to a single body (gather-style, no graph coloring required).
-#[inline(always)]
-pub fn warmstart_body(
-    body_id: u32,
-    body_constraint_counts: &Slice<u32>,
-    body_constraint_ids: &Slice<u32>,
-    constraints: &Slice<TwoBodyConstraint>,
-    solver_vel: &mut Velocity,
-) {
-    let first_constraint_id = if body_id != 0 {
-        body_constraint_counts[body_id as usize - 1] as usize
-    } else {
-        0
-    };
-    let last_constraint_id = body_constraint_counts[body_id as usize] as usize;
-
-    for i in first_constraint_id..last_constraint_id {
-        let cid = body_constraint_ids[i] as usize;
-        let constraint = &constraints[cid];
-        let is_a = constraint.solver_body_a == body_id;
-        let tangents = constraint.tangents();
-
-        // Sum the lever-arm moments in world space, then apply the inertia once.
-        let mut force = Vector::ZERO;
-        #[cfg(feature = "dim2")]
-        let mut torque = 0.0;
-        #[cfg(feature = "dim3")]
-        let mut torque = Vec3::ZERO;
-        for k in 0..constraint.len as usize {
-            let f = constraint.point_impulse(k, &tangents);
-            let r = if is_a {
-                constraint.points.at(k).r_a
-            } else {
-                constraint.points.at(k).r_b
-            };
-            force += f;
-            torque += gcross(r, f);
-        }
-
-        if is_a {
-            solver_vel.linear += constraint.im_a * force;
-            solver_vel.angular += constraint.ii_a_mul(torque);
-        } else {
-            solver_vel.linear -= constraint.im_b * force;
-            solver_vel.angular -= constraint.ii_b_mul(torque);
-        }
-    }
-}
-
 impl TwoBodyConstraint {
     /// Applies warmstart impulses to a constraint (scatter-style, requires graph coloring).
     #[inline(always)]

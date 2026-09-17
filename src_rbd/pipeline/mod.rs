@@ -24,4 +24,7 @@ pub use rbd_state::{
 pub use rbd_step::RbdPipeline;
 
 #[cfg(test)]
+mod test_large_warmstart;
+
+#[cfg(test)]
 mod test_web_preparation;

@@ -6,7 +6,6 @@ use crate::dynamics::GpuMultibodySolver;
 use crate::dynamics::{
     CanonicalContactsArgs, ColoringArgs, GpuCanonicalOrder, GpuColoring, GpuJointSolver,
     GpuMassSplitting, GpuMpropsUpdate, GpuSolver, GpuWarmstart, JointSolverArgs, SolverArgs,
-    warmstart::WarmstartArgs,
 };
 use crate::shaders::broad_phase::LbvhNode;
 use crate::utils::GpuPrefixSum;
@@ -384,6 +383,9 @@ impl RbdPipeline {
                 stable_mb_contact_index: None,
                 contacts_len_indirect: &state.contacts_indirect,
                 constraints: &mut state.new_constraints,
+                old_constraints: &state.old_constraints,
+                old_body_constraint_counts: &state.old_constraints_counts,
+                old_body_constraint_ids: &state.old_body_constraint_ids,
                 recycle_states: &mut state.recycle_states,
                 sim_params: &state.sim_params,
                 body_poses: &mut state.body_poses,
@@ -398,7 +400,7 @@ impl RbdPipeline {
                 body_constraint_counts: &mut state.new_constraints_counts,
                 body_constraint_ids: &mut state.new_body_constraint_ids,
                 color_buckets: &state.color_buckets,
-                color_sorted_ids: &state.color_sorted_ids,
+                sorted_links: &state.sorted_links,
                 color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
                 color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
@@ -448,25 +450,6 @@ impl RbdPipeline {
                 stats.num_colors = state.max_colors + 1;
                 drop(pass);
             } else {
-                // Warmstart
-                let warmstart_args = WarmstartArgs {
-                    contact_plan: &state.contact_plan,
-                    old_body_constraint_counts: &state.old_constraints_counts,
-                    old_body_constraint_ids: &state.old_body_constraint_ids,
-                    old_constraints: &state.old_constraints,
-                    new_constraints: &mut state.new_constraints,
-                    old_recycle_states: &state.old_recycle_states,
-                    recycle_states: &mut state.recycle_states,
-                    collider_world_poses: &state.collider_world_poses,
-                    vels: &state.vels,
-                    contacts_len_indirect: &state.contacts_indirect,
-                };
-
-                drop(pass);
-                let mut pass =
-                    encoder.begin_pass("[RBD] prep/warmstart", timestamps.as_deref_mut());
-                self.warmstart
-                    .transfer_warmstart_impulses(&mut pass, warmstart_args)?;
                 drop(pass);
                 let mut pass = encoder.begin_pass("[RBD] prep/coloring", timestamps.as_deref_mut());
 
@@ -474,7 +457,7 @@ impl RbdPipeline {
                     contacts_len_indirect: &state.contacts_indirect,
                     body_constraint_counts: &state.new_constraints_counts,
                     body_constraint_ids: &state.new_body_constraint_ids,
-                    constraints: &state.new_constraints,
+                    links: &state.new_constraints.links,
                     constraints_colors: &mut state.constraints_colors,
                     constraints_pending_colors: &mut state.determinism.pending_colors,
                     constraints_rands: &mut state.constraints_rands,
@@ -495,10 +478,7 @@ impl RbdPipeline {
                 // topo-gc iterations converge in 1-2 rounds instead of ~num_colors).
                 let seed_args = crate::dynamics::warmstart::SeedColorsArgs {
                     contact_plan: &state.contact_plan,
-                    old_body_constraint_counts: &state.old_constraints_counts,
-                    old_body_constraint_ids: &state.old_body_constraint_ids,
-                    old_constraints: &state.old_constraints,
-                    new_constraints: &state.new_constraints,
+                    links: &state.new_constraints.links,
                     old_constraints_colors: &state.old_constraints_colors,
                     constraints_colors: &mut state.constraints_colors,
                     colored: &mut state.colored,
@@ -511,7 +491,7 @@ impl RbdPipeline {
                     contacts_len_indirect: &state.contacts_indirect,
                     body_constraint_counts: &state.new_constraints_counts,
                     body_constraint_ids: &state.new_body_constraint_ids,
-                    constraints: &state.new_constraints,
+                    links: &state.new_constraints.links,
                     constraints_colors: &mut state.constraints_colors,
                     constraints_pending_colors: &mut state.determinism.pending_colors,
                     constraints_rands: &mut state.constraints_rands,
@@ -537,10 +517,11 @@ impl RbdPipeline {
                 let bucket_args = crate::dynamics::ColorBucketsArgs {
                     contacts_len_indirect: &state.contacts_indirect,
                     constraints_colors: &state.constraints_colors,
-                    constraints: &state.new_constraints,
+                    links: &state.new_constraints.links,
                     contact_plan: &state.contact_plan,
                     color_buckets: &mut state.color_buckets,
-                    color_sorted_ids: &mut state.color_sorted_ids,
+                    sorted_links: &mut state.sorted_links,
+                    constraint_indices: &mut state.new_constraints.constraint_indices,
                     batch_indices: &state.batch_indices,
                     color_stats: &mut state.coloring_dispatch.color_stats,
                     sweep_indirect: &mut state.coloring_dispatch.sweep_indirect,
@@ -567,7 +548,7 @@ impl RbdPipeline {
         let num_colors = stats.num_colors;
 
         // Create solver_args for solve phase (after coloring is complete)
-        let solver_args = SolverArgs {
+        let mut solver_args = SolverArgs {
             contacts: &state.contacts,
             contact_plan: &state.contact_plan,
             #[cfg(feature = "dim3")]
@@ -579,6 +560,9 @@ impl RbdPipeline {
                 .then_some(&mut state.determinism.stable_mb_contact_index),
             contacts_len_indirect: &state.contacts_indirect,
             constraints: &mut state.new_constraints,
+            old_constraints: &state.old_constraints,
+            old_body_constraint_counts: &state.old_constraints_counts,
+            old_body_constraint_ids: &state.old_body_constraint_ids,
             recycle_states: &mut state.recycle_states,
             sim_params: &state.sim_params,
             body_poses: &mut state.body_poses,
@@ -593,7 +577,7 @@ impl RbdPipeline {
             body_constraint_counts: &mut state.new_constraints_counts,
             body_constraint_ids: &mut state.new_body_constraint_ids,
             color_buckets: &state.color_buckets,
-            color_sorted_ids: &state.color_sorted_ids,
+            sorted_links: &state.sorted_links,
             color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
             color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
@@ -620,6 +604,12 @@ impl RbdPipeline {
             mass_splitting: &self.mass_splitting,
             scale_warmstart_impulses: state.sim_params_cpu.warmstart_coefficient != 1.0,
         };
+
+        // The constraints follow the color order, known only now.
+        {
+            let mut pass = encoder.begin_pass("[RBD] prep/constraints", timestamps.as_deref_mut());
+            self.solver.build_constraints(&mut pass, &mut solver_args)?;
+        }
 
         // Phase 3: Solve constraints
         let joint_solver_args = JointSolverArgs {
@@ -658,7 +648,7 @@ impl RbdPipeline {
 
         // Swap buffers for warm-starting next frame
         std::mem::swap(&mut state.old_constraints, &mut state.new_constraints);
-        std::mem::swap(&mut state.old_recycle_states, &mut state.recycle_states);
+        state.recycle_states.swap_frames();
         std::mem::swap(
             &mut state.old_body_constraint_ids,
             &mut state.new_body_constraint_ids,
@@ -818,12 +808,14 @@ impl RbdPipeline {
                 {
                     state.mb_contact_index = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 }
-                state.old_constraints = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.old_constraints =
+                    crate::dynamics::ContactConstraints::new(backend, new_contacts, storage)?;
                 state.old_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
-                state.new_constraints = Tensor::vector_uninit(backend, new_contacts, storage)?;
-                state.old_recycle_states = Tensor::vector_uninit(backend, new_contacts, storage)?;
-                state.recycle_states = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.new_constraints =
+                    crate::dynamics::ContactConstraints::new(backend, new_contacts, storage)?;
+                state.recycle_states =
+                    crate::dynamics::ContactRecycleStates::new(backend, new_contacts, storage)?;
                 state.new_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
                 state.constraints_colors = Tensor::vector_uninit(backend, new_contacts, storage)?;
@@ -835,7 +827,7 @@ impl RbdPipeline {
                     Tensor::vector(backend, vec![0u32; new_contacts as usize], storage)?;
                 state.colored = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 state.constraints_rands = Tensor::vector_uninit(backend, new_contacts, storage)?;
-                state.color_sorted_ids = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.sorted_links = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 // The old counts index the old (now discarded) constraint list:
                 // zero them so the next warmstart transfer sees empty ranges
                 // instead of stale offsets into the fresh buffers.

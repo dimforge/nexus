@@ -9,9 +9,8 @@
 
 use crate::pipeline::RunStats;
 use crate::shaders::broad_phase::ContactPlan;
-use crate::shaders::dynamics::TwoBodyConstraint;
 use crate::shaders::dynamics::{
-    GpuClearCompletionFlagTopoGc, GpuColorBucketsCount, GpuColorBucketsReset,
+    ContactLink, GpuClearCompletionFlagTopoGc, GpuColorBucketsCount, GpuColorBucketsReset,
     GpuColorBucketsScatter, GpuColorSweepGrid, GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc,
     GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
 };
@@ -52,16 +51,19 @@ pub struct ColorBucketsArgs<'a> {
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Color assigned to each constraint by graph coloring.
     pub constraints_colors: &'a Tensor<u32>,
-    /// The colored constraints (batch recovered from their global body ids).
-    pub constraints: &'a Tensor<TwoBodyConstraint>,
+    /// The links of the colored constraints (batch recovered from their global body ids).
+    pub links: &'a Tensor<ContactLink>,
     /// Clamped per-frame list totals (the flat contact sweep bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// The single `(color, batch)` bucket buffer, color-major
     /// (`solver_color_buckets_stride * num_batches` entries): counts, then
     /// scanned exclusive starts, then post-scatter exclusive ends.
     pub color_buckets: &'a mut Tensor<u32>,
-    /// Constraint ids bucket-sorted by `(color, batch)`.
-    pub color_sorted_ids: &'a mut Tensor<u32>,
+    /// Output: the constraint links bucket-sorted by `(color, batch)`, inactive past the last
+    /// constraint.
+    pub sorted_links: &'a mut Tensor<ContactLink>,
+    /// Output: the index of each constraint in the color order.
+    pub constraint_indices: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
     /// Output: `[largest color bucket, highest color in use]`.
@@ -80,8 +82,8 @@ pub struct ColoringArgs<'a> {
     pub body_constraint_counts: &'a Tensor<u32>,
     /// Constraint IDs associated with each body.
     pub body_constraint_ids: &'a Tensor<u32>,
-    /// The constraints to be colored.
-    pub constraints: &'a Tensor<TwoBodyConstraint>,
+    /// The links of the constraints to be colored.
+    pub links: &'a Tensor<ContactLink>,
     /// Output: color assigned to each constraint.
     pub constraints_colors: &'a mut Tensor<u32>,
     /// Color picked by each constraint in the current round, before the conflict pass.
@@ -121,7 +123,7 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.constraints_rands,
-            args.constraints,
+            args.links,
             args.contact_plan,
         )?;
         Ok(())
@@ -138,7 +140,7 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
-            args.constraints,
+            args.links,
             args.constraints_colors,
             args.constraints_rands,
             args.uncolored,
@@ -160,7 +162,7 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.colored,
-            args.constraints,
+            args.links,
             args.contact_plan,
             args.uncolored,
             args.constraints_pending_colors,
@@ -179,7 +181,7 @@ impl GpuColoring {
             &*args.coloring_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
-            args.constraints,
+            args.links,
             args.constraints_colors,
             args.colored,
             args.uncolored,
@@ -202,7 +204,7 @@ impl GpuColoring {
             &*args.coloring_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
-            args.constraints,
+            args.links,
             args.constraints_colors,
             args.colored,
             args.uncolored,
@@ -282,21 +284,23 @@ impl GpuColoring {
             pass,
             args.contacts_len_indirect,
             args.constraints_colors,
-            args.constraints,
+            args.links,
             args.contact_plan,
             args.color_buckets,
             args.batch_indices,
+            args.sorted_links,
         )?;
         prefix_sum.launch(backend, pass, prefix_workspace, args.color_buckets, 1)?;
         self.color_buckets_scatter.call(
             pass,
             args.contacts_len_indirect,
             args.constraints_colors,
-            args.constraints,
+            args.links,
             args.contact_plan,
             args.color_buckets,
-            args.color_sorted_ids,
+            args.sorted_links,
             args.batch_indices,
+            args.constraint_indices,
         )?;
         // A single workgroup reduces over the colors.
         self.color_sweep_grid.call(

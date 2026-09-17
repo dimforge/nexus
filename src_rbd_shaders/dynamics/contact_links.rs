@@ -162,6 +162,32 @@ fn find_previous_constraint(
     u32::MAX
 }
 
+/// Seeds the coloring with the colors of the matched previous constraints. Runs after the
+/// topo-gc reset, before the coloring iterations.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_seed_colors_from_warmstart(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] links: &[ContactLink],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] old_constraints_colors: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints_colors: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] colored: &mut [u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] contact_plan: &ContactPlan,
+) {
+    let i = invocation_id.x as usize;
+    if invocation_id.x < contact_plan.bound {
+        let link = links.at(i);
+        if link.len != 0 && link.previous_constraint != u32::MAX {
+            let old_color = old_constraints_colors.read(link.previous_constraint as usize);
+            // The conflict pass validates every seed, including stale colors.
+            if old_color > 0 && old_color < 64 {
+                constraints_colors.write(i, old_color);
+                colored.write(i, 1);
+            }
+        }
+    }
+}
+
 /// Whether a pair whose contacts were computed at `state` can keep them at the collider poses
 /// `pose_a` and `pose_b` (rapier's `relative_pose_drift` and `relative_rot_cos` tests).
 #[inline(always)]
