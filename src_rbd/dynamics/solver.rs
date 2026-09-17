@@ -308,7 +308,6 @@ impl GpuSolver {
                 links: &mut args.constraints.links,
                 mprops: args.mprops,
                 body_group: args.body_group,
-                contacts_len_indirect: args.contacts_len_indirect,
                 batch_indices: args.batch_indices,
             },
         )?;

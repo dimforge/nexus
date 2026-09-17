@@ -95,8 +95,6 @@ pub struct SplitArgs<'a> {
     pub mprops: &'a Tensor<WorldMassProperties>,
     /// Per-body graph-coloring group (multibody links are never split).
     pub body_group: &'a Tensor<u32>,
-    /// Dispatch grid over the contacts.
-    pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Shared per-batch indices.
     pub batch_indices: &'a Tensor<BatchIndices>,
 }
@@ -128,10 +126,9 @@ impl GpuMassSplitting {
             &mut hubs.slots_indirect,
             &mut hubs.average_indirect,
         )?;
-        // Each constraint has two entries in the per-body lists; the kernel strides over them.
         self.split_constraints.call(
             pass,
-            args.contacts_len_indirect,
+            &hubs.average_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
             &hubs.first_slot,
@@ -139,7 +136,7 @@ impl GpuMassSplitting {
             &mut hubs.slot_body,
             &mut hubs.slot_constraint,
             &hubs.counts,
-            args.batch_indices,
+            &hubs.list,
         )?;
         Ok(())
     }

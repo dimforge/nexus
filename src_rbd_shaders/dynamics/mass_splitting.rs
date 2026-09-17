@@ -101,11 +101,13 @@ pub fn gpu_hub_assign(
 /// Points each hub constraint at its sub-body velocity slot, and scales the hub side's inverse
 /// mass and inertia by the number of sub-bodies (applied when the constraints are built).
 ///
-/// One thread per entry of the per-body constraint lists.
+/// One workgroup per hub, striding over its adjacency entries. Ordinary bodies
+/// never enter this pass; no per-contact binary search of body ranges is needed.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_hub_split_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
+    #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
@@ -114,51 +116,33 @@ pub fn gpu_hub_split_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] hub_slot_body: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] hub_slot_constraint: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] hub_counts: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] hub_list: &[u32],
 ) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let num_slots = batch_ids.colliders_batch_capacity * batch_ids.num_batches;
     let counts = Slice(body_constraint_counts, 0);
     let base = hub_counts.read(HUB_COUNT_BASE);
-    let num_entries = counts[num_slots as usize - 1];
-
-    for entry in StepRng::new(invocation_id.x..num_entries, num_threads) {
-        // The body owning this entry: the first body whose cumulative end exceeds it.
-        let mut lo = 0u32;
-        let mut hi = num_slots - 1;
-        for _ in 0..32u32 {
-            if lo < hi {
-                let mid = (lo + hi) / 2;
-                if counts[mid as usize] > entry {
-                    hi = mid;
-                } else {
-                    lo = mid + 1;
-                }
-            }
-        }
-        let body = lo;
-
+    let max_hubs = hub_counts.read(HUB_COUNT_POOL) / HUB_MIN_CONSTRAINTS + 1;
+    let hubs = hub_counts.read(HUB_COUNT_HUBS).min(max_hubs);
+    for hub in StepRng::new(workgroup_id.x..hubs, num_workgroups.x) {
+        let body = hub_list.read(hub as usize);
         let s0 = hub_first_slot.read(body as usize);
-        if s0 == NOT_A_HUB {
-            continue;
-        }
-
         let (first, last) = constraint_range(&counts, body);
-        let n = (last - first) as f32;
-        let slot = s0 + (entry - first);
-        let cid = body_constraint_ids.read(entry as usize);
-        let constraint = constraints.at_mut(cid as usize);
+        for entry in StepRng::new(first + local_id.x..last, WORKGROUP_SIZE) {
+            let n = (last - first) as f32;
+            let slot = s0 + (entry - first);
+            let cid = body_constraint_ids.read(entry as usize);
+            let constraint = constraints.at_mut(cid as usize);
 
-        if constraint.solver_body_a == body {
-            constraint.vel_slot_a = base + slot;
-            constraint.mass_scale_a = n;
-        } else {
-            constraint.vel_slot_b = base + slot;
-            constraint.mass_scale_b = n;
+            if constraint.solver_body_a == body {
+                constraint.vel_slot_a = base + slot;
+                constraint.mass_scale_a = n;
+            } else {
+                constraint.vel_slot_b = base + slot;
+                constraint.mass_scale_b = n;
+            }
+
+            hub_slot_body.write(slot as usize, body);
+            hub_slot_constraint.write(slot as usize, cid);
         }
-
-        hub_slot_body.write(slot as usize, body);
-        hub_slot_constraint.write(slot as usize, cid);
     }
 }
 
@@ -283,3 +267,7 @@ pub fn gpu_hub_average(
         workgroup_memory_barrier_with_group_sync();
     }
 }
+
+#[cfg(all(test, not(target_arch_is_gpu)))]
+#[path = "../tests/hub_split.rs"]
+mod tests;
