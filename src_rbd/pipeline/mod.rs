@@ -27,4 +27,7 @@ pub use rbd_step::RbdPipeline;
 mod test_large_warmstart;
 
 #[cfg(test)]
+mod test_color_buckets;
+
+#[cfg(test)]
 mod test_web_preparation;

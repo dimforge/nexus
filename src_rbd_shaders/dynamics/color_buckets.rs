@@ -13,8 +13,10 @@
 //! bucket.
 
 use crate::broad_phase::ContactPlan;
+use crunchy::unroll;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
+use khal_std::sync::atomic_add_u32_workgroup;
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 use khal_std::{index::MaybeIndexUnchecked, iter::StepRng, sync::atomic_add_u32};
 
@@ -57,12 +59,14 @@ pub fn gpu_color_buckets_reset(
 pub fn gpu_color_buckets_count(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints: &[ContactLink],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_buckets: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] sorted_links: &mut [ContactLink],
+    #[spirv(workgroup)] local_counts: &mut [u32; 128],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let nb = batch_ids.num_batches;
@@ -70,15 +74,46 @@ pub fn gpu_color_buckets_count(
     let total = contact_plan.bound;
     let constraints = Slice(constraints, 0);
 
-    for i in StepRng::new(invocation_id.x..total, num_threads) {
-        let link = &constraints[i as usize];
-        // Skipping the slots without bucket also keeps the stale body ids of gap slots
-        // from being dereferenced.
-        let color = bucket_color(constraints_colors.read(i as usize), link.len, stride);
+    // Naga lowers num_workgroups through a private global, so browser WGSL
+    // validation cannot prove this condition uniform. Keep every barrier outside
+    // the branch. Run the generic path last: its checked batch division can lower
+    // to an early exit, which would also make subsequent barriers non-uniform.
+    // Fallback lanes initialize an empty histogram and reach every barrier. The last bucket,
+    // `stride - 1`, must fit the 128-entry histogram.
+    let use_histogram = nb == 1 && stride <= 128 && num_threads >= total;
+    let lane = local_id.x as usize;
+    local_counts.write(lane, 0);
+    local_counts.write(lane + 64, 0);
+    workgroup_memory_barrier_with_group_sync();
+    if use_histogram && invocation_id.x < total {
+        let i = invocation_id.x as usize;
+        let color = bucket_color(constraints_colors.read(i), constraints[i].len, stride);
         if color != 0 {
-            let batch = batch_ids.collider_batch(link.solver_body_a);
-            atomic_add_u32(color_buckets.at_mut((color * nb + batch) as usize), 1);
+            atomic_add_u32_workgroup(local_counts.at_mut(color as usize), 1);
         }
+    }
+    workgroup_memory_barrier_with_group_sync();
+    crunchy::unroll! { for k in 0..2 {
+        let bucket = lane + k * 64;
+        let size = local_counts.read(bucket);
+        if size != 0 {
+            atomic_add_u32(color_buckets.at_mut(bucket), size);
+        }
+    } }
+
+    if !use_histogram {
+        for i in StepRng::new(invocation_id.x..total, num_threads) {
+            let link = &constraints[i as usize];
+            // Skipping the slots without bucket also keeps the stale body ids of gap slots
+            // from being dereferenced.
+            let color = bucket_color(constraints_colors.read(i as usize), link.len, stride);
+            if color != 0 {
+                let batch = batch_ids.collider_batch(link.solver_body_a);
+                atomic_add_u32(color_buckets.at_mut((color * nb + batch) as usize), 1);
+            }
+        }
+    }
+    for i in StepRng::new(invocation_id.x..total, num_threads) {
         sorted_links.at_mut(i as usize).len = 0;
     }
 }
@@ -89,7 +124,8 @@ pub fn gpu_color_buckets_count(
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_color_buckets_scatter(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] gid: UVec3,
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints: &[ContactLink],
@@ -98,21 +134,59 @@ pub fn gpu_color_buckets_scatter(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] sorted_links: &mut [ContactLink],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] constraint_indices: &mut [u32],
+    #[spirv(workgroup)] local_counts: &mut [u32; 128],
+    #[spirv(workgroup)] local_starts: &mut [u32; 128],
 ) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let nb = batch_ids.num_batches;
     let stride = batch_ids.solver_color_buckets_stride;
     let total = contact_plan.bound;
-    let constraints = Slice(constraints, 0);
+    let lane = local_id.x as usize;
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    // Match the count fast path's bounds. Reserving one contiguous span per local
+    // color reduces global contention and keeps nearby input constraints together.
+    // As in count, fallback lanes must reach all barriers for WGSL uniformity.
+    let use_histogram = nb == 1 && stride <= 128 && num_threads >= total;
+    local_counts.write(lane, 0);
+    local_counts.write(lane + 64, 0);
+    workgroup_memory_barrier_with_group_sync();
+    let color = if use_histogram && gid.x < total {
+        let i = gid.x as usize;
+        bucket_color(constraints_colors.read(i), constraints.at(i).len, stride)
+    } else {
+        0
+    };
+    let valid = color != 0;
+    let rank = if valid {
+        atomic_add_u32_workgroup(local_counts.at_mut(color as usize), 1)
+    } else {
+        0
+    };
+    workgroup_memory_barrier_with_group_sync();
+    crunchy::unroll! { for k in 0..2 {
+        let bucket = lane + k * 64;
+        let size = local_counts.read(bucket);
+        if size != 0 {
+            let start = atomic_add_u32(color_buckets.at_mut(bucket), size);
+            local_starts.write(bucket, start);
+        }
+    } }
+    workgroup_memory_barrier_with_group_sync();
+    if valid {
+        let index = local_starts.read(color as usize) + rank;
+        sorted_links.write(index as usize, constraints.read(gid.x as usize));
+        constraint_indices.write(gid.x as usize, index);
+    }
 
-    for i in StepRng::new(invocation_id.x..total, num_threads) {
-        let link = &constraints[i as usize];
-        let color = bucket_color(constraints_colors.read(i as usize), link.len, stride);
-        if color != 0 {
-            let batch = batch_ids.collider_batch(link.solver_body_a);
-            let dst = atomic_add_u32(color_buckets.at_mut((color * nb + batch) as usize), 1);
-            sorted_links.write(dst as usize, *link);
-            constraint_indices.write(i as usize, dst);
+    if !use_histogram {
+        for i in StepRng::new(gid.x..total, num_threads) {
+            let link = constraints.at(i as usize);
+            let color = bucket_color(constraints_colors.read(i as usize), link.len, stride);
+            if color != 0 {
+                let batch = batch_ids.collider_batch(link.solver_body_a);
+                let dst = atomic_add_u32(color_buckets.at_mut((color * nb + batch) as usize), 1);
+                sorted_links.write(dst as usize, *link);
+                constraint_indices.write(i as usize, dst);
+            }
         }
     }
 }
