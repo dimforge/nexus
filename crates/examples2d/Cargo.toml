@@ -10,6 +10,7 @@ default = []
 cpu = ["nexus_viewer2d/cpu"]
 cpu-parallel = ["cpu", "nexus_viewer2d/cpu-parallel"]
 cuda = ["nexus_viewer2d/cuda"]
+cuda-oxide = ["cuda", "nexus_viewer2d/cuda-oxide"]
 metal = ["nexus_viewer2d/metal"]
 
 [dependencies]

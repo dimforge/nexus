@@ -80,6 +80,7 @@ struct CliOptions {
     example: Option<String>,
     list: bool,
     cpu: bool,
+    cuda: bool,
     metal: bool,
     run: bool,
 }
@@ -90,6 +91,7 @@ fn parse_command_line() -> CliOptions {
         example: None,
         list: false,
         cpu: false,
+        cuda: false,
         metal: false,
         run: false,
     };
@@ -99,6 +101,7 @@ fn parse_command_line() -> CliOptions {
             "--example" => opts.example = args.next(),
             "--list" => opts.list = true,
             "--cpu" => opts.cpu = true,
+            "--cuda" => opts.cuda = true,
             "--metal" => opts.metal = true,
             "--run" => opts.run = true,
             _ => {}
@@ -138,6 +141,10 @@ pub async fn main() {
     viewer = viewer.with_selected_demo(selected);
     if opts.cpu {
         viewer = viewer.with_cpu();
+    }
+    #[cfg(feature = "cuda")]
+    if opts.cuda {
+        viewer = viewer.with_backend(nexus_viewer2d::BackendType::Cuda);
     }
     #[cfg(feature = "metal")]
     if opts.metal {

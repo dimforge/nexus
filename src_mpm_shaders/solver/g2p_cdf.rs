@@ -194,7 +194,7 @@ fn particle_g2p(
     for i in 0..27 {
         // For loop unrolling, use the fixed bound (the maximum one between 2D and 3D).
         if i < NBH_LEN {
-            let shift = NBH_SHIFTS.read(i);
+            let shift = nbh_shift(i);
             let packed_shift = NBH_SHIFT_SHARED.read(i);
             let cell_data = shared_nodes[(packed_cell_index_in_block + packed_shift) as usize];
             particle_affinity.set_unsigned_bits(cell_data.affinities);
@@ -253,7 +253,7 @@ fn particle_g2p(
     for i in 0..27 {
         // For loop unrolling, use the fixed bound (the maximum one between 2D and 3D).
         if i < NBH_LEN {
-            let shift = NBH_SHIFTS.read(i);
+            let shift = nbh_shift(i);
             let packed_shift = NBH_SHIFT_SHARED.read(i);
             let cell_data = shared_nodes[(packed_cell_index_in_block + packed_shift) as usize];
 

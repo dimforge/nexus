@@ -468,12 +468,24 @@ impl NexusViewer {
     #[cfg(feature = "cuda")]
     fn init_cuda(&mut self) -> Option<KhalGpuBackend> {
         match khal::backend::cuda::Cuda::new(0) {
-            Ok(cuda) => Some(KhalGpuBackend::Cuda(cuda)),
+            Ok(cuda) => {
+                // Also report on stderr: the UI banner is invisible to
+                // scripted/headless runs (`--cuda --run`).
+                match cuda.compute_capability() {
+                    Ok((maj, min)) => {
+                        eprintln!("[nexus] backend = native CUDA (sm_{maj}{min})")
+                    }
+                    Err(_) => eprintln!("[nexus] backend = native CUDA"),
+                }
+                Some(KhalGpuBackend::Cuda(cuda))
+            }
             Err(e) => {
-                self.ui.gpu_init_error = Some(format!(
+                let msg = format!(
                     "CUDA backend not available, initialization failed:\n\"{:?}\"\n",
                     e
-                ));
+                );
+                eprintln!("[nexus] {msg}");
+                self.ui.gpu_init_error = Some(msg);
                 None
             }
         }
@@ -482,12 +494,17 @@ impl NexusViewer {
     #[cfg(feature = "metal")]
     fn init_metal(&mut self) -> Option<KhalGpuBackend> {
         match khal::backend::metal::Metal::new() {
-            Ok(metal) => Some(KhalGpuBackend::Metal(metal)),
+            Ok(metal) => {
+                eprintln!("[nexus] backend = native Metal");
+                Some(KhalGpuBackend::Metal(metal))
+            }
             Err(e) => {
-                self.ui.gpu_init_error = Some(format!(
+                let msg = format!(
                     "Metal backend not available, initialization failed:\n\"{:?}\"\n",
                     e
-                ));
+                );
+                eprintln!("[nexus] {msg}");
+                self.ui.gpu_init_error = Some(msg);
                 None
             }
         }

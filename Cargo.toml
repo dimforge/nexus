@@ -88,11 +88,19 @@ nexus_viewer3d = { version = "0.5.0", path = "crates/nexus_viewer3d" }
 
 [workspace.lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(feature, values("dim2", "dim3", "cpu", "cuda", "metal"))',
+    'cfg(feature, values("dim2", "dim3", "cpu", "cuda", "cuda-oxide", "metal"))',
     'cfg(target_arch_is_gpu)',
 ] }
 
 [patch.crates-io]
+# TODO: drop once khal 0.3.1 (WebGPU SPIR-V passthrough entry-point fix) and the
+# khal/vortx `cuda-oxide` feature are published.
+khal = { path = "../khal/crates/khal" }
+khal-derive = { path = "../khal/crates/khal-derive" }
+khal-std = { path = "../khal/crates/khal-std" }
+khal-builder = { path = "../khal/crates/khal-builder" }
+vortx = { path = "../vortx" }
+vortx-shaders = { path = "../vortx/vortx-shaders" }
 #rapier2d = { path = "../rapier/crates/rapier2d" }
 #rapier3d = { path = "../rapier/crates/rapier3d" }
 #rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }

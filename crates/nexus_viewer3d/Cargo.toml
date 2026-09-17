@@ -27,6 +27,7 @@ metal = ["khal/metal", "nexus3d/metal"]
 cpu = ["nexus3d/cpu", "vortx/cpu"]
 cpu-parallel = ["cpu", "nexus3d/cpu-parallel", "vortx/cpu-parallel"]
 cuda = ["nexus3d/cuda"]
+cuda-oxide = ["cuda", "nexus3d/cuda-oxide"]
 
 [dependencies]
 nexus3d = { workspace = true, features = ["rbd", "mpm"]}
