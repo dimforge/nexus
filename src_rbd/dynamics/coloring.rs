@@ -66,7 +66,7 @@ pub struct ColorBucketsArgs<'a> {
     pub constraint_indices: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
-    /// Output: `[largest color bucket, highest color in use]`.
+    /// Output: `[largest bucket, highest color, size of colors 0..64]`.
     pub color_stats: &'a mut Tensor<u32>,
     /// Output: the dispatch grid of the colored sweeps.
     pub sweep_indirect: &'a mut Tensor<[u32; 3]>,

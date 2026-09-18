@@ -32,7 +32,9 @@ use crate::shaders::dynamics::{
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
-use khal::backend::{Encoder, GpuBackend, GpuBackendError, GpuEncoder, GpuPass, GpuTimestamps};
+use khal::backend::{
+    DispatchGrid, Encoder, GpuBackend, GpuBackendError, GpuEncoder, GpuPass, GpuTimestamps,
+};
 use vortx::tensor::Tensor;
 
 /// GPU shader bundle for the constraint solver.
@@ -155,7 +157,9 @@ pub struct SolverArgs<'a> {
     pub color_buckets: &'a Tensor<u32>,
     /// The constraint links bucket-sorted by `(color, batch)`.
     pub sorted_links: &'a Tensor<ContactLink>,
-    /// Dispatch grid of each colored sweep: covers the largest color bucket.
+    /// Previous-frame per-color thread counts. Zero means feedback is not available.
+    pub color_dispatch_threads: &'a [u32; 64],
+    /// Current GPU grid, used before feedback arrives or when readback is disabled.
     pub color_sweep_indirect: &'a Tensor<[u32; 3]>,
     /// Per-color-index uniform tensors: `color_uniforms[c] == c`.
     pub color_uniforms: &'a [Tensor<u32>],
@@ -200,6 +204,15 @@ pub struct SolverArgs<'a> {
     /// GPU-written workgroup grid for the per-multibody contact-constraint
     /// dispatches (zero workgroups on contact-free steps).
     pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
+}
+
+impl<'a> SolverArgs<'a> {
+    fn color_dispatch_grid(&self, color: u32) -> DispatchGrid<'a, GpuBackend> {
+        match self.color_dispatch_threads.get(color as usize).copied() {
+            Some(threads) if threads > 0 => threads.into(),
+            _ => self.color_sweep_indirect.into(),
+        }
+    }
 }
 
 impl GpuSolver {
@@ -574,7 +587,7 @@ impl GpuSolver {
                     for c in 1..=args.num_colors {
                         self.warmstart_constraints.call(
                             pass,
-                            args.color_sweep_indirect,
+                            args.color_dispatch_grid(c),
                             &args.constraints.tiles,
                             args.solver_vels,
                             args.color_buckets,
@@ -640,7 +653,7 @@ impl GpuSolver {
                                 ($kernel:expr) => {
                                     $kernel.call(
                                         pass,
-                                        args.color_sweep_indirect,
+                                        args.color_dispatch_grid(c),
                                         &mut args.constraints.tiles,
                                         args.solver_vels,
                                         args.color_buckets,
@@ -724,7 +737,7 @@ impl GpuSolver {
                     for c in 1..=args.num_colors {
                         self.solve_constraints_unbiased.call(
                             pass,
-                            args.color_sweep_indirect,
+                            args.color_dispatch_grid(c),
                             &mut args.constraints.tiles,
                             args.solver_vels,
                             args.color_buckets,

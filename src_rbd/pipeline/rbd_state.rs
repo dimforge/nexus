@@ -191,7 +191,9 @@ pub(crate) struct ColoringDispatch {
     pub(crate) coloring_indirect: Tensor<[u32; 3]>,
     /// Grid of the colored sweeps: sized to the largest color bucket.
     pub(crate) sweep_indirect: Tensor<[u32; 3]>,
-    /// `[largest color bucket, highest color in use]`.
+    /// CPU scheduling hints, in threads, for colors 0..64. Never used as loop bounds.
+    pub(crate) dispatch_threads: [u32; 64],
+    /// `[largest bucket, highest color, size of color 0, ..., size of color 63]`.
     pub(crate) color_stats: Tensor<u32>,
 }
 
@@ -201,9 +203,10 @@ impl ColoringDispatch {
         Self {
             coloring_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
             sweep_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
+            dispatch_threads: [0; 64],
             color_stats: Tensor::vector(
                 backend,
-                vec![0u32; 2],
+                vec![0u32; 66],
                 BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             )
             .unwrap(),

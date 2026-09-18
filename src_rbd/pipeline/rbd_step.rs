@@ -402,6 +402,7 @@ impl RbdPipeline {
                 color_buckets: &state.color_buckets,
                 sorted_links: &state.sorted_links,
                 color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
+                color_dispatch_threads: &state.coloring_dispatch.dispatch_threads,
                 color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
                 num_colors: 0,
@@ -579,6 +580,7 @@ impl RbdPipeline {
             color_buckets: &state.color_buckets,
             sorted_links: &state.sorted_links,
             color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
+            color_dispatch_threads: &state.coloring_dispatch.dispatch_threads,
             color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
             num_colors,
@@ -684,10 +686,21 @@ impl RbdPipeline {
         // count, coloring converged, highest color in use]` (+ the multibody
         // contact-constraint demand on dim3).
         #[cfg(feature = "dim3")]
-        let mut counts = [0u32; 5];
+        let mut counts = [0u32; 5 + 64];
         #[cfg(not(feature = "dim3"))]
-        let mut counts = [0u32; 4];
+        let mut counts = [0u32; 4 + 64];
         if state.resize_readback.try_take(backend, &mut counts) {
+            let sizes = &counts[counts.len() - 64..];
+            for (threads, size) in state
+                .coloring_dispatch
+                .dispatch_threads
+                .iter_mut()
+                .zip(sizes)
+            {
+                // Always launch some work, even if the previous frame's bucket was empty.
+                // A stale/small hint only changes how much the shader's for loop strides.
+                *threads = size.div_ceil(64).clamp(8, 256) * 64;
+            }
             // TODO: make the coloring update optional (and pre-configurable) too?
             // The flat pair and PFM work-lists share one buffer capacity, so
             // whichever is larger drives that resize.
@@ -857,6 +870,7 @@ impl RbdPipeline {
                     (state.uncolored.buffer(), 0, 1),
                     (state.coloring_dispatch.color_stats.buffer(), 1, 1),
                     (state.multibodies.mb_cons_demand().buffer(), 0, 1),
+                    (state.coloring_dispatch.color_stats.buffer(), 2, 64),
                 ],
             )?;
             #[cfg(not(feature = "dim3"))]
@@ -867,6 +881,7 @@ impl RbdPipeline {
                     (state.pfm_pairs_len.buffer(), 0, 1),
                     (state.uncolored.buffer(), 0, 1),
                     (state.coloring_dispatch.color_stats.buffer(), 1, 1),
+                    (state.coloring_dispatch.color_stats.buffer(), 2, 64),
                 ],
             )?;
         }

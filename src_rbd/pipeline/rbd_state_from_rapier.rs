@@ -689,9 +689,9 @@ impl RbdState {
         // Readback: pair count, PFM count, uncolored count (+ the multibody
         // contact-constraint demand on dim3).
         #[cfg(feature = "dim3")]
-        let resize_readback = GpuReadback::new(backend, 5).unwrap();
+        let resize_readback = GpuReadback::new(backend, 5 + 64).unwrap();
         #[cfg(not(feature = "dim3"))]
-        let resize_readback = GpuReadback::new(backend, 4).unwrap();
+        let resize_readback = GpuReadback::new(backend, 4 + 64).unwrap();
         let collision_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
 

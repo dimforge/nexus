@@ -215,6 +215,17 @@ pub fn gpu_color_sweep_grid(
     // Swept colors are `1..=stride - 2`; color `c` spans `[ends[c*nb - 1], ends[(c+1)*nb - 1])`.
     let num_colors = batch_ids.solver_color_buckets_stride - 2;
 
+    // Per-color sizes are CPU scheduling hints for subsequent steps. They never bound
+    // the actual dispatch: every dispatch traverses its current GPU bucket with a strided for.
+    let color = lane as u32;
+    let size = if color > 0 && color <= num_colors {
+        color_buckets.read(((color + 1) * nb - 1) as usize)
+            - color_buckets.read((color * nb - 1) as usize)
+    } else {
+        0
+    };
+    color_stats.write(2 + lane, size);
+
     let mut max_size = 0u32;
     let mut max_color = 0u32;
     for color in StepRng::new(1 + lane as u32..num_colors + 1, WORKGROUP_SIZE) {
@@ -246,6 +257,8 @@ pub fn gpu_color_sweep_grid(
         let max_size = max_sizes.read(0);
         color_stats.write(COLOR_STATS_MAX_BUCKET, max_size);
         color_stats.write(COLOR_STATS_MAX_COLOR, max_colors.read(0));
-        sweep_indirect.write(0, [max_size.div_ceil(WORKGROUP_SIZE), 1, 1]);
+        // Every color shares this grid. Limit the empty workgroups in the smaller buckets;
+        // the solve kernels stride over large buckets, so no constraints are skipped.
+        sweep_indirect.write(0, [max_size.div_ceil(WORKGROUP_SIZE).min(256), 1, 1]);
     }
 }
