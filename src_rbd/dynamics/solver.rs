@@ -11,7 +11,8 @@
 use super::contact_kernels::{
     ContactConstraints, GpuGatherWarmstartVelocities, GpuPrepareConstraints,
     GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsBiased,
-    GpuSolveConstraintsFused, GpuSolveConstraintsUnbiased, GpuWarmstartConstraints,
+    GpuSolveConstraintsFused, GpuSolveConstraintsTail, GpuSolveConstraintsTailBiased,
+    GpuSolveConstraintsTailUnbiased, GpuSolveConstraintsUnbiased, GpuWarmstartConstraints,
     GpuWarmstartConstraintsFused,
 };
 use crate::dynamics::joint::{GpuJointSolver, JointSolverArgs};
@@ -23,6 +24,7 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::broad_phase::ContactPlan;
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
+use crate::shaders::dynamics::contact_tiles::TAIL_COLOR;
 use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
     ContactLink, GpuApplySolverVelsInc, GpuInitContactLinks, GpuInitSolverBodies,
@@ -65,6 +67,10 @@ pub struct GpuSolver {
     solve_constraints_biased: GpuSolveConstraintsBiased,
     /// Fixed friction/stabilization mode for the unbiased iteration.
     solve_constraints_unbiased: GpuSolveConstraintsUnbiased,
+    /// The iterations over the sparse colors from [`TAIL_COLOR`], in one workgroup.
+    solve_constraints_tail: GpuSolveConstraintsTail,
+    solve_constraints_tail_biased: GpuSolveConstraintsTailBiased,
+    solve_constraints_tail_unbiased: GpuSolveConstraintsTailUnbiased,
     /// The iterations over every color with one workgroup per batch, used when per-batch
     /// constraint counts are small.
     solve_constraints_fused: GpuSolveConstraintsFused,
@@ -159,6 +165,9 @@ pub struct SolverArgs<'a> {
     pub sorted_links: &'a Tensor<ContactLink>,
     /// Previous-frame per-color thread counts. Zero means feedback is not available.
     pub color_dispatch_threads: &'a [u32; 64],
+    /// Whether previous-frame statistics suggest a short late-color suffix, solved by one
+    /// workgroup.
+    pub fuse_tail_colors: bool,
     /// Current GPU grid, used before feedback arrives or when readback is disabled.
     pub color_sweep_indirect: &'a Tensor<[u32; 3]>,
     /// Per-color-index uniform tensors: `color_uniforms[c] == c`.
@@ -649,26 +658,38 @@ impl GpuSolver {
                         )?;
                     } else {
                         for c in 1..=args.num_colors {
+                            let tail = args.fuse_tail_colors && c >= TAIL_COLOR;
+                            if tail && c > TAIL_COLOR {
+                                continue;
+                            }
+                            // The tail kernel solves every color from `TAIL_COLOR` to its
+                            // color uniform, in one workgroup.
+                            let (grid, color): (DispatchGrid<GpuBackend>, u32) = if tail {
+                                (64u32.into(), args.num_colors)
+                            } else {
+                                (args.color_dispatch_grid(c), c)
+                            };
                             macro_rules! solve_color {
                                 ($kernel:expr) => {
                                     $kernel.call(
                                         pass,
-                                        args.color_dispatch_grid(c),
+                                        grid,
                                         &mut args.constraints.tiles,
                                         args.solver_vels,
                                         args.color_buckets,
                                         args.solver_body_poses,
-                                        &args.color_uniforms[c as usize],
+                                        &args.color_uniforms[color as usize],
                                         args.batch_indices,
                                         &args.color_uniforms[bias_mode],
                                         args.sim_params,
                                     )?
                                 };
                             }
-                            if args.friction_in_bias_pass {
-                                solve_color!(self.solve_constraints);
-                            } else {
-                                solve_color!(self.solve_constraints_biased);
+                            match (tail, args.friction_in_bias_pass) {
+                                (true, true) => solve_color!(self.solve_constraints_tail),
+                                (true, false) => solve_color!(self.solve_constraints_tail_biased),
+                                (false, true) => solve_color!(self.solve_constraints),
+                                (false, false) => solve_color!(self.solve_constraints_biased),
                             }
                         }
                     }
@@ -735,18 +756,36 @@ impl GpuSolver {
                     )?;
                 } else {
                     for c in 1..=args.num_colors {
-                        self.solve_constraints_unbiased.call(
-                            pass,
-                            args.color_dispatch_grid(c),
-                            &mut args.constraints.tiles,
-                            args.solver_vels,
-                            args.color_buckets,
-                            args.solver_body_poses,
-                            &args.color_uniforms[c as usize],
-                            args.batch_indices,
-                            &args.color_uniforms[0],
-                            args.sim_params,
-                        )?;
+                        let tail = args.fuse_tail_colors && c >= TAIL_COLOR;
+                        if tail && c > TAIL_COLOR {
+                            continue;
+                        }
+                        let (grid, color): (DispatchGrid<GpuBackend>, u32) = if tail {
+                            (64u32.into(), args.num_colors)
+                        } else {
+                            (args.color_dispatch_grid(c), c)
+                        };
+                        macro_rules! solve_color {
+                            ($kernel:expr) => {
+                                $kernel.call(
+                                    pass,
+                                    grid,
+                                    &mut args.constraints.tiles,
+                                    args.solver_vels,
+                                    args.color_buckets,
+                                    args.solver_body_poses,
+                                    &args.color_uniforms[color as usize],
+                                    args.batch_indices,
+                                    &args.color_uniforms[0],
+                                    args.sim_params,
+                                )?
+                            };
+                        }
+                        if tail {
+                            solve_color!(self.solve_constraints_tail_unbiased);
+                        } else {
+                            solve_color!(self.solve_constraints_unbiased);
+                        }
                     }
                 }
                 if !skip_rb {

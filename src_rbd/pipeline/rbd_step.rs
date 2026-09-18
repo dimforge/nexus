@@ -403,6 +403,7 @@ impl RbdPipeline {
                 sorted_links: &state.sorted_links,
                 color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
                 color_dispatch_threads: &state.coloring_dispatch.dispatch_threads,
+                fuse_tail_colors: state.coloring_dispatch.fuse_tail_colors,
                 color_uniforms: &state.color_uniforms,
                 prefix_sum: &self.prefix_sum,
                 num_colors: 0,
@@ -581,6 +582,7 @@ impl RbdPipeline {
             sorted_links: &state.sorted_links,
             color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
             color_dispatch_threads: &state.coloring_dispatch.dispatch_threads,
+            fuse_tail_colors: state.coloring_dispatch.fuse_tail_colors,
             color_uniforms: &state.color_uniforms,
             prefix_sum: &self.prefix_sum,
             num_colors,
@@ -701,6 +703,15 @@ impl RbdPipeline {
                 // A stale/small hint only changes how much the shader's for loop strides.
                 *threads = size.div_ceil(64).clamp(8, 256) * 64;
             }
+            // Empty/short late colors share one workgroup. An old hint never skips
+            // contacts: if the graph changes, that workgroup simply does more work.
+            // Color 64 has no individual readback slot, so require it to be unused.
+            state.coloring_dispatch.fuse_tail_colors = counts[3] < 64
+                && sizes[crate::shaders::dynamics::contact_tiles::TAIL_COLOR as usize..]
+                    .iter()
+                    .map(|&n| n as u64)
+                    .sum::<u64>()
+                    <= 512;
             // TODO: make the coloring update optional (and pre-configurable) too?
             // The flat pair and PFM work-lists share one buffer capacity, so
             // whichever is larger drives that resize.

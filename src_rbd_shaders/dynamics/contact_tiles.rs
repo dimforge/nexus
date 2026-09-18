@@ -14,6 +14,8 @@ use {super::SymInertia, khal_std::glamx::Vec3};
 
 /// Number of neighboring constraints stored together in a tile.
 pub const TILE_LEN: usize = 32;
+/// First sparse color solved by a single workgroup, with barriers between colors.
+pub const TAIL_COLOR: u32 = 24;
 
 /// The tile holding the constraint at `index`, and its lane in it.
 #[inline(always)]

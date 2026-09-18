@@ -26,6 +26,9 @@ pub use rbd_step::RbdPipeline;
 #[cfg(test)]
 mod test_large_warmstart;
 
+#[cfg(all(test, feature = "dim3"))]
+mod test_tail_colors;
+
 #[cfg(test)]
 mod test_color_buckets;
 

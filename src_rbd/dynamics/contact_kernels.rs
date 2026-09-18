@@ -8,7 +8,8 @@ use vortx::tensor::Tensor;
 pub(crate) use crate::shaders::dynamics::coulomb_tiles::{
     GpuGatherWarmstartVelocities, GpuHubWarmstartConstraints, GpuPrepareConstraints,
     GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsBiased,
-    GpuSolveConstraintsFused, GpuSolveConstraintsUnbiased, GpuWarmstartConstraints,
+    GpuSolveConstraintsFused, GpuSolveConstraintsTail, GpuSolveConstraintsTailBiased,
+    GpuSolveConstraintsTailUnbiased, GpuSolveConstraintsUnbiased, GpuWarmstartConstraints,
     GpuWarmstartConstraintsFused,
 };
 

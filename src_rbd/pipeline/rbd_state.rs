@@ -193,6 +193,9 @@ pub(crate) struct ColoringDispatch {
     pub(crate) sweep_indirect: Tensor<[u32; 3]>,
     /// CPU scheduling hints, in threads, for colors 0..64. Never used as loop bounds.
     pub(crate) dispatch_threads: [u32; 64],
+    /// Whether the sparse colors from `TAIL_COLOR` are solved by a single workgroup. Hint
+    /// only: that workgroup still visits the full current GPU bucket range.
+    pub(crate) fuse_tail_colors: bool,
     /// `[largest bucket, highest color, size of color 0, ..., size of color 63]`.
     pub(crate) color_stats: Tensor<u32>,
 }
@@ -204,6 +207,7 @@ impl ColoringDispatch {
             coloring_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
             sweep_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
             dispatch_threads: [0; 64],
+            fuse_tail_colors: false,
             color_stats: Tensor::vector(
                 backend,
                 vec![0u32; 66],
