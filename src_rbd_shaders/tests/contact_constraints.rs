@@ -197,6 +197,12 @@ fn constraints_recycle_transfer_or_build_fresh_contacts() {
                 }
                 let mut expected_tiles = [CoulombTile::default()];
                 expected_tiles[0].write_constraint(0, &expected);
+                // The cached warmstart is tagged with the body indices.
+                let (mut a, mut b) = (Velocity::default(), Velocity::default());
+                expected.warmstart_constraint(&mut a, &mut b);
+                a.padding1 = 0;
+                b.padding1 = 1;
+                expected_tiles[0].warmstart.bodies[0] = [a, b];
                 assert_eq!(tiles, expected_tiles, "drift {drift}, matched {matched}");
                 assert_eq!(links[0].recycled, u32::from(recycled));
                 let expected_state = if recycled {

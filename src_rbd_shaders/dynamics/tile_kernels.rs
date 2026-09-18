@@ -2,11 +2,11 @@
 //!
 //! Included by the contact model's module (`coulomb_tiles`), which provides `ContactTile`,
 //! `TwoBodyConstraint` (its constraint type) and the tile accessors (`header`, `read_constraint`,
-//! `write_constraint`, `solve_constraint`, `tile_warmstart`).
+//! `write_constraint`, `solve_constraint`, `tile_warmstart`, `constraint_warmstart`).
 
 use super::*;
 use crate::broad_phase::ContactPlan;
-use crate::dynamics::contact_tiles::TAIL_COLOR;
+use crate::dynamics::contact_tiles::{TAIL_COLOR, tile_lane};
 use crate::dynamics::mass_splitting::{HUB_COUNT_BASE, HUB_COUNT_POOL, HUB_COUNT_SLOTS, NOT_A_HUB};
 use crate::dynamics::{
     ContactLink, ContactRecycleOffsets, ContactRecycleState, WorldMassProperties, decode_bias_mode,
@@ -51,9 +51,17 @@ fn color_barrier() {
     >();
 }
 
-/// Builds every constraint in color order, and gives it the impulses of its previous-frame
-/// constraint (or that constraint's contacts when they are recycled). Runs after the links are
-/// sorted by color.
+/// Caches the warmstart of the constraint at `index`: the velocity changes of its bodies,
+/// tagged with their index.
+#[inline(always)]
+fn write_warmstart(tiles: &mut [ContactTile], index: usize, (a, b): (Velocity, Velocity)) {
+    let (tile, lane) = tile_lane(index);
+    tiles.at_mut(tile).warmstart.bodies.write(lane, [a, b]);
+}
+
+/// Builds every constraint in color order, gives it the impulses of its previous-frame
+/// constraint (or that constraint's contacts when they are recycled), and caches its warmstart
+/// for the first substep. Runs after the links are sorted by color.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_prepare_constraints(
@@ -106,6 +114,7 @@ pub fn gpu_prepare_constraints(
         }
     }
     write_constraint(tiles, index, &c);
+    write_warmstart(tiles, index, constraint_warmstart(&c));
 }
 
 /// Gives each new contact point the impulses of the nearest previous one (by local anchors,
@@ -137,8 +146,8 @@ fn transfer_contact_impulses(old: &TwoBodyConstraint, new: &mut TwoBodyConstrain
     }
 }
 
-/// Scales the accumulated impulses of every constraint by the warmstart coefficient (only
-/// dispatched when that coefficient isn't 1).
+/// Scales the accumulated impulses of every constraint by the warmstart coefficient and caches
+/// their warmstart (only dispatched when that coefficient isn't 1).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_scale_constraint_impulses(
@@ -155,12 +164,14 @@ pub fn gpu_scale_constraint_impulses(
     let mut c = read_constraint(tiles, index);
     c.scale_impulses(params.warmstart_coefficient);
     write_constraint(tiles, index, &c);
+    write_warmstart(tiles, index, constraint_warmstart(&c));
 }
 
 /// Solves the constraints of one color, or of every color from [`TAIL_COLOR`] for the tail
-/// variants (one workgroup, with a barrier between colors).
+/// variants (one workgroup, with a barrier between colors). The caching variants also store
+/// each constraint's warmstart for the next substep.
 macro_rules! tile_solver_kernel {
-    ($name:ident, $mode:ident, $mode_value:expr, $tail:expr) => {
+    ($name:ident, $mode:ident, $mode_value:expr, $cache:expr, $tail:expr) => {
         #[spirv_bindgen]
         #[spirv(compute(threads(64)))]
         pub fn $name(
@@ -200,6 +211,10 @@ macro_rules! tile_solver_kernel {
                     );
                     solver_vels.write(h.vel_slot_a as usize, a);
                     solver_vels.write(h.vel_slot_b as usize, b);
+                    if $cache {
+                        let warmstart = tile_warmstart(tiles, index, &h);
+                        write_warmstart(tiles, index, warmstart);
+                    }
                 }
                 if $tail {
                     color_barrier();
@@ -209,73 +224,125 @@ macro_rules! tile_solver_kernel {
     };
 }
 
-tile_solver_kernel!(gpu_solve_constraints, mode, decode_bias_mode(*mode), false);
-tile_solver_kernel!(gpu_solve_constraints_biased, mode, (true, false), false);
-tile_solver_kernel!(gpu_solve_constraints_unbiased, mode, (false, true), false);
+tile_solver_kernel!(
+    gpu_solve_constraints,
+    mode,
+    decode_bias_mode(*mode),
+    false,
+    false
+);
+tile_solver_kernel!(
+    gpu_solve_constraints_biased,
+    mode,
+    (true, false),
+    false,
+    false
+);
+tile_solver_kernel!(
+    gpu_solve_constraints_unbiased,
+    mode,
+    (false, true),
+    false,
+    false
+);
+tile_solver_kernel!(
+    gpu_solve_constraints_unbiased_cached,
+    mode,
+    (false, true),
+    true,
+    false
+);
 tile_solver_kernel!(
     gpu_solve_constraints_tail,
     mode,
     decode_bias_mode(*mode),
+    false,
     true
 );
-tile_solver_kernel!(gpu_solve_constraints_tail_biased, mode, (true, false), true);
+tile_solver_kernel!(
+    gpu_solve_constraints_tail_biased,
+    mode,
+    (true, false),
+    false,
+    true
+);
 tile_solver_kernel!(
     gpu_solve_constraints_tail_unbiased,
     mode,
     (false, true),
+    false,
+    true
+);
+tile_solver_kernel!(
+    gpu_solve_constraints_tail_unbiased_cached,
+    mode,
+    (false, true),
+    true,
     true
 );
 
 /// Solves every color with one 64-lane workgroup per batch, with a barrier between colors.
 /// Used for small scenes where the contact count is small wrt. the environment count.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_solve_constraints_fused(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tiles: &mut [ContactTile],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] mode: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &RbdSimParams,
-) {
-    let lane = invocation_id.x;
-    let batch = invocation_id.y;
-    let nb = ids.num_batches;
-    let poses = Slice(solver_body_poses, 0);
-    let (use_bias, solve_friction) = decode_bias_mode(*mode);
-    for color in 1..=*num_colors {
-        let bucket = (color * nb + batch) as usize;
-        let start = buckets.read(bucket - 1);
-        let end = buckets.read(bucket);
-        #[cfg(not(feature = "web-compat"))]
-        if start == end {
-            continue;
+macro_rules! fused_tile_solver_kernel {
+    ($name:ident, $cache:expr) => {
+        #[spirv_bindgen]
+        #[spirv(compute(threads(64)))]
+        pub fn $name(
+            #[spirv(global_invocation_id)] invocation_id: UVec3,
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tiles: &mut [ContactTile],
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+            solver_vels: &mut [Velocity],
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &[u32],
+            #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] solver_body_poses: &[Pose],
+            #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
+            #[spirv(uniform, descriptor_set = 0, binding = 5)] ids: &BatchIndices,
+            #[spirv(uniform, descriptor_set = 0, binding = 6)] mode: &u32,
+            #[spirv(uniform, descriptor_set = 0, binding = 7)] params: &RbdSimParams,
+        ) {
+            let lane = invocation_id.x;
+            let batch = invocation_id.y;
+            let nb = ids.num_batches;
+            let poses = Slice(solver_body_poses, 0);
+            let (use_bias, solve_friction) = decode_bias_mode(*mode);
+            for color in 1..=*num_colors {
+                let bucket = (color * nb + batch) as usize;
+                let start = buckets.read(bucket - 1);
+                let end = buckets.read(bucket);
+                #[cfg(not(feature = "web-compat"))]
+                if start == end {
+                    continue;
+                }
+                for index in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
+                    let index = index as usize;
+                    let h = header(tiles, index);
+                    let mut a = solver_vels.read(h.vel_slot_a as usize);
+                    let mut b = solver_vels.read(h.vel_slot_b as usize);
+                    solve_constraint(
+                        &h,
+                        tiles,
+                        index,
+                        &poses,
+                        params,
+                        &mut a,
+                        &mut b,
+                        use_bias,
+                        solve_friction,
+                    );
+                    solver_vels.write(h.vel_slot_a as usize, a);
+                    solver_vels.write(h.vel_slot_b as usize, b);
+                    if $cache {
+                        let warmstart = tile_warmstart(tiles, index, &h);
+                        write_warmstart(tiles, index, warmstart);
+                    }
+                }
+                color_barrier();
+            }
         }
-        for index in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
-            let index = index as usize;
-            let h = header(tiles, index);
-            let mut a = solver_vels.read(h.vel_slot_a as usize);
-            let mut b = solver_vels.read(h.vel_slot_b as usize);
-            solve_constraint(
-                &h,
-                tiles,
-                index,
-                &poses,
-                params,
-                &mut a,
-                &mut b,
-                use_bias,
-                solve_friction,
-            );
-            solver_vels.write(h.vel_slot_a as usize, a);
-            solver_vels.write(h.vel_slot_b as usize, b);
-        }
-        color_barrier();
-    }
+    };
 }
+
+fused_tile_solver_kernel!(gpu_solve_constraints_fused, false);
+fused_tile_solver_kernel!(gpu_solve_constraints_fused_cached, true);
 
 /// Adds a constraint's warmstart to the velocities of its bodies.
 #[inline(always)]
@@ -340,8 +407,8 @@ pub fn gpu_warmstart_constraints_fused(
     }
 }
 
-/// Sums the warmstart of each body's constraints, in its adjacency-list order (split bodies are
-/// warmstarted through their sub-bodies).
+/// Sums the cached warmstart of each body's constraints, in its adjacency-list order (split
+/// bodies are warmstarted through their sub-bodies).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_gather_warmstart_velocities(
@@ -362,7 +429,8 @@ pub fn gpu_gather_warmstart_velocities(
         for entry in start..end {
             let index =
                 constraint_indices.read(constraint_ids.read(entry as usize) as usize) as usize;
-            let (a, b) = tile_warmstart(tiles, index, &header(tiles, index));
+            let (tile, lane) = tile_lane(index);
+            let [a, b] = tiles.at(tile).warmstart.bodies.read(lane);
             let dv = if a.padding1 == gid.x { a } else { b };
             vel.linear += dv.linear;
             vel.angular += dv.angular;

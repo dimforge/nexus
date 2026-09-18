@@ -1,7 +1,7 @@
 //! Coulomb contact constraints (friction at each contact point) in typed tiles, and their
 //! kernels.
 use super::constraint::{ContactPoint, TwoBodyConstraint};
-use super::contact_tiles::{HeaderTile, TILE_LEN, tile_lane};
+use super::contact_tiles::{HeaderTile, TILE_LEN, WarmstartTile, tile_lane};
 use super::solver_utils::{ContactPointAccess, ContactSolverData};
 use super::{RbdSimParams, Velocity};
 use crate::utils::Slice;
@@ -50,6 +50,7 @@ pub struct CoulombTile {
     /// Each point's friction coupling term (`ContactPoint::tangent_k[2]`).
     pub coupling: [[f32; 4]; TILE_LEN],
     pub points: [CoulombPointTile; 4],
+    pub warmstart: WarmstartTile,
 }
 
 /// Two vectors of a contact point, one per body.
@@ -112,6 +113,7 @@ pub struct CoulombPointTile {
 pub struct CoulombTile {
     pub header: HeaderTile,
     pub points: [CoulombPointTile; 2],
+    pub warmstart: WarmstartTile,
 }
 
 impl CoulombTile {
@@ -305,6 +307,17 @@ fn read_constraint(tiles: &[CoulombTile], index: usize) -> TwoBodyConstraint {
 fn write_constraint(tiles: &mut [CoulombTile], index: usize, c: &TwoBodyConstraint) {
     let (tile, lane) = tile_lane(index);
     tiles.at_mut(tile).write_constraint(lane, c);
+}
+
+/// The velocity changes of the bodies of `c` applying its accumulated impulses, tagged with
+/// their body index (for the warmstart gather).
+#[inline(always)]
+fn constraint_warmstart(c: &TwoBodyConstraint) -> (Velocity, Velocity) {
+    let (mut a, mut b) = (Velocity::default(), Velocity::default());
+    c.warmstart_constraint(&mut a, &mut b);
+    a.padding1 = c.solver_body_a;
+    b.padding1 = c.solver_body_b;
+    (a, b)
 }
 
 struct TilePoints<'a> {

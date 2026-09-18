@@ -210,7 +210,7 @@ impl Force {
 }
 
 /// Linear and angular velocity of a rigid body.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 pub struct Velocity {

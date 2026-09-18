@@ -1,7 +1,9 @@
 //! Compares fused color tails with dispatch-by-dispatch GPU execution.
 use crate::dynamics::contact_kernels::{
     GpuSolveConstraints, GpuSolveConstraintsBiased, GpuSolveConstraintsTail,
-    GpuSolveConstraintsTailBiased, GpuSolveConstraintsTailUnbiased, GpuSolveConstraintsUnbiased,
+    GpuSolveConstraintsTailBiased, GpuSolveConstraintsTailUnbiased,
+    GpuSolveConstraintsTailUnbiasedCached, GpuSolveConstraintsUnbiased,
+    GpuSolveConstraintsUnbiasedCached,
 };
 use crate::math::Pose;
 use crate::shaders::dynamics::contact_tiles::{TAIL_COLOR, TILE_LEN, tile_lane};
@@ -25,9 +27,11 @@ async fn tail_colors_match_separate_color_dispatches() {
     let dir = &crate::SPIRV_DIR;
     let biased = GpuSolveConstraintsBiased::from_dir(&backend, dir).unwrap();
     let generic = GpuSolveConstraints::from_dir(&backend, dir).unwrap();
+    let warm = GpuSolveConstraintsUnbiasedCached::from_dir(&backend, dir).unwrap();
     let final_iteration = GpuSolveConstraintsUnbiased::from_dir(&backend, dir).unwrap();
     let tail_biased = GpuSolveConstraintsTailBiased::from_dir(&backend, dir).unwrap();
     let tail_generic = GpuSolveConstraintsTail::from_dir(&backend, dir).unwrap();
+    let tail_warm = GpuSolveConstraintsTailUnbiasedCached::from_dir(&backend, dir).unwrap();
     let tail_final = GpuSolveConstraintsTailUnbiased::from_dir(&backend, dir).unwrap();
     let storage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
     let params = Tensor::scalar(&backend, RbdSimParams::tgs_soft(), BufferUsages::UNIFORM).unwrap();
@@ -102,7 +106,7 @@ async fn tail_colors_match_separate_color_dispatches() {
             BufferUsages::UNIFORM,
         )
         .unwrap();
-        for variant in 0..3 {
+        for variant in 0..4 {
             let mut results = Vec::new();
             for fused in [false, true] {
                 // The constraints in tiles, zeroed so that their unused points compare equal.
@@ -148,6 +152,8 @@ async fn tail_colors_match_separate_color_dispatches() {
                             (true, 0) => call!(tail_biased),
                             (false, 1) => call!(generic),
                             (true, 1) => call!(tail_generic),
+                            (false, 2) => call!(warm),
+                            (true, 2) => call!(tail_warm),
                             (false, _) => call!(final_iteration),
                             (true, _) => call!(tail_final),
                         }

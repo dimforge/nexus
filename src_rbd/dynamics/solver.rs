@@ -11,9 +11,10 @@
 use super::contact_kernels::{
     ContactConstraints, GpuGatherWarmstartVelocities, GpuPrepareConstraints,
     GpuScaleConstraintImpulses, GpuSolveConstraints, GpuSolveConstraintsBiased,
-    GpuSolveConstraintsFused, GpuSolveConstraintsTail, GpuSolveConstraintsTailBiased,
-    GpuSolveConstraintsTailUnbiased, GpuSolveConstraintsUnbiased, GpuWarmstartConstraints,
-    GpuWarmstartConstraintsFused,
+    GpuSolveConstraintsFused, GpuSolveConstraintsFusedCached, GpuSolveConstraintsTail,
+    GpuSolveConstraintsTailBiased, GpuSolveConstraintsTailUnbiased,
+    GpuSolveConstraintsTailUnbiasedCached, GpuSolveConstraintsUnbiased,
+    GpuSolveConstraintsUnbiasedCached, GpuWarmstartConstraints, GpuWarmstartConstraintsFused,
 };
 use crate::dynamics::joint::{GpuJointSolver, JointSolverArgs};
 use crate::dynamics::mass_splitting::{GpuMassSplitting, HubState, SplitArgs};
@@ -55,7 +56,7 @@ pub struct GpuSolver {
     prepare_constraints: GpuPrepareConstraints,
     /// Scales the warmstart impulses (warmstart coefficients other than 1).
     scale_constraint_impulses: GpuScaleConstraintImpulses,
-    /// Sums the warmstart velocity changes of each body's constraints.
+    /// Sums the cached warmstart velocity changes of each body's constraints.
     gather_warmstart_velocities: GpuGatherWarmstartVelocities,
     /// Applies the warmstart of one color's constraints (scatter-style).
     warmstart_constraints: GpuWarmstartConstraints,
@@ -67,13 +68,17 @@ pub struct GpuSolver {
     solve_constraints_biased: GpuSolveConstraintsBiased,
     /// Fixed friction/stabilization mode for the unbiased iteration.
     solve_constraints_unbiased: GpuSolveConstraintsUnbiased,
+    /// Unbiased iteration that also caches the warmstart of the next substep.
+    solve_constraints_unbiased_cached: GpuSolveConstraintsUnbiasedCached,
     /// The iterations over the sparse colors from [`TAIL_COLOR`], in one workgroup.
     solve_constraints_tail: GpuSolveConstraintsTail,
     solve_constraints_tail_biased: GpuSolveConstraintsTailBiased,
     solve_constraints_tail_unbiased: GpuSolveConstraintsTailUnbiased,
+    solve_constraints_tail_unbiased_cached: GpuSolveConstraintsTailUnbiasedCached,
     /// The iterations over every color with one workgroup per batch, used when per-batch
     /// constraint counts are small.
     solve_constraints_fused: GpuSolveConstraintsFused,
+    solve_constraints_fused_cached: GpuSolveConstraintsFusedCached,
     /// Clears solver velocities and constraint counts.
     cleanup: GpuSolverCleanup,
     /// Initializes solver velocity increments.
@@ -337,7 +342,8 @@ impl GpuSolver {
         Ok(())
     }
 
-    /// Builds the contact constraints once their order is known (after the color bucket sort).
+    /// Builds the contact constraints once their order is known (after the color bucket sort),
+    /// and caches their warmstart for the first substep.
     pub fn build_constraints(
         &self,
         pass: &mut GpuPass,
@@ -729,6 +735,10 @@ impl GpuSolver {
              * Solve all joints + contacts without bias (stabilization).
              */
             mb_phase!("[RBD] slv/mb-solve-nobias", substep_solve_no_bias);
+            // The last iteration of a substep caches the warmstart of the next one, gathered per
+            // body. Rescaled impulses recompute it anyway.
+            let cache_warmstart =
+                !is_last_substep && args.colorless_warmstart && !args.scale_warmstart_impulses;
             if !skip_rb || !joints_empty {
                 let mut pass =
                     encoder.begin_pass("[RBD] slv/rb-solve-nobias", timestamps.as_deref_mut());
@@ -742,18 +752,27 @@ impl GpuSolver {
                     // Contact sweeps skipped (inert constraints).
                 } else if args.fused_color_sweeps {
                     // `color_uniforms[0]` holds 0: no bias, with friction.
-                    self.solve_constraints_fused.call(
-                        pass,
-                        [64, args.num_batches, 1],
-                        &mut args.constraints.tiles,
-                        args.solver_vels,
-                        args.color_buckets,
-                        args.solver_body_poses,
-                        &args.color_uniforms[args.num_colors as usize],
-                        args.batch_indices,
-                        &args.color_uniforms[0],
-                        args.sim_params,
-                    )?;
+                    macro_rules! solve_fused {
+                        ($kernel:expr) => {
+                            $kernel.call(
+                                pass,
+                                [64, args.num_batches, 1],
+                                &mut args.constraints.tiles,
+                                args.solver_vels,
+                                args.color_buckets,
+                                args.solver_body_poses,
+                                &args.color_uniforms[args.num_colors as usize],
+                                args.batch_indices,
+                                &args.color_uniforms[0],
+                                args.sim_params,
+                            )?
+                        };
+                    }
+                    if cache_warmstart {
+                        solve_fused!(self.solve_constraints_fused_cached);
+                    } else {
+                        solve_fused!(self.solve_constraints_fused);
+                    }
                 } else {
                     for c in 1..=args.num_colors {
                         let tail = args.fuse_tail_colors && c >= TAIL_COLOR;
@@ -781,10 +800,13 @@ impl GpuSolver {
                                 )?
                             };
                         }
-                        if tail {
-                            solve_color!(self.solve_constraints_tail_unbiased);
-                        } else {
-                            solve_color!(self.solve_constraints_unbiased);
+                        match (tail, cache_warmstart) {
+                            (true, true) => {
+                                solve_color!(self.solve_constraints_tail_unbiased_cached)
+                            }
+                            (true, false) => solve_color!(self.solve_constraints_tail_unbiased),
+                            (false, true) => solve_color!(self.solve_constraints_unbiased_cached),
+                            (false, false) => solve_color!(self.solve_constraints_unbiased),
                         }
                     }
                 }

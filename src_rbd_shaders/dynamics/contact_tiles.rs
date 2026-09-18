@@ -4,6 +4,7 @@
 //! A tile holds [`TILE_LEN`] consecutive constraints field by field: each field is an array
 //! with one entry per constraint, so neighboring lanes read neighboring memory.
 
+use super::Velocity;
 use super::solver_utils::ContactSolverData;
 use khal_std::index::MaybeIndexUnchecked;
 
@@ -21,6 +22,16 @@ pub const TAIL_COLOR: u32 = 24;
 #[inline(always)]
 pub fn tile_lane(index: usize) -> (usize, usize) {
     (index / TILE_LEN, index % TILE_LEN)
+}
+
+/// The velocity changes of the constraints' two bodies applying their accumulated impulses
+/// (their warmstart), each tagged with its body index in `padding1`. A constraint's pair is
+/// contiguous, for the per-body warmstart gather.
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct WarmstartTile {
+    pub bodies: [[Velocity; 2]; TILE_LEN],
 }
 
 /// A vector and a scalar of a contact point.
