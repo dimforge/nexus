@@ -103,18 +103,17 @@ impl RbdPipeline {
     /// at any size, just serialized past ~64 lanes.
     ///
     /// The estimate is per batch: the read-back counter (or the capacity when
-    /// the readback is disabled) is a total over the whole flat pair buffer.
+    /// the readback is disabled or hasn't completed yet) is a total over the whole flat pair
+    /// buffer.
     pub fn fused_color_dispatches(state: &RbdState) -> bool {
         let readback_enabled = state.capacities.solver_colors_resize_policy
             != RbdResizePolicy::Fixed
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
-        let est_pairs = if readback_enabled {
-            state.collision_pairs_len_cpu.div_ceil(state.num_batches)
-        } else {
-            state
-                .collision_pairs_capacity_cpu
-                .div_ceil(state.num_batches)
+        let pairs = match state.collision_pairs_len_cpu {
+            Some(len) if readback_enabled => len,
+            _ => state.collision_pairs_capacity_cpu,
         };
+        let est_pairs = pairs.div_ceil(state.num_batches);
         est_pairs <= 128
     }
 
@@ -137,6 +136,7 @@ impl RbdPipeline {
             Ok(())
         };
         let mut stats = RunStats::default();
+        state.stepped_since_readback = true;
 
         // A multibody capacity edit (e.g. reserving the dry-friction
         // constraint slots on the first `set_dof_frictionloss`) leaves the
@@ -717,7 +717,7 @@ impl RbdPipeline {
             // whichever is larger drives that resize.
             let pairs_len = counts[0].max(counts[1]);
             let coloring_converged = counts[2];
-            state.collision_pairs_len_cpu = counts[0];
+            state.collision_pairs_len_cpu = Some(counts[0]);
             let nb = state.num_batches;
 
             // TODO: Fit will act like Grow. To be able to auto-shrink the max color count, we need
@@ -879,7 +879,8 @@ impl RbdPipeline {
             }
         }
 
-        if readback_enabled && state.resize_readback.is_idle() {
+        if readback_enabled && state.stepped_since_readback && state.resize_readback.is_idle() {
+            state.stepped_since_readback = false;
             #[cfg(feature = "dim3")]
             state.resize_readback.request(
                 backend,

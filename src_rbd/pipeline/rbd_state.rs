@@ -292,8 +292,12 @@ pub struct RbdState {
     pub(super) collision_pairs_capacity_cpu: u32,
     /// Most recently read live collision-pair count — the total across all
     /// batches, harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers).
-    /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize.
-    pub(super) collision_pairs_len_cpu: u32,
+    /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize. `None` until
+    /// the first readback completes.
+    pub(super) collision_pairs_len_cpu: Option<u32>,
+    /// Whether a step ran since the last resize readback request: the counters are only read
+    /// back once a step wrote them.
+    pub(super) stepped_since_readback: bool,
     /// Bumped on every GPU buffer (re)allocation or capacity change; part of
     /// [`Self::graph_key`].
     pub(super) graph_generation: u64,
@@ -652,7 +656,7 @@ impl RbdState {
     /// harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
     /// frame or two; `0` until the first readback completes.
     pub fn collision_pairs_len(&self) -> u32 {
-        self.collision_pairs_len_cpu
+        self.collision_pairs_len_cpu.unwrap_or(0)
     }
 
     /// GPU buffer of the broad-phase collision pairs found this step.
