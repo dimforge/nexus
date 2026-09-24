@@ -201,7 +201,9 @@ pub async fn main() {
     } else {
         NexusViewer::new(demos.clone()).await
     };
-    viewer = viewer.with_selected_demo(selected);
+    viewer = viewer
+        .with_selected_demo(selected)
+        .with_wait_for_render(true);
     if opts.cpu {
         viewer = viewer.with_cpu();
     }

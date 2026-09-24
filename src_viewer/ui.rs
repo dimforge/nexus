@@ -161,6 +161,7 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                             &state.run_stats,
                             state.sync_time,
                             state.steps,
+                            &mut state.wait_for_render,
                         );
                     }
                     Some(UiSection::Examples) if !state.demos.is_empty() => {
@@ -473,6 +474,7 @@ fn performance_ui(
     run_stats: &RunStats,
     sync_time: Duration,
     steps: u64,
+    wait_for_render: &mut bool,
 ) {
     // Scene entity counts.
     ui.label(RichText::new("Scene").strong());
@@ -524,6 +526,11 @@ fn performance_ui(
         ))
         .strong(),
     );
+    ui.checkbox(wait_for_render, "Wait for render before stepping")
+        .on_hover_text(
+            "Wait for each frame's rendering to finish on the GPU before stepping, so the GPU \
+             pass timings don't include rendering work running concurrently.",
+        );
     if !run_stats.gpu_pass_times.is_empty() {
         CollapsingHeader::new(format!("GPU passes: {:.2}ms", run_stats.gpu_total_time_ms))
             .id_salt("rbd_gpu_passes")

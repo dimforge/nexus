@@ -37,5 +37,6 @@ vortx = { workspace = true }
 rapier3d = { workspace = true, features = ["default", "debug-render"] }
 bitflags = { workspace = true }
 bytemuck = { workspace = true }
+futures = { workspace = true }
 kiss3d = { workspace = true, features = ["egui", "rt_switcher"] }
 web-time = { workspace = true }

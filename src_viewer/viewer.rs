@@ -111,6 +111,9 @@ pub struct UiState {
     pub backend_type: BackendType,
     /// Replay each frame's GPU work through a compute graph (backends with graph support only).
     pub compute_graphs: bool,
+    /// Wait for each frame's rendering to finish on the GPU before stepping, so the GPU pass
+    /// timings don't include rendering work running concurrently.
+    pub wait_for_render: bool,
     pub gpu_init_error: Option<String>,
     /// Names + kinds of all registered demos, used to populate the demo picker.
     pub demos: Vec<(String, DemoKind)>,
@@ -447,6 +450,7 @@ impl NexusViewer {
                 ui_section: Some(UiSection::Examples),
                 backend_type: BackendType::Gpu,
                 compute_graphs: false,
+                wait_for_render: false,
                 gpu_init_error: None,
                 demos,
                 selected_demo: 0,
@@ -478,6 +482,13 @@ impl NexusViewer {
     /// no effect elsewhere). Also toggled from the backend panel.
     pub fn with_compute_graphs(mut self, enabled: bool) -> Self {
         self.ui.compute_graphs = enabled;
+        self
+    }
+
+    /// Waits for each frame's rendering to finish on the GPU before stepping. Also toggled from
+    /// the performance panel.
+    pub fn with_wait_for_render(mut self, enabled: bool) -> Self {
+        self.ui.wait_for_render = enabled;
         self
     }
 
@@ -1628,6 +1639,9 @@ impl NexusViewer {
         }
 
         self.frames_rendered += 1;
+        if self.ui.wait_for_render {
+            Self::wait_for_render().await;
+        }
         #[cfg(not(target_arch = "wasm32"))]
         if let Some((frame, path)) = &self.snapshot
             && self.frames_rendered == *frame
@@ -1650,6 +1664,23 @@ impl NexusViewer {
         }
 
         self.ui.transition.is_none()
+    }
+
+    /// Waits until the work submitted to kiss3d's queue (this frame's rendering) is done.
+    async fn wait_for_render() {
+        if !kiss3d::context::Context::is_initialized() {
+            return;
+        }
+        let ctxt = kiss3d::context::Context::get();
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        ctxt.queue.on_submitted_work_done(move || {
+            let _ = sender.send(());
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = ctxt
+            .device
+            .poll(khal::re_exports::wgpu::PollType::wait_indefinitely());
+        let _ = receiver.await;
     }
 
     /// Captures the last rendered frame as `(width, height, rgb)`, where `rgb`
