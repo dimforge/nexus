@@ -2,13 +2,13 @@
 //!
 //! Graph coloring assigns different colors to constraints sharing a body, so a body touching
 //! `n` others needs at least `n` colors. A heavy ball ploughing through a brick wall touches
-//! hundreds of bricks at once, which blows up the color count (and every colored sweep).
+//! hundreds of bricks at once, which blows up the color count (and every colored dispatch).
 //!
 //! Instead, a hub body is split into one sub-body per contact (Tonge et al. 2012, "Mass
 //! splitting for jitter-free parallel rigid body simulation"): each sub-body has `1/n`-th of
 //! the mass and inertia, owns a private velocity slot past the regular bodies in the solver
-//! velocity buffer, and its constraints are colored ignoring the hub. Before each sweep the hub
-//! velocity is scattered to its sub-bodies, and after the sweep their velocities are averaged
+//! velocity buffer, and its constraints are colored ignoring the hub. Before each iteration the hub
+//! velocity is scattered to its sub-bodies, and after the iteration their velocities are averaged
 //! back into the hub, which applies the sum of every contact impulse to the real body.
 
 use crate::utils::{BatchIndices, Slice, SliceMut};

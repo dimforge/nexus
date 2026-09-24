@@ -19,7 +19,7 @@ pub struct GpuWarmstart {
 
 /// Arguments for the coloring seed dispatch.
 pub struct SeedColorsArgs<'a> {
-    /// Clamped per-frame list totals (the flat contact sweep bound).
+    /// Clamped per-frame list totals (the flat contact dispatch bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// The contact links of the current frame, matched with the previous frame's.
     pub links: &'a Tensor<ContactLink>,

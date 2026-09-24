@@ -434,7 +434,7 @@ impl NexusState {
     }
 
     /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
-    /// and multibody sweeps alike).
+    /// and multibody alike).
     #[cfg(all(feature = "rbd", feature = "dim3"))]
     pub fn set_rbd_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
         for params in &mut self.rbd_sim_params {

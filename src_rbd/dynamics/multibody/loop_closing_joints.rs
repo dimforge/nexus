@@ -175,7 +175,7 @@ impl GpuMultibodySet {
             // the two sides of every joint. Two joints get the same color
             // only if they share no node, so within a color every joint
             // writes disjoint `dof_state` / `solver_vels`, making the
-            // per-color sweep an exact (race-free) Gauss–Seidel step.
+            // per-color iteration an exact (race-free) Gauss–Seidel step.
             let num_mb = mb_set.multibodies().count() as u32;
             // Unified node id: MB side → mb_idx; free body → num_mb +
             // local_body_id; FIXED → none.

@@ -705,7 +705,7 @@ impl RbdState {
         let mb_contact_index = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let contacts_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
-        let mb_sweep_indirect =
+        let mb_dispatch_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let pfm_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
@@ -885,7 +885,7 @@ impl RbdState {
             pfm_sort,
             #[cfg(feature = "dim3")]
             mb_contact_index,
-            mb_sweep_indirect,
+            mb_dispatch_indirect,
             pfm_pairs,
             pfm_pairs_len,
             pfm_pairs_indirect,

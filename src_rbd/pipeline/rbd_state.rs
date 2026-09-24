@@ -185,12 +185,12 @@ pub enum RbdResizePolicy {
     Fit,
 }
 
-/// Dispatch grids and stats of the graph coloring and the colored sweeps.
+/// Dispatch grids and stats of the graph coloring and the colored dispatches.
 pub(crate) struct ColoringDispatch {
     /// Grid of the current topo-gc iteration: empty once the coloring converged.
     pub(crate) coloring_indirect: Tensor<[u32; 3]>,
-    /// Grid of the colored sweeps: sized to the largest color bucket.
-    pub(crate) sweep_indirect: Tensor<[u32; 3]>,
+    /// Grid of the colored dispatches: sized to the largest color bucket.
+    pub(crate) dispatch_indirect: Tensor<[u32; 3]>,
     /// CPU scheduling hints, in threads, for colors 0..64. Never used as loop bounds.
     pub(crate) dispatch_threads: [u32; 64],
     /// Whether the sparse colors from `TAIL_COLOR` are solved by a single workgroup. Hint
@@ -205,7 +205,7 @@ impl ColoringDispatch {
         let indirect = BufferUsages::STORAGE | BufferUsages::INDIRECT;
         Self {
             coloring_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
-            sweep_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
+            dispatch_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
             dispatch_threads: [0; 64],
             fuse_tail_colors: false,
             color_stats: Tensor::vector(
@@ -317,7 +317,7 @@ pub struct RbdState {
     /// Flat dispatch grid over the whole contacts range, written by
     /// `gpu_contact_plan`.
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
-    /// Clamped per-frame list totals (see `gpu_contact_plan`): the sweep
+    /// Clamped per-frame list totals (see `gpu_contact_plan`): the dispatch
     /// bound and the positional-slot bases of the flat contacts buffer.
     pub(super) contact_plan: Tensor<ContactPlan>,
     /// Buffers backing the per-pair PFM sort of the contact-reduction path.
@@ -329,7 +329,7 @@ pub struct RbdState {
     pub(super) mb_contact_index: Tensor<MbContactIndexEntry>,
     /// Workgroup grid for the per-multibody contact-constraint dispatches:
     /// `[multibodies_batch_capacity, num_batches, 1]`.
-    pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
+    pub(super) mb_dispatch_indirect: Tensor<[u32; 3]>,
     pub(super) new_constraints: crate::dynamics::ContactConstraints,
     pub(super) new_constraints_counts: Tensor<u32>,
     pub(super) new_body_constraint_ids: Tensor<u32>,
@@ -344,7 +344,7 @@ pub struct RbdState {
     pub(super) constraints_rands: Tensor<u32>,
     /// The single `(color, batch)` bucket buffer, color-major, of length
     /// `(max_colors + 3) * num_batches`: counts, then scanned exclusive
-    /// starts, then post-scatter exclusive ends (what the sweeps read).
+    /// starts, then post-scatter exclusive ends (what the solve kernels read).
     pub(super) color_buckets: Tensor<u32>,
     /// The constraint links bucket-sorted by `(color, batch)`.
     pub(super) sorted_links: Tensor<crate::shaders::dynamics::ContactLink>,
@@ -353,7 +353,7 @@ pub struct RbdState {
     /// [`Self::ensure_color_uniforms`].
     pub(super) color_uniforms: Vec<Tensor<u32>>,
     pub(super) uncolored: Tensor<u32>,
-    /// Dispatch grids and stats of the coloring and colored sweeps.
+    /// Dispatch grids and stats of the coloring and colored dispatches.
     pub(super) coloring_dispatch: ColoringDispatch,
     pub(super) uncolored_staging: Tensor<u32>,
     pub(super) lbvh: LbvhState,
@@ -719,7 +719,7 @@ impl RbdState {
     }
 
     /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
-    /// and multibody sweeps alike), without rebuilding the GPU state.
+    /// and multibody alike), without rebuilding the GPU state.
     #[cfg(feature = "dim3")]
     pub fn set_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
         let n = n.max(1);
@@ -1435,7 +1435,7 @@ pub struct RbdGraphKey {
     pub num_active_colliders: u32,
     /// Collider slots per environment.
     pub num_colliders_per_batch: u32,
-    /// Maximum number of graph colors the solver sweeps.
+    /// Maximum number of graph colors the solver iterates over.
     pub max_colors: u32,
     /// Number of per-color uniform buffers.
     pub num_color_uniforms: usize,
@@ -1460,8 +1460,8 @@ pub struct RbdGraphKey {
     /// Number of graph colors of the multibody impulse joints.
     #[cfg(feature = "dim3")]
     pub mb_imp_joint_num_colors: u32,
-    /// Whether the fused colored-sweep kernels are used.
-    pub fused_color_sweeps: bool,
+    /// Whether the fused colored kernels are used.
+    pub fused_color_dispatches: bool,
 }
 
 impl RbdState {
@@ -1492,7 +1492,7 @@ impl RbdState {
             multibodies_empty: self.multibodies.is_empty(),
             #[cfg(feature = "dim3")]
             mb_imp_joint_num_colors: self.multibodies.mb_imp_joint_num_colors(),
-            fused_color_sweeps: crate::pipeline::RbdPipeline::fused_color_sweeps(self),
+            fused_color_dispatches: crate::pipeline::RbdPipeline::fused_color_dispatches(self),
         }
     }
 }

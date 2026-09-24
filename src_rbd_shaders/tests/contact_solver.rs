@@ -38,7 +38,7 @@ fn reference_solve(
         let rhs_wo_bias = point.normal_vel + dist.max(0.0) * inv_dt;
         let (rhs, cfm_factor) = if use_bias {
             // Not `clamp`: its `min <= max` assertion exits the kernel early, which breaks
-            // the uniform control flow of the fused sweeps' barriers on the web.
+            // the uniform control flow of the fused iterations' barriers on the web.
             let rhs_bias = (dist * erp_inv_dt).max(-max_corr_velocity).min(0.0);
             // Separated (speculative) points are solved rigidly.
             let cfm = if dist <= 0.0 { cfm_factor } else { 1.0 };
@@ -66,7 +66,7 @@ fn reference_solve(
         solver_vel2.angular += c.ii_b_mul(torque_dir_b) * delta_impulse;
     }
 
-    // Friction is solved during the stabilization sweep, and during the
+    // Friction is solved during the stabilization iteration, and during the
     // biased pass only when `friction_in_bias_pass` is set.
     if !solve_friction {
         return;

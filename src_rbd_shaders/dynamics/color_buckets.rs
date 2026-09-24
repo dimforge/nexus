@@ -4,8 +4,8 @@
 //! bucket-sorted by `(color, batch)` into `sorted_links`. Buckets are laid
 //! out color-major (`bucket = color * num_batches + batch`, buffer length
 //! `solver_color_buckets_stride * num_batches`), so one color's constraints
-//! are contiguous across every batch (per-color solver sweeps) while each
-//! `(color, batch)` cell stays contiguous too (fused per-batch sweeps).
+//! are contiguous across every batch (per-color solver dispatches) while each
+//! `(color, batch)` cell stays contiguous too (fused per-batch dispatches).
 //!
 //! The position of a constraint in `sorted_links` is its index in the contact tiles.
 //! Active constraints the bounded coloring left uncolored (or past the solved colors) are never
@@ -196,16 +196,16 @@ pub const COLOR_STATS_MAX_BUCKET: usize = 0;
 /// Index of the highest non-empty color in the color stats buffer.
 pub const COLOR_STATS_MAX_COLOR: usize = 1;
 
-/// Sizes the colored sweeps from the color buckets: their grid only needs to cover the
-/// largest color (the sweeps stride over their bucket), not every contact. Also records the
+/// Sizes the colored dispatches from the color buckets: their grid only needs to cover the
+/// largest color (the solve kernels stride over their bucket), not every contact. Also records the
 /// highest color in use, read back to adapt the color budget. One workgroup.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
-pub fn gpu_color_sweep_grid(
+pub fn gpu_color_dispatch_grid(
     #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] color_buckets: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] color_stats: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] sweep_indirect: &mut [[u32; 3]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] dispatch_indirect: &mut [[u32; 3]],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
     #[spirv(workgroup)] max_sizes: &mut [u32; 64],
     #[spirv(workgroup)] max_colors: &mut [u32; 64],
@@ -259,6 +259,6 @@ pub fn gpu_color_sweep_grid(
         color_stats.write(COLOR_STATS_MAX_COLOR, max_colors.read(0));
         // Every color shares this grid. Limit the empty workgroups in the smaller buckets;
         // the solve kernels stride over large buckets, so no constraints are skipped.
-        sweep_indirect.write(0, [max_size.div_ceil(WORKGROUP_SIZE).min(256), 1, 1]);
+        dispatch_indirect.write(0, [max_size.div_ceil(WORKGROUP_SIZE).min(256), 1, 1]);
     }
 }

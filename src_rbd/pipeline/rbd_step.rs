@@ -95,7 +95,7 @@ impl RbdPipeline {
         self.step_impl(backend, state, timestamps, encoder, false)
     }
 
-    /// Whether the step uses the fused colored-sweep kernels (one workgroup per
+    /// Whether the step uses the fused colored kernels (one workgroup per
     /// batch walking every color) instead of one dispatch per color.
     ///
     /// Chosen from the expected pair count: small pair counts with many
@@ -104,7 +104,7 @@ impl RbdPipeline {
     ///
     /// The estimate is per batch: the read-back counter (or the capacity when
     /// the readback is disabled) is a total over the whole flat pair buffer.
-    pub fn fused_color_sweeps(state: &RbdState) -> bool {
+    pub fn fused_color_dispatches(state: &RbdState) -> bool {
         let readback_enabled = state.capacities.solver_colors_resize_policy
             != RbdResizePolicy::Fixed
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
@@ -177,7 +177,7 @@ impl RbdPipeline {
                     solver_vels: &mut state.solver_vels,
                     batch_indices: &state.batch_indices,
                     color_uniforms: &state.color_uniforms,
-                    mb_sweep_indirect: &state.mb_sweep_indirect,
+                    mb_dispatch_indirect: &state.mb_dispatch_indirect,
                     gravity: &state.gravity,
                     friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
                 };
@@ -296,11 +296,11 @@ impl RbdPipeline {
             }
         }
 
-        let fused_color_sweeps = Self::fused_color_sweeps(state);
+        let fused_color_dispatches = Self::fused_color_dispatches(state);
 
         // In small scenes, submit less frequently. In big scenes submit more
         // to overlap compute and encoding.
-        let merge_submits = fused_color_sweeps && state.num_batches <= 64;
+        let merge_submits = fused_color_dispatches && state.num_batches <= 64;
 
         // Phase 2a: Narrow phase. Split out from solver-prep + coloring
         // so its CPU encoding overlaps with Phase 1's GPU work and its
@@ -320,7 +320,7 @@ impl RbdPipeline {
                 &mut state.contacts,
                 &mut state.contacts_indirect,
                 &mut state.contact_plan,
-                &mut state.mb_sweep_indirect,
+                &mut state.mb_dispatch_indirect,
                 &mut state.pfm_pairs,
                 &mut state.pfm_pairs_len,
                 &mut state.pfm_pairs_indirect,
@@ -401,7 +401,7 @@ impl RbdPipeline {
                 body_constraint_ids: &mut state.new_body_constraint_ids,
                 color_buckets: &state.color_buckets,
                 sorted_links: &state.sorted_links,
-                color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
+                color_dispatch_indirect: &state.coloring_dispatch.dispatch_indirect,
                 color_dispatch_threads: &state.coloring_dispatch.dispatch_threads,
                 fuse_tail_colors: state.coloring_dispatch.fuse_tail_colors,
                 color_uniforms: &state.color_uniforms,
@@ -414,9 +414,9 @@ impl RbdPipeline {
                 body_group: &state.body_group,
                 body_is_multibody: &state.body_is_multibody,
                 batch_indices: &state.batch_indices,
-                mb_sweep_indirect: &state.mb_sweep_indirect,
+                mb_dispatch_indirect: &state.mb_dispatch_indirect,
                 colorless_warmstart: false,
-                fused_color_sweeps,
+                fused_color_dispatches,
                 rb_contacts_inert: state.rb_contacts_inert,
                 friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
                 gravity: &state.gravity,
@@ -513,7 +513,7 @@ impl RbdPipeline {
                 )?;
 
                 // Bucket-sort the constraint ids by color so each colored solver
-                // sweep only touches its own constraints.
+                // iteration only touches its own constraints.
                 drop(pass);
                 let mut pass = encoder.begin_pass("[RBD] prep/buckets", timestamps.as_deref_mut());
                 let bucket_args = crate::dynamics::ColorBucketsArgs {
@@ -526,7 +526,7 @@ impl RbdPipeline {
                     constraint_indices: &mut state.new_constraints.constraint_indices,
                     batch_indices: &state.batch_indices,
                     color_stats: &mut state.coloring_dispatch.color_stats,
-                    sweep_indirect: &mut state.coloring_dispatch.sweep_indirect,
+                    dispatch_indirect: &mut state.coloring_dispatch.dispatch_indirect,
                 };
                 self.coloring.dispatch_build_color_buckets(
                     backend,
@@ -580,7 +580,7 @@ impl RbdPipeline {
             body_constraint_ids: &mut state.new_body_constraint_ids,
             color_buckets: &state.color_buckets,
             sorted_links: &state.sorted_links,
-            color_sweep_indirect: &state.coloring_dispatch.sweep_indirect,
+            color_dispatch_indirect: &state.coloring_dispatch.dispatch_indirect,
             color_dispatch_threads: &state.coloring_dispatch.dispatch_threads,
             fuse_tail_colors: state.coloring_dispatch.fuse_tail_colors,
             color_uniforms: &state.color_uniforms,
@@ -593,14 +593,14 @@ impl RbdPipeline {
             body_group: &state.body_group,
             body_is_multibody: &state.body_is_multibody,
             batch_indices: &state.batch_indices,
-            mb_sweep_indirect: &state.mb_sweep_indirect,
+            mb_dispatch_indirect: &state.mb_dispatch_indirect,
             // The gather warmstart is only valid without multibody grouping;
             // see `SolverArgs::colorless_warmstart`.
             #[cfg(feature = "dim3")]
             colorless_warmstart: state.multibodies.is_empty(),
             #[cfg(not(feature = "dim3"))]
             colorless_warmstart: true,
-            fused_color_sweeps,
+            fused_color_dispatches,
             rb_contacts_inert: state.rb_contacts_inert,
             friction_in_bias_pass: state.sim_params_cpu.friction_in_bias_pass != 0,
             gravity: &state.gravity,
@@ -734,7 +734,7 @@ impl RbdPipeline {
                 != RbdResizePolicy::Fixed
                 && (coloring_converged == 0 || state.max_colors < min_colors)
                 && !state.rb_contacts_inert;
-            // Every color costs a coloring iteration and a dispatch per sweep: once the
+            // Every color costs a coloring iteration and a dispatch per iteration: once the
             // coloring converges, shrink the budget back to a few colors above those in use.
             let highest_color = counts[3];
             let shrink_colors = state.capacities.solver_colors_resize_policy

@@ -55,7 +55,7 @@ pub struct BatchIndices {
     /// `M⁻¹·Jᵀ` column).
     pub mb_contact_constraints_capacity: u32,
     /// Per-batch multibody-touching impulse-joint slot count (loop bound for
-    /// the flat sweeps).
+    /// the flat dispatches).
     pub mb_imp_joints_batch_capacity: u32,
     /// Actual max `ndofs` across every multibody in every batch (often smaller
     /// than the fixed `MAX_MB_DOFS` limit).
@@ -69,7 +69,7 @@ pub struct BatchIndices {
     pub mb_max_joint_constraints: u32,
     /// Per-batch stride of the contact-solver color-bucket buffers
     /// (`color_counts` / `color_starts` / `color_cursors`), = `max_colors + 3`
-    /// so that `starts[c + 1]` is in bounds for every swept color.
+    /// so that `starts[c + 1]` is in bounds for every solved color.
     pub solver_color_buckets_stride: u32,
 
     /*

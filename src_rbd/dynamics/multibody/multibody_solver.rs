@@ -47,13 +47,13 @@ pub struct GpuMultibodySolver {
     /// Advances the actuator-delay step counter, once per physics step.
     delay_tick: GpuMbDelayTick,
     /// Contact force-sensor readout, dispatched once per step after the last
-    /// substep's stabilization sweep and only when sensors are configured.
+    /// substep's stabilization iteration and only when sensors are configured.
     sense_contact_impulses: GpuMbSenseContactImpulses,
     finalize_contact_constraints: GpuMbFinalizeContactConstraints,
     /// Fused joint+contact PGS iteration (one workgroup per multibody, shared-
     /// memory dof velocities).
     solve_constraints: GpuMbSolveConstraints,
-    /// Joint-only half of the sweep, used with the Delassus contact path
+    /// Joint-only half of the iteration, used with the Delassus contact path
     /// (one kernel binding both joint and Delassus buffers would exceed the
     /// 8-storage-buffer budget).
     solve_joints: GpuMbSolveJoints,
@@ -61,9 +61,9 @@ pub struct GpuMultibodySolver {
     /// coupling) right after the contact columns are finalized.
     build_contact_delassus: GpuMbBuildContactDelassus,
     /// Reduces the per-multibody contact-constraint counts to their maximum,
-    /// the trip count of the `web-compat` contact sweeps.
+    /// the trip count of the `web-compat` contact iterations.
     compute_solve_bounds: GpuMbComputeSolveBounds,
-    /// Constraint-space contact sweep: `a = J·u` tracked incrementally in
+    /// Constraint-space contact iteration: `a = J·u` tracked incrementally in
     /// shared memory via the Delassus rows, breaking the per-iteration
     /// dof-space latency chain.
     solve_contacts_delassus: GpuMbSolveContactsDelassus,
@@ -73,7 +73,7 @@ pub struct GpuMultibodySolver {
     /// layout is computed (the warmstart transfer matches against them).
     save_prev_cons_bounds: GpuMbSavePrevConsBounds,
     /// Predicts the per-(multibody, batch) contact-constraint slot and index
-    /// counts (one flat sweep over the contacts).
+    /// counts (one flat dispatch over the contacts).
     count_contact_constraints: GpuMbCountContactConstraints,
     /// Turns the predictions into dynamic segments of the flat constraint
     /// buffer and of the contact→multibody index (and publishes the total
@@ -116,7 +116,7 @@ pub struct MultibodySolverArgs<'a> {
     /// Flat contact manifold list (filled by narrow-phase; positional slots).
     pub contacts: &'a Tensor<GpuIndexedContact>,
     /// Clamped per-frame list totals (see `gpu_contact_plan`); `[PLAN_BOUND]`
-    /// bounds the flat contact sweeps.
+    /// bounds the flat contact dispatches.
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// Flat dispatch grid over the whole contacts range (written by
     /// `gpu_contact_plan`).
@@ -140,7 +140,7 @@ pub struct MultibodySolverArgs<'a> {
     pub friction_in_bias_pass: bool,
     /// GPU-written workgroup grid for the per-multibody contact-constraint
     /// dispatches: `[multibodies_batch_capacity, num_batches, 1]`.
-    pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
+    pub mb_dispatch_indirect: &'a Tensor<[u32; 3]>,
 }
 
 impl GpuMultibodySolver {
@@ -200,7 +200,7 @@ impl GpuMultibodySolver {
 
     /// Lay out this frame's dynamic contact-constraint segments and build the
     /// contact→multibody index, once per step after the narrow phase:
-    /// predict the per-(multibody, batch) slot / index counts (one flat sweep
+    /// predict the per-(multibody, batch) slot / index counts (one flat dispatch
     /// over the contacts), prefix-scan them into segment starts (also
     /// publishing the total demand for the auto-resize readback), then
     /// scatter each contact's slot into its owner's index segment.
@@ -339,7 +339,7 @@ impl GpuMultibodySolver {
                 encoder.begin_pass("[RBD] mbb/transfer-warmstart", timestamps.as_deref_mut());
             self.transfer_contact_warmstart.call(
                 &mut pass,
-                args.mb_sweep_indirect,
+                args.mb_dispatch_indirect,
                 &mb.multibody_info,
                 &mut mb.contact_constraints,
                 &mb.old_contact_constraints,
@@ -354,7 +354,7 @@ impl GpuMultibodySolver {
                 encoder.begin_pass("[RBD] mbb/seed-restitution", timestamps.as_deref_mut());
             self.seed_contact_restitution.call(
                 &mut pass,
-                args.mb_sweep_indirect,
+                args.mb_dispatch_indirect,
                 &mb.multibody_info,
                 &mut mb.contact_constraints,
                 &mb.contact_jac_cols,
@@ -374,7 +374,7 @@ impl GpuMultibodySolver {
             // when no batch has any contact this step.
             self.warmstart_contact_constraints.call(
                 &mut pass,
-                args.mb_sweep_indirect,
+                args.mb_dispatch_indirect,
                 &mb.multibody_info,
                 &mb.contact_constraints,
                 &mb.contact_jac_cols,
@@ -478,7 +478,7 @@ impl GpuMultibodySolver {
                 encoder.begin_pass("[RBD] mbb/finalize-contact", timestamps.as_deref_mut());
             self.finalize_contact_constraints.call(
                 &mut pass,
-                args.mb_sweep_indirect,
+                args.mb_dispatch_indirect,
                 &mb.multibody_info,
                 &mb.mass_matrices,
                 &mb.lu_pivots,
@@ -501,13 +501,13 @@ impl GpuMultibodySolver {
             )?;
         }
 
-        // Delassus blocks for the constraint-space contact sweep (consumes
+        // Delassus blocks for the constraint-space contact iteration (consumes
         // the columns finalized just above).
         if let Some(delassus) = &mut mb.contact_delassus {
             let mut pass = encoder.begin_pass("[RBD] mbb/build-delassus", timestamps);
             self.build_contact_delassus.call(
                 &mut pass,
-                args.mb_sweep_indirect,
+                args.mb_dispatch_indirect,
                 &mb.multibody_info,
                 &mb.contact_constraints,
                 &mb.contact_jac_cols,
@@ -549,7 +549,7 @@ impl GpuMultibodySolver {
             // on contact-free steps.
             self.solve_contacts_delassus.call(
                 pass,
-                args.mb_sweep_indirect,
+                args.mb_dispatch_indirect,
                 &mb.multibody_info,
                 &mut mb.contact_constraints,
                 &mb.contact_jac_cols,
@@ -576,12 +576,12 @@ impl GpuMultibodySolver {
                 args.solver_vels,
             )?;
         } else {
-            // No joint limits/motors anywhere: the fused sweep is contact-only
+            // No joint limits/motors anywhere: the fused iteration is contact-only
             // work, so the indirect grid (zero workgroups on contact-free
             // steps) replaces the full per-(multibody, batch) launch.
             self.solve_constraints.call(
                 pass,
-                args.mb_sweep_indirect,
+                args.mb_dispatch_indirect,
                 &mb.multibody_info,
                 &mut mb.joint_constraints,
                 &mb.joint_constraint_columns,
@@ -599,7 +599,7 @@ impl GpuMultibodySolver {
 
     /// P3: one PGS iteration with bias over the joint, contact, and multibody-
     /// touching impulse-joint constraints. The rigid-body solver interleaves
-    /// its own sweep after each call, `num_internal_pgs_iterations` times per
+    /// its own iteration after each call, `num_internal_pgs_iterations` times per
     /// substep; `first_iteration` (re)builds the impulse-joint constraints.
     pub fn substep_solve_with_bias(
         &self,
@@ -628,7 +628,7 @@ impl GpuMultibodySolver {
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
         // constraints, built on the first iteration of the substep.
         if mb.mb_imp_joints_per_batch > 0 && first_iteration {
-            // Flat 1-D sweep over the interleaved joint slots.
+            // Flat 1-D dispatch over the interleaved joint slots.
             let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];
             self.update_impulse_joint_constraints.call(
                 pass,
@@ -742,11 +742,11 @@ impl GpuMultibodySolver {
             return Ok(());
         }
 
-        // Stabilization sweep: `use_bias = 0` (`color_uniforms[0] == 0`).
+        // Stabilization iteration: `use_bias = 0` (`color_uniforms[0] == 0`).
         let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
         self.dispatch_solve(pass, mb, args, solve_dispatch, 0)?;
         if mb.mb_imp_joints_per_batch > 0 {
-            // Flat 1-D sweep over the interleaved joint slots.
+            // Flat 1-D dispatch over the interleaved joint slots.
             let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];
             self.remove_impulse_joint_constraint_bias.call(
                 pass,
@@ -755,8 +755,8 @@ impl GpuMultibodySolver {
                 &mut mb.mb_imp_joint_constraints,
                 args.batch_indices,
             )?;
-            // Final stabilization sweep WITHOUT bias — colored, one
-            // dispatch per color (see the with-bias sweep above).
+            // Final stabilization iteration WITHOUT bias — colored, one
+            // dispatch per color (see the with-bias iteration above).
             for c in 0..mb.mb_imp_joint_num_colors as usize {
                 self.solve_impulse_joint_constraints.call(
                     pass,
@@ -786,7 +786,7 @@ impl GpuMultibodySolver {
 
     /// Contact force-sensor readout: folds each sensed link's normal-contact
     /// impulses into `contact_sensor_out`. Run it once per step, after the last
-    /// substep's stabilization sweep and before [`Self::apply_restitution`], so
+    /// substep's stabilization iteration and before [`Self::apply_restitution`], so
     /// the value is the accumulated contact impulse rather than a
     /// restitution-adjusted one. A no-op when no sensors are configured.
     pub fn sense_contact_impulses(
@@ -821,7 +821,7 @@ impl GpuMultibodySolver {
         }
         self.apply_contact_restitution.call(
             pass,
-            args.mb_sweep_indirect,
+            args.mb_dispatch_indirect,
             &mb.multibody_info,
             &mut mb.contact_constraints,
             &mb.contact_jac_cols,

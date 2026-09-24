@@ -154,12 +154,12 @@ pub fn gpu_mb_solve_constraints(
     workgroup_memory_barrier_with_group_sync();
 
     #[cfg(feature = "web-compat")]
-    let joint_sweep_len = batch_ids.mb_max_joint_constraints;
+    let joint_iteration_len = batch_ids.mb_max_joint_constraints;
     #[cfg(not(feature = "web-compat"))]
-    let joint_sweep_len = mb.max_constraints;
+    let joint_iteration_len = mb.max_constraints;
 
     // Joint limits/motors
-    for s in 0..joint_sweep_len {
+    for s in 0..joint_iteration_len {
         let slot_active = active && s < mb.max_constraints;
         let cons_idx = if slot_active {
             jcons_base + s as usize
@@ -218,13 +218,13 @@ pub fn gpu_mb_solve_constraints(
     // together so their impulse can be capped to the friction cone; the second
     // row is handled by its sibling and skipped here.
     #[cfg(feature = "web-compat")]
-    let contact_sweep_len = *max_contact_constraints;
+    let contact_iteration_len = *max_contact_constraints;
     #[cfg(not(feature = "web-compat"))]
-    let contact_sweep_len = contact_count;
+    let contact_iteration_len = contact_count;
     #[cfg(not(feature = "web-compat"))]
     let _ = max_contact_constraints;
 
-    for s in 0..contact_sweep_len {
+    for s in 0..contact_iteration_len {
         let slot_active = active && s < contact_count;
         let cons_idx = if slot_active {
             ccons_base + s as usize
@@ -337,7 +337,7 @@ pub fn gpu_mb_solve_constraints(
             // Normal: clamp to ≥ 0. Friction: cap the tangent pair to the
             // circular cone `μ · normal_impulse`.
             let (new0, new1) = if is_tangent {
-                // The paired normal was updated earlier in this sweep by this
+                // The paired normal was updated earlier in this iteration by this
                 // same lane, so the storage read observes the fresh value.
                 let limit = cons.friction_coeff
                     * contact_constraints
@@ -451,11 +451,11 @@ pub fn gpu_mb_solve_joints(
     workgroup_memory_barrier_with_group_sync();
 
     #[cfg(feature = "web-compat")]
-    let joint_sweep_len = batch_ids.mb_max_joint_constraints;
+    let joint_iteration_len = batch_ids.mb_max_joint_constraints;
     #[cfg(not(feature = "web-compat"))]
-    let joint_sweep_len = mb.max_constraints;
+    let joint_iteration_len = mb.max_constraints;
 
-    for s in 0..joint_sweep_len {
+    for s in 0..joint_iteration_len {
         let slot_active = active && s < mb.max_constraints;
         let cons_idx = if slot_active {
             jcons_base + s as usize
@@ -593,7 +593,7 @@ pub fn gpu_mb_build_contact_delassus(
     }
 }
 
-/// Constraint-space contact sweep: tracks `a[s] = J_s · u` incrementally in
+/// Constraint-space contact iteration: tracks `a[s] = J_s · u` incrementally in
 /// workgroup memory using the precomputed Delassus rows, so each PGS
 /// iteration is a couple of shared-memory scalars plus one lane-parallel row
 /// update.
@@ -691,7 +691,7 @@ pub fn gpu_mb_solve_contacts_delassus(
     }
     workgroup_memory_barrier_with_group_sync();
 
-    // Fresh `a[s] = J_s · u` under the current (post-joint-sweep, post-
+    // Fresh `a[s] = J_s · u` under the current (post-joint-iteration, post-
     // warmstart) velocities.
     if active {
         for s in StepRng::new(lane..count, LANES) {
@@ -714,13 +714,13 @@ pub fn gpu_mb_solve_contacts_delassus(
     // their impulse can be capped to the friction cone; the second row is
     // handled by its sibling and skipped here.
     #[cfg(feature = "web-compat")]
-    let contact_sweep_len = *max_contact_constraints;
+    let contact_iteration_len = *max_contact_constraints;
     #[cfg(not(feature = "web-compat"))]
-    let contact_sweep_len = count;
+    let contact_iteration_len = count;
     #[cfg(not(feature = "web-compat"))]
     let _ = max_contact_constraints;
 
-    for s in 0..contact_sweep_len {
+    for s in 0..contact_iteration_len {
         let slot_active = active && s < count;
         let meta = if slot_active {
             meta_shared.read(s as usize)
@@ -732,7 +732,7 @@ pub fn gpu_mb_solve_contacts_delassus(
         let free_active = (meta >> 24) != 0;
         let is_tangent = kind == MB_CONTACT_KIND_TANGENT;
 
-        // Friction is solved during the stabilization sweep (and during the
+        // Friction is solved during the stabilization iteration (and during the
         // biased pass when `friction_in_bias_pass` is set); in 3D a tangent
         // pair is solved by its first row only.
         #[cfg(feature = "dim3")]

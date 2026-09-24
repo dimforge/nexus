@@ -123,7 +123,7 @@ impl GpuNarrowPhase {
         contacts: &mut Tensor<GpuIndexedContact>,
         contacts_indirect: &mut Tensor<[u32; 3]>,
         contact_plan: &mut Tensor<ContactPlan>,
-        mb_sweep_indirect: &mut Tensor<[u32; 3]>,
+        mb_dispatch_indirect: &mut Tensor<[u32; 3]>,
         pfm_pairs: &mut Tensor<NarrowPhasePfmPair>,
         pfm_pairs_len: &mut Tensor<u32>,
         pfm_pairs_indirect: &mut Tensor<[u32; 3]>,
@@ -170,8 +170,8 @@ impl GpuNarrowPhase {
             indices,
         )?;
 
-        // Clamped totals + every derived grid (contacts sweep, PFM sweep,
-        // multibody contact sweep) in one serial thread.
+        // Clamped totals + every derived grid (contacts dispatch, PFM dispatch,
+        // multibody contact dispatch) in one serial thread.
         self.shaders.contact_plan.call(
             pass,
             1u32,
@@ -181,7 +181,7 @@ impl GpuNarrowPhase {
             &mut pfm_sort.sort_len,
             contacts_indirect,
             pfm_pairs_indirect,
-            mb_sweep_indirect,
+            mb_dispatch_indirect,
             batch_indices,
         )?;
 

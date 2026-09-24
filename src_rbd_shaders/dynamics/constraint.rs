@@ -1,7 +1,7 @@
 //! Contact constraint data structures for the iterative solver.
 //!
 //! A [`TwoBodyConstraint`] is one contact manifold between two bodies. It is kept compact
-//! since every solver sweep streams it: each contact point only stores its lever arms,
+//! since every solver iteration streams it: each contact point only stores its lever arms,
 //! anchors, impulses and effective masses, and the constraint stores both bodies' inverse
 //! mass and (symmetric) world inverse inertia, from which the angular Jacobians are
 //! recomputed on the fly.

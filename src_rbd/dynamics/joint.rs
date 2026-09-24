@@ -309,7 +309,7 @@ impl GpuImpulseJointSet {
 
         // Build the flat joint buffer [num_batches * max_joints], padded with
         // zeroed joints and batch-interleaved (`joint * num_batches + batch`)
-        // so the solver's flat sweeps put the same joint of consecutive
+        // so the solver's flat dispatches put the same joint of consecutive
         // batches on adjacent lanes.
         let dummy_joint = ImpulseJoint::zeroed();
         let mut all_joints = vec![dummy_joint; num_batches as usize * max_joints as usize];

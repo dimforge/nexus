@@ -11,8 +11,9 @@ use crate::pipeline::RunStats;
 use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
     ContactLink, GpuClearCompletionFlagTopoGc, GpuColorBucketsCount, GpuColorBucketsReset,
-    GpuColorBucketsScatter, GpuColorSweepGrid, GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc,
-    GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
+    GpuColorBucketsScatter, GpuColorDispatchGrid, GpuFixConflictsTopoGc,
+    GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby,
+    GpuStepGraphColoringTopoGc,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -36,8 +37,8 @@ pub struct GpuColoring {
     fix_conflicts_topo_gc_kernel: GpuFixConflictsTopoGc,
     reset_completion_flag_topo_gc: GpuResetCompletionFlagTopoGc,
     clear_completion_flag_topo_gc: GpuClearCompletionFlagTopoGc,
-    /// Sizes the colored sweeps from the color buckets.
-    color_sweep_grid: GpuColorSweepGrid,
+    /// Sizes the colored dispatches from the color buckets.
+    color_dispatch_grid: GpuColorDispatchGrid,
     // Workspace for bucket-sorting constraint ids by color so each color iteration
     // only touches their own constraint.
     color_buckets_reset: GpuColorBucketsReset,
@@ -53,7 +54,7 @@ pub struct ColorBucketsArgs<'a> {
     pub constraints_colors: &'a Tensor<u32>,
     /// The links of the colored constraints (batch recovered from their global body ids).
     pub links: &'a Tensor<ContactLink>,
-    /// Clamped per-frame list totals (the flat contact sweep bound).
+    /// Clamped per-frame list totals (the flat contact dispatch bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// The single `(color, batch)` bucket buffer, color-major
     /// (`solver_color_buckets_stride * num_batches` entries): counts, then
@@ -68,8 +69,8 @@ pub struct ColorBucketsArgs<'a> {
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
     /// Output: `[largest bucket, highest color, size of colors 0..64]`.
     pub color_stats: &'a mut Tensor<u32>,
-    /// Output: the dispatch grid of the colored sweeps.
-    pub sweep_indirect: &'a mut Tensor<[u32; 3]>,
+    /// Output: the grid of the colored dispatches.
+    pub dispatch_indirect: &'a mut Tensor<[u32; 3]>,
 }
 
 /// Arguments for graph coloring dispatch.
@@ -97,7 +98,7 @@ pub struct ColoringArgs<'a> {
     pub uncolored: &'a mut Tensor<u32>,
     /// Staging buffer for reading uncolored count on CPU.
     pub uncolored_staging: &'a Tensor<u32>,
-    /// Clamped per-frame list totals (the flat contact sweep bound).
+    /// Clamped per-frame list totals (the flat contact dispatch bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// Buffer tracking which constraints are colored.
     pub colored: &'a mut Tensor<u32>,
@@ -268,7 +269,7 @@ impl GpuColoring {
 
     /// Bucket-sorts the constraint ids by `(color, batch)`: zero the buckets,
     /// count, exclusive-prefix-scan them in place, then scatter (which turns
-    /// the starts into exclusive ends, the form the sweeps read).
+    /// the starts into exclusive ends, the form the solve kernels read).
     pub fn dispatch_build_color_buckets(
         &self,
         backend: &GpuBackend,
@@ -303,12 +304,12 @@ impl GpuColoring {
             args.constraint_indices,
         )?;
         // A single workgroup reduces over the colors.
-        self.color_sweep_grid.call(
+        self.color_dispatch_grid.call(
             pass,
             64u32,
             &*args.color_buckets,
             args.color_stats,
-            args.sweep_indirect,
+            args.dispatch_indirect,
             args.batch_indices,
         )?;
         Ok(())

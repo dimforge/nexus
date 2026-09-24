@@ -203,7 +203,7 @@ impl IndexedManifold {
             point.r_a = dp1;
             point.r_b = dp2;
             // Anchors are stored in the solver-body (COM-centered) frame, matching rapier:
-            // the sweeps recover the world point as `solver_body_pose * local_pt`.
+            // the iterations recover the world point as `solver_body_pose * local_pt`.
             point.local_pt_a = spose1.inverse_transform_point(pt);
             point.local_pt_b = spose2.inverse_transform_point(pt);
             point.dist = contact.points_a.at(k).dist;
@@ -281,12 +281,12 @@ impl TwoBodyConstraint {
     }
 
     /// Main constraint solver iteration (Projected Gauss-Seidel). `solve_friction`
-    /// gates the tangent rows: the stabilization sweep always solves them, the
+    /// gates the tangent rows: the stabilization iteration always solves them, the
     /// biased pass only when `RbdSimParams::friction_in_bias_pass` is set.
     ///
     /// The normal right-hand sides are computed here from the current solver poses (rather
-    /// than stored by a separate pass): with bias for the biased sweep, without for the
-    /// relaxation sweep, which runs after the positions are integrated.
+    /// than stored by a separate pass): with bias for the biased iteration, without for the
+    /// relaxation iteration, which runs after the positions are integrated.
     #[inline(always)]
     pub fn solve_constraint_gauss_seidel(
         &mut self,
@@ -436,7 +436,7 @@ impl ContactSolverData {
             let rhs_wo_bias = point.normal_vel + dist.max(0.0) * inv_dt;
             let (rhs, cfm_factor) = if use_bias {
                 // Not `clamp`: its `min <= max` assertion exits the kernel early, which breaks
-                // the uniform control flow of the fused sweeps' barriers on the web.
+                // the uniform control flow of the fused iterations' barriers on the web.
                 let rhs_bias = (dist * erp_inv_dt).max(-max_corr_velocity).min(0.0);
                 // Separated (speculative) points are solved rigidly.
                 let cfm = if dist <= 0.0 { cfm_factor } else { 1.0 };
@@ -464,7 +464,7 @@ impl ContactSolverData {
             solver_vel2.angular += self.ii_b_mul(torque_dir_b) * delta_impulse;
         });
 
-        // Friction is solved during the stabilization sweep, and during the
+        // Friction is solved during the stabilization iteration, and during the
         // biased pass only when `friction_in_bias_pass` is set.
         if !solve_friction {
             return;

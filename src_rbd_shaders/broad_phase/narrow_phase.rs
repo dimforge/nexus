@@ -35,12 +35,12 @@ const WORKGROUP_SIZE: u32 = 64;
 /// `i`-th PFM entry (in sorted order when the sort runs) owns slot
 /// `pfm_base + i`. Every slot in `[0, bound)` is (re)written each frame by
 /// exactly one producer (`len = 0` when the pair yields no manifold), so no
-/// zeroing pass is needed and the flat consumers can sweep the whole bound.
+/// zeroing pass is needed and the flat consumers can cover the whole bound.
 #[derive(Copy, Clone, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 pub struct ContactPlan {
-    /// Total contact-slot bound (`pfm_base + pfm_len`): the sweep range of
+    /// Total contact-slot bound (`pfm_base + pfm_len`): the dispatch range of
     /// every flat contacts-keyed kernel.
     pub bound: u32,
     /// Clamped flat collision-pair total; also the base contact slot of the
@@ -64,8 +64,8 @@ pub fn gpu_reset_narrow_phase(
 }
 
 /// Publishes this frame's clamped list totals (the `contact_plan`) and every
-/// grid derived from them: the flat contacts sweep grid, the PFM sweep grid,
-/// the (clamped) PFM sort count, and the per-multibody contact sweep grid
+/// grid derived from them: the flat contacts dispatch grid, the PFM dispatch grid,
+/// the (clamped) PFM sort count, and the per-multibody contact dispatch grid
 /// (`[multibodies_batch_capacity, num_batches, 1]`, zero workgroups when the
 /// frame cannot produce any contact).
 ///
@@ -84,7 +84,7 @@ pub fn gpu_contact_plan(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] pfm_sort_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contacts_indirect: &mut [u32; 3],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pfm_indirect: &mut [u32; 3],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] mb_sweep_indirect: &mut [u32; 3],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] mb_dispatch_indirect: &mut [u32; 3],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
 ) {
     let pairs =
@@ -106,13 +106,13 @@ pub fn gpu_contact_plan(
     *pfm_indirect.at_mut(1) = 1;
     *pfm_indirect.at_mut(2) = 1;
 
-    *mb_sweep_indirect.at_mut(0) = if bound > 0 {
+    *mb_dispatch_indirect.at_mut(0) = if bound > 0 {
         batch_ids.multibodies_batch_capacity
     } else {
         0
     };
-    *mb_sweep_indirect.at_mut(1) = batch_ids.num_batches;
-    *mb_sweep_indirect.at_mut(2) = 1;
+    *mb_dispatch_indirect.at_mut(1) = batch_ids.num_batches;
+    *mb_dispatch_indirect.at_mut(2) = 1;
 }
 
 /// Copies each PFM entry's originating pair index into the flat sort-key
@@ -357,7 +357,7 @@ pub fn gpu_reduce_contacts(
 /// Contact slots are positional: pair `t` owns contact slot `t` and this pass
 /// writes every slot in `[0, pairs_total)` exactly once (`len = 0` when the
 /// pair yields no manifold here: separated, same-body, or deferred), so the
-/// flat consumers can sweep the whole bound without a zeroing pass.
+/// flat consumers can cover the whole bound without a zeroing pass.
 ///
 /// The complex cases (generic convex via PFM, trimesh, polyline) are deferred
 /// to `gpu_narrow_phase_shape_shape_deferred`.

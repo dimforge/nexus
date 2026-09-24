@@ -141,7 +141,7 @@ impl GpuMassSplitting {
         Ok(())
     }
 
-    /// Copies each hub's velocity into its sub-bodies, before a contact sweep.
+    /// Copies each hub's velocity into its sub-bodies, before a contact iteration.
     pub fn scatter(
         &self,
         pass: &mut GpuPass,
@@ -177,7 +177,7 @@ impl GpuMassSplitting {
         )
     }
 
-    /// Averages the sub-body velocities back into their hub, after a contact sweep.
+    /// Averages the sub-body velocities back into their hub, after a contact iteration.
     pub fn average(
         &self,
         pass: &mut GpuPass,

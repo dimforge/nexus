@@ -210,7 +210,7 @@ pub struct GpuMultibodySet {
 
     /// Per-batch slot counts for the interleaved impulse-joint buffers above
     /// (`mb_imp_joints_per_batch` is mirrored into `BatchIndices` as the flat
-    /// sweeps' loop bound; the others only size the buffers).
+    /// iterations' loop bound; the others only size the buffers).
     pub(super) mb_imp_joints_per_batch: u32,
     pub(super) mb_imp_joint_constraints_per_batch: u32,
     pub(super) mb_imp_joint_jacobians_per_batch: u32,
@@ -312,7 +312,7 @@ impl GpuMultibodySet {
         self.num_active_multibodies == 0 || self.links_per_batch == 0
     }
 
-    /// Number of colors used by the colored multibody impulse-joint sweeps.
+    /// Number of colors used by the colored multibody impulse-joint iterations.
     pub fn mb_imp_joint_num_colors(&self) -> u32 {
         self.mb_imp_joint_num_colors
     }

@@ -38,7 +38,7 @@ pub struct ConstraintSoftness {
     /// overshoots and jitters.
     pub erp_inv_dt: f32,
     /// Contact `1 / (1 + cfm_coeff)` — multiplies the contact impulse each PGS
-    /// sweep for constraint-force-mixing compliance.
+    /// iteration for constraint-force-mixing compliance.
     pub cfm_factor: f32,
     /// Geometric slop distance.
     pub allowed_lin_err: f32,
@@ -90,7 +90,7 @@ impl ConstraintSoftness {
 }
 
 /// Bias-mode uniform handed to the constraint solve kernels: the unbiased
-/// stabilization sweep, the biased pass with friction rows skipped (rapier's
+/// stabilization iteration, the biased pass with friction rows skipped (rapier's
 /// default scheduling), or the biased pass with friction rows solved
 /// (`RbdSimParams::friction_in_bias_pass`). The values double as indices into
 /// the solver's constant uniforms (`color_uniforms[c] == c`).
@@ -204,7 +204,7 @@ pub struct RbdSimParams {
     pub contact_merge_cos: f32,
 
     /// PGS iterations over the joint + contact constraints run per substep in
-    /// the biased pass (default: `1`). The rigid-body and multibody sweeps
+    /// the biased pass (default: `1`). The rigid-body and multibody iterations
     /// interleave, one iteration each, so both sides of a rigid-body/multibody
     /// contact converge at the same rate.
     ///
@@ -212,7 +212,7 @@ pub struct RbdSimParams {
     pub num_internal_pgs_iterations: u32,
 
     /// Nonzero: friction rows are also solved during the biased pass instead
-    /// of only during the unbiased stabilization sweep (default: `0`, matching
+    /// of only during the unbiased stabilization iteration (default: `0`, matching
     /// rapier's `friction_in_bias_pass`). Turning it on gives friction as many
     /// PGS iterations as the normal rows, which stiffens grasps and resting
     /// contacts at a small cost per iteration.

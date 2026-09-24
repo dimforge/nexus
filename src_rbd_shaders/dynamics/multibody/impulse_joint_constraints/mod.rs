@@ -11,7 +11,7 @@
 //!   3. `gpu_mb_solve_impulse_joint_constraints` — one PGS iteration, updates both
 //!      sides' velocities.
 //!   4. `gpu_mb_remove_impulse_joint_constraint_bias` — strips the positional
-//!      bias from `rhs` before the stabilization sweep.
+//!      bias from `rhs` before the stabilization iteration.
 
 mod helper;
 mod jacobians;

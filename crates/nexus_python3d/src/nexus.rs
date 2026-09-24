@@ -1179,9 +1179,9 @@ impl NexusState {
     /// tolerated penetration in length units, `max_corrective_velocity` caps
     /// penetration recovery, `prediction_distance` is the contact detection
     /// margin, `internal_pgs_iterations` the biased-pass PGS iterations per
-    /// substep (rigid-body and multibody sweeps alike), and `friction_in_bias_pass` whether friction
+    /// substep (rigid-body and multibody alike), and `friction_in_bias_pass` whether friction
     /// rows are solved in every biased PGS iteration instead of only in the
-    /// per-substep stabilization sweep (rapier's default, `False`); `True`
+    /// per-substep stabilization iteration (rapier's default, `False`); `True`
     /// gives friction as many iterations as the normal rows, which holds
     /// grasps and resting contacts far more firmly. `friction_model` is
     /// "coulomb" (default, friction at each contact) or "simplified" (Rapier's
