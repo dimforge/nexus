@@ -244,70 +244,83 @@ pub fn gpu_mb_count_contact_constraints(
     }
 }
 
-/// Turns the per-(multibody, batch) predictions into dynamic segments:
-/// contact-constraint segments (`MultibodyInfo::contact_constraint_start/
-/// count`, exclusive prefix cumulatively clamped to the buffer capacity so
-/// the emission never overruns) and contact-index segments
-/// (`contact_index_start/len`, unclamped: the index buffer is sized like the
-/// contacts buffer and each contact owns at most one entry). Also publishes
-/// the total slot demand for the host's auto-resize readback, and re-zeroes
-/// `mb_cons_counts` for the next frame (`mb_index_counts` stays: the scatter
-/// pass counts it down as its write cursors). Serial in one thread (the
-/// multibody count per scene is small).
+/// Turns per-multibody predictions into contact-slot and contact-index segments.
+/// One workgroup scans contiguous chunks in parallel, then scans the chunk
+/// totals in shared memory. The reserved slots and the extra-budget prefix use
+/// the same multibody order as the serial allocator, including under overflow.
+/// No extra device buffers or dispatches are needed.
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(256)))]
 pub fn gpu_mb_cons_offsets_scan(
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     multibody_info: &mut [MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mb_cons_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] mb_index_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_cons_demand: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] sums: &mut [UVec3; 256],
 ) {
-    // The interleaved `multibody_info` layout makes the active multibodies of
-    // every batch the contiguous prefix `[0, multibodies_len * num_batches)`.
+    // Active infos form a contiguous prefix despite the batch interleave.
     let total_infos = batch_ids.multibodies_len * batch_ids.num_batches;
     let capacity = batch_ids.mb_contact_constraints_capacity;
+    let lane = local_id.x;
+    let chunk = total_infos.div_ceil(256);
+    let begin = lane * chunk;
+    let end = (begin + chunk).min(total_infos);
 
-    let mut demand = 0u32;
-    let mut reserved_total = 0u32;
-    for i in 0..total_infos {
+    // x: reserved slots, y: extra slots, z: contact-index entries.
+    let mut sum = UVec3::ZERO;
+    for i in begin..end {
         let count = atomic_load_u32(mb_cons_counts.at_mut(i as usize));
-        demand += count;
-        reserved_total += count.min(MB_CONS_SLOT_RESERVE);
+        let reserve = count.min(MB_CONS_SLOT_RESERVE);
+        let indices = atomic_load_u32(mb_index_counts.at_mut(i as usize));
+        sum += UVec3::new(reserve, count - reserve, indices);
     }
-    // NOTE: not `saturating_sub`, which rust-gpu fails to compile.
+    sums.write(lane as usize, sum);
+    for shift in 0..8u32 {
+        workgroup_memory_barrier_with_group_sync();
+        if lane >= (1 << shift) {
+            sum += sums.read((lane - (1 << shift)) as usize);
+        }
+        workgroup_memory_barrier_with_group_sync();
+        sums.write(lane as usize, sum);
+    }
+    workgroup_memory_barrier_with_group_sync();
+    let total = sums.read(255);
+    let mut prefix = if lane == 0 {
+        UVec3::ZERO
+    } else {
+        sums.read((lane - 1) as usize)
+    };
+    // Avoid saturating_sub: rust-gpu does not compile it on this target.
     #[allow(clippy::implicit_saturating_sub)]
-    let mut extra_budget = if capacity > reserved_total {
-        capacity - reserved_total
+    let extra_budget = if capacity > total.x {
+        capacity - total.x
     } else {
         0
     };
 
-    let mut acc = 0u32;
-    let mut index_acc = 0u32;
-    for i in 0..total_infos {
+    for i in begin..end {
         let mut mb = multibody_info.read(i as usize);
         let count = atomic_load_u32(mb_cons_counts.at_mut(i as usize));
         let reserve = count.min(MB_CONS_SLOT_RESERVE);
-        let extra = (count - reserve).min(extra_budget);
-        extra_budget -= extra;
-        let start = acc.min(capacity);
-        let avail = (reserve + extra).min(capacity - start);
+        let extra = count - reserve;
+        let start = (prefix.x + prefix.y.min(extra_budget)).min(capacity);
+        let extra_left = extra_budget - prefix.y.min(extra_budget);
+        let avail = (reserve + extra.min(extra_left)).min(capacity - start);
         mb.contact_constraint_start = start;
         mb.contact_constraint_count = avail;
-        acc = start + avail;
-
-        mb.contact_index_start = index_acc;
+        mb.contact_index_start = prefix.z;
         mb.contact_index_len = atomic_load_u32(mb_index_counts.at_mut(i as usize));
-        index_acc += mb.contact_index_len;
-
+        prefix += UVec3::new(reserve, extra, mb.contact_index_len);
         multibody_info.write(i as usize, mb);
-        // Zeroed for the next frame's count pass. `mb_index_counts` is left as
-        // is: the scatter counts it back down to zero.
+        // The index scatter consumes and clears mb_index_counts separately.
         mb_cons_counts.write(i as usize, 0);
     }
-    mb_cons_demand.write(0, demand);
+    if lane == 0 {
+        mb_cons_demand.write(0, total.x + total.y);
+    }
 }
 
 /// Builds the contact→multibody index: one flat dispatch over the contacts,
