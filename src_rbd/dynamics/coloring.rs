@@ -10,14 +10,17 @@
 use crate::pipeline::RunStats;
 use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
-    ContactLink, GpuClearCompletionFlagTopoGc, GpuColorBucketsCount, GpuColorBucketsReset,
-    GpuColorBucketsScatter, GpuColorDispatchGrid, GpuFixConflictsTopoGc,
+    ColorStats, ContactLink, GpuClearCompletionFlagTopoGc, GpuColorBucketsCount,
+    GpuColorBucketsReset, GpuColorBucketsScatter, GpuColorDispatchGrid, GpuFixConflictsTopoGc,
     GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby,
     GpuStepGraphColoringTopoGc,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
-use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuPass};
+use khal::backend::{
+    AsGpuSlice, AsGpuSliceMut, Backend, Encoder, GpuBackend, GpuBackendError, GpuBufferSlice,
+    GpuBufferSliceMut, GpuPass,
+};
 use vortx::tensor::Tensor;
 
 /// GPU shaders for constraint graph coloring.
@@ -46,6 +49,27 @@ pub struct GpuColoring {
     color_buckets_scatter: GpuColorBucketsScatter,
 }
 
+/// The [`ColorStats`] of a step. Stored as words so the resize readback can gather them with the
+/// other `u32` counters, and seen by the kernels as a [`ColorStats`].
+pub struct ColorStatsBuffer(pub(crate) Tensor<u32>);
+
+impl ColorStatsBuffer {
+    /// Number of `u32` words in a [`ColorStats`].
+    pub(crate) const WORDS: usize = size_of::<ColorStats>() / size_of::<u32>();
+}
+
+impl AsGpuSlice<ColorStats> for ColorStatsBuffer {
+    fn as_gpu_slice(&self) -> GpuBufferSlice<'_, ColorStats> {
+        self.0.buffer_slice().reinterpret()
+    }
+}
+
+impl AsGpuSliceMut<ColorStats> for ColorStatsBuffer {
+    fn as_gpu_slice_mut(&mut self) -> GpuBufferSliceMut<'_, ColorStats> {
+        self.0.buffer_slice_mut().reinterpret()
+    }
+}
+
 /// Buffers for the per-color constraint bucket sort.
 pub struct ColorBucketsArgs<'a> {
     /// Flat dispatch grid over the whole contacts range.
@@ -68,7 +92,7 @@ pub struct ColorBucketsArgs<'a> {
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
     /// Output: `[largest bucket, highest color, size of colors 0..64]`.
-    pub color_stats: &'a mut Tensor<u32>,
+    pub color_stats: &'a mut ColorStatsBuffer,
     /// Output: the grid of the colored dispatches.
     pub dispatch_indirect: &'a mut Tensor<[u32; 3]>,
 }

@@ -214,7 +214,7 @@ tile_kernel!(GpuHubWarmstartConstraints, tiles, [], (
     solver_vels: &mut Tensor<Velocity>,
     tiles: &ContactTiles,
     hub_slot_constraint: &Tensor<u32>,
-    hub_counts: &Tensor<u32>,
+    hub_counts: &Tensor<crate::shaders::dynamics::HubCounts>,
     constraint_indices: &Tensor<u32>,
 ));
 

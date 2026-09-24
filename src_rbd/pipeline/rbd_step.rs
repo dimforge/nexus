@@ -4,8 +4,9 @@ use crate::broad_phase::{GpuNarrowPhase, Lbvh};
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySolver;
 use crate::dynamics::{
-    CanonicalContactsArgs, ColoringArgs, GpuCanonicalOrder, GpuColoring, GpuJointSolver,
-    GpuMassSplitting, GpuMpropsUpdate, GpuSolver, GpuWarmstart, JointSolverArgs, SolverArgs,
+    CanonicalContactsArgs, ColorStatsBuffer, ColoringArgs, GpuCanonicalOrder, GpuColoring,
+    GpuJointSolver, GpuMassSplitting, GpuMpropsUpdate, GpuSolver, GpuWarmstart, JointSolverArgs,
+    SolverArgs,
 };
 use crate::shaders::broad_phase::LbvhNode;
 use crate::utils::GpuPrefixSum;
@@ -13,8 +14,10 @@ use khal::Shader;
 
 use super::lbvh_validation::validate_lbvh_topology;
 use super::rbd_state::*;
+use bytemuck::Zeroable;
 use khal::BufferUsages;
 use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuTimestamps};
+use std::slice;
 use vortx::tensor::Tensor;
 
 /// The main GPU physics pipeline coordinating all simulation stages.
@@ -684,20 +687,17 @@ impl RbdPipeline {
             != RbdResizePolicy::Fixed
             || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
 
-        // The readback holds `[total collision-pair count, total PFM-pair
-        // count, coloring converged, highest color in use]` (+ the multibody
-        // contact-constraint demand on dim3).
-        #[cfg(feature = "dim3")]
-        let mut counts = [0u32; 5 + 64];
-        #[cfg(not(feature = "dim3"))]
-        let mut counts = [0u32; 4 + 64];
-        if state.resize_readback.try_take(backend, &mut counts) {
-            let sizes = &counts[counts.len() - 64..];
+        let mut feedback = ResizeFeedback::zeroed();
+        if state.resize_readback.try_take(
+            backend,
+            bytemuck::cast_slice_mut(slice::from_mut(&mut feedback)),
+        ) {
+            let stats = feedback.color_stats;
             for (threads, size) in state
                 .coloring_dispatch
                 .dispatch_threads
                 .iter_mut()
-                .zip(sizes)
+                .zip(&stats.sizes)
             {
                 // Always launch some work, even if the previous frame's bucket was empty.
                 // A stale/small hint only changes how much the shader's for loop strides.
@@ -706,8 +706,8 @@ impl RbdPipeline {
             // Empty/short late colors share one workgroup. An old hint never skips
             // contacts: if the graph changes, that workgroup simply does more work.
             // Color 64 has no individual readback slot, so require it to be unused.
-            state.coloring_dispatch.fuse_tail_colors = counts[3] < 64
-                && sizes[crate::shaders::dynamics::contact_tiles::TAIL_COLOR as usize..]
+            state.coloring_dispatch.fuse_tail_colors = stats.highest_color < 64
+                && stats.sizes[crate::shaders::dynamics::contact_tiles::TAIL_COLOR as usize..]
                     .iter()
                     .map(|&n| n as u64)
                     .sum::<u64>()
@@ -715,9 +715,9 @@ impl RbdPipeline {
             // TODO: make the coloring update optional (and pre-configurable) too?
             // The flat pair and PFM work-lists share one buffer capacity, so
             // whichever is larger drives that resize.
-            let pairs_len = counts[0].max(counts[1]);
-            let coloring_converged = counts[2];
-            state.collision_pairs_len_cpu = Some(counts[0]);
+            let pairs_len = feedback.collision_pairs.max(feedback.pfm_pairs);
+            let coloring_converged = feedback.coloring_converged;
+            state.collision_pairs_len_cpu = Some(feedback.collision_pairs);
             let nb = state.num_batches;
 
             // TODO: Fit will act like Grow. To be able to auto-shrink the max color count, we need
@@ -727,7 +727,7 @@ impl RbdPipeline {
                 .capacities
                 .minimum_solver_colors(
                     state.num_active_colliders,
-                    (coloring_converged != 0).then_some(counts[3]),
+                    (coloring_converged != 0).then_some(stats.highest_color),
                 )
                 .max(1);
             let grow_colors = state.capacities.solver_colors_resize_policy
@@ -736,7 +736,7 @@ impl RbdPipeline {
                 && !state.rb_contacts_inert;
             // Every color costs a coloring iteration and a dispatch per iteration: once the
             // coloring converges, shrink the budget back to a few colors above those in use.
-            let highest_color = counts[3];
+            let highest_color = stats.highest_color;
             let shrink_colors = state.capacities.solver_colors_resize_policy
                 != RbdResizePolicy::Fixed
                 && coloring_converged != 0
@@ -763,7 +763,7 @@ impl RbdPipeline {
 
             #[cfg(feature = "dim3")]
             let (resize_mb, new_mb) = {
-                let mb_demand = counts[4];
+                let mb_demand = feedback.mb_cons_demand;
                 state.mb_cons_demand_cpu = mb_demand;
                 let mb_capacity = state.multibodies.contact_constraints_capacity();
                 let safe_mb = mb_demand.saturating_add(mb_demand / 4);
@@ -881,29 +881,24 @@ impl RbdPipeline {
 
         if readback_enabled && state.stepped_since_readback && state.resize_readback.is_idle() {
             state.stepped_since_readback = false;
-            #[cfg(feature = "dim3")]
-            state.resize_readback.request(
-                backend,
-                &[
-                    (state.collision_pairs_len.buffer(), 0, 1),
-                    (state.pfm_pairs_len.buffer(), 0, 1),
-                    (state.uncolored.buffer(), 0, 1),
-                    (state.coloring_dispatch.color_stats.buffer(), 1, 1),
-                    (state.multibodies.mb_cons_demand().buffer(), 0, 1),
-                    (state.coloring_dispatch.color_stats.buffer(), 2, 64),
-                ],
-            )?;
-            #[cfg(not(feature = "dim3"))]
-            state.resize_readback.request(
-                backend,
-                &[
-                    (state.collision_pairs_len.buffer(), 0, 1),
-                    (state.pfm_pairs_len.buffer(), 0, 1),
-                    (state.uncolored.buffer(), 0, 1),
-                    (state.coloring_dispatch.color_stats.buffer(), 1, 1),
-                    (state.coloring_dispatch.color_stats.buffer(), 2, 64),
-                ],
-            )?;
+            // Gathered in the field order of `ResizeFeedback`.
+            let sources = [
+                (state.collision_pairs_len.buffer(), 0, 1),
+                (state.pfm_pairs_len.buffer(), 0, 1),
+                (state.uncolored.buffer(), 0, 1),
+                #[cfg(feature = "dim3")]
+                (state.multibodies.mb_cons_demand().buffer(), 0, 1),
+                (
+                    state.coloring_dispatch.color_stats.0.buffer(),
+                    0,
+                    ColorStatsBuffer::WORDS,
+                ),
+            ];
+            debug_assert_eq!(
+                sources.iter().map(|s| s.2).sum::<usize>(),
+                ResizeFeedback::WORDS
+            );
+            state.resize_readback.request(backend, &sources)?;
         }
 
         Ok(())

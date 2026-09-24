@@ -3,11 +3,12 @@
 use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, LbvhState, PfmSortState};
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
-use crate::dynamics::{GpuImpulseJointSet, HubState};
+use crate::dynamics::{ColorStatsBuffer, GpuImpulseJointSet, HubState};
 use crate::math::{Pose, Vector};
 use crate::queries::{GpuColliderMaterial, GpuIndexedContact};
 use crate::shaders::PaddedVector;
 use crate::shaders::broad_phase::{CollisionPair, ContactPlan, LbvhNode, NarrowPhasePfmPair};
+use crate::shaders::dynamics::ColorStats;
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
@@ -196,8 +197,31 @@ pub(crate) struct ColoringDispatch {
     /// Whether the sparse colors from `TAIL_COLOR` are solved by a single workgroup. Hint
     /// only: that workgroup still visits the full current GPU bucket range.
     pub(crate) fuse_tail_colors: bool,
-    /// `[largest bucket, highest color, size of color 0, ..., size of color 63]`.
-    pub(crate) color_stats: Tensor<u32>,
+    /// The color statistics of the current step.
+    pub(crate) color_stats: ColorStatsBuffer,
+}
+
+/// The counters read back after each step, to resize the buffers and size the next dispatches.
+/// [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers)
+/// gathers them in field order.
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub(super) struct ResizeFeedback {
+    /// Total collision-pair count, over all batches.
+    pub collision_pairs: u32,
+    /// Total PFM work-list count, over all batches.
+    pub pfm_pairs: u32,
+    /// Non-zero when the topo-gc coloring converged.
+    pub coloring_converged: u32,
+    /// Total multibody contact-constraint demand.
+    #[cfg(feature = "dim3")]
+    pub mb_cons_demand: u32,
+    pub color_stats: ColorStats,
+}
+
+impl ResizeFeedback {
+    /// Number of `u32` words in a [`ResizeFeedback`].
+    pub(super) const WORDS: usize = size_of::<ResizeFeedback>() / size_of::<u32>();
 }
 
 impl ColoringDispatch {
@@ -208,12 +232,14 @@ impl ColoringDispatch {
             dispatch_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
             dispatch_threads: [0; 64],
             fuse_tail_colors: false,
-            color_stats: Tensor::vector(
-                backend,
-                vec![0u32; 66],
-                BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-            )
-            .unwrap(),
+            color_stats: ColorStatsBuffer(
+                Tensor::vector(
+                    backend,
+                    vec![0u32; ColorStatsBuffer::WORDS],
+                    BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+                )
+                .unwrap(),
+            ),
         }
     }
 }
@@ -276,8 +302,7 @@ pub struct RbdState {
     /// Single global live collision-pair count (length 1): every batch appends
     /// to the same flat pair buffer.
     pub(super) collision_pairs_len: Tensor<u32>,
-    /// Non-blocking readback of `[collision_pairs_len, pfm_pairs_len,
-    /// uncolored]` used by
+    /// Non-blocking readback of the [`ResizeFeedback`] words, used by
     /// [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers)
     /// to grow buffers without stalling.
     pub(super) resize_readback: GpuReadback<u32>,

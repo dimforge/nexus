@@ -35,7 +35,12 @@ fn hub_list_split_matches_full_adjacency_scan() {
         .collect();
     let first = [NOT_A_HUB, 0, 84, NOT_A_HUB, NOT_A_HUB, NOT_A_HUB];
     for hubs in [0, 1, 2] {
-        let hub_counts = [hubs, hubs * 84, bodies as u32, 192];
+        let hub_counts = HubCounts {
+            hubs,
+            slots: hubs * 84,
+            base: bodies as u32,
+            pool: 192,
+        };
         let hub_list = [1u32, 2];
         let mut expected = initial.clone();
         let mut expected_bodies = vec![u32::MAX; 192];

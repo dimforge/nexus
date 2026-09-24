@@ -6,7 +6,8 @@
 use super::contact_kernels::{ContactTiles, GpuHubWarmstartConstraints};
 use crate::shaders::dynamics::{
     ContactLink, GpuHubAssign, GpuHubAverage, GpuHubDispatch, GpuHubScatter,
-    GpuHubSplitConstraints, HUB_MIN_CONSTRAINTS, NOT_A_HUB, Velocity, WorldMassProperties,
+    GpuHubSplitConstraints, HUB_MIN_CONSTRAINTS, HubCounts, NOT_A_HUB, Velocity,
+    WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::backend::{GpuBackend, GpuBackendError, GpuPass};
@@ -23,8 +24,8 @@ pub struct HubState {
     slot_body: Tensor<u32>,
     /// Per sub-body slot: the constraint acting on it.
     slot_constraint: Tensor<u32>,
-    /// `[hubs, slots, first sub-body slot index, slot capacity]`.
-    pub(crate) counts: Tensor<u32>,
+    /// The hub counters of the current step.
+    pub(crate) counts: Tensor<HubCounts>,
     /// Dispatch grid over the allocated sub-body slots.
     slots_indirect: Tensor<[u32; 3]>,
     /// Dispatch grid of the averaging kernel (one workgroup per hub).
@@ -47,9 +48,14 @@ impl HubState {
             list: Tensor::vector(backend, vec![0u32; max_hubs], storage).unwrap(),
             slot_body: Tensor::vector(backend, vec![0u32; pool], storage).unwrap(),
             slot_constraint: Tensor::vector(backend, vec![0u32; pool], storage).unwrap(),
-            counts: Tensor::vector(
+            counts: Tensor::scalar(
                 backend,
-                vec![0, 0, num_body_slots as u32, pool as u32],
+                HubCounts {
+                    hubs: 0,
+                    slots: 0,
+                    base: num_body_slots as u32,
+                    pool: pool as u32,
+                },
                 storage,
             )
             .unwrap(),

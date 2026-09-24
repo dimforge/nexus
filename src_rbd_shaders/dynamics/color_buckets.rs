@@ -191,10 +191,18 @@ pub fn gpu_color_buckets_scatter(
     }
 }
 
-/// Index of the largest color bucket (all batches) in the color stats buffer.
-pub const COLOR_STATS_MAX_BUCKET: usize = 0;
-/// Index of the highest non-empty color in the color stats buffer.
-pub const COLOR_STATS_MAX_COLOR: usize = 1;
+/// Statistics of the colored constraints, read back to size the next step's dispatches.
+#[derive(Copy, Clone, PartialEq, Debug)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct ColorStats {
+    /// Size of the largest color bucket, over all batches.
+    pub max_bucket: u32,
+    /// Highest non-empty color.
+    pub highest_color: u32,
+    /// Size of each of the colors `0..64`, over all batches.
+    pub sizes: [u32; 64],
+}
 
 /// Sizes the colored dispatches from the color buckets: their grid only needs to cover the
 /// largest color (the solve kernels stride over their bucket), not every contact. Also records the
@@ -204,7 +212,7 @@ pub const COLOR_STATS_MAX_COLOR: usize = 1;
 pub fn gpu_color_dispatch_grid(
     #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] color_buckets: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] color_stats: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] color_stats: &mut ColorStats,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] dispatch_indirect: &mut [[u32; 3]],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
     #[spirv(workgroup)] max_sizes: &mut [u32; 64],
@@ -224,7 +232,7 @@ pub fn gpu_color_dispatch_grid(
     } else {
         0
     };
-    color_stats.write(2 + lane, size);
+    color_stats.sizes.write(lane, size);
 
     let mut max_size = 0u32;
     let mut max_color = 0u32;
@@ -255,8 +263,8 @@ pub fn gpu_color_dispatch_grid(
 
     if lane == 0 {
         let max_size = max_sizes.read(0);
-        color_stats.write(COLOR_STATS_MAX_BUCKET, max_size);
-        color_stats.write(COLOR_STATS_MAX_COLOR, max_colors.read(0));
+        color_stats.max_bucket = max_size;
+        color_stats.highest_color = max_colors.read(0);
         // Every color shares this grid. Limit the empty workgroups in the smaller buckets;
         // the solve kernels stride over large buckets, so no constraints are skipped.
         dispatch_indirect.write(0, [max_size.div_ceil(WORKGROUP_SIZE).min(256), 1, 1]);

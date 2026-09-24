@@ -5,7 +5,7 @@ pub use crate::shaders::dynamics::FrictionModel;
 pub use crate::shaders::dynamics::RbdSimParams;
 pub use body::{BodyCoupling, BodyCouplingEntry, BodyDesc, GpuBodySet};
 pub use canonical_order::{CanonicalContactsArgs, GpuCanonicalOrder, contact_sort_collider_shift};
-pub use coloring::{ColorBucketsArgs, ColoringArgs, GpuColoring};
+pub use coloring::{ColorBucketsArgs, ColorStatsBuffer, ColoringArgs, GpuColoring};
 pub use contact_kernels::{ContactConstraints, ContactImpulseSnapshot, ContactTiles};
 pub use contact_recycling::ContactRecycleStates;
 pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs, convert_joint_motor};

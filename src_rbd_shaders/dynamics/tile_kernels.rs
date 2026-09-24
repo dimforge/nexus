@@ -8,7 +8,7 @@
 use super::*;
 use crate::broad_phase::ContactPlan;
 use crate::dynamics::contact_tiles::{TAIL_COLOR, tile_lane};
-use crate::dynamics::mass_splitting::{HUB_COUNT_BASE, HUB_COUNT_POOL, HUB_COUNT_SLOTS, NOT_A_HUB};
+use crate::dynamics::mass_splitting::{HubCounts, NOT_A_HUB};
 use crate::dynamics::{
     ContactLink, ContactRecycleOffsets, ContactRecycleState, WorldMassProperties, decode_bias_mode,
 };
@@ -450,15 +450,12 @@ pub fn gpu_hub_warmstart_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] solver_vels: &mut [Velocity],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] tiles: &[ContactTile],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] hub_slot_constraint: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] hub_counts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] hub_counts: &HubCounts,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] constraint_indices: &[u32],
 ) {
     let slot = invocation_id.x;
-    let slots = hub_counts
-        .read(HUB_COUNT_SLOTS)
-        .min(hub_counts.read(HUB_COUNT_POOL));
-    if slot < slots {
-        let vel_slot = hub_counts.read(HUB_COUNT_BASE) + slot;
+    if slot < hub_counts.live_slots() {
+        let vel_slot = hub_counts.base + slot;
         let index =
             constraint_indices.read(hub_slot_constraint.read(slot as usize) as usize) as usize;
         let h = header(tiles, index);

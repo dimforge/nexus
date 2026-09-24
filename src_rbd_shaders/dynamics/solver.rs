@@ -10,7 +10,7 @@ use crate::{AngVector, Pose, Vector};
 use khal_std::{index::MaybeIndexUnchecked, iter::StepRng, sync::atomic_add_u32};
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
-use super::mass_splitting::{HUB_COUNT_HUBS, HUB_COUNT_SLOTS, NOT_A_HUB};
+use super::mass_splitting::{HubCounts, NOT_A_HUB};
 use super::sim_params::RbdSimParams;
 
 use crate::queries::IndexedManifold;
@@ -125,14 +125,14 @@ pub fn gpu_solver_cleanup(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] mprops: &[WorldMassProperties],
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
     #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] hub_first_slot: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 4)] hub_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 4)] hub_counts: &mut HubCounts,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let num_slots = batch_ids.colliders_batch_capacity * batch_ids.num_batches;
 
     if invocation_id.x == 0 {
-        hub_counts.write(HUB_COUNT_HUBS, 0);
-        hub_counts.write(HUB_COUNT_SLOTS, 0);
+        hub_counts.hubs = 0;
+        hub_counts.slots = 0;
     }
 
     for i in StepRng::new(invocation_id.x..num_slots, num_threads) {

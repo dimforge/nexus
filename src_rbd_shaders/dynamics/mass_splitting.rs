@@ -29,16 +29,40 @@ pub const HUB_MIN_CONSTRAINTS: u32 = 32;
 /// Marks a body that isn't split in `hub_first_slot`.
 pub const NOT_A_HUB: u32 = u32::MAX;
 
-/// Index of the number of hubs in the `hub_counts` buffer.
-pub const HUB_COUNT_HUBS: usize = 0;
-/// Index of the number of allocated sub-body slots in the `hub_counts` buffer.
-pub const HUB_COUNT_SLOTS: usize = 1;
-/// Index of the first sub-body velocity slot (the number of regular body slots).
-pub const HUB_COUNT_BASE: usize = 2;
-/// Index of the sub-body slot capacity.
-pub const HUB_COUNT_POOL: usize = 3;
-/// Length of the `hub_counts` buffer.
-pub const HUB_COUNTS_LEN: usize = 4;
+/// The counters shared by the mass splitting kernels.
+#[derive(Copy, Clone, Default, PartialEq, Debug)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(C)]
+pub struct HubCounts {
+    /// Number of hubs picked this step, possibly past the hub list capacity.
+    pub hubs: u32,
+    /// Number of sub-body slots requested this step, possibly past `pool`.
+    pub slots: u32,
+    /// First sub-body velocity slot (the number of regular body slots).
+    pub base: u32,
+    /// Sub-body slot capacity.
+    pub pool: u32,
+}
+
+impl HubCounts {
+    /// Capacity of the hub list.
+    #[inline(always)]
+    pub fn max_hubs(&self) -> u32 {
+        self.pool / HUB_MIN_CONSTRAINTS + 1
+    }
+
+    /// Number of hubs recorded in the hub list.
+    #[inline(always)]
+    pub fn live_hubs(&self) -> u32 {
+        self.hubs.min(self.max_hubs())
+    }
+
+    /// Number of sub-body slots in use.
+    #[inline(always)]
+    pub fn live_slots(&self) -> u32 {
+        self.slots.min(self.pool)
+    }
+}
 
 /// Number of workgroups averaging the sub-bodies back into their hubs (at most).
 pub const HUB_AVERAGE_WORKGROUPS: u32 = 256;
@@ -68,14 +92,14 @@ pub fn gpu_hub_assign(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_group: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] hub_first_slot: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] hub_list: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] hub_counts: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] hub_counts: &mut HubCounts,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let num_slots = batch_ids.colliders_batch_capacity * batch_ids.num_batches;
     let counts = Slice(body_constraint_counts, 0);
-    let pool = hub_counts.read(HUB_COUNT_POOL);
-    let max_hubs = pool / HUB_MIN_CONSTRAINTS + 1;
+    let pool = hub_counts.pool;
+    let max_hubs = hub_counts.max_hubs();
 
     for body in StepRng::new(invocation_id.x..num_slots, num_threads) {
         let (first, last) = constraint_range(&counts, body);
@@ -86,9 +110,9 @@ pub fn gpu_hub_assign(
             && mprops.at(body as usize).inv_mass != Vector::ZERO;
 
         if splittable {
-            let s0 = atomic_add_u32(hub_counts.at_mut(HUB_COUNT_SLOTS), n);
+            let s0 = atomic_add_u32(&mut hub_counts.slots, n);
             if s0 + n <= pool {
-                let k = atomic_add_u32(hub_counts.at_mut(HUB_COUNT_HUBS), 1);
+                let k = atomic_add_u32(&mut hub_counts.hubs, 1);
                 if k < max_hubs {
                     hub_first_slot.write(body as usize, s0);
                     hub_list.write(k as usize, body);
@@ -115,13 +139,12 @@ pub fn gpu_hub_split_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints: &mut [ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] hub_slot_body: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] hub_slot_constraint: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] hub_counts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] hub_counts: &HubCounts,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] hub_list: &[u32],
 ) {
     let counts = Slice(body_constraint_counts, 0);
-    let base = hub_counts.read(HUB_COUNT_BASE);
-    let max_hubs = hub_counts.read(HUB_COUNT_POOL) / HUB_MIN_CONSTRAINTS + 1;
-    let hubs = hub_counts.read(HUB_COUNT_HUBS).min(max_hubs);
+    let base = hub_counts.base;
+    let hubs = hub_counts.live_hubs();
     for hub in StepRng::new(workgroup_id.x..hubs, num_workgroups.x) {
         let body = hub_list.read(hub as usize);
         let s0 = hub_first_slot.read(body as usize);
@@ -150,14 +173,12 @@ pub fn gpu_hub_split_constraints(
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_hub_dispatch(
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] hub_counts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] hub_counts: &HubCounts,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] slots_indirect: &mut [[u32; 3]],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] average_indirect: &mut [[u32; 3]],
 ) {
-    let pool = hub_counts.read(HUB_COUNT_POOL);
-    let slots = hub_counts.read(HUB_COUNT_SLOTS).min(pool);
-    let max_hubs = pool / HUB_MIN_CONSTRAINTS + 1;
-    let hubs = hub_counts.read(HUB_COUNT_HUBS).min(max_hubs);
+    let slots = hub_counts.live_slots();
+    let hubs = hub_counts.live_hubs();
     slots_indirect.write(0, [slots.div_ceil(WORKGROUP_SIZE), 1, 1]);
     average_indirect.write(0, [hubs.min(HUB_AVERAGE_WORKGROUPS), 1, 1]);
 }
@@ -169,14 +190,11 @@ pub fn gpu_hub_scatter(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] solver_vels: &mut [Velocity],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] hub_slot_body: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] hub_counts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] hub_counts: &HubCounts,
 ) {
     let slot = invocation_id.x;
-    let slots = hub_counts
-        .read(HUB_COUNT_SLOTS)
-        .min(hub_counts.read(HUB_COUNT_POOL));
-    if slot < slots {
-        let base = hub_counts.read(HUB_COUNT_BASE);
+    if slot < hub_counts.live_slots() {
+        let base = hub_counts.base;
         let body = hub_slot_body.read(slot as usize);
         let vel = solver_vels.read(body as usize);
         solver_vels.write((base + slot) as usize, vel);
@@ -194,16 +212,14 @@ pub fn gpu_hub_average(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] hub_list: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] hub_first_slot: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_constraint_counts: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] hub_counts: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] hub_counts: &HubCounts,
     #[spirv(workgroup)] linear_sums: &mut [Vector; 64],
     #[spirv(workgroup)] angular_sums: &mut [AngVector; 64],
 ) {
     let lane = local_id.x as usize;
     let counts = Slice(body_constraint_counts, 0);
-    let pool = hub_counts.read(HUB_COUNT_POOL);
-    let base = hub_counts.read(HUB_COUNT_BASE);
-    let max_hubs = pool / HUB_MIN_CONSTRAINTS + 1;
-    let num_hubs = hub_counts.read(HUB_COUNT_HUBS).min(max_hubs);
+    let base = hub_counts.base;
+    let num_hubs = hub_counts.live_hubs();
     let mut solver_vels = SliceMut(solver_vels, 0);
 
     // Uniform across the workgroup, so the barriers below are reached by every lane. The WGSL
@@ -217,7 +233,7 @@ pub fn gpu_hub_average(
         0
     };
     #[cfg(feature = "web-compat")]
-    let num_rounds = max_hubs.div_ceil(HUB_AVERAGE_WORKGROUPS);
+    let num_rounds = hub_counts.max_hubs().div_ceil(HUB_AVERAGE_WORKGROUPS);
 
     for round in 0..num_rounds {
         let k = workgroup_id.x + round * num_workgroups.x;
