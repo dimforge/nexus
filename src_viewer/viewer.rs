@@ -157,6 +157,9 @@ pub struct SimSettings {
     pub rbd_steps_per_frame: u32,
     /// TGS substeps per rigid-body solver step.
     pub rbd_substeps: u32,
+    /// Simulation-wide rigid-body contact friction model.
+    #[cfg(feature = "dim3")]
+    pub rbd_friction_model: nexus::rbd::dynamics::FrictionModel,
     /// Identical runs (see [`NexusState::set_deterministic`]). A viewer setting,
     /// kept across demos.
     pub deterministic: bool,
@@ -170,6 +173,8 @@ impl Default for SimSettings {
             mpm_gravity: Vector::ZERO,
             rbd_steps_per_frame: 1,
             rbd_substeps: nexus::rbd::dynamics::RbdSimParams::default().num_solver_iterations,
+            #[cfg(feature = "dim3")]
+            rbd_friction_model: nexus::rbd::dynamics::FrictionModel::Coulomb,
             deterministic: false,
         }
     }
@@ -1406,6 +1411,13 @@ impl NexusViewer {
             self.ui.sim_settings.mpm_gravity = state.mpm_gravity();
             self.ui.sim_settings.rbd_steps_per_frame = state.rbd_steps_per_frame();
             self.ui.sim_settings.rbd_substeps = state.rbd_substeps();
+            #[cfg(feature = "dim3")]
+            {
+                self.ui.sim_settings.rbd_friction_model = state
+                    .rbd_sim_params(0)
+                    .map(|params| params.friction_model)
+                    .unwrap_or_default();
+            }
             self.ui.settings_demo = Some(self.ui.selected_demo);
         } else {
             let s = self.ui.sim_settings.clone();
@@ -1414,6 +1426,8 @@ impl NexusViewer {
             state.set_mpm_gravity(s.mpm_gravity);
             state.set_rbd_steps_per_frame(s.rbd_steps_per_frame);
             state.set_rbd_substeps(self.backend(), s.rbd_substeps);
+            #[cfg(feature = "dim3")]
+            state.set_rbd_friction_model(s.rbd_friction_model);
         }
         // The compute-graph toggle is a testbed-wide choice, not a scene
         // setting: it always flows from the backend panel into the scene.

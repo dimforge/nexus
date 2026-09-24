@@ -249,7 +249,7 @@ impl CoulombTile {
         }
         #[cfg(feature = "dim3")]
         {
-            self.header.write(lane, &h);
+            self.header.write(lane, &h, [0.0; 2]);
             let mut coupling = [0.0; 4];
             crate::dynamics::solver_utils::for_contact_point!(k, c.len, {
                 coupling.write(k, self.write_point(lane, k, c.points.at(k)));

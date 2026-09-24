@@ -832,12 +832,20 @@ impl RbdPipeline {
                 {
                     state.mb_contact_index = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 }
-                state.old_constraints =
-                    crate::dynamics::ContactConstraints::new(backend, new_contacts, storage)?;
+                state.old_constraints = crate::dynamics::ContactConstraints::new(
+                    backend,
+                    new_contacts,
+                    storage,
+                    &state.sim_params_cpu,
+                )?;
                 state.old_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
-                state.new_constraints =
-                    crate::dynamics::ContactConstraints::new(backend, new_contacts, storage)?;
+                state.new_constraints = crate::dynamics::ContactConstraints::new(
+                    backend,
+                    new_contacts,
+                    storage,
+                    &state.sim_params_cpu,
+                )?;
                 state.recycle_states =
                     crate::dynamics::ContactRecycleStates::new(backend, new_contacts, storage)?;
                 state.new_body_constraint_ids =

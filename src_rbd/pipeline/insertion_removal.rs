@@ -170,10 +170,20 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
-        let old_constraints =
-            crate::dynamics::ContactConstraints::new(backend, contacts_capacity, storage).unwrap();
-        let new_constraints =
-            crate::dynamics::ContactConstraints::new(backend, contacts_capacity, storage).unwrap();
+        let old_constraints = crate::dynamics::ContactConstraints::new(
+            backend,
+            contacts_capacity,
+            storage,
+            &base_sim_params,
+        )
+        .unwrap();
+        let new_constraints = crate::dynamics::ContactConstraints::new(
+            backend,
+            contacts_capacity,
+            storage,
+            &base_sim_params,
+        )
+        .unwrap();
         let recycle_states =
             crate::dynamics::ContactRecycleStates::new(backend, contacts_capacity, storage)
                 .unwrap();

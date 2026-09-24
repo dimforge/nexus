@@ -1,5 +1,7 @@
 //! Rigid-body dynamics: forces, velocities, constraints, and solvers.
 
+#[cfg(feature = "dim3")]
+pub use crate::shaders::dynamics::FrictionModel;
 pub use crate::shaders::dynamics::RbdSimParams;
 pub use body::{BodyCoupling, BodyCouplingEntry, BodyDesc, GpuBodySet};
 pub use canonical_order::{CanonicalContactsArgs, GpuCanonicalOrder, contact_sort_collider_shift};

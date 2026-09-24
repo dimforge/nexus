@@ -39,6 +39,21 @@ pip install target/wheels/dimforge_nexus3d-*.whl
 > so a single wheel works across all supported Python versions — you don't need
 > to match the build interpreter to the run interpreter.
 
+## Contact friction
+
+Before `finalize`, select one model for all environments:
+
+```python
+state.set_rbd_solver_params(friction_model="simplified")
+assert state.rbd_solver_params()["friction_model"] == "simplified"
+```
+
+`"coulomb"` is the existing default, with friction at each contact point.
+`"simplified"` uses Rapier's central sliding-friction and angular twist-friction
+constraints. Normal constraints stay per point; single-point contacts have no twist
+constraint. Multibody contacts always use Coulomb. Invalid model names raise
+`ValueError` before any solver parameters change.
+
 ## Robots, state access and sensor cameras
 
 Beyond the demo-oriented API, the module exposes what a robotics environment

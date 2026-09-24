@@ -99,9 +99,10 @@ pub struct HeaderTile {
     pub inertia_diag_a: [InertiaSlot; TILE_LEN],
     /// Body A's inverse inertia off-diagonal terms, and body B's velocity slot.
     pub inertia_off_a: [InertiaSlot; TILE_LEN],
-    /// Body B's inverse inertia diagonal, and a spare scalar.
+    /// Body B's inverse inertia diagonal; the twist model stores its twist mass alongside.
     pub inertia_diag_b: [VecScalar; TILE_LEN],
-    /// Body B's inverse inertia off-diagonal terms, and a spare scalar.
+    /// Body B's inverse inertia off-diagonal terms; the twist model stores its twist impulse
+    /// alongside.
     pub inertia_off_b: [VecScalar; TILE_LEN],
 }
 
@@ -141,8 +142,10 @@ impl HeaderTile {
         }
     }
 
+    /// Writes the header of `lane`, with the model-specific scalars stored next to body B's
+    /// inertia.
     #[inline(always)]
-    pub(crate) fn write(&mut self, lane: usize, h: &ContactSolverData) {
+    pub(crate) fn write(&mut self, lane: usize, h: &ContactSolverData, scalars_b: [f32; 2]) {
         self.normal.write(
             lane,
             NormalLen {
@@ -189,14 +192,14 @@ impl HeaderTile {
             lane,
             VecScalar {
                 vec: h.ii_b.diag,
-                scalar: 0.0,
+                scalar: scalars_b[0],
             },
         );
         self.inertia_off_b.write(
             lane,
             VecScalar {
                 vec: h.ii_b.off,
-                scalar: 0.0,
+                scalar: scalars_b[1],
             },
         );
     }

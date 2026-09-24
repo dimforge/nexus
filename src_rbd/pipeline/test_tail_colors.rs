@@ -1,6 +1,6 @@
 //! Compares fused color tails with dispatch-by-dispatch GPU execution.
 use crate::dynamics::contact_kernels::{
-    GpuSolveConstraints, GpuSolveConstraintsBiased, GpuSolveConstraintsTail,
+    ContactTiles, GpuSolveConstraints, GpuSolveConstraintsBiased, GpuSolveConstraintsTail,
     GpuSolveConstraintsTailBiased, GpuSolveConstraintsTailUnbiased,
     GpuSolveConstraintsTailUnbiasedCached, GpuSolveConstraintsUnbiased,
     GpuSolveConstraintsUnbiasedCached,
@@ -8,6 +8,7 @@ use crate::dynamics::contact_kernels::{
 use crate::math::Pose;
 use crate::shaders::dynamics::contact_tiles::{TAIL_COLOR, TILE_LEN, tile_lane};
 use crate::shaders::dynamics::coulomb_tiles::CoulombTile;
+use crate::shaders::dynamics::twist_tiles::TwistTile;
 use crate::shaders::dynamics::*;
 use crate::shaders::utils::BatchIndices;
 use glamx::{Vec2, Vec3};
@@ -19,6 +20,12 @@ use vortx::tensor::Tensor;
 #[serial_test::serial]
 #[ignore = "requires a WebGPU adapter"]
 async fn tail_colors_match_separate_color_dispatches() {
+    for model in [FrictionModel::Coulomb, FrictionModel::Simplified] {
+        check_tail_colors(model).await;
+    }
+}
+
+async fn check_tail_colors(model: FrictionModel) {
     let backend = GpuBackend::WebGpu(
         WebGpu::new(Default::default(), Default::default())
             .await
@@ -111,12 +118,57 @@ async fn tail_colors_match_separate_color_dispatches() {
             for fused in [false, true] {
                 // The constraints in tiles, zeroed so that their unused points compare equal.
                 let num_tiles = input.len().div_ceil(TILE_LEN);
-                let mut tiles = vec![CoulombTile::default(); num_tiles];
-                for (index, c) in input.iter().enumerate() {
-                    let (tile, lane) = tile_lane(index);
-                    tiles[tile].write_constraint(lane, c);
-                }
-                let mut tiles = Tensor::vector(&backend, tiles, storage).unwrap();
+                let mut tiles = if model == FrictionModel::Simplified {
+                    let compact: Vec<_> = input
+                        .iter()
+                        .map(|c| {
+                            let mut t = TwistConstraint::default();
+                            t.dir_a = c.dir_a;
+                            t.tangent_a = c.tangent_a;
+                            t.len = c.len;
+                            t.limit = c.limit;
+                            t.im_a = c.im_a;
+                            t.im_b = c.im_b;
+                            t.ii_a = c.ii_a;
+                            t.ii_b = c.ii_b;
+                            t.solver_body_a = c.solver_body_a;
+                            t.solver_body_b = c.solver_body_b;
+                            t.vel_slot_a = c.vel_slot_a;
+                            t.vel_slot_b = c.vel_slot_b;
+                            t.offset_b = c.points[0].r_b - c.points[0].r_a;
+                            t.frame_a = glamx::Quat::from_rotation_x(0.13);
+                            t.frame_b = glamx::Quat::from_rotation_y(-0.08);
+                            for k in 0..t.len as usize {
+                                let p = c.points[k];
+                                t.points[k] = TwistContactPoint {
+                                    r_a: p.r_a,
+                                    dist: p.dist,
+                                    normal_impulse: p.normal_impulse,
+                                    normal_mass: 0.0,
+                                    normal_vel: p.normal_vel,
+                                    radius: 0.0,
+                                };
+                            }
+                            t.friction.tangent_impulse = Vec2::new(0.01, -0.02);
+                            t.friction.twist_impulse = if t.len > 1 { 0.01 } else { 0.0 };
+                            t.compute_effective_masses();
+                            t
+                        })
+                        .collect();
+                    let mut tiles = vec![TwistTile::default(); num_tiles];
+                    for (index, c) in compact.iter().enumerate() {
+                        let (tile, lane) = tile_lane(index);
+                        tiles[tile].write_constraint(lane, c);
+                    }
+                    ContactTiles::Simplified(Tensor::vector(&backend, tiles, storage).unwrap())
+                } else {
+                    let mut tiles = vec![CoulombTile::default(); num_tiles];
+                    for (index, c) in input.iter().enumerate() {
+                        let (tile, lane) = tile_lane(index);
+                        tiles[tile].write_constraint(lane, c);
+                    }
+                    ContactTiles::Coulomb(Tensor::vector(&backend, tiles, storage).unwrap())
+                };
                 let mut vels = Tensor::vector(&backend, initial_vels.clone(), storage).unwrap();
                 let mut encoder = backend.begin_encoding();
                 {
@@ -172,7 +224,14 @@ async fn tail_colors_match_separate_color_dispatches() {
                         ))
                     };
                 }
-                read!(tiles, CoulombTile);
+                match &tiles {
+                    ContactTiles::Coulomb(x) => {
+                        read!(x, CoulombTile);
+                    }
+                    ContactTiles::Simplified(x) => {
+                        read!(x, TwistTile);
+                    }
+                }
                 read!(vels, Velocity);
                 results.push(bytes);
             }

@@ -742,6 +742,52 @@ impl RbdState {
         self.sim_params_cpu = params;
     }
 
+    /// Selects the friction model for every rigid-body contact in every batch.
+    /// Switching models reallocates contact storage and resets contact warmstarts
+    /// and color seeds. Multibody contacts always use Coulomb.
+    #[cfg(feature = "dim3")]
+    pub fn set_friction_model(
+        &mut self,
+        backend: &GpuBackend,
+        model: crate::dynamics::FrictionModel,
+    ) {
+        if self.sim_params_cpu.friction_model != model {
+            let mut params = self.sim_params_cpu;
+            params.friction_model = model;
+            let usage = khal::BufferUsages::STORAGE | khal::BufferUsages::COPY_SRC;
+            let old = crate::dynamics::ContactConstraints::new(
+                backend,
+                self.contacts_capacity_cpu,
+                usage,
+                &params,
+            )
+            .expect("allocate contact model storage");
+            let new = crate::dynamics::ContactConstraints::new(
+                backend,
+                self.contacts_capacity_cpu,
+                usage,
+                &params,
+            )
+            .expect("allocate contact model storage");
+            // Adjacency counts gate every previous-contact read; clear them before
+            // exposing the newly allocated buffers to the next step.
+            let empty_counts = vec![0u32; self.old_constraints_counts.len() as usize];
+            self.old_constraints_counts =
+                Tensor::vector(backend, &empty_counts, usage).expect("reset contact warmstarts");
+            self.old_constraints = old;
+            self.new_constraints = new;
+            self.sim_params_cpu.friction_model = model;
+            let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[self.sim_params_cpu]);
+            self.graph_generation += 1;
+        }
+    }
+
+    /// The simulation-wide rigid-body friction model.
+    #[cfg(feature = "dim3")]
+    pub fn friction_model(&self) -> crate::dynamics::FrictionModel {
+        self.sim_params_cpu.friction_model
+    }
+
     /// PGS iterations per substep in the biased pass.
     #[cfg(feature = "dim3")]
     pub fn num_internal_pgs_iterations(&self) -> u32 {

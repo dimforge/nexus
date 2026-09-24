@@ -19,7 +19,7 @@ use crate::utils::Slice;
 
 /// Helper function for maybe inverse with threshold.
 #[cfg(feature = "dim3")]
-fn maybe_inv(a: f32) -> f32 {
+pub(crate) fn maybe_inv(a: f32) -> f32 {
     const INV_EPSILON: f32 = 1.0e-20;
     if a < -INV_EPSILON || a > INV_EPSILON {
         1.0 / a
@@ -30,7 +30,7 @@ fn maybe_inv(a: f32) -> f32 {
 
 /// Cap the magnitude of a 2D vector.
 #[cfg(feature = "dim3")]
-fn cap_magnitude(v: Vec2, limit: f32) -> Vec2 {
+pub(crate) fn cap_magnitude(v: Vec2, limit: f32) -> Vec2 {
     let n = v.length();
     if n > limit { v * (limit / n) } else { v }
 }
@@ -54,7 +54,7 @@ fn orthonormal_vector(vec: Vector) -> Vector {
 /// Computes the tangent contact directions for friction (3D version).
 ///
 /// A deterministic basis derived from the contact normal.
-fn compute_tangent_contact_directions(force_dir1: Vector) -> [Vector; SUB_LEN] {
+pub(crate) fn compute_tangent_contact_directions(force_dir1: Vector) -> [Vector; SUB_LEN] {
     let tangent1 = orthonormal_vector(force_dir1);
     let bitangent1 = force_dir1.cross(tangent1);
     [tangent1, bitangent1]
@@ -607,9 +607,9 @@ impl TwoBodyConstraint {
     // copying the entire old manifold for every matched point.
     #[cfg(feature = "dim3")]
     #[inline(always)]
-    pub fn friction_warmstart(&self, k: usize) -> Vector {
+    pub fn friction_warmstart(&self, k: usize) -> glamx::Vec4 {
         let t = self.points.at(k).tangent_impulse;
-        self.tangent_a * t.x + self.dir_a.cross(self.tangent_a) * t.y
+        (self.tangent_a * t.x + self.dir_a.cross(self.tangent_a) * t.y).extend(0.0)
     }
     #[cfg(feature = "dim2")]
     #[inline(always)]
@@ -618,7 +618,8 @@ impl TwoBodyConstraint {
     }
     #[cfg(feature = "dim3")]
     #[inline(always)]
-    pub fn transfer_friction_point(&mut self, world: Vector, k: usize) {
+    pub fn transfer_friction_point(&mut self, impulse: glamx::Vec4, k: usize) {
+        let world = impulse.truncate();
         self.points.at_mut(k).tangent_impulse = Vec2::new(
             world.dot(self.tangent_a),
             world.dot(self.dir_a.cross(self.tangent_a)),
@@ -629,4 +630,6 @@ impl TwoBodyConstraint {
     pub fn transfer_friction_point(&mut self, impulse: f32, k: usize) {
         self.points.at_mut(k).tangent_impulse = [impulse];
     }
+    #[inline(always)]
+    pub fn finish_friction_transfer(&mut self) {}
 }

@@ -1,8 +1,9 @@
-//! Contact-tile kernels: building the constraints, solving them and warmstarting from them.
+//! Contact-tile kernels shared by the friction models: building the constraints, solving them
+//! and warmstarting from them.
 //!
-//! Included by the contact model's module (`coulomb_tiles`), which provides `ContactTile`,
-//! `TwoBodyConstraint` (its constraint type) and the tile accessors (`header`, `read_constraint`,
-//! `write_constraint`, `solve_constraint`, `tile_warmstart`, `constraint_warmstart`).
+//! Included by each model's module, which provides `ContactTile`, `TwoBodyConstraint` (its
+//! constraint type) and the tile accessors (`header`, `read_constraint`, `write_constraint`,
+//! `solve_constraint`, `tile_warmstart`, `constraint_warmstart`).
 
 use super::*;
 use crate::broad_phase::ContactPlan;
@@ -144,6 +145,7 @@ fn transfer_contact_impulses(old: &TwoBodyConstraint, new: &mut TwoBodyConstrain
             new.transfer_friction_point(old.friction_warmstart(best_k_old), k_new);
         }
     }
+    new.finish_friction_transfer();
 }
 
 /// Scales the accumulated impulses of every constraint by the warmstart coefficient and caches

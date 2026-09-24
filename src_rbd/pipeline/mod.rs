@@ -29,6 +29,9 @@ mod test_large_warmstart;
 #[cfg(all(test, feature = "dim3"))]
 mod test_tail_colors;
 
+#[cfg(all(test, feature = "dim3"))]
+mod test_twist_friction;
+
 #[cfg(test)]
 mod test_color_buckets;
 

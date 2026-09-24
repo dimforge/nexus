@@ -1183,8 +1183,11 @@ impl NexusState {
     /// rows are solved in every biased PGS iteration instead of only in the
     /// per-substep stabilization sweep (rapier's default, `False`); `True`
     /// gives friction as many iterations as the normal rows, which holds
-    /// grasps and resting contacts far more firmly.
-    #[pyo3(signature = (contact_natural_frequency=None, contact_damping_ratio=None, static_contact_natural_frequency=None, static_contact_damping_ratio=None, allowed_linear_error=None, max_corrective_velocity=None, prediction_distance=None, internal_pgs_iterations=None, friction_in_bias_pass=None))]
+    /// grasps and resting contacts far more firmly. `friction_model` is
+    /// "coulomb" (default, friction at each contact) or "simplified" (Rapier's
+    /// central friction plus twist). It applies to every environment; multibody
+    /// contacts always use Coulomb.
+    #[pyo3(signature = (contact_natural_frequency=None, contact_damping_ratio=None, static_contact_natural_frequency=None, static_contact_damping_ratio=None, allowed_linear_error=None, max_corrective_velocity=None, prediction_distance=None, internal_pgs_iterations=None, friction_in_bias_pass=None, friction_model=None))]
     #[allow(clippy::too_many_arguments)]
     fn set_rbd_solver_params(
         &mut self,
@@ -1197,7 +1200,19 @@ impl NexusState {
         prediction_distance: Option<f32>,
         internal_pgs_iterations: Option<u32>,
         friction_in_bias_pass: Option<bool>,
-    ) {
+        friction_model: Option<&str>,
+    ) -> PyResult<()> {
+        use nexus3d::rbd::dynamics::FrictionModel;
+        let friction_model = match friction_model {
+            None => None,
+            Some("coulomb") => Some(FrictionModel::Coulomb),
+            Some("simplified") => Some(FrictionModel::Simplified),
+            Some(_) => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "friction_model must be 'coulomb' or 'simplified'",
+                ));
+            }
+        };
         for env in 0..self.0.num_environments() {
             let Some(mut params) = self.0.rbd_sim_params(env) else {
                 continue;
@@ -1229,8 +1244,12 @@ impl NexusState {
             if let Some(v) = friction_in_bias_pass {
                 params.friction_in_bias_pass = v as u32;
             }
+            if let Some(v) = friction_model {
+                params.friction_model = v;
+            }
             self.0.set_rbd_sim_params(env, params);
         }
+        Ok(())
     }
 
     /// Implicit (default) or explicit treatment of the robots' Coriolis and
@@ -1257,6 +1276,14 @@ impl NexusState {
         use pyo3::types::PyDict;
         let dict = PyDict::new(py);
         if let Some(p) = self.0.rbd_sim_params(0) {
+            dict.set_item(
+                "friction_model",
+                if p.friction_model == nexus3d::rbd::dynamics::FrictionModel::Simplified {
+                    "simplified"
+                } else {
+                    "coulomb"
+                },
+            )?;
             dict.set_item("dt", p.dt)?;
             dict.set_item("substeps", p.num_solver_iterations)?;
             dict.set_item("contact_natural_frequency", p.contact_natural_frequency)?;
@@ -1407,6 +1434,7 @@ impl NexusState {
             dict.set_item("inv_mass_b", c.inv_mass_b.x)?;
             dict.set_item("normal_impulse", &c.normal_impulse)?;
             dict.set_item("tangent_impulse", &c.tangent_impulse)?;
+            dict.set_item("twist_impulse", c.twist_impulse)?;
             out.push(dict);
         }
         Ok(out)

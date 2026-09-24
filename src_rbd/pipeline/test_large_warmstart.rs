@@ -17,6 +17,12 @@ async fn large_warmstart_keeps_all_boxes_on_ground() {
 #[ignore = "requires a WebGPU adapter"]
 async fn large_warmstart_supports_default_binding_limit() {
     check_large_warmstart(8, RbdSimParams::tgs_soft(), false).await;
+    #[cfg(feature = "dim3")]
+    {
+        let mut params = RbdSimParams::tgs_soft();
+        params.friction_model = crate::shaders::dynamics::FrictionModel::Simplified;
+        check_large_warmstart(8, params, false).await;
+    }
 }
 
 #[futures_test::test]
@@ -24,6 +30,12 @@ async fn large_warmstart_supports_default_binding_limit() {
 #[ignore = "requires a WebGPU adapter"]
 async fn large_warmstart_resizes_within_default_binding_limit() {
     check_large_warmstart(8, RbdSimParams::tgs_soft(), true).await;
+    #[cfg(feature = "dim3")]
+    {
+        let mut params = RbdSimParams::tgs_soft();
+        params.friction_model = crate::shaders::dynamics::FrictionModel::Simplified;
+        check_large_warmstart(8, params, true).await;
+    }
 }
 
 async fn check_large_warmstart(storage_buffers: u32, params: RbdSimParams, resize: bool) {

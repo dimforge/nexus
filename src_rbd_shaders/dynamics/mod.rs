@@ -16,6 +16,8 @@ mod joint_constraint_builder;
 mod multibody;
 mod sim_params;
 mod solver_utils;
+#[cfg(feature = "dim3")]
+mod twist_friction;
 
 // GPU compute shader kernels
 mod canonical_order;
@@ -28,6 +30,8 @@ mod mass_splitting;
 mod mprops_update;
 mod prep_render;
 mod solver;
+#[cfg(feature = "dim3")]
+pub mod twist_tiles;
 
 pub use body::*;
 pub use constraint::*;
@@ -49,3 +53,5 @@ pub use mass_splitting::*;
 pub use mprops_update::*;
 pub use prep_render::*;
 pub use solver::*;
+#[cfg(feature = "dim3")]
+pub use twist_friction::*;

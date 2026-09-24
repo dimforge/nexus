@@ -257,6 +257,15 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
                 "TGS substeps per physics step. More substeps improve accuracy at a higher \
                  cost, without changing the amount of simulated time.",
             );
+        #[cfg(feature = "dim3")]
+        ui.horizontal(|ui| {
+            use nexus::rbd::dynamics::FrictionModel;
+            ui.label("Friction");
+            ui.selectable_value(&mut s.rbd_friction_model, FrictionModel::Coulomb, "Coulomb")
+                .on_hover_text("Friction at each contact point");
+            ui.selectable_value(&mut s.rbd_friction_model, FrictionModel::Simplified, "Twist")
+                .on_hover_text("Central friction and twist resistance per contact manifold. Multibody contacts use Coulomb.");
+        });
     }
 
     ui.add_space(4.0);

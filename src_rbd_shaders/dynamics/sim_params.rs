@@ -2,6 +2,26 @@
 
 use crate::MAX_FLT;
 
+/// Simulation-wide friction choice for 3D rigid-body contacts.
+///
+/// Multibody contacts always use Coulomb, as in Rapier. This transparent value
+/// has a stable four-byte GPU representation; unknown values behave as Coulomb.
+#[cfg(feature = "dim3")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(transparent)]
+pub struct FrictionModel(u32);
+
+#[cfg(feature = "dim3")]
+#[allow(non_upper_case_globals)]
+impl FrictionModel {
+    /// One Coulomb friction constraint at every contact point (Nexus's default).
+    pub const Coulomb: Self = Self(0);
+    /// Rapier's simplified model: one central friction constraint and one
+    /// angular twist constraint per manifold of up to four contact points.
+    pub const Simplified: Self = Self(1);
+}
+
 /// Two times pi (2π), used for converting natural frequency to angular frequency.
 pub const TWO_PI: f32 = core::f32::consts::TAU;
 
@@ -206,9 +226,13 @@ pub struct RbdSimParams {
     ///
     /// This value is implicitly scaled by `length_unit`.
     pub normalized_contact_recycle_distance: f32,
-    // Uniform-layout padding to a 16-byte multiple (scalars: an array member
-    // here would itself need 16-byte alignment).
+    // Reserved scalar, matching the 3D friction-model slot.
+    #[cfg(feature = "dim2")]
     pub _padding0: u32,
+    /// Friction model for all rigid-body contact manifolds. Multibody contacts
+    /// remain Coulomb. Defaults to [`FrictionModel::Coulomb`].
+    #[cfg(feature = "dim3")]
+    pub friction_model: FrictionModel,
 }
 
 impl RbdSimParams {
@@ -236,7 +260,10 @@ impl RbdSimParams {
             num_internal_pgs_iterations: 1,
             friction_in_bias_pass: 0,
             normalized_contact_recycle_distance: 0.05,
+            #[cfg(feature = "dim2")]
             _padding0: 0,
+            #[cfg(feature = "dim3")]
+            friction_model: FrictionModel::Coulomb,
         }
     }
 }
