@@ -33,12 +33,13 @@ pub enum RunState {
     Step,
 }
 
-#[derive(Copy, Clone)]
-pub struct UiSections {
-    pub show_examples: bool,
-    pub show_settings: bool,
-    pub show_performance: bool,
-    pub show_debug_render: bool,
+/// The tabs of the viewer panel. Only one is shown at a time.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum UiSection {
+    Performance,
+    Settings,
+    Examples,
+    DebugRender,
 }
 
 /// The kind of solver a registered demo uses. Used only to group demos in the

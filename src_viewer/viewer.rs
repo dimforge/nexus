@@ -59,7 +59,7 @@ use crate::graphics::RenderContext;
 use crate::graphics::VisualTexture;
 #[cfg(feature = "dim3")]
 use crate::sensors::SensorCamera;
-use crate::{DemoKind, RunState, Transition, UiSections};
+use crate::{DemoKind, RunState, Transition, UiSection};
 
 /// Per-particle coloring mode for MPM rendering, written into the
 /// `WgPrepReadback` render config. Mirrors the `mode` values understood by the
@@ -106,7 +106,8 @@ pub struct UiState {
     pub run_state: RunState,
     pub run_stats: RunStats,
     pub sync_time: Duration,
-    pub ui_sections: UiSections,
+    /// The tab currently shown, or `None` if the panel is closed.
+    pub ui_section: Option<UiSection>,
     pub backend_type: BackendType,
     /// Replay each frame's GPU work through a compute graph (backends with graph support only).
     pub compute_graphs: bool,
@@ -415,12 +416,7 @@ impl NexusViewer {
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
                 sync_time: Duration::default(),
-                ui_sections: UiSections {
-                    show_examples: true,
-                    show_settings: false,
-                    show_performance: true,
-                    show_debug_render: false,
-                },
+                ui_section: Some(UiSection::Examples),
                 backend_type: BackendType::Gpu,
                 compute_graphs: false,
                 gpu_init_error: None,

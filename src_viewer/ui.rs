@@ -1,5 +1,5 @@
 use crate::viewer::{MpmRenderMode, UiState};
-use crate::{DemoKind, RunState, Transition};
+use crate::{DemoKind, RunState, Transition, UiSection};
 use kiss3d::egui;
 use nexus::rbd::pipeline::RunStats;
 use nexus::state::NexusCounts;
@@ -129,35 +129,39 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                 ui.separator();
             }
 
-            // Section toggles.
+            // Tabs: one section at a time. Clicking the open tab again closes it.
             ui.horizontal(|ui| {
-                ui.toggle_value(&mut state.ui_sections.show_performance, "Performance");
-                ui.toggle_value(&mut state.ui_sections.show_settings, "Settings");
-                ui.toggle_value(&mut state.ui_sections.show_examples, "Examples");
-                ui.toggle_value(&mut state.ui_sections.show_debug_render, "Debug render");
+                for (section, label) in [
+                    (UiSection::Performance, "Performance"),
+                    (UiSection::Settings, "Settings"),
+                    (UiSection::Examples, "Examples"),
+                    (UiSection::DebugRender, "Debug render"),
+                ] {
+                    let selected = state.ui_section == Some(section);
+                    if ui.selectable_label(selected, label).clicked() {
+                        state.ui_section = if selected { None } else { Some(section) };
+                    }
+                }
             });
 
             egui::ScrollArea::vertical()
                 .max_height(500.0)
-                .show(ui, |ui| {
-                    if state.ui_sections.show_settings {
+                .show(ui, |ui| match state.ui_section {
+                    Some(UiSection::Settings) => {
                         ui.separator();
                         backend_selector(ui, state, gpu_available);
                         ui.add_space(4.0);
                         simulation_settings(ui, state);
                     }
-
-                    if state.ui_sections.show_performance {
+                    Some(UiSection::Performance) => {
                         ui.separator();
                         performance_ui(ui, &state.counts, &state.run_stats, state.sync_time);
                     }
-
-                    if state.ui_sections.show_examples && !state.demos.is_empty() {
+                    Some(UiSection::Examples) if !state.demos.is_empty() => {
                         ui.separator();
                         examples_section(ui, state);
                     }
-
-                    if state.ui_sections.show_debug_render {
+                    Some(UiSection::DebugRender) => {
                         ui.separator();
                         debug_render_settings(
                             ui,
@@ -166,6 +170,7 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                             state.has_rbd,
                         );
                     }
+                    _ => {}
                 });
 
             ui.separator();
