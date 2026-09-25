@@ -252,11 +252,12 @@ pub struct NexusViewer {
     /// frames so samples keep accumulating while the scene is static.
     #[cfg(feature = "dim3")]
     raytracer: Option<RayTracer>,
-    /// Offscreen sensor cameras (see [`crate::sensors`]). While any exists,
+    /// Offscreen sensor cameras (see [`crate::sensors`]), indexed by id; a
+    /// removed camera leaves `None` so later ids stay stable. While any exists,
     /// `sync` takes the readback path so attached cameras can follow their body
     /// and the per-object passes see world-posed nodes.
     #[cfg(feature = "dim3")]
-    sensors: Vec<SensorCamera>,
+    sensors: Vec<Option<SensorCamera>>,
     /// MSAA sample count given to every new sensor camera (default 4).
     #[cfg(feature = "dim3")]
     sensor_samples: u32,
@@ -540,7 +541,7 @@ impl NexusViewer {
     fn sensors_active(&self) -> bool {
         #[cfg(feature = "dim3")]
         {
-            !self.sensors.is_empty()
+            self.sensors.iter().any(Option::is_some)
         }
         #[cfg(not(feature = "dim3"))]
         {
@@ -813,8 +814,16 @@ impl NexusViewer {
             self.sensor_shadow_resolution.0,
             self.sensor_shadow_resolution.1,
         );
-        self.sensors.push(sensor);
+        self.sensors.push(Some(sensor));
         self.sensors.len() - 1
+    }
+
+    /// Removes sensor camera `id` and frees its GPU resources (render targets,
+    /// shadow atlas). Its id is not reused, and later calls with it find no
+    /// camera. Returns whether a camera was removed.
+    #[cfg(feature = "dim3")]
+    pub fn remove_sensor_camera(&mut self, id: usize) -> bool {
+        self.sensors.get_mut(id).and_then(Option::take).is_some()
     }
 
     /// MSAA sample count of the sensor cameras' shaded renders, existing and
@@ -822,7 +831,7 @@ impl NexusViewer {
     #[cfg(feature = "dim3")]
     pub fn set_sensor_antialiasing(&mut self, samples: u32) {
         self.sensor_samples = samples.max(1);
-        for sensor in &mut self.sensors {
+        for sensor in self.sensors.iter_mut().flatten() {
             sensor.set_samples(self.sensor_samples);
         }
     }
@@ -833,7 +842,7 @@ impl NexusViewer {
     #[cfg(feature = "dim3")]
     pub fn set_sensor_shadow_softness(&mut self, softness: f32) {
         self.sensor_shadow_softness = softness.max(0.0);
-        for sensor in &mut self.sensors {
+        for sensor in self.sensors.iter_mut().flatten() {
             sensor.set_shadow_softness(self.sensor_shadow_softness);
         }
     }
@@ -852,7 +861,7 @@ impl NexusViewer {
     #[cfg(feature = "dim3")]
     pub fn set_sensor_shadow_range(&mut self, first_cascade_far_bound: f32, shadow_distance: f32) {
         self.sensor_shadow_range = (first_cascade_far_bound.max(0.01), shadow_distance.max(0.0));
-        for sensor in &mut self.sensors {
+        for sensor in self.sensors.iter_mut().flatten() {
             sensor.set_shadow_range(self.sensor_shadow_range.0, self.sensor_shadow_range.1);
         }
     }
@@ -864,7 +873,7 @@ impl NexusViewer {
     #[cfg(feature = "dim3")]
     pub fn set_sensor_shadow_resolution(&mut self, resolution: u32, layers: u32) {
         self.sensor_shadow_resolution = (resolution.max(1), layers.max(1));
-        for sensor in &mut self.sensors {
+        for sensor in self.sensors.iter_mut().flatten() {
             sensor.set_shadow_resolution(
                 self.sensor_shadow_resolution.0,
                 self.sensor_shadow_resolution.1,
@@ -903,29 +912,29 @@ impl NexusViewer {
         self.nexus_render.active_generation
     }
 
-    /// Number of sensor cameras.
+    /// Number of live (not removed) sensor cameras.
     #[cfg(feature = "dim3")]
     pub fn num_sensor_cameras(&self) -> usize {
-        self.sensors.len()
+        self.sensors.iter().flatten().count()
     }
 
     /// The sensor camera at `id`.
     #[cfg(feature = "dim3")]
     pub fn sensor_camera(&self, id: usize) -> Option<&SensorCamera> {
-        self.sensors.get(id)
+        self.sensors.get(id)?.as_ref()
     }
 
     /// The sensor camera at `id`, mutably (pose, attachment, ambient, ...).
     #[cfg(feature = "dim3")]
     pub fn sensor_camera_mut(&mut self, id: usize) -> Option<&mut SensorCamera> {
-        self.sensors.get_mut(id)
+        self.sensors.get_mut(id)?.as_mut()
     }
 
     /// Sets sensor camera `id`'s pose (OpenGL convention: looking down local
     /// -Z, +Y up). Overridden at the next `sync` while the camera is attached.
     #[cfg(feature = "dim3")]
     pub fn set_sensor_camera_pose(&mut self, id: usize, pose: Pose) {
-        if let Some(sensor) = self.sensors.get_mut(id) {
+        if let Some(sensor) = self.sensor_camera_mut(id) {
             sensor.set_pose(pose);
         }
     }
@@ -943,7 +952,7 @@ impl NexusViewer {
         local_pose: Pose,
         state: &NexusState,
     ) {
-        if let Some(sensor) = self.sensors.get_mut(id) {
+        if let Some(sensor) = self.sensor_camera_mut(id) {
             sensor.attach(env, handle.0, local_pose);
         }
         self.update_sensor_attachments(state);
@@ -972,7 +981,7 @@ impl NexusViewer {
             return;
         }
         let active = self.nexus_render.active_generation;
-        for sensor in &mut self.sensors {
+        for sensor in self.sensors.iter_mut().flatten() {
             if sensor.generation != active {
                 continue;
             }
@@ -994,21 +1003,21 @@ impl NexusViewer {
     /// origin, `width * height * 3` bytes).
     #[cfg(feature = "dim3")]
     pub async fn render_sensor_rgb(&mut self, id: usize) -> Option<Vec<u8>> {
-        let sensor = self.sensors.get_mut(id)?;
+        let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_rgb(&mut self.scene3d).await)
     }
 
     /// Renders sensor camera `id`'s linear metric depth (`0.0` = background).
     #[cfg(feature = "dim3")]
     pub fn render_sensor_depth(&mut self, id: usize) -> Option<Vec<f32>> {
-        let sensor = self.sensors.get_mut(id)?;
+        let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_depth(&mut self.scene3d))
     }
 
     /// Renders sensor camera `id`'s per-pixel segmentation ids (`0` = background).
     #[cfg(feature = "dim3")]
     pub fn render_sensor_segmentation(&mut self, id: usize) -> Option<Vec<u32>> {
-        let sensor = self.sensors.get_mut(id)?;
+        let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_segmentation(&mut self.scene3d))
     }
 
@@ -1089,7 +1098,7 @@ impl NexusViewer {
             // their local poses are body-relative. Attached sensor cameras use
             // the same poses.
             #[cfg(feature = "dim3")]
-            if self.nexus_render.has_visual_nodes() || !self.sensors.is_empty() {
+            if self.nexus_render.has_visual_nodes() || self.sensors.iter().any(Option::is_some) {
                 let body_poses = rbd.body_poses();
                 let mut body_cache = vec![Pose::default(); body_poses.len() as usize];
                 let _ = self

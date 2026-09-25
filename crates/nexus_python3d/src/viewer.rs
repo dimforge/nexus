@@ -214,6 +214,19 @@ impl NexusViewer {
         ))
     }
 
+    /// Removes sensor camera `id` and frees its GPU resources. The id is not
+    /// reused; rendering it afterwards raises. Returns whether a camera was
+    /// removed. Each camera holds its own render targets and shadow atlas, so a
+    /// process that builds many scenes must release the ones it is done with.
+    fn remove_sensor_camera(&mut self, id: usize) -> bool {
+        self.inner_mut().remove_sensor_camera(id)
+    }
+
+    /// Number of live (not removed) sensor cameras.
+    fn num_sensor_cameras(&self) -> usize {
+        self.inner().num_sensor_cameras()
+    }
+
     /// Sets sensor camera `id`'s pose: position and `(w, x, y, z)` quaternion
     /// of the OpenGL camera frame (looks down its -Z axis, +Y up).
     fn set_sensor_camera_pose(&mut self, id: usize, pos: [f32; 3], quat: [f32; 4]) {
