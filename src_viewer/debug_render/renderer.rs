@@ -27,6 +27,9 @@ pub struct DebugRenderSettings {
     pub rigid_body_axes_length: f32,
     /// The time (in seconds) an MPM velocity segment stands for.
     pub mpm_velocity_scale: f32,
+    /// Hide the regular rendering, to only show the debug lines and points.
+    /// Only used if [`Self::enabled`] is set.
+    pub hide_regular_rendering: bool,
 }
 
 impl Default for DebugRenderSettings {
@@ -46,7 +49,26 @@ impl Default for DebugRenderSettings {
             contact_normal_length: style.contact_normal_length,
             rigid_body_axes_length: style.rigid_body_axes_length,
             mpm_velocity_scale: 0.1,
+            hide_regular_rendering: false,
         }
+    }
+}
+
+/// rapier's debug colors, made darker where needed to be visible on the bright background.
+fn light_background_style() -> DebugRenderStyle {
+    DebugRenderStyle {
+        collider_dynamic_color: [340.0, 1.0, 0.35, 1.0],
+        collider_kinematic_color: [20.0, 1.0, 0.35, 1.0],
+        collider_fixed_color: [30.0, 0.9, 0.3, 1.0],
+        collider_parentless_color: [30.0, 0.9, 0.3, 1.0],
+        impulse_joint_anchor_color: [240.0, 0.9, 0.4, 1.0],
+        impulse_joint_separation_color: [0.0, 0.9, 0.4, 1.0],
+        multibody_joint_anchor_color: [290.0, 0.9, 0.4, 1.0],
+        multibody_joint_separation_color: [0.0, 0.9, 0.4, 1.0],
+        contact_depth_color: [140.0, 1.0, 0.3, 1.0],
+        contact_normal_color: [210.0, 1.0, 0.4, 1.0],
+        collider_aabb_color: [270.0, 0.8, 0.45, 1.0],
+        ..DebugRenderStyle::default()
     }
 }
 
@@ -57,7 +79,6 @@ struct WorldMirror {
 }
 
 /// Draws the scene as wireframes and contact markers.
-#[derive(Default)]
 pub struct DebugRenderer {
     pipeline: DebugRenderPipeline,
     mirrors: Vec<WorldMirror>,
@@ -66,6 +87,21 @@ pub struct DebugRenderer {
     mirrored_counts: Vec<(usize, usize)>,
     lines: Vec<DebugLine>,
     points: Vec<DebugPoint>,
+}
+
+impl Default for DebugRenderer {
+    fn default() -> Self {
+        Self {
+            pipeline: DebugRenderPipeline::new(
+                light_background_style(),
+                DebugRenderMode::default(),
+            ),
+            mirrors: Vec::new(),
+            mirrored_counts: Vec::new(),
+            lines: Vec::new(),
+            points: Vec::new(),
+        }
+    }
 }
 
 impl DebugRenderer {

@@ -38,6 +38,7 @@ pub struct UiSections {
     pub show_examples: bool,
     pub show_settings: bool,
     pub show_performance: bool,
+    pub show_debug_render: bool,
 }
 
 /// The kind of solver a registered demo uses. Used only to group demos in the

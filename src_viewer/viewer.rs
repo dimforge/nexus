@@ -419,6 +419,7 @@ impl NexusViewer {
                     show_examples: true,
                     show_settings: false,
                     show_performance: true,
+                    show_debug_render: false,
                 },
                 backend_type: BackendType::Gpu,
                 compute_graphs: false,
@@ -1414,7 +1415,7 @@ impl NexusViewer {
         let point_size = self.ui.debug_render.point_size;
 
         for line in self.debug_renderer.lines() {
-            let color = Color::new(line.color[0], line.color[1], line.color[2], line.color[3]);
+            let color = debug_color(line.color);
             #[cfg(feature = "dim3")]
             self.window
                 .draw_line(line.a, line.b, color, line_width, false);
@@ -1423,7 +1424,7 @@ impl NexusViewer {
         }
 
         for pt in self.debug_renderer.points() {
-            let color = Color::new(pt.color[0], pt.color[1], pt.color[2], pt.color[3]);
+            let color = debug_color(pt.color);
             #[cfg(feature = "dim3")]
             self.window.draw_point(pt.point, color, point_size);
             #[cfg(feature = "dim2")]
@@ -1532,11 +1533,22 @@ impl NexusViewer {
         // Added before `render`, which draws then clears the point/line renderers.
         self.draw_debug_render();
 
+        // To hide the regular rendering, render empty scenes instead of the real ones.
+        let hide_scene =
+            self.ui.debug_render.enabled && self.ui.debug_render.hide_regular_rendering;
+        let mut empty_scene3d = SceneNode3d::empty();
+        let mut empty_scene2d = SceneNode2d::empty();
+        let (scene3d, scene2d) = if hide_scene {
+            (&mut empty_scene3d, &mut empty_scene2d)
+        } else {
+            (&mut self.scene3d, &mut self.scene2d)
+        };
+
         let cont = self
             .window
             .render(
-                Some(&mut self.scene3d),
-                Some(&mut self.scene2d),
+                Some(scene3d),
+                Some(scene2d),
                 Some(&mut self.camera3d),
                 Some(&mut self.camera2d),
                 None,
@@ -1718,4 +1730,17 @@ fn build_mpm_instances(instances: &[ReadbackData]) -> Vec<InstanceData2d> {
             ..Default::default()
         })
         .collect()
+}
+
+/// Converts a debug color from sRGB to the linear color kiss3d expects.
+/// Without it, all the debug colors look too bright.
+fn debug_color([r, g, b, a]: [f32; 4]) -> Color {
+    fn to_linear(c: f32) -> f32 {
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+    Color::new(to_linear(r), to_linear(g), to_linear(b), a)
 }

@@ -36,17 +36,17 @@ impl MpmDebugRenderMode {
     }
 }
 
-/// Fixed colors: rapier's `DebugRenderStyle` has no MPM entries.
-const PARTICLE_COLOR: [f32; 4] = [0.35, 0.75, 1.0, 1.0];
-const PARTICLE_FIXED_COLOR: [f32; 4] = [1.0, 0.35, 0.35, 1.0];
-const PARTICLE_VELOCITY_COLOR: [f32; 4] = [0.2, 1.0, 0.6, 1.0];
-const PARTICLE_CDF_COLOR: [f32; 4] = [1.0, 0.85, 0.2, 1.0];
+/// Dark colors that are easy to see on the bright background.
+const PARTICLE_COLOR: [f32; 4] = [0.0, 0.35, 0.8, 1.0];
+const PARTICLE_FIXED_COLOR: [f32; 4] = [0.8, 0.0, 0.0, 1.0];
+const PARTICLE_VELOCITY_COLOR: [f32; 4] = [0.0, 0.55, 0.25, 1.0];
+const PARTICLE_CDF_COLOR: [f32; 4] = [0.7, 0.55, 0.0, 1.0];
 /// Blocks with their own particles, and blocks that only exist because of
-/// a neighbor's particles.
-const BLOCK_COLOR: [f32; 4] = [0.45, 0.45, 0.55, 0.8];
-const BLOCK_EMPTY_COLOR: [f32; 4] = [0.3, 0.25, 0.4, 0.5];
-const NODE_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-const NODE_VELOCITY_COLOR: [f32; 4] = [1.0, 0.6, 0.1, 1.0];
+/// a neighbor's particles (lighter).
+const BLOCK_COLOR: [f32; 4] = [0.25, 0.25, 0.45, 0.9];
+const BLOCK_EMPTY_COLOR: [f32; 4] = [0.6, 0.5, 0.8, 0.7];
+const NODE_COLOR: [f32; 4] = [0.1, 0.1, 0.1, 1.0];
+const NODE_VELOCITY_COLOR: [f32; 4] = [0.85, 0.25, 0.0, 1.0];
 
 /// Draws the particles into `lines`/`points`.
 /// `velocity_scale` is the time (in seconds) a velocity segment stands for.
