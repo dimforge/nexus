@@ -42,10 +42,10 @@ bvh = "0.7"
 
 # Physics / geometry. default-features off for the no_std shader crates; host
 # crates opt back in with `features = ["default"]`.
-rapier2d = { version = "0.35.3", default-features = false }
-rapier3d = { version = "0.35.3", default-features = false }
-rapier3d-urdf = "0.35.3"
-rapier3d-mjcf = { version = "0.35.3", features = ["stl", "wavefront", "msh"] }
+rapier2d = { version = "0.36.0", default-features = false }
+rapier3d = { version = "0.36.0", default-features = false }
+rapier3d-urdf = "0.36.0"
+rapier3d-mjcf = { version = "0.36.0", features = ["stl", "wavefront", "msh"] }
 parry2d = { version = "0.31", default-features = false }
 parry3d = { version = "0.31", default-features = false }
 
@@ -93,15 +93,6 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [patch.crates-io]
-# rapier3d-urdf's URDF roll-pitch-yaw fix and the Python multibody bindings
-# (branch python-multibody-control), pending a rapier release; every rapier
-# crate rides the same source so there is one `rapier3d` in the graph. Pinned
-# by rev, not branch: a moving head would make this build irreproducible.
-rapier2d = { git = "https://github.com/dimforge/rapier", rev = "6a047ed3d174e0ddf192ce4a478546a3f5aea0fb" }
-rapier3d = { git = "https://github.com/dimforge/rapier", rev = "6a047ed3d174e0ddf192ce4a478546a3f5aea0fb" }
-rapier3d-mjcf = { git = "https://github.com/dimforge/rapier", rev = "6a047ed3d174e0ddf192ce4a478546a3f5aea0fb" }
-rapier3d-urdf = { git = "https://github.com/dimforge/rapier", rev = "6a047ed3d174e0ddf192ce4a478546a3f5aea0fb" }
-rapier3d-meshloader = { git = "https://github.com/dimforge/rapier", rev = "6a047ed3d174e0ddf192ce4a478546a3f5aea0fb" }
 ## Local glam clone with SPIR-V vector-arithmetic intrinsics (Vec3 add/sub/mul/scale).
 #glam = { path = "../glam-rs" }
 # 30% faster for loop in P2G
@@ -121,7 +112,8 @@ rapier3d-meshloader = { git = "https://github.com/dimforge/rapier", rev = "6a047
 #glamx = { path = "../glamx" }
 # kiss3d's shared-manager fix for a second offscreen surface, its offscreen
 # MSAA and shadow controls (branch fix-shared-window-managers), pending a
-# kiss3d release. Pinned by rev for the same reason as rapier above.
+# kiss3d release. Pinned by rev, not branch: a moving head would make this
+# build irreproducible.
 kiss3d = { git = "https://github.com/dimforge/kiss3d", rev = "28cdddde9e920fdb5462e9c24e44b57e55dd7bbe" }
 #parry2d = { path = "../parry/crates/parry2d" }
 #parry3d = { path = "../parry/crates/parry3d" }
