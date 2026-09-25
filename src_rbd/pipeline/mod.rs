@@ -17,6 +17,8 @@ mod test_batched_stacks;
 mod test_multibody_layout;
 #[cfg(all(test, feature = "dim2"))]
 mod test_polyline_warmstart;
+#[cfg(all(test, feature = "dim3", any(feature = "metal", feature = "webgpu")))]
+mod test_small_multibody_solver;
 
 #[cfg(feature = "dim3")]
 pub use rbd_state::RbdSnapshot;

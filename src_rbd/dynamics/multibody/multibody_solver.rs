@@ -14,10 +14,11 @@ use crate::shaders::dynamics::{
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
     GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias, GpuMbSavePrevConsBounds,
     GpuMbScatterContactIndex, GpuMbSeedContactRestitution, GpuMbSenseContactImpulses,
-    GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
-    GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbTransferContactWarmstart,
-    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints,
-    GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity, WorldMassProperties,
+    GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveConstraints32,
+    GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints,
+    GpuMbTransferContactWarmstart, GpuMbUpdateImpulseJointConstraints,
+    GpuMbWarmstartContactConstraints, GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity,
+    WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -53,6 +54,8 @@ pub struct GpuMultibodySolver {
     /// Fused joint+contact PGS iteration (one workgroup per multibody, shared-
     /// memory dof velocities).
     solve_constraints: GpuMbSolveConstraints,
+    /// Avoid idle lanes and cross-SIMD barriers on multibodies with at most 32 DOFs.
+    solve_constraints_32: GpuMbSolveConstraints32,
     /// Joint-only half of the iteration, used with the Delassus contact path
     /// (one kernel binding both joint and Delassus buffers would exceed the
     /// 8-storage-buffer budget).
@@ -560,39 +563,48 @@ impl GpuMultibodySolver {
                 &mut mb.dof_state,
                 args.solver_vels,
             )?;
-        } else if mb.has_joint_constraints {
-            self.solve_constraints.call(
-                pass,
-                solve_dispatch,
-                &mb.multibody_info,
-                &mut mb.joint_constraints,
-                &mb.joint_constraint_columns,
-                &mut mb.contact_constraints,
-                &mb.contact_jac_cols,
-                use_bias,
-                args.batch_indices,
-                &mb.max_contact_constraints,
-                &mut mb.dof_state,
-                args.solver_vels,
-            )?;
         } else {
-            // No joint limits/motors anywhere: the fused iteration is contact-only
-            // work, so the indirect grid (zero workgroups on contact-free
-            // steps) replaces the full per-(multibody, batch) launch.
-            self.solve_constraints.call(
-                pass,
-                args.mb_dispatch_indirect,
-                &mb.multibody_info,
-                &mut mb.joint_constraints,
-                &mb.joint_constraint_columns,
-                &mut mb.contact_constraints,
-                &mb.contact_jac_cols,
-                use_bias,
-                args.batch_indices,
-                &mb.max_contact_constraints,
-                &mut mb.dof_state,
-                args.solver_vels,
-            )?;
+            macro_rules! solve {
+                ($kernel:ident, $lanes:expr) => {
+                    if mb.has_joint_constraints {
+                        self.$kernel.call(
+                            pass,
+                            [mb.multibodies_per_batch * $lanes, mb.num_batches, 1],
+                            &mb.multibody_info,
+                            &mut mb.joint_constraints,
+                            &mb.joint_constraint_columns,
+                            &mut mb.contact_constraints,
+                            &mb.contact_jac_cols,
+                            use_bias,
+                            args.batch_indices,
+                            &mb.max_contact_constraints,
+                            &mut mb.dof_state,
+                            args.solver_vels,
+                        )?;
+                    } else {
+                        // Indirect grids contain workgroup counts, independent of lane width.
+                        self.$kernel.call(
+                            pass,
+                            args.mb_dispatch_indirect,
+                            &mb.multibody_info,
+                            &mut mb.joint_constraints,
+                            &mb.joint_constraint_columns,
+                            &mut mb.contact_constraints,
+                            &mb.contact_jac_cols,
+                            use_bias,
+                            args.batch_indices,
+                            &mb.max_contact_constraints,
+                            &mut mb.dof_state,
+                            args.solver_vels,
+                        )?;
+                    }
+                };
+            }
+            if mb.max_ndofs <= 32 {
+                solve!(solve_constraints_32, 32);
+            } else {
+                solve!(solve_constraints, MB_LU_LANES);
+            }
         }
         Ok(())
     }
