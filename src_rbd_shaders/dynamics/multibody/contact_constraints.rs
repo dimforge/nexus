@@ -249,8 +249,8 @@ pub fn gpu_mb_count_contact_constraints(
 /// (`contact_index_start/len`, unclamped: the index buffer is sized like the
 /// contacts buffer and each contact owns at most one entry). Also publishes
 /// the total slot demand for the host's auto-resize readback, and re-zeroes
-/// `mb_cons_counts` (for the next frame) and `mb_index_counts` (which the
-/// scatter pass reuses as its write cursors). Serial in one thread (the
+/// `mb_cons_counts` for the next frame (`mb_index_counts` stays: the scatter
+/// pass counts it down as its write cursors). Serial in one thread (the
 /// multibody count per scene is small).
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
@@ -301,17 +301,17 @@ pub fn gpu_mb_cons_offsets_scan(
         index_acc += mb.contact_index_len;
 
         multibody_info.write(i as usize, mb);
-        // Zeroed for the next frame's count pass / for the scatter cursors.
+        // Zeroed for the next frame's count pass. `mb_index_counts` is left as
+        // is: the scatter counts it back down to zero.
         mb_cons_counts.write(i as usize, 0);
-        mb_index_counts.write(i as usize, 0);
     }
     mb_cons_demand.write(0, demand);
 }
 
 /// Builds the contact→multibody index: one flat sweep over the contacts,
 /// each contact appending its entry to its owner's segment (laid out by the
-/// offsets scan; `mb_index_counts` was re-zeroed there and serves as the
-/// per-multibody write cursors). Entry order within a segment follows the
+/// offsets scan; `mb_index_counts` still holds the per-multibody counts and
+/// serves as write cursors counting down to zero). Entry order within a segment follows the
 /// atomic race; the emission's warmstart matching is key-based, so the order
 /// only affects the (already nondeterministic) impulse iteration order.
 /// Grid: `contacts_indirect`.
@@ -339,7 +339,9 @@ pub fn gpu_mb_scatter_contact_index(
         }
         let slot = batch_ids.mbi(owner.batch, owner.mb as usize);
         let mb = multibody_info.read(slot);
-        let pos = atomic_add_u32(mb_index_counts.at_mut(slot), 1);
+        // Count the cursor down (`+ u32::MAX` wraps to `- 1`), so the pass
+        // leaves it at zero for the next frame's count pass.
+        let pos = atomic_add_u32(mb_index_counts.at_mut(slot), u32::MAX) - 1;
         mb_contact_index.write(
             (mb.contact_index_start + pos) as usize,
             MbContactIndexEntry {
