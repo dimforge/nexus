@@ -1,14 +1,13 @@
 //! GPU-resident rigid-body state ([`RbdState`]): buffer definitions, accessors,
 //! run statistics and capacity/resize policies.
-use crate::broad_phase::{LbvhState, PfmSortState};
+use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, LbvhState, PfmSortState};
 use crate::dynamics::GpuImpulseJointSet;
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
 use crate::math::{Pose, Vector};
 use crate::queries::{GpuColliderMaterial, GpuIndexedContact};
-use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::PaddedVector;
-use crate::shaders::broad_phase::{CollisionPair, ContactPlan, NarrowPhasePfmPair};
+use crate::shaders::broad_phase::{CollisionPair, ContactPlan, LbvhNode, NarrowPhasePfmPair};
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
@@ -16,6 +15,7 @@ use crate::shaders::dynamics::{
     TwoBodyConstraintBuilder, Velocity as GpuVelocity,
     WorldMassProperties as GpuWorldMassProperties,
 };
+use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::shapes::Shape;
 use crate::shaders::utils::BatchIndices;
 use crate::utils::{ComputeGraphCache, PrefixSumWorkspace};
@@ -52,6 +52,21 @@ impl DebugContact {
     pub fn solver_point(&self) -> Vector {
         self.point + self.normal * (self.dist * 0.5)
     }
+}
+
+/// One node of the broad-phase LBVH, read back by [`RbdState::debug_lbvh`].
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct DebugLbvhNode {
+    /// Lower corner of the world-space AABB of the node.
+    pub mins: Vector,
+    /// Upper corner of that AABB.
+    pub maxs: Vector,
+    /// Depth in the tree of its batch (the root is at depth 0).
+    pub depth: u32,
+    /// Whether the node is a leaf, i.e. the AABB of a single collider.
+    pub leaf: bool,
+    /// Batch (environment) of the tree of this node.
+    pub batch: u32,
 }
 
 /// Performance statistics collected during a physics simulation step.
@@ -627,6 +642,60 @@ impl RbdState {
         }
 
         result
+    }
+
+    /// Whether the broad phase tests all collider pairs instead of using the LBVH.
+    /// This happens for small scenes; `NEXUS_DISABLE_BF` forces the LBVH.
+    pub fn uses_brute_force_broad_phase(&self) -> bool {
+        self.num_active_colliders <= BRUTE_FORCE_MAX_COLLIDERS
+            && std::env::var("NEXUS_DISABLE_BF").is_err()
+    }
+
+    /// Debug: reads the LBVH back from the GPU, with the depth of each node.
+    /// `None` if the brute-force broad phase is used (there is no tree then). Slow.
+    pub async fn debug_lbvh(&self, backend: &GpuBackend) -> Option<Vec<DebugLbvhNode>> {
+        let n = self.num_active_colliders as usize;
+        if self.uses_brute_force_broad_phase() || n == 0 {
+            return None;
+        }
+        let tree = backend
+            .slow_read_vec::<LbvhNode>(self.lbvh.tree().buffer())
+            .await
+            .ok()?;
+
+        let stride = 2 * self.num_colliders_per_batch as usize;
+        let num_internal = n - 1;
+        let mut result = Vec::with_capacity(2 * n * self.num_batches as usize);
+        let mut stack = Vec::new();
+
+        for batch in 0..self.num_batches as usize {
+            let Some(nodes) = tree.get(batch * stride..batch * stride + 2 * n - 1) else {
+                break;
+            };
+            stack.clear();
+            stack.push((0usize, 0u32));
+            // Bounded by the node count, so a broken tree can't loop forever.
+            for _ in 0..nodes.len() {
+                let Some((id, depth)) = stack.pop() else {
+                    break;
+                };
+                let Some(node) = nodes.get(id) else { continue };
+                let leaf = id >= num_internal;
+                result.push(DebugLbvhNode {
+                    mins: node.aabb.mins,
+                    maxs: node.aabb.maxs,
+                    depth,
+                    leaf,
+                    batch: batch as u32,
+                });
+                if !leaf {
+                    stack.push((node.right as usize, depth + 1));
+                    stack.push((node.left as usize, depth + 1));
+                }
+            }
+        }
+
+        Some(result)
     }
 
     /// Debug: read back active contacts as `(collider_a, collider_b, body_a,

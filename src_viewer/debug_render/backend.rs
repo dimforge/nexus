@@ -59,3 +59,47 @@ pub fn hsla_to_rgba([h, s, l, a]: DebugColor) -> [f32; 4] {
     let m = l - c / 2.0;
     [r + m, g + m, b + m, a]
 }
+
+/// Adds the edges of an axis-aligned box: 4 segments in 2D, 12 in 3D.
+#[cfg(feature = "dim2")]
+pub(super) fn push_box(mins: Vector, maxs: Vector, color: [f32; 4], lines: &mut Vec<DebugLine>) {
+    let corners = [
+        mins,
+        Vector::new(maxs.x, mins.y),
+        maxs,
+        Vector::new(mins.x, maxs.y),
+    ];
+    for i in 0..4 {
+        lines.push(DebugLine {
+            a: corners[i],
+            b: corners[(i + 1) % 4],
+            color,
+        });
+    }
+}
+
+/// Adds the edges of an axis-aligned box: 4 segments in 2D, 12 in 3D.
+#[cfg(feature = "dim3")]
+pub(super) fn push_box(mins: Vector, maxs: Vector, color: [f32; 4], lines: &mut Vec<DebugLine>) {
+    // Corner `i` takes x/y/z from `maxs` where bit 0/1/2 of `i` is set.
+    // Two corners share an edge if `i ^ j` has a single bit.
+    let corner = |i: usize| {
+        Vector::new(
+            if i & 1 != 0 { maxs.x } else { mins.x },
+            if i & 2 != 0 { maxs.y } else { mins.y },
+            if i & 4 != 0 { maxs.z } else { mins.z },
+        )
+    };
+    for i in 0..8usize {
+        for bit in [1, 2, 4] {
+            let j = i ^ bit;
+            if j > i {
+                lines.push(DebugLine {
+                    a: corner(i),
+                    b: corner(j),
+                    color,
+                });
+            }
+        }
+    }
+}

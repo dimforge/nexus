@@ -767,11 +767,8 @@ impl RbdState {
         let new_body_constraint_ids =
             Tensor::vector_uninit(backend, contacts_capacity * 2, storage).unwrap();
 
-        let lbvh_usages = if crate::VALIDATE_LBVH_TOPOLOGY {
-            BufferUsages::STORAGE | BufferUsages::COPY_SRC
-        } else {
-            BufferUsages::STORAGE
-        };
+        // `COPY_SRC` so the LBVH validation and the debug-renderer can read the tree.
+        let lbvh_usages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
         let contacts_capacity_cpu = contacts_capacity;
         let collision_pairs_capacity_cpu = pairs_capacity;

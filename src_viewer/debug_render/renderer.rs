@@ -1,6 +1,6 @@
 //! The debug renderer: turns the GPU state into debug segments.
 
-use super::backend::{DebugLine, DebugPoint, LineCollector, hsla_to_rgba};
+use super::backend::{DebugLine, DebugPoint, LineCollector, hsla_to_rgba, push_box};
 use super::mpm::{MpmDebugRenderMode, render_grid, render_particles};
 use crate::rapier::pipeline::{DebugRenderMode, DebugRenderPipeline, DebugRenderStyle};
 use crate::rapier::prelude::{ColliderSet, RigidBodyHandle, RigidBodySet};
@@ -30,6 +30,26 @@ pub struct DebugRenderSettings {
     /// Hide the regular rendering, to only show the debug lines and points.
     /// Only used if [`Self::enabled`] is set.
     pub hide_regular_rendering: bool,
+    /// Draw the LBVH nodes at [`Self::lbvh_depth`].
+    pub lbvh: bool,
+    /// Depth of the LBVH nodes to draw (the root is at depth 0).
+    /// Leaves that are less deep are drawn too.
+    pub lbvh_depth: u32,
+}
+
+/// What the last [`DebugRenderer::sync`] found when drawing the LBVH.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum LbvhStatus {
+    /// Not requested, or nothing to read (debug render off, no rigid-bodies).
+    #[default]
+    Off,
+    /// The scene uses the brute-force broad phase, so there is no tree.
+    BruteForce,
+    /// The tree was drawn. Its deepest node is at `max_depth`.
+    Tree {
+        /// Depth of the deepest node, over all batches.
+        max_depth: u32,
+    },
 }
 
 impl Default for DebugRenderSettings {
@@ -50,6 +70,8 @@ impl Default for DebugRenderSettings {
             rigid_body_axes_length: style.rigid_body_axes_length,
             mpm_velocity_scale: 0.1,
             hide_regular_rendering: false,
+            lbvh: false,
+            lbvh_depth: 0,
         }
     }
 }
@@ -87,7 +109,12 @@ pub struct DebugRenderer {
     mirrored_counts: Vec<(usize, usize)>,
     lines: Vec<DebugLine>,
     points: Vec<DebugPoint>,
+    lbvh_status: LbvhStatus,
 }
+
+/// Colors of the LBVH boxes: internal nodes and leaves.
+const LBVH_NODE_COLOR: [f32; 4] = [0.0, 0.45, 0.45, 1.0];
+const LBVH_LEAF_COLOR: [f32; 4] = [0.75, 0.4, 0.0, 1.0];
 
 impl Default for DebugRenderer {
     fn default() -> Self {
@@ -100,6 +127,7 @@ impl Default for DebugRenderer {
             mirrored_counts: Vec::new(),
             lines: Vec::new(),
             points: Vec::new(),
+            lbvh_status: LbvhStatus::Off,
         }
     }
 }
@@ -113,6 +141,11 @@ impl DebugRenderer {
     /// The points to draw this frame.
     pub fn points(&self) -> &[DebugPoint] {
         &self.points
+    }
+
+    /// What the last [`Self::sync`] found when drawing the LBVH.
+    pub fn lbvh_status(&self) -> LbvhStatus {
+        self.lbvh_status
     }
 
     /// Drops the pose mirrors (e.g. when switching demo). They are rebuilt by the next sync.
@@ -133,9 +166,16 @@ impl DebugRenderer {
     ) {
         self.lines.clear();
         self.points.clear();
+        self.lbvh_status = LbvhStatus::Off;
 
         if !settings.enabled {
             return;
+        }
+
+        if let Some(rbd) = state.rbd.as_ref()
+            && settings.lbvh
+        {
+            self.render_lbvh(rbd, backend, settings).await;
         }
 
         if let Some(rbd) = state.rbd.as_ref()
@@ -170,6 +210,33 @@ impl DebugRenderer {
         {
             self.render_mpm(mpm, backend, settings).await;
         }
+    }
+
+    /// Draws the LBVH nodes at the selected depth, plus the less deep leaves.
+    async fn render_lbvh(
+        &mut self,
+        rbd: &nexus::rbd::pipeline::RbdState,
+        backend: &GpuBackend,
+        settings: &DebugRenderSettings,
+    ) {
+        let Some(nodes) = rbd.debug_lbvh(backend).await else {
+            self.lbvh_status = LbvhStatus::BruteForce;
+            return;
+        };
+        let max_depth = nodes.iter().map(|n| n.depth).max().unwrap_or(0);
+        let depth = settings.lbvh_depth.min(max_depth);
+        for node in nodes
+            .iter()
+            .filter(|n| n.depth == depth || (n.leaf && n.depth < depth))
+        {
+            let color = if node.leaf {
+                LBVH_LEAF_COLOR
+            } else {
+                LBVH_NODE_COLOR
+            };
+            push_box(node.mins, node.maxs, color, &mut self.lines);
+        }
+        self.lbvh_status = LbvhStatus::Tree { max_depth };
     }
 
     /// Draws the MPM particles and grid, read back from the GPU.

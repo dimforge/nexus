@@ -53,7 +53,7 @@ use nexus::state::{NexusCounts, NexusState};
 use rapier::prelude::{RigidBodyHandle, SharedShape};
 
 use crate::backend::BackendType;
-use crate::debug_render::{DebugRenderSettings, DebugRenderer};
+use crate::debug_render::{DebugRenderSettings, DebugRenderer, LbvhStatus};
 use crate::graphics::RenderContext;
 #[cfg(feature = "dim3")]
 use crate::graphics::VisualTexture;
@@ -136,6 +136,8 @@ pub struct UiState {
     /// Debug rendering of the physics state. Off by default: it reads the
     /// state back from the GPU every frame.
     pub debug_render: DebugRenderSettings,
+    /// What the debug renderer found when drawing the LBVH (for the UI).
+    pub(crate) debug_lbvh: LbvhStatus,
 }
 
 /// Editable simulation settings exposed in the viewer UI. The viewer pulls
@@ -430,6 +432,7 @@ impl NexusViewer {
                 counts: NexusCounts::default(),
                 mpm_render_mode: MpmRenderMode::default(),
                 debug_render: DebugRenderSettings::default(),
+                debug_lbvh: LbvhStatus::Off,
             },
         };
 
@@ -1387,6 +1390,7 @@ impl NexusViewer {
         self.debug_renderer
             .sync(state, &debug_backend, &debug_settings)
             .await;
+        self.ui.debug_lbvh = self.debug_renderer.lbvh_status();
         self.sync_timestamps(timestamps).await;
 
         // `pipeline.step` overwrites `run_stats` (with empty pass timings) every

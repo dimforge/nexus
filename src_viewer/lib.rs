@@ -19,7 +19,7 @@ mod ui;
 pub mod viewer;
 
 pub use backend::BackendType;
-pub use debug_render::{DebugRenderSettings, DebugRenderer, MpmDebugRenderMode};
+pub use debug_render::{DebugRenderSettings, DebugRenderer, LbvhStatus, MpmDebugRenderMode};
 #[cfg(feature = "dim3")]
 pub use graphics::{RenderMaterial, VisualTexture};
 #[cfg(feature = "dim3")]

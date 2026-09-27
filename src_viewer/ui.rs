@@ -6,7 +6,7 @@ use nexus::state::NexusCounts;
 use std::time::Duration;
 
 use crate::backend::BackendType;
-use crate::debug_render::{DebugRenderSettings, MpmDebugRenderMode};
+use crate::debug_render::{DebugRenderSettings, LbvhStatus, MpmDebugRenderMode};
 use crate::rapier::pipeline::DebugRenderMode;
 use egui::{Button, CollapsingHeader, Color32, ComboBox, CornerRadius, RichText, Stroke};
 
@@ -163,7 +163,7 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                     }
                     Some(UiSection::DebugRender) => {
                         ui.separator();
-                        debug_render_settings(ui, &mut state.debug_render);
+                        debug_render_settings(ui, &mut state.debug_render, state.debug_lbvh);
                     }
                     _ => {}
                 });
@@ -241,7 +241,7 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
 }
 
 /// Debug-renderer controls: what to draw, and how.
-fn debug_render_settings(ui: &mut egui::Ui, s: &mut DebugRenderSettings) {
+fn debug_render_settings(ui: &mut egui::Ui, s: &mut DebugRenderSettings, lbvh: LbvhStatus) {
     ui.label(RichText::new("Debug render").strong());
     ui.add_space(2.0);
     ui.checkbox(&mut s.enabled, "Enabled").on_hover_text(
@@ -307,6 +307,11 @@ fn debug_render_settings(ui: &mut egui::Ui, s: &mut DebugRenderSettings) {
         "The points the contact constraints actually act on (the midpoint \
          of each contact pair)",
     );
+    ui.checkbox(&mut s.lbvh, "LBVH")
+        .on_hover_text("Bounding boxes of the broad-phase BVH nodes, one depth at a time");
+    if s.lbvh {
+        ui.indent("lbvh_depth", |ui| lbvh_depth_control(ui, s, lbvh));
+    }
 
     ui.add_space(4.0);
     ui.label("MPM");
@@ -377,6 +382,42 @@ fn debug_render_settings(ui: &mut egui::Ui, s: &mut DebugRenderSettings) {
             .text("mpm velocity scale"),
     )
     .on_hover_text("Seconds of travel an MPM velocity segment stands for");
+}
+
+/// The `- depth +` selector of the LBVH depth, or why there is no tree.
+fn lbvh_depth_control(ui: &mut egui::Ui, s: &mut DebugRenderSettings, lbvh: LbvhStatus) {
+    match lbvh {
+        LbvhStatus::Tree { max_depth } => {
+            s.lbvh_depth = s.lbvh_depth.min(max_depth);
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(s.lbvh_depth > 0, Button::new("-"))
+                    .on_hover_text("Shallower")
+                    .clicked()
+                {
+                    s.lbvh_depth -= 1;
+                }
+                ui.add(egui::DragValue::new(&mut s.lbvh_depth).range(0..=max_depth));
+                if ui
+                    .add_enabled(s.lbvh_depth < max_depth, Button::new("+"))
+                    .on_hover_text("Deeper")
+                    .clicked()
+                {
+                    s.lbvh_depth += 1;
+                }
+                ui.label(format!("depth (max {max_depth})"));
+            });
+        }
+        LbvhStatus::BruteForce => {
+            ui.label(
+                "No tree: scenes with at most 64 colliders use the brute-force \
+                 broad phase (set NEXUS_DISABLE_BF to force the LBVH).",
+            );
+        }
+        LbvhStatus::Off => {
+            ui.label("No tree to show: the scene has no rigid bodies.");
+        }
+    }
 }
 
 /// A labelled per-component drag editor for a gravity vector (2D or 3D).
