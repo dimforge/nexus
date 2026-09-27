@@ -161,6 +161,9 @@ impl RbdPipeline {
             #[cfg(feature = "dim3")]
             {
                 needed = needed.max(state.multibodies.mb_imp_joint_num_colors() + 1);
+                // Reuse scalar uniforms for fused PGS iteration counts. Cap
+                // the extra allocation; larger counts retain separate sweeps.
+                needed = needed.max(state.multibodies.num_internal_pgs_iterations().min(32) + 1);
             }
             state.ensure_color_uniforms(backend, needed);
         }

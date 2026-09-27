@@ -15,15 +15,44 @@ use crate::shaders::dynamics::{
     GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias, GpuMbSavePrevConsBounds,
     GpuMbScatterContactIndex, GpuMbSeedContactRestitution, GpuMbSenseContactImpulses,
     GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveConstraints32,
-    GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints,
-    GpuMbTransferContactWarmstart, GpuMbUpdateImpulseJointConstraints,
-    GpuMbWarmstartContactConstraints, GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity,
-    WorldMassProperties,
+    GpuMbSolveConstraintsPacked, GpuMbSolveConstraintsSimd, GpuMbSolveContactsDelassus,
+    GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbTransferContactWarmstart,
+    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints,
+    GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
 use khal::backend::{GpuBackendError, GpuPass};
 use vortx::tensor::Tensor;
+
+// Subgroup kernels are optional; other backends keep the portable solver.
+struct MetalSolvers {
+    per_multibody: GpuMbSolveConstraintsSimd,
+    packed: GpuMbSolveConstraintsPacked,
+}
+struct MetalSimdSolver(Option<MetalSolvers>);
+impl MetalSimdSolver {
+    #[allow(unused_variables)]
+    fn from_dir(
+        backend: &khal::backend::GpuBackend,
+        dir: &khal::re_exports::include_dir::Dir<'static>,
+    ) -> Result<Self, GpuBackendError> {
+        #[cfg(feature = "metal")]
+        if matches!(backend, khal::backend::GpuBackend::Metal(_)) {
+            return Ok(Self(Some(MetalSolvers {
+                per_multibody: GpuMbSolveConstraintsSimd::from_dir(backend, dir)?,
+                packed: GpuMbSolveConstraintsPacked::from_dir(backend, dir)?,
+            })));
+        }
+        Ok(Self(None))
+    }
+    #[cfg(feature = "cpu")]
+    const __ERROR__SHADER_CRATE_IS_MISSING_FEATURE_NAMED____CPU: () = ();
+    #[cfg(feature = "cpu-parallel")]
+    const __ERROR__SHADER_CRATE_IS_MISSING_FEATURE_NAMED____CPU_PARALLEL: () = ();
+    #[cfg(feature = "cuda")]
+    const __ERROR__SHADER_CRATE_IS_MISSING_FEATURE_NAMED____CUDA: () = ();
+}
 
 /// GPU shader bundle for multibody dynamics.
 #[derive(Shader)]
@@ -56,6 +85,9 @@ pub struct GpuMultibodySolver {
     solve_constraints: GpuMbSolveConstraints,
     /// Avoid idle lanes and cross-SIMD barriers on multibodies with at most 32 DOFs.
     solve_constraints_32: GpuMbSolveConstraints32,
+    /// Register-resident native Metal solvers; portable backends keep the
+    /// cooperative kernels above.
+    solve_constraints_simd: MetalSimdSolver,
     /// Joint-only half of the iteration, used with the Delassus contact path
     /// (one kernel binding both joint and Delassus buffers would exceed the
     /// 8-storage-buffer budget).
@@ -147,6 +179,24 @@ pub struct MultibodySolverArgs<'a> {
 }
 
 impl GpuMultibodySolver {
+    /// Fusion is only used when the caller has also ruled out rigid-body
+    /// constraints. One multibody per environment and no loop-closing joints
+    /// ensures that all intermediate writes are private to that environment.
+    pub(crate) fn can_fuse_iterations(
+        &self,
+        mb: &GpuMultibodySet,
+        requested_iterations: u32,
+        uniform_count: usize,
+    ) -> bool {
+        self.solve_constraints_simd.0.is_some()
+            && mb.max_ndofs <= 32
+            && mb.num_internal_pgs_iterations == requested_iterations
+            && mb.multibodies_per_batch == 1
+            && mb.mb_imp_joint_num_colors == 0
+            && mb.contact_delassus.is_none()
+            && (mb.num_internal_pgs_iterations as usize) < uniform_count
+    }
+
     /// Runs FK → jacobians → mass matrix → gravity → LU solve in sequence on one pass.
     ///
     /// After completion, `mb.gen_accelerations()` holds `ẍ = M⁻¹ τ_g` (one per DOF).
@@ -533,6 +583,7 @@ impl GpuMultibodySolver {
         args: &mut MultibodySolverArgs<'_>,
         solve_dispatch: [u32; 3],
         use_bias_idx: usize,
+        num_iterations: usize,
     ) -> Result<(), GpuBackendError> {
         let use_bias = &args.color_uniforms[use_bias_idx];
         if let Some(delassus) = &mb.contact_delassus {
@@ -563,6 +614,48 @@ impl GpuMultibodySolver {
                 &mut mb.dof_state,
                 args.solver_vels,
             )?;
+        } else if let Some(solvers) = self
+            .solve_constraints_simd
+            .0
+            .as_ref()
+            .filter(|_| mb.max_ndofs <= 32)
+        {
+            macro_rules! solve_simd {
+                ($kernel:expr, $dispatch:expr) => {
+                    ($kernel).call(
+                        pass,
+                        $dispatch,
+                        &mb.multibody_info,
+                        &mut mb.joint_constraints,
+                        &mb.joint_constraint_columns,
+                        &mut mb.contact_constraints,
+                        &mb.contact_jac_cols,
+                        use_bias,
+                        args.batch_indices,
+                        &mb.max_contact_constraints,
+                        &mut mb.dof_state,
+                        args.solver_vels,
+                        &args.color_uniforms[num_iterations],
+                    )?
+                };
+            }
+            // Packing four environments into a SIMD group reduces idle lanes.
+            // Keep one full group per robot at smaller batch counts, where the
+            // extra groups are needed to occupy the GPU (measured on M4 Max).
+            if mb.num_batches >= 4096 {
+                solve_simd!(
+                    solvers.packed,
+                    [mb.num_batches * 8, mb.multibodies_per_batch, 1]
+                );
+            } else if mb.has_joint_constraints {
+                solve_simd!(
+                    solvers.per_multibody,
+                    [mb.multibodies_per_batch * 32, mb.num_batches, 1]
+                );
+            } else {
+                // Retain zero-workgroup dispatch on contact-free steps.
+                solve_simd!(solvers.per_multibody, args.mb_dispatch_indirect);
+            }
         } else {
             macro_rules! solve {
                 ($kernel:ident, $lanes:expr) => {
@@ -580,6 +673,7 @@ impl GpuMultibodySolver {
                             &mb.max_contact_constraints,
                             &mut mb.dof_state,
                             args.solver_vels,
+                            &args.color_uniforms[1],
                         )?;
                     } else {
                         // Indirect grids contain workgroup counts, independent of lane width.
@@ -596,6 +690,7 @@ impl GpuMultibodySolver {
                             &mb.max_contact_constraints,
                             &mut mb.dof_state,
                             args.solver_vels,
+                            &args.color_uniforms[1],
                         )?;
                     }
                 };
@@ -620,6 +715,17 @@ impl GpuMultibodySolver {
         args: &mut MultibodySolverArgs<'_>,
         first_iteration: bool,
     ) -> Result<(), GpuBackendError> {
+        self.substep_solve_with_bias_fused(pass, mb, args, first_iteration, false)
+    }
+
+    pub(crate) fn substep_solve_with_bias_fused(
+        &self,
+        pass: &mut GpuPass,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+        first_iteration: bool,
+        fuse_iterations: bool,
+    ) -> Result<(), GpuBackendError> {
         if mb.is_empty() {
             return Ok(());
         }
@@ -635,11 +741,22 @@ impl GpuMultibodySolver {
             BIAS_MODE_BIAS as usize
         };
         let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.dispatch_solve(pass, mb, args, solve_dispatch, bias_mode)?;
+        self.dispatch_solve(
+            pass,
+            mb,
+            args,
+            solve_dispatch,
+            bias_mode,
+            if fuse_iterations {
+                mb.num_internal_pgs_iterations as usize
+            } else {
+                1
+            },
+        )?;
 
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
         // constraints, built on the first iteration of the substep.
-        if mb.mb_imp_joints_per_batch > 0 && first_iteration {
+        if mb.mb_imp_joint_num_colors > 0 && first_iteration {
             // Flat 1-D dispatch over the interleaved joint slots.
             let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];
             self.update_impulse_joint_constraints.call(
@@ -672,7 +789,7 @@ impl GpuMultibodySolver {
                 &mb.links_static,
             )?;
         }
-        if mb.mb_imp_joints_per_batch > 0 {
+        if mb.mb_imp_joint_num_colors > 0 {
             // Colored PGS iteration WITH bias: one dispatch per color, each
             // color's joints solved race-free in parallel (graph coloring
             // done at init in `set_impulse_joints`).
@@ -756,8 +873,8 @@ impl GpuMultibodySolver {
 
         // Stabilization iteration: `use_bias = 0` (`color_uniforms[0] == 0`).
         let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.dispatch_solve(pass, mb, args, solve_dispatch, 0)?;
-        if mb.mb_imp_joints_per_batch > 0 {
+        self.dispatch_solve(pass, mb, args, solve_dispatch, 0, 1)?;
+        if mb.mb_imp_joint_num_colors > 0 {
             // Flat 1-D dispatch over the interleaved joint slots.
             let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];
             self.remove_impulse_joint_constraint_bias.call(
@@ -884,8 +1001,8 @@ impl GpuMultibodySolver {
         // Fused gravity + LU factor + LU solve. Select an implementation based on how many
         // environments we can pack on the same workgroup (depending on its dofs).
         macro_rules! grav_lu {
-            ($kernel:ident) => {
-                self.$kernel.call(
+            ($kernel:expr) => {
+                ($kernel).call(
                     pass,
                     mb.packed_wg_dispatch(),
                     &mb.multibody_info,
@@ -903,10 +1020,10 @@ impl GpuMultibodySolver {
             };
         }
         match mb.pack_lanes() {
-            1 => grav_lu!(gravity_and_lu_t1),
-            8 => grav_lu!(gravity_and_lu_t8),
-            16 => grav_lu!(gravity_and_lu_t16),
-            32 => grav_lu!(gravity_and_lu_t32),
+            1 => grav_lu!(self.gravity_and_lu_t1),
+            8 => grav_lu!(self.gravity_and_lu_t8),
+            16 => grav_lu!(self.gravity_and_lu_t16),
+            32 => grav_lu!(self.gravity_and_lu_t32),
             _ => {
                 let grav_lu_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
                 self.gravity_and_lu.call(

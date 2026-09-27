@@ -26,6 +26,8 @@ mod joint_constraints;
 mod lu;
 mod scatter_motor;
 mod solve_constraints;
+mod solve_simd;
+pub use solve_simd::*;
 mod types;
 mod utils;
 mod ws_soa;

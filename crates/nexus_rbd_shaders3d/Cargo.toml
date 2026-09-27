@@ -53,3 +53,9 @@ khal-std = { workspace = true }
 [target.'cfg(not(any(target_arch = "spirv", target_arch = "nvptx64")))'.dependencies]
 bytemuck = { workspace = true }
 khal = { workspace = true }
+
+[target.'cfg(target_arch = "spirv")'.dependencies]
+spirv-std = "0.10"
+
+[package.metadata.rust-gpu.build]
+capabilities = ["GroupNonUniform", "GroupNonUniformArithmetic", "GroupNonUniformShuffle"]

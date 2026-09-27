@@ -627,15 +627,35 @@ impl GpuSolver {
              * squeezed between a multibody link and a rigid body sees both
              * sides converge at the same rate.
              */
-            for iteration in 0..args.num_internal_pgs_iterations.max(1) {
+            #[cfg(feature = "dim3")]
+            let fuse_iterations = skip_rb
+                && joints_empty
+                && mb_solver
+                    .zip(mb_state.as_deref())
+                    .is_some_and(|(solver, state)| {
+                        solver.can_fuse_iterations(
+                            state,
+                            args.num_internal_pgs_iterations.max(1),
+                            args.color_uniforms.len(),
+                        )
+                    });
+            #[cfg(not(feature = "dim3"))]
+            let fuse_iterations = false;
+            let iterations = if fuse_iterations {
+                1
+            } else {
+                args.num_internal_pgs_iterations.max(1)
+            };
+            for iteration in 0..iterations {
                 let first_iteration = iteration == 0;
                 // Only consumed by the dim3-only multibody phase.
                 #[cfg(not(feature = "dim3"))]
                 let _ = first_iteration;
                 mb_phase!(
                     "[RBD] slv/mb-solve-bias",
-                    substep_solve_with_bias,
-                    first_iteration
+                    substep_solve_with_bias_fused,
+                    first_iteration,
+                    fuse_iterations
                 );
                 if !skip_rb || !joints_empty {
                     let mut pass =
