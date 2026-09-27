@@ -170,6 +170,11 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
 
             ui.separator();
 
+            // Demo navigation, shown for every tab.
+            if !state.demos.is_empty() {
+                demo_navigation(ui, state);
+            }
+
             // Bottom controls.
             ui.horizontal(|ui| {
                 let (play_label, play_hover) = if state.run_state == RunState::Running {
@@ -534,9 +539,9 @@ impl UiState {
     }
 }
 
-fn examples_section(ui: &mut egui::Ui, state: &mut UiState) {
-    // Previous/Next navigation + current demo name. Navigation follows the
-    // grouped listing order (see `demo_display_order`), not the raw index.
+/// Previous/Next buttons and the name of the current demo.
+/// The order is the one of the demo list (see `demo_display_order`).
+fn demo_navigation(ui: &mut egui::Ui, state: &mut UiState) {
     let order = state.demo_display_order();
     let pos = order
         .iter()
@@ -568,11 +573,9 @@ fn examples_section(ui: &mut egui::Ui, state: &mut UiState) {
                 .italics(),
         );
     });
+}
 
-    ui.add_space(4.0);
-    ui.separator();
-    ui.add_space(4.0);
-
+fn examples_section(ui: &mut egui::Ui, state: &mut UiState) {
     demo_group(ui, state, DemoKind::Rbd, "Rigid Bodies");
     demo_group(ui, state, DemoKind::Mpm, "MPM");
 }
