@@ -18,7 +18,9 @@ use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::sync::{atomic_add_u32, atomic_load_u32, workgroup_memory_barrier_with_group_sync};
+use khal_std::sync::{
+    atomic_add_u32, atomic_load_u32, atomic_sub_u32, workgroup_memory_barrier_with_group_sync,
+};
 
 use crate::broad_phase::ContactPlan;
 use crate::dynamics::ConstraintSoftness;
@@ -339,9 +341,9 @@ pub fn gpu_mb_scatter_contact_index(
         }
         let slot = batch_ids.mbi(owner.batch, owner.mb as usize);
         let mb = multibody_info.read(slot);
-        // Count the cursor down (`+ u32::MAX` wraps to `- 1`), so the pass
-        // leaves it at zero for the next frame's count pass.
-        let pos = atomic_add_u32(mb_index_counts.at_mut(slot), u32::MAX) - 1;
+        // Count the cursor down, so the pass leaves it at zero for the next
+        // frame's count pass.
+        let pos = atomic_sub_u32(mb_index_counts.at_mut(slot), 1) - 1;
         mb_contact_index.write(
             (mb.contact_index_start + pos) as usize,
             MbContactIndexEntry {
