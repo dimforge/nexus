@@ -180,6 +180,11 @@ pub struct NexusState {
     rbd_dirty: bool,
     /// Number of rigid-body solver steps advanced per [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call.
     pub rbd_steps_per_frame: u32,
+    /// Replay each frame's physics through a compute graph instead of
+    /// re-encoding it, on backends that support graph capture (ignored
+    /// elsewhere). The graphs are re-recorded whenever the scene's structure
+    /// changes; see `RbdState::compute_graph` and `MpmState::compute_graphs`.
+    pub compute_graphs: bool,
     /// Per-environment GPU collider-slot reservation. When > 0, the GPU
     /// [`RbdState`] is built with this many slots (rather than exactly the
     /// current body count), leaving room for [`Self::add_rigid_body`] to append
@@ -209,6 +214,7 @@ impl NexusState {
             rbd_sim_params: vec![RbdSimParams::tgs_soft()],
             rbd_dirty: false,
             rbd_steps_per_frame: 1,
+            compute_graphs: false,
             rbd_reserve_per_env: 0,
             rbd2gpu: vec![Coarena::new()],
             #[cfg(feature = "mpm")]
@@ -365,6 +371,17 @@ impl NexusState {
     /// Number of rigid-body solver steps per [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate) call.
     pub fn rbd_steps_per_frame(&self) -> u32 {
         self.rbd_steps_per_frame
+    }
+
+    /// Replays each frame's physics through a compute graph (see
+    /// [`Self::compute_graphs`]).
+    pub fn set_compute_graphs_enabled(&mut self, enabled: bool) {
+        self.compute_graphs = enabled;
+    }
+
+    /// Whether each frame's physics is replayed through a compute graph.
+    pub fn compute_graphs_enabled(&self) -> bool {
+        self.compute_graphs
     }
 
     /// Current entity counts (rigid bodies, colliders, joints, multibody DOFs,

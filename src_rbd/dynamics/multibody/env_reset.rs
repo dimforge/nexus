@@ -10,7 +10,7 @@
 //!   offset applied in-kernel.
 //!
 //! Reset loops should prefer the second: it is what keeps a rollout free of
-//! per-step host writes, and therefore capturable into a CUDA graph.
+//! per-step host writes, and therefore capturable into a compute graph.
 
 use super::multibody_set::GpuMultibodySet;
 use crate::math::Vector;

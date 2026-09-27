@@ -472,6 +472,12 @@ impl NexusState {
         self.0.set_rbd_steps_per_frame(steps);
     }
 
+    /// Replays each frame's physics through a compute graph on backends that
+    /// support graph capture (ignored elsewhere).
+    fn set_compute_graphs_enabled(&mut self, enabled: bool) {
+        self.0.set_compute_graphs_enabled(enabled);
+    }
+
     fn set_rbd_gravity(&mut self, viewer: PyRef<NexusViewer>, gravity: Vec3) {
         self.0
             .set_rbd_gravity(viewer.backend(), [gravity.0.x, gravity.0.y, gravity.0.z]);

@@ -17,7 +17,7 @@ use crate::shaders::dynamics::{
 };
 use crate::shaders::shapes::Shape;
 use crate::shaders::utils::BatchIndices;
-use crate::utils::PrefixSumWorkspace;
+use crate::utils::{ComputeGraphCache, PrefixSumWorkspace};
 
 use khal::BufferUsages;
 use khal::backend::{Backend, GpuBackend, GpuReadback};
@@ -191,6 +191,12 @@ pub struct RbdState {
     /// batches, harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers).
     /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize.
     pub(super) collision_pairs_len_cpu: u32,
+    /// Bumped on every GPU buffer (re)allocation or capacity change; part of
+    /// [`Self::graph_key`].
+    pub(super) graph_generation: u64,
+    /// Cached compute graph of this state's step loop, keyed by
+    /// [`Self::graph_key`]. Driven by `NexusPipeline::simulate`.
+    pub compute_graph: ComputeGraphCache<RbdGraphKey>,
     /// CPU mirror of the multibody contact-constraint slot demand, refreshed
     /// by the same (asynchronous) readback as `collision_pairs_len_cpu`.
     #[cfg(feature = "dim3")]
@@ -286,6 +292,7 @@ impl RbdState {
     /// `GpuMultibodySet::set_impulse_joints`). Call whenever a cap edit
     /// happens that any kernel reads via its `batch_ids` uniform.
     pub(super) fn rebuild_batch_indices(&mut self, backend: &GpuBackend) {
+        self.graph_generation += 1;
         #[allow(unused_mut)] // Only mutated with the dim3 (multibody) feature.
         let mut bi = BatchIndices {
             num_batches: self.num_batches,
@@ -319,6 +326,9 @@ impl RbdState {
 
     /// Grows [`Self::color_uniforms`] so indices `0..n` are available.
     pub(super) fn ensure_color_uniforms(&mut self, backend: &GpuBackend, n: u32) {
+        if (self.color_uniforms.len() as u32) < n {
+            self.graph_generation += 1;
+        }
         for c in self.color_uniforms.len() as u32..n {
             self.color_uniforms
                 .push(Tensor::scalar(backend, c, BufferUsages::UNIFORM).unwrap());
@@ -886,5 +896,89 @@ impl RbdState {
             .encode_reset_envs_batch(backend, &mut enc, &meta, &offs, dof_vels);
         backend.submit(enc).unwrap();
         self.reset_templates_bodies = Some(tpl);
+    }
+}
+
+/// Everything that shapes the GPU work recorded by one
+/// [`RbdPipeline::step`](crate::pipeline::RbdPipeline::step) run
+/// `steps_per_frame` times: buffer identities (any reallocation bumps a
+/// generation), the live counts and capacities that size dispatches or
+/// host-side loops, and the solver path taken. A cached compute graph of the
+/// step is valid exactly as long as this key is unchanged.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct RbdGraphKey {
+    /// Bumped by every (re)allocation or capacity change of the state's buffers.
+    pub generation: u64,
+    /// Bumped by every (re)allocation of the LBVH buffers.
+    pub lbvh_generation: u64,
+    /// `(active colliders per batch, batches)` the radix sort was last told about.
+    pub lbvh_n_sort_active: Option<(u32, u32)>,
+    /// Number of steps recorded per frame.
+    pub steps_per_frame: u32,
+    /// Number of simulation environments.
+    pub num_batches: u32,
+    /// Number of active colliders over all environments.
+    pub num_active_colliders: u32,
+    /// Collider slots per environment.
+    pub num_colliders_per_batch: u32,
+    /// Maximum number of graph colors the solver sweeps.
+    pub max_colors: u32,
+    /// Number of per-color uniform buffers.
+    pub num_color_uniforms: usize,
+    /// Capacity of the contact buffer.
+    pub contacts_capacity: u32,
+    /// Capacity of the collision-pair buffer.
+    pub collision_pairs_capacity: u32,
+    /// Solver iterations per step.
+    pub num_solver_iterations: u32,
+    /// Whether rigid-body contacts are skipped by the solver.
+    pub rb_contacts_inert: bool,
+    /// Number of graph colors of the impulse joints.
+    pub joints_num_colors: u32,
+    /// Whether there are no impulse joints.
+    pub joints_empty: bool,
+    /// Capacity of the multibody contact-constraint slabs.
+    #[cfg(feature = "dim3")]
+    pub mb_contact_constraints_capacity: u32,
+    /// Whether there are no multibodies.
+    #[cfg(feature = "dim3")]
+    pub multibodies_empty: bool,
+    /// Number of graph colors of the multibody impulse joints.
+    #[cfg(feature = "dim3")]
+    pub mb_imp_joint_num_colors: u32,
+    /// Whether the fused colored-sweep kernels are used.
+    pub fused_color_sweeps: bool,
+}
+
+impl RbdState {
+    /// The [`RbdGraphKey`] of this state for `steps_per_frame` steps per frame.
+    pub fn graph_key(&self, steps_per_frame: u32) -> RbdGraphKey {
+        RbdGraphKey {
+            generation: self.graph_generation,
+            lbvh_generation: self.lbvh.generation,
+            lbvh_n_sort_active: self.lbvh.n_sort_active(),
+            steps_per_frame,
+            num_batches: self.num_batches(),
+            num_active_colliders: self.num_active_colliders(),
+            num_colliders_per_batch: self.num_colliders_per_batch(),
+            max_colors: self.max_colors,
+            num_color_uniforms: self.color_uniforms.len(),
+            contacts_capacity: self.contacts_capacity_cpu,
+            collision_pairs_capacity: self.collision_pairs_capacity_cpu,
+            num_solver_iterations: self.num_solver_iterations,
+            rb_contacts_inert: self.rb_contacts_inert(),
+            joints_num_colors: self.joints.num_colors(),
+            joints_empty: self.joints.is_empty(),
+            // NOTE: not `mb_cons_demand_cpu`: it is a readback mirror that
+            // changes as the scene evolves; the resize it may trigger bumps
+            // `graph_generation`, which is what the graph depends on.
+            #[cfg(feature = "dim3")]
+            mb_contact_constraints_capacity: self.mb_contact_constraints_capacity(),
+            #[cfg(feature = "dim3")]
+            multibodies_empty: self.multibodies.is_empty(),
+            #[cfg(feature = "dim3")]
+            mb_imp_joint_num_colors: self.multibodies.mb_imp_joint_num_colors(),
+            fused_color_sweeps: crate::pipeline::RbdPipeline::fused_color_sweeps(self),
+        }
     }
 }

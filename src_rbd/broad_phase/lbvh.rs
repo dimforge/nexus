@@ -53,6 +53,8 @@ pub struct LbvhState {
     /// a resize re-seeds `n_sort` with the capacity). Avoids rewriting `n_sort`
     /// every frame when the live collider count hasn't changed.
     n_sort_active: Option<(u32, u32)>,
+    /// Bumped whenever a GPU buffer is (re)allocated; part of the compute-graph key.
+    pub(crate) generation: u64,
     unsorted_morton_keys: Tensor<u32>,
     sorted_morton_keys: Tensor<u32>,
     unsorted_colliders: Tensor<u32>,
@@ -72,6 +74,12 @@ pub struct Lbvh {
 }
 
 impl LbvhState {
+    /// `(active colliders per batch, batches)` the radix sort was last told
+    /// about; part of the compute-graph key (a change re-uploads `n_sort`).
+    pub(crate) fn n_sort_active(&self) -> Option<(u32, u32)> {
+        self.n_sort_active
+    }
+
     /// Creates a new LBVH state with default buffer usage flags.
     pub fn new(backend: &GpuBackend) -> Self {
         Self::with_usages(backend, BufferUsages::STORAGE)
@@ -82,6 +90,7 @@ impl LbvhState {
         Self {
             n_sort: Tensor::scalar(backend, 0, usages).unwrap(),
             n_sort_active: None,
+            generation: 0,
             domain_aabb: Tensor::scalar_uninit(backend, usages).unwrap(),
             unsorted_morton_keys: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             sorted_morton_keys: Tensor::vector_uninit(backend, 0, usages).unwrap(),
@@ -104,12 +113,14 @@ impl LbvhState {
 
     fn resize_buffers(&mut self, backend: &GpuBackend, colliders_len: u32, num_batches: u32) {
         if (self.domain_aabb.len() as u32) < num_batches {
+            self.generation += 1;
             self.domain_aabb =
                 Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
         }
 
         // NOTE: colliders_len is the total colliders count, already taking all batches into account.
         if (self.tree.len() as u32) < 2 * colliders_len {
+            self.generation += 1;
             self.unsorted_morton_keys =
                 Tensor::vector_uninit(backend, colliders_len, self.buffer_usages).unwrap();
             self.sorted_morton_keys =

@@ -2,7 +2,7 @@
 //! straight into `links_static` on the GPU, replacing a host-side
 //! `set_motors` + whole-mirror upload every step. This is what lets an RL
 //! policy drive the motors without a host round-trip, and therefore what makes
-//! a rollout capturable into a CUDA graph (no per-step host writes).
+//! a rollout capturable into a compute graph (no per-step host writes).
 //!
 //! `links_static` is batch-interleaved: link `l` of env `e` lives at
 //! `l · num_envs + e`. Targets are row-major `[num_actuated x num_envs]`,

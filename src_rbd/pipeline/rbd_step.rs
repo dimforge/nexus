@@ -96,6 +96,34 @@ impl RbdPipeline {
         self.step_impl(backend, state, timestamps, encoder, false)
     }
 
+    /// Whether the step uses the fused colored-sweep kernels (one workgroup per
+    /// batch walking every color) instead of one dispatch per color.
+    ///
+    /// Chosen from the expected pair count: small pair counts with many
+    /// environments benefit from the fused kernels. The fused path can also be
+    /// forced regardless of size (an A/B knob: an env var natively,
+    /// [`FORCE_FUSED_SWEEPS`] on wasm where env vars do not exist). It is
+    /// correct at any size, just serialized past ~64 lanes, which may still win
+    /// where per-dispatch latency rules, i.e. small batch counts in the browser.
+    ///
+    /// The estimate is per batch: the read-back counter (or the capacity when
+    /// the readback is disabled) is a total over the whole flat pair buffer.
+    pub fn fused_color_sweeps(state: &RbdState) -> bool {
+        let readback_enabled = state.capacities.solver_colors_resize_policy
+            != RbdResizePolicy::Fixed
+            || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
+        let est_pairs = if readback_enabled {
+            state.collision_pairs_len_cpu.div_ceil(state.num_batches)
+        } else {
+            state
+                .collision_pairs_capacity_cpu
+                .div_ceil(state.num_batches)
+        };
+        est_pairs <= 128
+            || FORCE_FUSED_SWEEPS.load(core::sync::atomic::Ordering::Relaxed)
+            || std::env::var("NEXUS_FUSED_SWEEPS").as_deref() == Ok("1")
+    }
+
     fn step_impl(
         &self,
         backend: &GpuBackend,
@@ -273,29 +301,7 @@ impl RbdPipeline {
             }
         }
 
-        let readback_enabled = state.capacities.solver_colors_resize_policy
-            != RbdResizePolicy::Fixed
-            || state.capacities.collisions_resize_policy != RbdResizePolicy::Fixed;
-        // Estimated pairs per batch: the counter (and the capacity fallback)
-        // are totals over the whole flat pair buffer.
-        let est_pairs = if readback_enabled {
-            state.collision_pairs_len_cpu.div_ceil(state.num_batches)
-        } else {
-            state
-                .collision_pairs_capacity_cpu
-                .div_ceil(state.num_batches)
-        };
-
-        // Choose the kernel depending on the expected pairs count: small pair
-        // counts with many environments benefit from the fused kernels. The
-        // fused path can also be forced regardless of size (an A/B knob: an env
-        // var natively, [`FORCE_FUSED_SWEEPS`] on wasm where env vars do not
-        // exist). It is correct at any size, just serialized past ~64 lanes,
-        // which may still win where per-dispatch latency rules, i.e. small
-        // batch counts in the browser.
-        let fused_color_sweeps = est_pairs <= 128
-            || FORCE_FUSED_SWEEPS.load(core::sync::atomic::Ordering::Relaxed)
-            || std::env::var("NEXUS_FUSED_SWEEPS").as_deref() == Ok("1");
+        let fused_color_sweeps = Self::fused_color_sweeps(state);
 
         // In small scenes, submit less frequently. In big scenes submit more
         // to overlap compute and encoding.
@@ -679,6 +685,7 @@ impl RbdPipeline {
 
             if grow_colors || resize_pairs || resize_mb {
                 backend.synchronize()?;
+                state.graph_generation += 1;
             }
 
             if grow_colors {
