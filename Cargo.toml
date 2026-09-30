@@ -93,14 +93,15 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [patch.crates-io]
-# TODO: drop once khal 0.3.1 (WebGPU SPIR-V passthrough entry-point fix) and the
-# khal/vortx `cuda-oxide` feature are published.
-khal = { path = "../khal/crates/khal" }
-khal-derive = { path = "../khal/crates/khal-derive" }
-khal-std = { path = "../khal/crates/khal-std" }
-khal-builder = { path = "../khal/crates/khal-builder" }
-vortx = { path = "../vortx" }
-vortx-shaders = { path = "../vortx/vortx-shaders" }
+# khal and vortx from GitHub: the `cuda-oxide` feature, the WebGPU SPIR-V
+# passthrough entry-point fix, and compute-graph capture are not on crates.io
+# yet. Drop once khal 0.3.1 / vortx 0.4.1 are published.
+khal = { git = "https://github.com/dimforge/khal", branch = "main" }
+khal-derive = { git = "https://github.com/dimforge/khal", branch = "main" }
+khal-std = { git = "https://github.com/dimforge/khal", branch = "main" }
+khal-builder = { git = "https://github.com/dimforge/khal", branch = "main" }
+vortx = { git = "https://github.com/dimforge/vortx", branch = "main" }
+vortx-shaders = { git = "https://github.com/dimforge/vortx", branch = "main" }
 #rapier2d = { path = "../rapier/crates/rapier2d" }
 #rapier3d = { path = "../rapier/crates/rapier3d" }
 #rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
