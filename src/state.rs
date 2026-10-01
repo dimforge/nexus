@@ -128,6 +128,7 @@ pub type MultibodySlots = (
 );
 
 /// Failure of [`NexusState::set_multibody_joint_positions`].
+#[cfg(feature = "dim3")]
 #[derive(Debug)]
 pub enum JointPositionsError {
     /// The GPU write failed.
@@ -136,12 +137,14 @@ pub enum JointPositionsError {
     DofMismatch { expected: usize, got: usize },
 }
 
+#[cfg(feature = "dim3")]
 impl From<GpuBackendError> for JointPositionsError {
     fn from(e: GpuBackendError) -> Self {
         JointPositionsError::Gpu(e)
     }
 }
 
+#[cfg(feature = "dim3")]
 impl core::fmt::Display for JointPositionsError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -216,9 +219,11 @@ pub struct NexusState {
     /// into the mass matrix (refreshed every substep) or applies them
     /// explicitly (mass matrix refreshed once per step). Applied at
     /// [`Self::finalize`] and by [`Self::set_rbd_implicit_coriolis`].
+    #[cfg(feature = "dim3")]
     rbd_implicit_coriolis: bool,
     /// Multibody refresh cadence `(every substep, light)`; see
     /// [`Self::set_rbd_substep_refresh`].
+    #[cfg(feature = "dim3")]
     rbd_substep_refresh: (bool, bool),
     /// Set whenever the rapier worlds change; consumed by [`Self::finalize`] to
     /// decide whether the GPU [`RbdState`] needs rebuilding.
@@ -257,7 +262,9 @@ impl NexusState {
             run_stats: RunStats::default(),
             rbd_envs: vec![PhysicsWorld::default()],
             rbd_sim_params: vec![RbdSimParams::tgs_soft()],
+            #[cfg(feature = "dim3")]
             rbd_implicit_coriolis: true,
+            #[cfg(feature = "dim3")]
             rbd_substep_refresh: (true, false),
             rbd_dirty: false,
             rbd_steps_per_frame: 1,
@@ -696,7 +703,7 @@ impl NexusState {
     // --- rigid-body and multibody state access (between steps) -------------
 
     /// GPU pose slot of `handle` in environment `env`: the index into
-    /// [`Self::read_rigid_body_poses`] and [`Self::read_rigid_body_velocities`].
+    /// [`Self::read_rigid_body_poses`] (and, in 3D, `read_rigid_body_velocities`).
     /// `None` before `finalize` or for a handle this state does not know.
     pub fn rigid_body_gpu_index(&self, env: usize, handle: RigidBodyHandle) -> Option<u32> {
         self.rbd2gpu
@@ -757,7 +764,7 @@ impl NexusState {
     /// Teleports a free rigid body: overwrites its world-origin pose on the GPU.
     /// Valid between steps, after `finalize`. A multibody link's pose is
     /// re-derived from its joint coordinates every step, so links go through
-    /// [`Self::set_multibody_joint_positions`] instead. Unknown handles are
+    /// `set_multibody_joint_positions` (3D) instead. Unknown handles are
     /// ignored.
     pub fn set_rigid_body_pose(
         &mut self,

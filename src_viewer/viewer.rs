@@ -909,14 +909,14 @@ impl NexusViewer {
     }
 
     /// Shadow map resolution and atlas layer count of the main window's render
-    /// (see [`Self::set_sensor_shadow_resolution`]).
+    /// (see `set_sensor_shadow_resolution`, the 3D sensor-camera counterpart).
     pub fn set_shadow_resolution(&mut self, resolution: u32, layers: u32) {
         self.window.set_shadow_atlas_layers(layers.max(1));
         self.window.set_shadow_resolution(resolution.max(1));
     }
 
     /// Directional-shadow cascade layout of the main window's render (see
-    /// [`Self::set_sensor_shadow_range`]).
+    /// `set_sensor_shadow_range`, the 3D sensor-camera counterpart).
     pub fn set_shadow_range(&mut self, first_cascade_far_bound: f32, shadow_distance: f32) {
         self.window
             .set_first_cascade_far_bound(first_cascade_far_bound.max(0.01));
