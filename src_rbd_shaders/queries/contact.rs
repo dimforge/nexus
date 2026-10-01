@@ -122,10 +122,12 @@ pub struct IndexedManifold {
     /// Combined restitution coefficient of the two colliders (see
     /// [`ColliderMaterial::combined_restitution`]).
     pub restitution: f32,
-    /// Padding so the struct size stays a multiple of 16 bytes — std430 storage
-    /// buffers require the array stride to satisfy the 16-byte alignment of the
-    /// inner vector members.
-    pub _padding: [f32; 2],
+    /// `1 +` the index of the triangle/segment of a trimesh/polyline collider that produced
+    /// this manifold, or 0 for a whole convex shape. With `colliders`, it identifies the
+    /// manifold across frames for warmstarting.
+    pub subshape: u32,
+    /// Padding so the struct size stays a multiple of 16 bytes (std430 array stride).
+    pub _padding: f32,
 }
 
 /// Computes the contact between two balls.

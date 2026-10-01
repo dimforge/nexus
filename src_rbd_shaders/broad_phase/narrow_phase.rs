@@ -417,7 +417,8 @@ pub fn gpu_narrow_phase_shape_shape(
                     bodies: UVec2::new(body1, body2),
                     friction: mat1.combined_friction(&mat2),
                     restitution: mat1.combined_restitution(&mat2),
-                    _padding: [0.0; 2],
+                    subshape: 0,
+                    _padding: 0.0,
                 },
             );
         } else {
@@ -525,7 +526,8 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                     thickness2: sub2.thickness,
                     colliders: pair.colliders,
                     pair_index: t,
-                    _padding: [0; 3],
+                    subshape: 0,
+                    _padding: [0; 2],
                 };
                 let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
                 // NOTE: if we exceed capacity, just skip the pair.
@@ -675,7 +677,8 @@ fn trimesh_convex(
                 thickness2: sub2.thickness,
                 colliders,
                 pair_index,
-                _padding: [0; 3],
+                subshape: idx.shape_index + 1,
+                _padding: [0; 2],
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
             // Skip (don’t write) on overflow; the caller resizes and re-runs.
@@ -752,7 +755,8 @@ fn polyline_convex(
                 thickness2: sub2.thickness,
                 colliders,
                 pair_index,
-                _padding: [0; 3],
+                subshape: idx.shape_index + 1,
+                _padding: [0; 2],
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
             // Skip (don’t write) on overflow; the caller resizes and re-runs.
@@ -786,7 +790,9 @@ pub struct NarrowPhasePfmPair {
     /// Index of the originating pair in the flat collision-pair list; the
     /// per-pair sort key of the contact-reduction path.
     pair_index: u32,
-    _padding: [u32; 3],
+    /// See [`IndexedManifold::subshape`].
+    subshape: u32,
+    _padding: [u32; 2],
 }
 
 /// PFM (GJK/EPA) manifold computation for the deferred work-list entries.
@@ -862,7 +868,8 @@ pub fn gpu_narrow_phase_pfm_pfm(
                     bodies: UVec2::new(body1, body2),
                     friction: mat1.combined_friction(&mat2),
                     restitution: mat1.combined_restitution(&mat2),
-                    _padding: [0.0; 2],
+                    subshape: pair.subshape,
+                    _padding: 0.0,
                 },
             );
         } else {

@@ -148,6 +148,9 @@ impl IndexedManifold {
         #[cfg(feature = "dim3")]
         {
             constraint.tangent_a = tangents1.read(0);
+            constraint.warmstart_collider_a = self.colliders.x;
+            constraint.warmstart_collider_b = self.colliders.y;
+            constraint.warmstart_subshape = self.subshape;
         }
 
         for k in 0..(contact.len as usize) {

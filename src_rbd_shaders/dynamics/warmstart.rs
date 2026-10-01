@@ -120,8 +120,20 @@ pub fn gpu_seed_colors_from_warmstart(
 
         for j in first_ref..last_ref {
             let cid_old = old_body_constraint_ids[j] as usize;
+            // Same manifold identity as `transfer_warmstart_impulses`: the manifolds of one body
+            // pair had distinct colors, and seeding them all with the first one's color makes
+            // them conflict.
+            #[cfg(feature = "dim3")]
+            let same_manifold = old_constraints[cid_old].warmstart_collider_a
+                == new_constraints[i].warmstart_collider_a
+                && old_constraints[cid_old].warmstart_collider_b
+                    == new_constraints[i].warmstart_collider_b
+                && old_constraints[cid_old].warmstart_subshape == new_constraints[i].warmstart_subshape;
+            #[cfg(feature = "dim2")]
+            let same_manifold = true;
             if old_constraints[cid_old].solver_body_a == body_a
                 && old_constraints[cid_old].solver_body_b == body_b
+                && same_manifold
             {
                 let old_color = old_constraints_colors[cid_old];
                 // Colors 1..64 are the valid topo-gc range; anything else
@@ -191,9 +203,20 @@ pub fn transfer_warmstart_impulses(
     for j in first_constraint_id_ref..last_constraint_id_ref {
         let cid_old = old_body_constraint_ids[j] as usize;
 
-        // Check if this old constraint involves the same body pair
+        // Check if this old constraint comes from the same manifold: same body pair and, in 3D,
+        // the same collider pair and sub-shape. A body pair alone is ambiguous (one manifold per
+        // trimesh triangle, or per collider of a compound body), and matching the first one
+        // hands the same impulses to every manifold of the pair.
+        #[cfg(feature = "dim3")]
+        let same_manifold = old_constraints[cid_old].warmstart_collider_a
+            == new_constraints[i].warmstart_collider_a
+            && old_constraints[cid_old].warmstart_collider_b == new_constraints[i].warmstart_collider_b
+            && old_constraints[cid_old].warmstart_subshape == new_constraints[i].warmstart_subshape;
+        #[cfg(feature = "dim2")]
+        let same_manifold = true;
         if old_constraints[cid_old].solver_body_a == body_a
             && old_constraints[cid_old].solver_body_b == body_b
+            && same_manifold
         {
             // Body pair match found! Now match individual contact points.
             // We don't have feature IDs, so matching is done by proximity in local space.

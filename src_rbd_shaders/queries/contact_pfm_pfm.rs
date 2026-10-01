@@ -10,6 +10,8 @@ use crate::queries::gjk::{
 };
 use crate::queries::polygonal_feature;
 use crate::shapes::Shape;
+#[cfg(feature = "dim3")]
+use crate::shapes::{SHAPE_TYPE_TRIANGLE, Triangle};
 use crate::{DIM, PaddedVector, Pose, Vector};
 use khal_std::index::MaybeIndexUnchecked;
 
@@ -53,6 +55,61 @@ pub fn contact_support_map_support_map(
     gjk::gjk_result_no_intersection(Vector::X)
 }
 
+/// Unit normal of `tri`'s plane oriented towards `point`, or zero for degenerate triangles or
+/// when `point` (nearly) lies on the plane. Independent of the triangle's winding.
+#[cfg(feature = "dim3")]
+#[inline]
+fn triangle_face_normal_towards(tri: &Triangle, point: Vector) -> Vector {
+    let n = (tri.b - tri.a).cross(tri.c - tri.a);
+    let len = n.length();
+    if len <= FLT_EPS {
+        return Vector::ZERO;
+    }
+    let n = n / len;
+    let side = (point - tri.a).dot(n);
+    if side > FLT_EPS {
+        n
+    } else if side < -FLT_EPS {
+        -n
+    } else {
+        Vector::ZERO
+    }
+}
+
+/// Merges near-coincident points of `manifold` (within a quarter of `prediction`, keeping the
+/// deeper one). The clipped features and the appended GJK point often coincide, and duplicated
+/// points skew the solver and the per-point warmstart.
+#[inline]
+fn dedup_manifold_points(manifold: &mut ContactManifold, prediction: f32) {
+    let eps = (0.25 * prediction).max(1.0e-5);
+    let eps_sq = eps * eps;
+    let len = manifold.len;
+    let mut out = 0u32;
+    for i in 0..MAX_MANIFOLD_POINTS as u32 {
+        if i < len {
+            let p = *manifold.points_a.at(i as usize);
+            let mut merged = false;
+            for k in 0..MAX_MANIFOLD_POINTS as u32 {
+                if k < out && !merged {
+                    let q = *manifold.points_a.at(k as usize);
+                    let d = q.pt - p.pt;
+                    if d.dot(d) < eps_sq {
+                        if p.dist < q.dist {
+                            manifold.points_a.write(k as usize, p);
+                        }
+                        merged = true;
+                    }
+                }
+            }
+            if !merged {
+                manifold.points_a.write(out as usize, p);
+                out += 1;
+            }
+        }
+    }
+    manifold.len = out;
+}
+
 /// Computes the contact manifold between two polygonal feature-based shapes.
 pub fn contact_manifold_pfm_pfm(
     pose12: Pose,
@@ -69,9 +126,36 @@ pub fn contact_manifold_pfm_pfm(
 
     match contact.status {
         CLOSEST_POINTS => {
-            let p1 = contact.a;
-            let p2_1 = contact.b;
-            let local_n1 = contact.dir;
+            #[allow(unused_mut)]
+            let mut p1 = contact.a;
+            #[allow(unused_mut)]
+            let mut p2_1 = contact.b;
+            #[allow(unused_mut)]
+            let mut local_n1 = contact.dir;
+            #[allow(unused_mut)]
+            let mut fallback = false;
+
+            // A triangle has no thickness, so EPA can pick its back face when the other shape
+            // barely touches it. Re-derive the contact along the face normal on the side where
+            // the other shape sits.
+            #[cfg(feature = "dim3")]
+            if pfm1.shape_type() == SHAPE_TYPE_TRIANGLE {
+                let tri = pfm1.to_triangle();
+                let face_n = triangle_face_normal_towards(&tri, pose12.translation);
+                // `face_n` is zero when undecidable, which fails this test.
+                if local_n1.dot(face_n) < 0.0 {
+                    let support_dir2 = pose12.inverse_transform_vector(-face_n);
+                    p2_1 = pose12.transform_point(pfm2.local_support_point(support_dir2, vertices));
+                    let dist = (p2_1 - tri.a).dot(face_n);
+                    if dist > total_prediction {
+                        return ContactManifold::default();
+                    }
+                    p1 = p2_1 - face_n * dist;
+                    local_n1 = face_n;
+                    fallback = true;
+                }
+            }
+
             let local_n2 = pose12.inverse_transform_vector(-local_n1);
 
             #[cfg(feature = "dim2")]
@@ -93,8 +177,11 @@ pub fn contact_manifold_pfm_pfm(
                 false,
             );
 
+            // The fallback's projected deepest point may lie outside the triangle, so it is
+            // only used when feature clipping produced nothing.
             if manifold.len < MAX_MANIFOLD_POINTS as u32
                 && (DIM == 3 || (DIM == 2 && manifold.len == 0))
+                && !(fallback && manifold.len > 0)
             {
                 let dist = (p2_1 - p1).dot(local_n1);
                 manifold
@@ -111,6 +198,7 @@ pub fn contact_manifold_pfm_pfm(
                 }
             }
 
+            dedup_manifold_points(&mut manifold, prediction);
             manifold.normal_a = local_n1;
             manifold
         }
