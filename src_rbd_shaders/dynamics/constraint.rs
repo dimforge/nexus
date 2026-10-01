@@ -140,8 +140,17 @@ pub struct TwoBodyConstraint {
 
     /// Number of active contact points in this manifold (1-4 in 3D, 1-2 in 2D).
     pub len: u32,
+    /// Collider A of the source manifold (2D; appended, no spare padding lane).
     #[cfg(feature = "dim2")]
-    pub _padding: u32,
+    pub warmstart_collider_a: u32,
+    /// Collider B of the source manifold (2D).
+    #[cfg(feature = "dim2")]
+    pub warmstart_collider_b: u32,
+    /// [`IndexedManifold::subshape`] of the source manifold (2D).
+    ///
+    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
+    #[cfg(feature = "dim2")]
+    pub warmstart_subshape: u32,
     #[cfg(feature = "dim3")]
     pub _padding: [u32; 3],
 }

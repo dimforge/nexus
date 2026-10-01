@@ -13,6 +13,8 @@ mod rbd_state_from_rapier;
 mod rbd_step;
 #[cfg(all(test, feature = "dim3"))]
 mod test_batched_stacks;
+#[cfg(all(test, feature = "dim2"))]
+mod test_polyline_warmstart;
 
 #[cfg(feature = "dim3")]
 pub use rbd_state::RbdSnapshot;
