@@ -263,6 +263,10 @@ pub struct RbdState {
     /// contacts touching different bodies of the same multibody can never be
     /// assigned the same color.
     pub(super) body_group: Tensor<u32>,
+    /// Per-body flag, 1 for the links of a multibody. The rigid-body contact
+    /// pipeline skips every manifold touching such a body: the multibody
+    /// solver owns those contacts.
+    pub(super) body_is_multibody: Tensor<u32>,
     pub(super) prefix_sum_workspace: PrefixSumWorkspace,
     /// Separate workspace for the color-bucket prefix scan (different length
     /// than the body-count scan, so sharing one workspace would thrash its
@@ -371,6 +375,17 @@ impl RbdState {
         &mut self.body_poses
     }
 
+    /// Per-body world-space velocities, indexed like [`Self::body_poses`].
+    pub fn vels(&self) -> &Tensor<GpuVelocity> {
+        &self.vels
+    }
+
+    /// Mutable access to the per-body velocities, for teleports and resets.
+    /// Only valid between steps, like [`Self::body_poses_mut`].
+    pub fn vels_mut(&mut self) -> &mut Tensor<GpuVelocity> {
+        &mut self.vels
+    }
+
     /// Live collision-pair count (total across all batches) most recently
     /// harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
     /// frame or two; `0` until the first readback completes.
@@ -415,6 +430,26 @@ impl RbdState {
         params.contact_merge_cos = cos;
         let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
         self.sim_params_cpu = params;
+    }
+
+    /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
+    /// and multibody sweeps alike), without rebuilding the GPU state.
+    #[cfg(feature = "dim3")]
+    pub fn set_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
+        let n = n.max(1);
+        self.multibodies.set_num_internal_pgs_iterations(n);
+        // Keep the mirror (and the uniform it backs) honest, even though no
+        // shader reads this field.
+        let mut params = self.sim_params_cpu;
+        params.num_internal_pgs_iterations = n;
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
+        self.sim_params_cpu = params;
+    }
+
+    /// PGS iterations per substep in the biased pass.
+    #[cfg(feature = "dim3")]
+    pub fn num_internal_pgs_iterations(&self) -> u32 {
+        self.multibodies.num_internal_pgs_iterations()
     }
 
     /// The gravity uniform shared by every solver kernel.
@@ -477,6 +512,18 @@ impl RbdState {
         self.rebuild_batch_indices(backend);
     }
 
+    /// Sets the multibody refresh cadence: `refresh` rebuilds the joint and
+    /// contact constraints, mass matrix and LU factors every substep (the
+    /// default); off, they are built once per step and later substeps only
+    /// refresh the joint rhs and limit activity. `light` (ignored while
+    /// `refresh` is on) keeps the constraints per substep but the mass matrix
+    /// per step. Pure dispatch gating: no GPU layout changes.
+    #[cfg(feature = "dim3")]
+    pub fn set_substep_refresh(&mut self, refresh: bool, light: bool) {
+        self.multibodies.set_substep_refresh(refresh);
+        self.multibodies.set_substep_refresh_light(light);
+    }
+
     /// Sets the per-DoF dry joint friction (N·m).
     #[cfg(feature = "dim3")]
     pub fn set_dof_frictionloss(&mut self, backend: &GpuBackend, values: &[f32]) {
@@ -500,6 +547,12 @@ impl RbdState {
     /// GPU buffer holding the contact manifolds.
     pub fn contacts(&self) -> &Tensor<GpuIndexedContact> {
         &self.contacts
+    }
+
+    /// GPU buffer holding the rigid-body contact constraints of the current
+    /// step (impulses included). For debugging.
+    pub fn rigid_contact_constraints(&self) -> &Tensor<TwoBodyConstraint> {
+        &self.new_constraints
     }
 
     /// Debug: read back active contacts as `(collider_a, collider_b, body_a,

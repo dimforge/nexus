@@ -110,6 +110,9 @@ impl RbdState {
             Tensor::vector(backend, [Point::ZERO.into()], BufferUsages::STORAGE).unwrap();
         let index_buffers = Tensor::vector(backend, [0u32, 0, 0], BufferUsages::STORAGE).unwrap();
         let body_group = Tensor::vector(backend, &all_body_group, BufferUsages::STORAGE).unwrap();
+        // Appended bodies are free bodies: no multibody link flag is ever set.
+        let body_is_multibody =
+            Tensor::vector(backend, vec![0u32; num_bodies_total], BufferUsages::STORAGE).unwrap();
 
         // Per-body buffers carry COPY_DST | COPY_SRC so `append_bodies` /
         // `remove_bodies` can write / relocate slots in place.
@@ -256,6 +259,7 @@ impl RbdState {
             multibodies,
             gravity: Self::gravity_tensor(backend, [0.0, -9.81, 0.0]),
             body_group,
+            body_is_multibody,
             local_mprops: Tensor::vector(backend, &all_local_mprops, rw).unwrap(),
             mprops: Tensor::vector(backend, &all_mprops, rw).unwrap(),
             body_poses: Tensor::vector(backend, &all_poses, rw).unwrap(),

@@ -1,3 +1,51 @@
+## Unreleased
+
+### Added
+
+- `RbdSimParams::friction_in_bias_pass`: also solve the contact friction rows during the biased
+  PGS pass, instead of only during the once-per-substep stabilization sweep (rapier's
+  `friction_in_bias_pass`). Off by default; on, friction gets as many iterations as the normal
+  rows, which keeps pinch grasps and resting stacks from drifting.
+- Viewer: sensor cameras render with 4x MSAA by default (`set_sensor_antialiasing`) and expose
+  the shadow-edge softness (`set_sensor_shadow_softness`, `set_shadow_softness` for the window;
+  kiss3d's penumbra stays the default); the sharpest directional cascade covers the first 3 m instead of
+  12 (`set_sensor_shadow_range`, `set_shadow_range`), the shadow map is 4096 texels over a
+  4-layer atlas instead of 2048 over 16 (`set_sensor_shadow_resolution`, `set_shadow_resolution`),
+  `set_body_casts_shadows` excludes a body from the shadow map, and textures load with mip
+  chains and 16x anisotropic filtering. Needs kiss3d's offscreen MSAA, cascade, atlas-layer and
+  anisotropy controls.
+- `NexusState::set_rbd_implicit_coriolis` and `set_rbd_substep_refresh` (Python:
+  `set_rbd_implicit_coriolis`, `set_rbd_substep_refresh`), also honored when the state is
+  finalized after the call; `rbd_solver_params` reports them.
+- Python: `NexusState.set_rbd_solver_params(friction_in_bias_pass=...)`,
+  `ColliderBuilder.friction_combine_rule`, and the `debug_contacts` /
+  `debug_multibody_contact_impulses` GPU readbacks for contact diagnostics.
+- `GpuMultibodySet::read_dof_velocities` and `NexusState::multibody_joint_velocities` read the
+  generalized velocities of a batch (resp. of one multibody) back from the GPU, in the same
+  assembly order `read_dof_coords` and `multibody_joint_positions` use. Python: `robot_qvel`,
+  the joint-velocity counterpart of `robot_state`'s `qpos`.
+- Viewer: `SensorCamera::set_ambient_color` (Python: `set_sensor_camera_ambient_color`) tints a
+  sensor camera's ambient fill light, whose brightness `set_sensor_camera_ambient` already set.
+
+### Fixed
+
+- Contact warmstarting matched each new contact point to the *first* old point of the same pair
+  within 10 cm, so every point of a small manifold (a fingertip pad) inherited the first point's
+  normal and friction impulses and the solver had to redistribute them each step. Both the
+  rigid-body and multibody transfers now take the nearest old point.
+- Contacts between a multibody link and a rigid body were solved twice: by the multibody
+  contact solver and, again, by the rigid-body solver against a zero-inverse-mass copy of the
+  link. The second copy saw the link as never moving, so a robot lifting a grasped object had
+  its friction cancelled by a "ghost" of its own fingers. The rigid-body constraint builder now
+  leaves multibody-owned manifolds to the multibody solver.
+
+### Modified
+
+- `RbdSimParams::num_internal_pgs_iterations` now also drives the rigid-body contact and joint
+  sweeps of the biased pass, interleaved one iteration at a time with the multibody sweeps (it
+  used to loop the multibody solver alone, leaving a box pinched by a robot against a board with
+  eight multibody iterations against one rigid-body iteration per substep).
+
 ## v0.5.0 (16 August 2026)
 
 ### Breaking changes

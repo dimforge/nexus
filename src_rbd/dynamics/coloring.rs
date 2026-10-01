@@ -11,9 +11,9 @@ use crate::pipeline::RunStats;
 use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::TwoBodyConstraint;
 use crate::shaders::dynamics::{
-    GpuColorBucketsCount, GpuColorBucketsReset, GpuColorBucketsScatter, GpuFixConflictsTopoGc,
-    GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby,
-    GpuStepGraphColoringTopoGc,
+    GpuClearCompletionFlagTopoGc, GpuColorBucketsCount, GpuColorBucketsReset,
+    GpuColorBucketsScatter, GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc, GpuResetLuby,
+    GpuResetTopoGc, GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -36,6 +36,7 @@ pub struct GpuColoring {
     /// Detects and fixes conflicts in TOPO-GC coloring.
     fix_conflicts_topo_gc_kernel: GpuFixConflictsTopoGc,
     reset_completion_flag_topo_gc: GpuResetCompletionFlagTopoGc,
+    clear_completion_flag_topo_gc: GpuClearCompletionFlagTopoGc,
     // Workspace for bucket-sorting constraint ids by color so each color iteration
     // only touches their own constraint.
     color_buckets_reset: GpuColorBucketsReset,
@@ -314,9 +315,16 @@ impl GpuColoring {
         mut args: ColoringArgs<'a>,
         max_colors: u32,
     ) -> Result<(), GpuBackendError> {
-        for _ in 0..max_colors {
-            self.reset_completion_flag_topo_gc
-                .call(pass, 1u32, args.uncolored)?;
+        // The first fix-conflicts pass must validate the seeded colors even when the first step
+        // colors nothing, so it starts from a cleared ("not converged") flag. At least two rounds
+        // run so the last pass can still record the color count.
+        self.clear_completion_flag_topo_gc
+            .call(pass, 1u32, args.uncolored)?;
+        for i in 0..max_colors.max(2) {
+            if i > 0 {
+                self.reset_completion_flag_topo_gc
+                    .call(pass, 1u32, args.uncolored)?;
+            }
             self.dispatch_step_topo_gc(pass, &mut args)?;
             self.dispatch_fix_conflicts_topo_gc(pass, &mut args)?;
         }

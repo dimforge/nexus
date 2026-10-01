@@ -495,6 +495,7 @@ impl RbdState {
             // `set_visible_dt` divides by the substep count, so that has to be
             // in place first or the multibody integrates at the wrong rate.
             mb.set_num_solver_iterations(num_solver_iterations);
+            mb.set_num_internal_pgs_iterations(sim_params.num_internal_pgs_iterations);
             mb.set_visible_dt(backend, multibody_dt);
             // Soft contact coefficients (rapier TGS-soft) from the substep sim
             // params, so multibody-vs-floor contacts use the same soft ERP + CFM
@@ -593,6 +594,21 @@ impl RbdState {
             }
         }
 
+        // Per-body multibody-link flag (batch-major here, interleaved below).
+        #[cfg_attr(not(feature = "dim3"), allow(unused_mut))]
+        let mut all_body_is_mb: Vec<u32> = vec![0; max_colliders * num_batches as usize];
+        #[cfg(feature = "dim3")]
+        for (batch_idx, (mb_set, body_ids, _)) in multibody_envs.iter().enumerate() {
+            let base = batch_idx * max_colliders;
+            for mb in mb_set.multibodies() {
+                for link in mb.links() {
+                    if let Some(&local) = body_ids.get(&link.rigid_body_handle()) {
+                        all_body_is_mb[base + local as usize] = 1;
+                    }
+                }
+            }
+        }
+
         let num_colliders_per_batch = max_colliders;
         let num_bodies_total = num_colliders_per_batch * num_batches as usize;
 
@@ -635,6 +651,9 @@ impl RbdState {
         let all_collider_materials = interleave_batches(&all_collider_materials, nb);
         let all_body_group = interleave_batches(&all_body_group, nb);
         let body_group = Tensor::vector(backend, &all_body_group, BufferUsages::STORAGE).unwrap();
+        let all_body_is_mb = interleave_batches(&all_body_is_mb, nb);
+        let body_is_multibody =
+            Tensor::vector(backend, &all_body_is_mb, BufferUsages::STORAGE).unwrap();
 
         // Initial body velocities were accumulated in body-slot order alongside
         // `all_poses`; zero-filling here would silently drop each body's initial
@@ -799,6 +818,7 @@ impl RbdState {
             multibodies,
             gravity: RbdState::gravity_tensor(backend, [0.0, -9.81, 0.0]),
             body_group,
+            body_is_multibody,
             local_mprops: Tensor::vector(backend, &all_local_mprops, storage).unwrap(),
             mprops: Tensor::vector(backend, &all_mprops, storage).unwrap(),
             body_poses: Tensor::vector(

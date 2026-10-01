@@ -18,7 +18,9 @@ use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::sync::{atomic_add_u32, atomic_load_u32, workgroup_memory_barrier_with_group_sync};
+use khal_std::sync::{
+    atomic_add_u32, atomic_load_u32, atomic_sub_u32, workgroup_memory_barrier_with_group_sync,
+};
 
 use crate::broad_phase::ContactPlan;
 use crate::dynamics::ConstraintSoftness;
@@ -249,8 +251,8 @@ pub fn gpu_mb_count_contact_constraints(
 /// (`contact_index_start/len`, unclamped: the index buffer is sized like the
 /// contacts buffer and each contact owns at most one entry). Also publishes
 /// the total slot demand for the host's auto-resize readback, and re-zeroes
-/// `mb_cons_counts` (for the next frame) and `mb_index_counts` (which the
-/// scatter pass reuses as its write cursors). Serial in one thread (the
+/// `mb_cons_counts` for the next frame (`mb_index_counts` stays: the scatter
+/// pass counts it down as its write cursors). Serial in one thread (the
 /// multibody count per scene is small).
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
@@ -301,17 +303,17 @@ pub fn gpu_mb_cons_offsets_scan(
         index_acc += mb.contact_index_len;
 
         multibody_info.write(i as usize, mb);
-        // Zeroed for the next frame's count pass / for the scatter cursors.
+        // Zeroed for the next frame's count pass. `mb_index_counts` is left as
+        // is: the scatter counts it back down to zero.
         mb_cons_counts.write(i as usize, 0);
-        mb_index_counts.write(i as usize, 0);
     }
     mb_cons_demand.write(0, demand);
 }
 
 /// Builds the contact→multibody index: one flat sweep over the contacts,
 /// each contact appending its entry to its owner's segment (laid out by the
-/// offsets scan; `mb_index_counts` was re-zeroed there and serves as the
-/// per-multibody write cursors). Entry order within a segment follows the
+/// offsets scan; `mb_index_counts` still holds the per-multibody counts and
+/// serves as write cursors counting down to zero). Entry order within a segment follows the
 /// atomic race; the emission's warmstart matching is key-based, so the order
 /// only affects the (already nondeterministic) impulse iteration order.
 /// Grid: `contacts_indirect`.
@@ -339,7 +341,9 @@ pub fn gpu_mb_scatter_contact_index(
         }
         let slot = batch_ids.mbi(owner.batch, owner.mb as usize);
         let mb = multibody_info.read(slot);
-        let pos = atomic_add_u32(mb_index_counts.at_mut(slot), 1);
+        // Count the cursor down, so the pass leaves it at zero for the next
+        // frame's count pass.
+        let pos = atomic_sub_u32(mb_index_counts.at_mut(slot), 1) - 1;
         mb_contact_index.write(
             (mb.contact_index_start + pos) as usize,
             MbContactIndexEntry {
@@ -726,10 +730,12 @@ pub fn gpu_mb_init_contact_constraints(
                     }
                 };
 
-                // Positional bias along the tangent: pull the two anchors back
-                // together so friction sticks instead of drifting. No surface
-                // velocity yet (TODO: conveyor belts), so `rhs_wo_bias` is 0.
-                let tang_bias = (p1 - p2).dot(mb_tangent) * inv_dt;
+                // Friction stays velocity-level, as in rapier: no positional
+                // anchoring term. A rigid tangent anchor over-constrains a
+                // pinch pressed against a resting surface (fingers, box and
+                // board all welded together) and locks up the grasp. Surface
+                // velocity (conveyor belts) would go here; `rhs_wo_bias` is 0.
+                let tang_bias = 0.0f32;
                 #[cfg(feature = "dim3")]
                 let tang_cons = MultibodyContactConstraint {
                     multibody_id: mb_idx,
@@ -1053,8 +1059,10 @@ pub fn gpu_mb_transfer_contact_warmstart(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] softness: &ConstraintSoftness,
 ) {
     const LANES: u32 = 64;
-    // Anchors this far apart (in each side's own frame) are taken to be the
-    // same contact point from one frame to the next.
+    // Anchors further apart than this (in each side's own frame) are never the
+    // same contact point from one frame to the next; among the candidates the
+    // nearest wins, so the points of one small manifold (a fingertip pad) each
+    // recover their own impulse instead of all copying the first one.
     const MATCH_DIST: f32 = 1.0e-1;
 
     let batch_id = workgroup_id.y;
@@ -1093,6 +1101,9 @@ pub fn gpu_mb_transfer_contact_warmstart(
             continue;
         }
 
+        // Nearest old point of the same link pair within the threshold.
+        let mut best_j = u32::MAX;
+        let mut best_sq = sq_threshold;
         for j in 0..old_count {
             let old = old_contact_constraints.read(old_base + j as usize);
             if old.kind != MB_CONTACT_KIND_NORMAL
@@ -1104,10 +1115,15 @@ pub fn gpu_mb_transfer_contact_warmstart(
             }
             let d1 = old.local_p1 - cons.local_p1;
             let d2 = old.local_p2 - cons.local_p2;
-            if d1.dot(d1) >= sq_threshold || d2.dot(d2) >= sq_threshold {
-                continue;
+            let sq = d1.dot(d1).max(d2.dot(d2));
+            if sq < best_sq {
+                best_sq = sq;
+                best_j = j;
             }
-
+        }
+        if best_j != u32::MAX {
+            let j = best_j;
+            let old = old_contact_constraints.read(old_base + j as usize);
             cons.impulse = old.impulse * warmstart_coeff;
             contact_constraints.write(cons_base + s as usize, cons);
 
@@ -1133,7 +1149,6 @@ pub fn gpu_mb_transfer_contact_warmstart(
                 new_t0.impulse = old_t0.impulse * warmstart_coeff;
                 contact_constraints.write(cons_base + (s + 1) as usize, new_t0);
             }
-            break;
         }
     }
 }

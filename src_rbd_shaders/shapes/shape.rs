@@ -622,7 +622,10 @@ impl Shape {
 
         if ty == SHAPE_TYPE_POLYLINE {
             let pline = self.to_polyline();
-            let local_aabb = pline.aabb();
+            let mut local_aabb = pline.aabb();
+            // the narrow phase sees each segment as a capsule of this radius
+            local_aabb.mins -= Vector::splat(crate::shapes::POLYLINE_THICKNESS);
+            local_aabb.maxs += Vector::splat(crate::shapes::POLYLINE_THICKNESS);
             return local_aabb.transform_by(pose);
         }
 

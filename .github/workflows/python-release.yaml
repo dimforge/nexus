@@ -21,7 +21,7 @@ env:
   # Passed to every `maturin build`. Default features (webgpu + extension-module)
   # give portable wheels; wgpu picks the native GPU API at runtime.
   MATURIN_ARGS: --release -m crates/nexus_python3d/Cargo.toml
-  CARGO_GPU_VERSION: 0.10.0-alpha.1
+  CARGO_GPU_VERSION: 0.10.0
 
 jobs:
   # One abi3 wheel per platform (see the `abi3-py39` pyo3 feature): a single

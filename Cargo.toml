@@ -42,12 +42,12 @@ bvh = "0.7"
 
 # Physics / geometry. default-features off for the no_std shader crates; host
 # crates opt back in with `features = ["default"]`.
-rapier2d = { version = "0.35.3", default-features = false }
-rapier3d = { version = "0.35.3", default-features = false }
-rapier3d-urdf = "0.35.3"
-rapier3d-mjcf = { version = "0.35.3", features = ["stl", "wavefront", "msh"] }
-parry2d = { version = "0.30", default-features = false }
-parry3d = { version = "0.30", default-features = false }
+rapier2d = { version = "0.36.0", default-features = false }
+rapier3d = { version = "0.36.0", default-features = false }
+rapier3d-urdf = "0.36.0"
+rapier3d-mjcf = { version = "0.36.0", features = ["stl", "wavefront", "msh"] }
+parry2d = { version = "0.31", default-features = false }
+parry3d = { version = "0.31", default-features = false }
 
 # Viewer / examples deps
 kiss3d = "0.46.0"
@@ -102,11 +102,6 @@ khal-std = { git = "https://github.com/dimforge/khal", branch = "main" }
 khal-builder = { git = "https://github.com/dimforge/khal", branch = "main" }
 vortx = { git = "https://github.com/dimforge/vortx", branch = "main" }
 vortx-shaders = { git = "https://github.com/dimforge/vortx", branch = "main" }
-#rapier2d = { path = "../rapier/crates/rapier2d" }
-#rapier3d = { path = "../rapier/crates/rapier3d" }
-#rapier3d-mjcf = { path = "../rapier/crates/rapier3d-mjcf" }
-#rapier3d-urdf = { path = "../rapier/crates/rapier3d-urdf" }
-#rapier3d-meshloader = { path = "../rapier/crates/rapier3d-meshloader" }
 ## Local glam clone with SPIR-V vector-arithmetic intrinsics (Vec3 add/sub/mul/scale).
 #glam = { path = "../glam-rs" }
 # 30% faster for loop in P2G
@@ -124,7 +119,11 @@ vortx-shaders = { git = "https://github.com/dimforge/vortx", branch = "main" }
 #vortx-shaders = { git = "https://github.com/dimforge/vortx", branch = "int-reduce" }
 
 #glamx = { path = "../glamx" }
-#kiss3d = { path = "../kiss3d" }
+# kiss3d's shared-manager fix for a second offscreen surface, its offscreen
+# MSAA and shadow controls (branch fix-shared-window-managers), pending a
+# kiss3d release. Pinned by rev, not branch: a moving head would make this
+# build irreproducible.
+kiss3d = { git = "https://github.com/dimforge/kiss3d", rev = "28cdddde9e920fdb5462e9c24e44b57e55dd7bbe" }
 #parry2d = { path = "../parry/crates/parry2d" }
 #parry3d = { path = "../parry/crates/parry3d" }
 #rapier2d = { path = "../rapier/crates/rapier2d" }

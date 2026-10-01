@@ -36,7 +36,7 @@ pub use cone::Cone;
 pub use convex_polyhedron::ConvexPolyhedron;
 #[cfg(feature = "dim3")]
 pub use cylinder::Cylinder;
-pub use polyline::Polyline;
+pub use polyline::{POLYLINE_THICKNESS, Polyline};
 pub use segment::Segment;
 pub use shape::*;
 #[cfg(feature = "dim3")]

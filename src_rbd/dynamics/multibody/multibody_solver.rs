@@ -4,6 +4,7 @@ use super::multibody_set::*;
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::broad_phase::ContactPlan;
+use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
     GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
     GpuMbComputeSolveBounds, GpuMbConsOffsetsScan, GpuMbCountContactConstraints, GpuMbDelayTick,
@@ -132,6 +133,9 @@ pub struct MultibodySolverArgs<'a> {
     /// Per-color-index uniform tensors (`color_uniforms[c]` holds `c`),
     /// shared with the contact/joint solvers.
     pub color_uniforms: &'a [Tensor<u32>],
+    /// Solve friction rows during the biased pass too
+    /// (`RbdSimParams::friction_in_bias_pass`).
+    pub friction_in_bias_pass: bool,
     /// GPU-written workgroup grid for the per-multibody contact-constraint
     /// dispatches: `[multibodies_batch_capacity, num_batches, 1]`.
     pub mb_sweep_indirect: &'a Tensor<[u32; 3]>,
@@ -576,29 +580,36 @@ impl GpuMultibodySolver {
     }
 
     /// P3: one PGS iteration with bias over the joint, contact, and multibody-
-    /// touching impulse-joint constraints.
+    /// touching impulse-joint constraints. The rigid-body solver interleaves
+    /// its own sweep after each call, `num_internal_pgs_iterations` times per
+    /// substep; `first_iteration` (re)builds the impulse-joint constraints.
     pub fn substep_solve_with_bias(
         &self,
         pass: &mut GpuPass,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
+        first_iteration: bool,
     ) -> Result<(), GpuBackendError> {
         if mb.is_empty() {
             return Ok(());
         }
 
         // One 64-lane workgroup per multibody with the generalized velocities
-        // held in workgroup memory (`color_uniforms[1]` holds the constant
-        // 1 = use_bias). With the Delassus blocks allocated, the contact half
-        // runs in constraint space instead (joints first, same order).
+        // held in workgroup memory (`color_uniforms[bias_mode]` holds the
+        // bias-mode constant, see `decode_bias_mode`). With the Delassus blocks
+        // allocated, the contact half runs in constraint space instead (joints
+        // first, same order).
+        let bias_mode = if args.friction_in_bias_pass {
+            BIAS_MODE_BIAS_FRICTION as usize
+        } else {
+            BIAS_MODE_BIAS as usize
+        };
         let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        for _ in 0..mb.num_internal_pgs_iterations() {
-            self.dispatch_solve(pass, mb, args, solve_dispatch, 1)?;
-        }
+        self.dispatch_solve(pass, mb, args, solve_dispatch, bias_mode)?;
 
         // Multibody-touching impulse joints — generic (rb-mb / mb-mb)
-        // constraints.
-        if mb.mb_imp_joints_per_batch > 0 {
+        // constraints, built on the first iteration of the substep.
+        if mb.mb_imp_joints_per_batch > 0 && first_iteration {
             // Flat 1-D sweep over the interleaved joint slots.
             let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];
             self.update_impulse_joint_constraints.call(
@@ -630,6 +641,8 @@ impl GpuMultibodySolver {
                 &mb.lu_pivots,
                 &mb.links_static,
             )?;
+        }
+        if mb.mb_imp_joints_per_batch > 0 {
             // Colored PGS iteration WITH bias: one dispatch per color, each
             // color's joints solved race-free in parallel (graph coloring
             // done at init in `set_impulse_joints`).

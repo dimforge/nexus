@@ -221,6 +221,24 @@ pub fn gpu_reset_completion_flag_topo_gc(
     }
 }
 
+/// Clears the convergence flag so the first fix-conflicts pass validates every color.
+///
+/// Colors seeded from the previous frame are marked colored, so the first step may color
+/// nothing and leave the flag set, which would skip the validation of the seeds.
+#[spirv_bindgen]
+#[spirv(compute(threads(1)))]
+pub fn gpu_clear_completion_flag_topo_gc(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] num_colors: &mut u32,
+) {
+    if invocation_id.x == 0 {
+        // NOTE: same trivial-kernel workaround as `gpu_reset_completion_flag_topo_gc`.
+        for k in 0..1 {
+            *num_colors = k;
+        }
+    }
+}
+
 /// Performs one iteration of Topo-GC coloring.
 ///
 /// Generates up to 63 colors (color 0 = uncolored).

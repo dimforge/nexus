@@ -2,8 +2,6 @@ use khal::backend::GpuTimestamps;
 use kiss3d::egui;
 use nexus_viewer3d::{NexusViewer, RenderMaterial};
 use nexus3d::prelude::{NexusPipeline, NexusState, RbdCoupling};
-use nexus3d::rbd::dynamics::convert_joint_motor;
-use nexus3d::rbd::shaders::dynamics::JointMotor;
 use rapier3d::prelude::*;
 use rapier3d_mjcf::{MjcfLoaderOptions, MjcfMultibodyOptions, MjcfRobot, MjcfRobotHandles};
 use std::fs;
@@ -131,6 +129,9 @@ struct Settings {
     enable_controls: bool,
     enable_springs: bool,
     actuator_strength: f32,
+    /// Multibody PGS iterations per substep. Servo-driven robots resting on
+    /// contacts need more than one to stop the motor and contact rows fighting.
+    pgs_iterations: u32,
     /// Index into the keyframe picker: 0 is "(none)", `i + 1` is keyframe `i`.
     keyframe: usize,
 }
@@ -146,6 +147,7 @@ impl Default for Settings {
             enable_controls: true,
             enable_springs: true,
             actuator_strength: 1.0,
+            pgs_iterations: 4,
             keyframe: 0,
         }
     }
@@ -160,8 +162,8 @@ impl Settings {
     }
 
     /// Whether moving from `self` to `next` requires rebuilding the scene.
-    /// Actuator strength is read live every step, and so is the keyframe while
-    /// the servos are driving.
+    /// Actuator strength is read live every step, the PGS iteration count is
+    /// pushed live, and so is the keyframe while the servos are driving.
     fn needs_reload(&self, next: &Self) -> bool {
         self.use_multibody != next.use_multibody
             || self.render_colliders != next.render_colliders
@@ -497,7 +499,9 @@ async fn load_scene(
     // multibody path instead raises the PGS iterations per substep. Mirrors the
     // reference example.
     let mut sim_params = nexus3d::rbd::shaders::dynamics::RbdSimParams::default();
-    if !settings.use_multibody {
+    if settings.use_multibody {
+        sim_params.num_internal_pgs_iterations = settings.pgs_iterations;
+    } else {
         sim_params.dt = 1.0 / 240.0;
         sim_params.num_solver_iterations = 12;
     }
@@ -506,9 +510,6 @@ async fn load_scene(
     state.finalize(viewer.backend()).await?;
     state.set_rbd_gravity(viewer.backend(), [0.0, 0.0, gravity]);
     if let Some(rbd) = state.rbd.as_mut() {
-        if settings.use_multibody {
-            rbd.multibodies_mut().set_num_internal_pgs_iterations(4);
-        }
         // MuJoCo-style explicit coriolis: a single plain mass matrix, with
         // coriolis / gyroscopic forces applied explicitly on the rhs.
         rbd.set_implicit_coriolis(viewer.backend(), false);
@@ -523,8 +524,14 @@ async fn load_scene(
 /// Drives the model's actuators toward `ctrl`, scaled by `gain`.
 ///
 /// The motor configuration is baked into the GPU state at finalization, so this
-/// runs the MJCF actuator model on the CPU-side joints and then pushes each
-/// touched motor across.
+/// runs the MJCF actuator model on the CPU-side joints and then re-syncs the
+/// GPU link records from them.
+///
+/// `control_multibody_motors` does that sync itself, in the multibody traversal
+/// order the GPU link ids follow. Pushing the motors by hand through
+/// `set_motors` would need those same link ids, which are NOT the rapier body
+/// indices as soon as the scene holds a body that is not a multibody link
+/// (aloha's table, for instance) ahead of the robot.
 fn apply_controls(
     state: &mut NexusState,
     backend: &khal::backend::GpuBackend,
@@ -532,45 +539,14 @@ fn apply_controls(
     ctrl: &[Real],
     gain: Real,
 ) {
-    let mut updates: Vec<(u32, usize, JointMotor)> = Vec::new();
-    {
-        // Untracked: the rapier sets are only the scratch the MJCF actuator
-        // model writes into. Marking them dirty would rebuild the GPU buffers
-        // from the authored poses and reset the model every step.
-        let world = state.rbd_world_mut_untracked(0);
+    let _ = state.control_multibody_motors(backend, |_, world| {
         controls.handles.apply_controls_multibody_scaled(
             &mut world.bodies,
             &mut world.multibody_joints,
             ctrl,
             gain,
         );
-        for ah in &controls.handles.actuators {
-            let Some(Some(handle)) = ah.joint else {
-                continue;
-            };
-            let Some((mb, link_id)) = world.multibody_joints.get(handle) else {
-                continue;
-            };
-            let Some(link) = mb.links().nth(link_id) else {
-                continue;
-            };
-            // The GPU link id is the body index (see `GpuMultibodySet::set_motor`).
-            let body_idx = link.rigid_body_handle().into_raw_parts().0;
-            let axes = link.joint().data.motor_axes.bits();
-            for axis in 0..6 {
-                if axes & (1 << axis) != 0 {
-                    updates.push((
-                        body_idx,
-                        axis,
-                        convert_joint_motor(link.joint().data.motors[axis]),
-                    ));
-                }
-            }
-        }
-    }
-    if let Some(rbd) = state.rbd.as_mut() {
-        let _ = rbd.multibodies_mut().set_motors(backend, 0, &updates);
-    }
+    });
 }
 
 /// Picks a scene: first runs the cheap DoF pre-check (no mesh I/O); if the model
@@ -713,6 +689,11 @@ pub async fn run(
                         ui.checkbox(&mut next.disable_collisions, "Disable collisions");
                         ui.checkbox(&mut next.enable_controls, "Enable joint controls");
                         ui.checkbox(&mut next.enable_springs, "Enable joint springs");
+                        ui.add_enabled(
+                            next.use_multibody,
+                            egui::Slider::new(&mut next.pgs_iterations, 1..=16)
+                                .text("PGS iterations / substep"),
+                        );
                         ui.add(
                             egui::Slider::new(&mut next.actuator_strength, 0.02..=2.0)
                                 .text("Actuator strength"),
@@ -779,7 +760,12 @@ pub async fn run(
         let mut reload = false;
         if let Some(next) = pending_settings.take() {
             reload = settings.needs_reload(&next);
+            let pgs_changed = settings.pgs_iterations != next.pgs_iterations;
             settings = next;
+            if pgs_changed && !reload {
+                state
+                    .set_rbd_num_internal_pgs_iterations(viewer.backend(), settings.pgs_iterations);
+            }
         }
         // A model change always rebuilds, and resets the keyframe to the new
         // model's default.

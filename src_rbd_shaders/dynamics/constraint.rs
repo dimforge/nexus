@@ -95,21 +95,26 @@ pub struct TwoBodyConstraint {
     /// Contact normal direction from body A's perspective (points away from A).
     /// Normal impulses are applied along this direction to prevent penetration.
     pub dir_a: Vector, // Non-penetration force direction for the first body.
+    /// Collider A of the source manifold (3D; stored in the `dir_a` padding lane).
     #[cfg(feature = "dim3")]
-    pub _padding0: f32,
+    pub warmstart_collider_a: u32,
 
     #[cfg(feature = "dim3")]
     /// First tangent direction (3D only, orthogonal to normal).
     /// Used for friction in the contact plane.
     pub tangent_a: Vector, // One of the friction force directions.
+    /// Collider B of the source manifold (3D; stored in the `tangent_a` padding lane).
     #[cfg(feature = "dim3")]
-    pub _padding1: f32,
+    pub warmstart_collider_b: u32,
 
     /// Inverse mass of body A along each axis.
     /// Used to compute linear velocity changes from impulses.
     pub im_a: Vector,
+    /// [`IndexedManifold::subshape`] of the source manifold (3D; `im_a` padding lane).
+    ///
+    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
     #[cfg(feature = "dim3")]
-    pub _padding2: f32,
+    pub warmstart_subshape: u32,
 
     /// Inverse mass of body B along each axis.
     pub im_b: Vector,
@@ -135,8 +140,17 @@ pub struct TwoBodyConstraint {
 
     /// Number of active contact points in this manifold (1-4 in 3D, 1-2 in 2D).
     pub len: u32,
+    /// Collider A of the source manifold (2D; appended, no spare padding lane).
     #[cfg(feature = "dim2")]
-    pub _padding: u32,
+    pub warmstart_collider_a: u32,
+    /// Collider B of the source manifold (2D).
+    #[cfg(feature = "dim2")]
+    pub warmstart_collider_b: u32,
+    /// [`IndexedManifold::subshape`] of the source manifold (2D).
+    ///
+    /// [`IndexedManifold::subshape`]: crate::queries::IndexedManifold::subshape
+    #[cfg(feature = "dim2")]
+    pub warmstart_subshape: u32,
     #[cfg(feature = "dim3")]
     pub _padding: [u32; 3],
 }

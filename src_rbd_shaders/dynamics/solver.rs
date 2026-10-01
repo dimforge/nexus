@@ -15,7 +15,7 @@ use khal_std::{
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
 use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
-use super::sim_params::RbdSimParams;
+use super::sim_params::{RbdSimParams, decode_bias_mode};
 use super::solver_utils::warmstart_body;
 
 use crate::queries::IndexedManifold;
@@ -39,6 +39,7 @@ pub fn gpu_solver_init_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     constraint_builders: &mut [TwoBodyConstraintBuilder],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_is_multibody: &[u32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] collider_world_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] vels: &[Velocity],
@@ -52,13 +53,18 @@ pub fn gpu_solver_init_constraints(
     let solver_body_poses = Slice(solver_body_poses, 0);
     let vels = Slice(vels, 0);
     let mprops = Slice(mprops, 0);
+    let body_is_multibody = Slice(body_is_multibody, 0);
 
     for i in StepRng::new(invocation_id.x..total, num_threads) {
         let i = i as usize;
         let im = contacts.at(i);
-        if im.contact.len == 0 {
-            // Gap or inert slot: clear the (stale) constraint so every flat
-            // consumer skips it.
+        // Manifolds touching a multibody link belong to the multibody contact
+        // solver (`gpu_mb_init_contact_constraints`); building a rigid-body
+        // constraint for them too would solve the contact twice, the second
+        // time against a zero-inverse-mass copy of the link that never moves.
+        if im.contact.len == 0 || touches_multibody(im, &body_is_multibody) {
+            // Gap, inert or multibody-owned slot: clear the (stale)
+            // constraint so every flat consumer skips it.
             constraints.at_mut(i).len = 0;
             continue;
         }
@@ -83,7 +89,7 @@ pub fn gpu_solver_count_constraints(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &[IndexedManifold],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_counts: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_group: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] body_is_multibody: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mprops: &[WorldMassProperties],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] contact_plan: &ContactPlan,
 ) {
@@ -93,7 +99,7 @@ pub fn gpu_solver_count_constraints(
     let total = contact_plan.bound;
     let contacts = Slice(contacts, 0);
     let mut body_constraint_counts = SliceMut(body_constraint_counts, 0);
-    let body_group = Slice(body_group, 0);
+    let body_is_multibody = Slice(body_is_multibody, 0);
     let mprops = Slice(mprops, 0);
 
     for i in StepRng::new(invocation_id.x..total, num_threads) {
@@ -101,25 +107,31 @@ pub fn gpu_solver_count_constraints(
         if im.contact.len == 0 {
             continue;
         }
+        // Multibody-owned manifolds have no rigid-body constraint (see
+        // `gpu_solver_init_constraints`).
+        if touches_multibody(im, &body_is_multibody) {
+            continue;
+        }
         let body1 = im.bodies.x;
         let body2 = im.bodies.y;
-        let group1 = body_group[body1 as usize];
-        let group2 = body_group[body2 as usize];
 
-        // Count toward the body's GROUP slot. A body is "active" for the
-        // graph-coloring graph if it's a free dynamic body (inv_mass != 0) OR
-        // it's part of a multibody (group != self — the multibody handles its
-        // own dynamics but its bodies still need correct coloring so contacts
-        // touching different links of the same multibody never share a color).
-        let is_mb1 = group1 != body1;
-        if mprops[body1 as usize].inv_mass != Vector::ZERO || is_mb1 {
-            atomic_add_u32(&mut body_constraint_counts[group1 as usize], 1);
+        // Count toward the body's slot (only free bodies are left here, whose
+        // graph group is themselves). A body is "active" for the
+        // graph-coloring graph if it's a free dynamic body (inv_mass != 0).
+        if mprops[body1 as usize].inv_mass != Vector::ZERO {
+            atomic_add_u32(&mut body_constraint_counts[body1 as usize], 1);
         }
-        let is_mb2 = group2 != body2;
-        if mprops[body2 as usize].inv_mass != Vector::ZERO || is_mb2 {
-            atomic_add_u32(&mut body_constraint_counts[group2 as usize], 1);
+        if mprops[body2 as usize].inv_mass != Vector::ZERO {
+            atomic_add_u32(&mut body_constraint_counts[body2 as usize], 1);
         }
     }
+}
+
+/// `true` when either body of the manifold is a multibody link: its contacts
+/// are solved by the multibody solver, never by the rigid-body one.
+#[inline(always)]
+fn touches_multibody(im: &IndexedManifold, body_is_multibody: &Slice<'_, u32>) -> bool {
+    body_is_multibody[im.bodies.x as usize] != 0 || body_is_multibody[im.bodies.y as usize] != 0
 }
 
 /// Updates constraints for a new substep.
@@ -201,35 +213,32 @@ pub fn gpu_solver_sort_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] contacts: &[IndexedManifold],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_constraint_ids: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] body_group: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] body_is_multibody: &[u32],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
     let total = contact_plan.bound;
     let contacts = Slice(contacts, 0);
     let mut body_constraint_counts = SliceMut(body_constraint_counts, 0);
-    let body_group = Slice(body_group, 0);
+    let body_is_multibody = Slice(body_is_multibody, 0);
     let mprops = Slice(mprops, 0);
     let mut body_constraint_ids = SliceMut(body_constraint_ids, 0);
 
     for i in StepRng::new(invocation_id.x..total, num_threads) {
-        if contacts[i as usize].contact.len == 0 {
+        let im = &contacts[i as usize];
+        // Same filter as `gpu_solver_count_constraints`.
+        if im.contact.len == 0 || touches_multibody(im, &body_is_multibody) {
             continue;
         }
-        let body1 = contacts[i as usize].bodies.x as usize;
-        let body2 = contacts[i as usize].bodies.y as usize;
-        let group1 = body_group[body1] as usize;
-        let group2 = body_group[body2] as usize;
+        let body1 = im.bodies.x as usize;
+        let body2 = im.bodies.y as usize;
 
-        let is_mb1 = group1 != body1;
-        if mprops[body1].inv_mass != Vector::ZERO || is_mb1 {
-            let id1 = atomic_add_u32(&mut body_constraint_counts[group1], 1);
+        if mprops[body1].inv_mass != Vector::ZERO {
+            let id1 = atomic_add_u32(&mut body_constraint_counts[body1], 1);
             body_constraint_ids[id1 as usize] = i;
         }
-
-        let is_mb2 = group2 != body2;
-        if mprops[body2].inv_mass != Vector::ZERO || is_mb2 {
-            let id2 = atomic_add_u32(&mut body_constraint_counts[group2], 1);
+        if mprops[body2].inv_mass != Vector::ZERO {
+            let id2 = atomic_add_u32(&mut body_constraint_counts[body2], 1);
             body_constraint_ids[id2 as usize] = i;
         }
     }
@@ -415,7 +424,7 @@ pub fn gpu_step_gauss_seidel(
     let color_sorted_ids = Slice(color_sorted_ids, 0);
     let mut solver_vels = SliceMut(solver_vels, 0);
     let color = *curr_color;
-    let use_bias = *use_bias != 0;
+    let (use_bias, solve_friction) = decode_bias_mode(*use_bias);
 
     // Color-major bucket ends; see `gpu_warmstart`.
     let start = color_starts.read((color * nb - 1) as usize);
@@ -433,6 +442,7 @@ pub fn gpu_step_gauss_seidel(
             &mut solver_vel1,
             &mut solver_vel2,
             use_bias,
+            solve_friction,
         );
 
         solver_vels[solver_id1] = solver_vel1;
@@ -529,7 +539,7 @@ pub fn gpu_step_gauss_seidel_fused(
     let color_sorted_ids = Slice(color_sorted_ids, 0);
     let mut solver_vels = SliceMut(solver_vels, 0);
     let num_colors = *num_colors;
-    let use_bias = *use_bias != 0;
+    let (use_bias, solve_friction) = decode_bias_mode(*use_bias);
 
     for color in 1..=num_colors {
         // Empty-color skip: see `gpu_warmstart_fused`.
@@ -554,6 +564,7 @@ pub fn gpu_step_gauss_seidel_fused(
                     &mut solver_vel1,
                     &mut solver_vel2,
                     use_bias,
+                    solve_friction,
                 );
 
                 solver_vels[solver_id1] = solver_vel1;

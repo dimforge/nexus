@@ -12,12 +12,16 @@ pub extern crate rapier3d as rapier;
 
 mod backend;
 mod graphics;
+#[cfg(feature = "dim3")]
+pub mod sensors;
 mod ui;
 pub mod viewer;
 
 pub use backend::BackendType;
 #[cfg(feature = "dim3")]
-pub use graphics::RenderMaterial;
+pub use graphics::{RenderMaterial, VisualTexture};
+#[cfg(feature = "dim3")]
+pub use sensors::{SensorAttachment, SensorCamera, SensorCamera3d};
 pub use viewer::{NexusViewer, UiState};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
