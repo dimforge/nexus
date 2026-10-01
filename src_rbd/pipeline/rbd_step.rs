@@ -17,12 +17,6 @@ use khal::BufferUsages;
 use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuTimestamps};
 use vortx::tensor::Tensor;
 
-/// Forces the fused colored-sweep kernels regardless of the estimated pair
-/// count: the programmatic twin of `NEXUS_FUSED_SWEEPS=1`, for targets without
-/// environment variables (wasm).
-pub static FORCE_FUSED_SWEEPS: core::sync::atomic::AtomicBool =
-    core::sync::atomic::AtomicBool::new(false);
-
 /// The main GPU physics pipeline coordinating all simulation stages.
 pub struct RbdPipeline {
     mprops_update: GpuMpropsUpdate,
@@ -100,11 +94,8 @@ impl RbdPipeline {
     /// batch walking every color) instead of one dispatch per color.
     ///
     /// Chosen from the expected pair count: small pair counts with many
-    /// environments benefit from the fused kernels. The fused path can also be
-    /// forced regardless of size (an A/B knob: an env var natively,
-    /// [`FORCE_FUSED_SWEEPS`] on wasm where env vars do not exist). It is
-    /// correct at any size, just serialized past ~64 lanes, which may still win
-    /// where per-dispatch latency rules, i.e. small batch counts in the browser.
+    /// environments benefit from the fused kernels. The fused path is correct
+    /// at any size, just serialized past ~64 lanes.
     ///
     /// The estimate is per batch: the read-back counter (or the capacity when
     /// the readback is disabled) is a total over the whole flat pair buffer.
@@ -120,8 +111,6 @@ impl RbdPipeline {
                 .div_ceil(state.num_batches)
         };
         est_pairs <= 128
-            || FORCE_FUSED_SWEEPS.load(core::sync::atomic::Ordering::Relaxed)
-            || std::env::var("NEXUS_FUSED_SWEEPS").as_deref() == Ok("1")
     }
 
     fn step_impl(

@@ -17,4 +17,4 @@ mod test_batched_stacks;
 #[cfg(feature = "dim3")]
 pub use rbd_state::RbdSnapshot;
 pub use rbd_state::{RbdCapacities, RbdGraphKey, RbdResizePolicy, RbdState, RunStats};
-pub use rbd_step::{FORCE_FUSED_SWEEPS, RbdPipeline};
+pub use rbd_step::RbdPipeline;
