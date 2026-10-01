@@ -8,6 +8,12 @@ use crate::bounding_volumes::Aabb;
 use crate::shapes::segment::Segment;
 use khal_std::index::MaybeIndexUnchecked;
 
+/// Radius of the capsule each polyline segment is treated as in contact
+/// detection. The broad-phase AABB is enlarged by it too, so a pair is found
+/// before a body reaches the capsule surface rather than once it is deep inside.
+// TODO: make the thickness configurable or part of the polyline struct.
+pub const POLYLINE_THICKNESS: f32 = 0.4;
+
 /// A polyline (connected line segments) with BVH acceleration structure.
 #[derive(Clone, Copy, Default)]
 #[repr(C)]

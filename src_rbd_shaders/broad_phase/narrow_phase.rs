@@ -720,7 +720,7 @@ fn polyline_convex(
     }
 
     // Get the convex shape's AABB in the polyline's local space, and enlarge with the prediction distance.
-    let thickness = 0.4; // TODO: make thickness configurable or part of the polyline struct
+    let thickness = crate::shapes::POLYLINE_THICKNESS;
     let mut test_aabb = convex.compute_aabb(pose12, vertices);
     test_aabb.mins -= Vector::splat(prediction + thickness);
     test_aabb.maxs += Vector::splat(prediction + thickness);
