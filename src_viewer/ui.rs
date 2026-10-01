@@ -448,6 +448,16 @@ fn backend_selector(ui: &mut egui::Ui, state: &mut UiState, gpu_available: bool)
     {
         new_backend = Some(BackendType::Cuda);
     }
+    #[cfg(feature = "cuda")]
+    if state.backend_type == BackendType::Cuda {
+        ui.indent("compute-graphs", |ui| {
+            ui.checkbox(&mut state.compute_graphs, "Compute graphs")
+                .on_hover_text(
+                    "Record each frame's physics dispatches once into a compute graph and replay \
+                     it with a single launch (re-recorded whenever the scene changes).",
+                );
+        });
+    }
 
     #[cfg(feature = "metal")]
     if ui

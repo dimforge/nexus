@@ -103,6 +103,8 @@ pub struct UiState {
     pub sync_time: Duration,
     pub ui_sections: UiSections,
     pub backend_type: BackendType,
+    /// Replay each frame's GPU work through a compute graph (backends with graph support only).
+    pub compute_graphs: bool,
     pub gpu_init_error: Option<String>,
     /// Names + kinds of all registered demos, used to populate the demo picker.
     pub demos: Vec<(String, DemoKind)>,
@@ -343,6 +345,7 @@ impl NexusViewer {
                     show_performance: true,
                 },
                 backend_type: BackendType::Gpu,
+                compute_graphs: false,
                 gpu_init_error: None,
                 demos,
                 selected_demo: 0,
@@ -364,6 +367,13 @@ impl NexusViewer {
 
     pub fn with_backend(mut self, backend_type: BackendType) -> Self {
         self.ui.backend_type = backend_type;
+        self
+    }
+
+    /// Replay each frame's physics through a compute graph (backends with graph support only;
+    /// no effect elsewhere). Also toggled from the backend panel.
+    pub fn with_compute_graphs(mut self, enabled: bool) -> Self {
+        self.ui.compute_graphs = enabled;
         self
     }
 
@@ -468,12 +478,24 @@ impl NexusViewer {
     #[cfg(feature = "cuda")]
     fn init_cuda(&mut self) -> Option<KhalGpuBackend> {
         match khal::backend::cuda::Cuda::new(0) {
-            Ok(cuda) => Some(KhalGpuBackend::Cuda(cuda)),
+            Ok(cuda) => {
+                // Also report on stderr: the UI banner is invisible to
+                // scripted/headless runs (`--cuda --run`).
+                match cuda.compute_capability() {
+                    Ok((maj, min)) => {
+                        eprintln!("[nexus] backend = native CUDA (sm_{maj}{min})")
+                    }
+                    Err(_) => eprintln!("[nexus] backend = native CUDA"),
+                }
+                Some(KhalGpuBackend::Cuda(cuda))
+            }
             Err(e) => {
-                self.ui.gpu_init_error = Some(format!(
+                let msg = format!(
                     "CUDA backend not available, initialization failed:\n\"{:?}\"\n",
                     e
-                ));
+                );
+                eprintln!("[nexus] {msg}");
+                self.ui.gpu_init_error = Some(msg);
                 None
             }
         }
@@ -482,12 +504,17 @@ impl NexusViewer {
     #[cfg(feature = "metal")]
     fn init_metal(&mut self) -> Option<KhalGpuBackend> {
         match khal::backend::metal::Metal::new() {
-            Ok(metal) => Some(KhalGpuBackend::Metal(metal)),
+            Ok(metal) => {
+                eprintln!("[nexus] backend = native Metal");
+                Some(KhalGpuBackend::Metal(metal))
+            }
             Err(e) => {
-                self.ui.gpu_init_error = Some(format!(
+                let msg = format!(
                     "Metal backend not available, initialization failed:\n\"{:?}\"\n",
                     e
-                ));
+                );
+                eprintln!("[nexus] {msg}");
+                self.ui.gpu_init_error = Some(msg);
                 None
             }
         }
@@ -950,6 +977,9 @@ impl NexusViewer {
             state.set_mpm_gravity(s.mpm_gravity);
             state.set_rbd_steps_per_frame(s.rbd_steps_per_frame);
         }
+        // The compute-graph toggle is a testbed-wide choice, not a scene
+        // setting: it always flows from the backend panel into the scene.
+        state.set_compute_graphs_enabled(self.ui.compute_graphs);
 
         if self.direct_render_path() {
             self.sync_without_readback(state).await?;

@@ -28,6 +28,7 @@ metal = ["nexus_rbd3d?/metal", "nexus_mpm3d?/metal"]
 cpu = ["nexus_rbd3d?/cpu", "nexus_mpm3d?/cpu"]
 cpu-parallel = ["cpu", "nexus_rbd3d?/cpu-parallel", "nexus_mpm3d?/cpu-parallel"]
 cuda = ["nexus_rbd3d?/cuda", "nexus_mpm3d?/cuda"]
+cuda-oxide = ["cuda", "nexus_rbd3d?/cuda-oxide", "nexus_mpm3d?/cuda-oxide"]
 
 rbd = ["dep:nexus_rbd3d"]
 mpm = ["dep:nexus_mpm3d"]

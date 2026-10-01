@@ -15,7 +15,7 @@ use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuTimestamps
 use khal::{BufferUsages, Shader};
 use nexus_rbd::dynamics::GpuBodySet;
 use nexus_rbd::math::{Pose, Vector};
-use nexus_rbd::utils::{GpuPrefixSum, PrefixSumWorkspace};
+use nexus_rbd::utils::{ComputeGraphCache, GpuPrefixSum, PrefixSumWorkspace};
 use vortx::tensor::Tensor;
 
 use nexus_rbd::dynamics::body::{BodyCoupling, RapierBodyCouplingEntry};
@@ -94,9 +94,56 @@ pub struct MpmState {
     pub timestep_bounds_staging: Tensor<GpuTimestepBounds>,
     prefix_sum: PrefixSumWorkspace,
     coupling: Vec<RapierBodyCouplingEntry>,
+    /// Cached compute graphs of this state's substep loop, keyed by
+    /// [`Self::graph_key`], one per grid double-buffer parity (see
+    /// [`GpuGrid::parity`]): each substep swaps the grid's current/previous
+    /// buffers on the host, so a recorded loop is only valid when the buffers
+    /// are in the assignment they had at capture time. With an odd substep
+    /// count the parity flips every frame and the two slots alternate. Driven
+    /// by `NexusPipeline::simulate`.
+    pub compute_graphs: [ComputeGraphCache<MpmGraphKey>; 2],
+}
+
+/// Everything that shapes the GPU work recorded by one substep loop
+/// ([`MpmPipeline::step`] run `substeps` times): the live particle /
+/// rigid-particle / body counts (they size the dispatches), the grid
+/// capacity and the substep count. A cached compute graph of the loop is
+/// valid exactly as long as this key is unchanged.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct MpmGraphKey {
+    /// Number of substeps recorded per frame.
+    pub substeps: u32,
+    /// Whether CPIC rigid coupling is enabled.
+    pub use_cpic: bool,
+    /// Number of particles.
+    pub num_particles: usize,
+    /// Number of rigid particles sampled on the coupled colliders.
+    pub num_rigid_particles: u64,
+    /// Number of coupled rigid bodies.
+    pub num_coupled_bodies: usize,
+    /// Capacity of the grid's block hash map.
+    pub hmap_capacity: u32,
+    /// Length of the grid's hash-map entry buffer.
+    pub num_hmap_entries: u64,
+    /// Length of the coupled-body slot buffer.
+    pub num_rbd_body_slots: u64,
 }
 
 impl MpmState {
+    /// The [`MpmGraphKey`] of this state for `substeps` substeps per frame.
+    pub fn graph_key(&self, substeps: u32) -> MpmGraphKey {
+        MpmGraphKey {
+            substeps,
+            use_cpic: self.use_cpic,
+            num_particles: self.particles.len(),
+            num_rigid_particles: self.rigid_particles.len(),
+            num_coupled_bodies: self.coupling.len(),
+            hmap_capacity: self.grid.cpu_meta.hmap_capacity,
+            num_hmap_entries: self.grid.hmap_entries.len(),
+            num_rbd_body_slots: self.rbd_body_slots.len(),
+        }
+    }
+
     /// Creates an empty MPM state with no particles and no coupled bodies.
     ///
     /// The grid is preallocated to hold `grid_capacity` cells. Physical
@@ -159,6 +206,7 @@ impl MpmState {
             rbd_body_slots: Tensor::vector(backend, [], BufferUsages::STORAGE)?,
             timestep_bounds,
             timestep_bounds_staging,
+            compute_graphs: Default::default(),
             prefix_sum,
             coupling: Vec::new(),
         })
@@ -349,6 +397,7 @@ impl MpmState {
             // Standalone MPM: no rigid-body pipeline to write poses back to.
             rbd_body_slots: Tensor::vector(backend, [], BufferUsages::STORAGE)?,
             coupling,
+            compute_graphs: Default::default(),
             timestep_bounds,
             timestep_bounds_staging,
             base_dt: params.dt,

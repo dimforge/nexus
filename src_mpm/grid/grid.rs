@@ -433,6 +433,9 @@ pub struct GpuGrid {
     pub hmap_entries: Tensor<GridHashMapEntry>,
     /// Pong buffer for hmap entries.
     pub prev_hmap_entries: Tensor<GridHashMapEntry>,
+    /// Flipped by every [`Self::swap_buffers`]: which of the two meta /
+    /// hash-map buffer assignments is the current one.
+    parity: bool,
     /// Grid node data (momentum, mass, CDF).
     pub nodes: Tensor<Node>,
     /// Active block headers tracking particle ranges.
@@ -525,6 +528,7 @@ impl GpuGrid {
         let debug = Tensor::vector(backend, [0u32, 0], BufferUsages::STORAGE)?;
 
         Ok(Self {
+            parity: false,
             cpu_meta,
             meta,
             prev_meta,
@@ -543,5 +547,12 @@ impl GpuGrid {
     pub fn swap_buffers(&mut self) {
         std::mem::swap(&mut self.meta, &mut self.prev_meta);
         std::mem::swap(&mut self.prev_hmap_entries, &mut self.hmap_entries);
+        self.parity = !self.parity;
+    }
+
+    /// Which of the two meta / hash-map buffer assignments is current;
+    /// flipped by every [`Self::swap_buffers`].
+    pub fn parity(&self) -> bool {
+        self.parity
     }
 }

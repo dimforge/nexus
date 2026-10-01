@@ -29,6 +29,10 @@ metal = ["khal/metal"]
 cpu = ["nexus_rbd_shaders2d/cpu", "vortx/cpu"]
 cpu-parallel = ["cpu", "vortx/cpu-parallel", "nexus_rbd_shaders2d/cpu-parallel"]
 cuda = ["khal/cuda", "khal-builder/cuda", "nexus_rbd_shaders2d/cuda"]
+# Native CUDA with kernels compiled by cuda-oxide instead of rust-cuda (implies `cuda`).
+# Not forwarded to the shader crate: khal-builder enables its `cuda-oxide` in
+# the separate `cargo oxide` build; on the host it would break the CPU backend.
+cuda-oxide = ["cuda", "khal-builder/cuda-oxide"]
 
 [dependencies]
 nexus_rbd_shaders2d = { workspace = true }

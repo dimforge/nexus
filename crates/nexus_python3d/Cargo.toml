@@ -29,6 +29,7 @@ default = ["webgpu", "extension-module"]
 webgpu = ["nexus_viewer3d/webgpu"]
 metal = ["nexus_viewer3d/metal"]
 cuda = ["nexus_viewer3d/cuda"]
+cuda-oxide = ["cuda", "nexus_viewer3d/cuda-oxide"]
 cpu = ["nexus_viewer3d/cpu"]
 cpu-parallel = ["nexus_viewer3d/cpu-parallel"]
 # Build as a real Python extension module (no libpython link).

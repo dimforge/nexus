@@ -20,54 +20,71 @@ pub const NBH_LEN: usize = 9;
 #[cfg(feature = "dim3")]
 pub const NBH_LEN: usize = 27;
 
-/// Returns the stencil offset for neighbor `i` as a UVector.
+/// Stencil offsets of the neighbors, as `[x, y]` (2D, 3x3 grid) or `[x, y, z]`
+/// (3D, 3x3x3 grid) components. Read them through [`nbh_shift`].
 ///
-/// In 2D, these are UVec2 offsets into a 3x3 grid.
-/// In 3D, these are UVec3 offsets into a 3x3x3 grid.
+/// Stored as nested scalar arrays rather than `[UVec2/UVec3; N]`: the
+/// cuda-oxide backend only materializes constant arrays whose elements are
+/// scalars (or nested arrays of scalars), not structs.
 #[cfg(feature = "dim2")]
-pub const NBH_SHIFTS: [UVec2; 9] = [
-    UVec2::new(2, 2),
-    UVec2::new(2, 0),
-    UVec2::new(2, 1),
-    UVec2::new(0, 2),
-    UVec2::new(0, 0),
-    UVec2::new(0, 1),
-    UVec2::new(1, 2),
-    UVec2::new(1, 0),
-    UVec2::new(1, 1),
+pub const NBH_SHIFTS: [[u32; 2]; 9] = [
+    [2, 2],
+    [2, 0],
+    [2, 1],
+    [0, 2],
+    [0, 0],
+    [0, 1],
+    [1, 2],
+    [1, 0],
+    [1, 1],
 ];
 
-/// Returns the stencil offset for neighbor `i` as a UVector.
 #[cfg(feature = "dim3")]
-pub const NBH_SHIFTS: [UVec3; 27] = [
-    UVec3::new(2, 2, 2),
-    UVec3::new(2, 0, 2),
-    UVec3::new(2, 1, 2),
-    UVec3::new(0, 2, 2),
-    UVec3::new(0, 0, 2),
-    UVec3::new(0, 1, 2),
-    UVec3::new(1, 2, 2),
-    UVec3::new(1, 0, 2),
-    UVec3::new(1, 1, 2),
-    UVec3::new(2, 2, 0),
-    UVec3::new(2, 0, 0),
-    UVec3::new(2, 1, 0),
-    UVec3::new(0, 2, 0),
-    UVec3::new(0, 0, 0),
-    UVec3::new(0, 1, 0),
-    UVec3::new(1, 2, 0),
-    UVec3::new(1, 0, 0),
-    UVec3::new(1, 1, 0),
-    UVec3::new(2, 2, 1),
-    UVec3::new(2, 0, 1),
-    UVec3::new(2, 1, 1),
-    UVec3::new(0, 2, 1),
-    UVec3::new(0, 0, 1),
-    UVec3::new(0, 1, 1),
-    UVec3::new(1, 2, 1),
-    UVec3::new(1, 0, 1),
-    UVec3::new(1, 1, 1),
+pub const NBH_SHIFTS: [[u32; 3]; 27] = [
+    [2, 2, 2],
+    [2, 0, 2],
+    [2, 1, 2],
+    [0, 2, 2],
+    [0, 0, 2],
+    [0, 1, 2],
+    [1, 2, 2],
+    [1, 0, 2],
+    [1, 1, 2],
+    [2, 2, 0],
+    [2, 0, 0],
+    [2, 1, 0],
+    [0, 2, 0],
+    [0, 0, 0],
+    [0, 1, 0],
+    [1, 2, 0],
+    [1, 0, 0],
+    [1, 1, 0],
+    [2, 2, 1],
+    [2, 0, 1],
+    [2, 1, 1],
+    [0, 2, 1],
+    [0, 0, 1],
+    [0, 1, 1],
+    [1, 2, 1],
+    [1, 0, 1],
+    [1, 1, 1],
 ];
+
+/// Returns the stencil offset for neighbor `i` as a `UVec2` (2D).
+#[cfg(feature = "dim2")]
+#[inline(always)]
+pub fn nbh_shift(i: usize) -> UVec2 {
+    use khal_std::index::MaybeIndexUnchecked;
+    UVec2::from_array(NBH_SHIFTS.read(i))
+}
+
+/// Returns the stencil offset for neighbor `i` as a `UVec3` (3D).
+#[cfg(feature = "dim3")]
+#[inline(always)]
+pub fn nbh_shift(i: usize) -> UVec3 {
+    use khal_std::index::MaybeIndexUnchecked;
+    UVec3::from_array(NBH_SHIFTS.read(i))
+}
 
 /// Flattens the 2D/3D stencil offset of neighbor `i` into a workgroup
 /// shared-memory index.

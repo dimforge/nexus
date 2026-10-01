@@ -31,6 +31,8 @@ web-compat = ["nexus_rbd_shaders3d/web-compat"]
 cpu = []
 cpu-parallel = ["cpu", "vortx-shaders/cpu-parallel"]
 cuda = []
+# cuda-oxide compiler for the CUDA kernels (implies `cuda`).
+cuda-oxide = ["cuda", "khal-std/cuda-oxide", "vortx-shaders/cuda-oxide", "nexus_rbd_shaders3d/cuda-oxide"]
 
 [dependencies]
 nexus_rbd_shaders3d = { workspace = true }

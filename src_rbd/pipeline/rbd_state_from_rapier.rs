@@ -840,6 +840,8 @@ impl RbdState {
             contacts_capacity_cpu,
             collision_pairs_capacity_cpu,
             collision_pairs_len_cpu: 0,
+            graph_generation: 0,
+            compute_graph: Default::default(),
             #[cfg(feature = "dim3")]
             mb_cons_demand_cpu: 0,
             batch_indices,

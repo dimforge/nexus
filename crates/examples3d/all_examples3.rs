@@ -115,6 +115,7 @@ struct CliOptions {
     list: bool,
     cpu: bool,
     cuda: bool,
+    compute_graphs: bool,
     metal: bool,
     run: bool,
 }
@@ -126,6 +127,7 @@ fn parse_command_line() -> CliOptions {
         list: false,
         cpu: false,
         cuda: false,
+        compute_graphs: false,
         metal: false,
         run: false,
     };
@@ -136,6 +138,7 @@ fn parse_command_line() -> CliOptions {
             "--list" => opts.list = true,
             "--cpu" => opts.cpu = true,
             "--cuda" => opts.cuda = true,
+            "--compute-graphs" => opts.compute_graphs = true,
             "--metal" => opts.metal = true,
             "--run" => opts.run = true,
             _ => {}
@@ -181,6 +184,9 @@ pub async fn main() {
     #[cfg(feature = "cuda")]
     if opts.cuda {
         viewer = viewer.with_backend(nexus_viewer3d::BackendType::Cuda);
+    }
+    if opts.compute_graphs {
+        viewer = viewer.with_compute_graphs(true);
     }
     #[cfg(feature = "metal")]
     if opts.metal {

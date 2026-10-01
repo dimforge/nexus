@@ -191,7 +191,7 @@ fn particle_g2p<const USE_CPIC: bool>(
         for i in 0..27 {
             // For loop unrolling, use the fixed bound (the maximum one between 2D and 3D).
             if i < NBH_LEN {
-                let shift = NBH_SHIFTS.read(i);
+                let shift = nbh_shift(i);
                 let packed_shift = NBH_SHIFT_SHARED.read(i);
                 let shared_id = (packed_cell_index_in_block + packed_shift) as usize;
                 let mut cell_vel = shared_nodes_vel.read(shared_id);
