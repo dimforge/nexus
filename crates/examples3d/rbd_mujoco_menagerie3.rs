@@ -763,10 +763,8 @@ pub async fn run(
             let pgs_changed = settings.pgs_iterations != next.pgs_iterations;
             settings = next;
             if pgs_changed && !reload {
-                state.set_rbd_num_internal_pgs_iterations(
-                    viewer.backend(),
-                    settings.pgs_iterations,
-                );
+                state
+                    .set_rbd_num_internal_pgs_iterations(viewer.backend(), settings.pgs_iterations);
             }
         }
         // A model change always rebuilds, and resets the keyframe to the new
