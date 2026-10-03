@@ -571,8 +571,12 @@ impl GpuMultibodySet {
                 BufferUsages::STORAGE | BufferUsages::UNIFORM,
             )
             .unwrap(),
-            links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_SRC)
-                .unwrap(),
+            links_static: Tensor::vector(
+                backend,
+                crate::shaders::dynamics::ls_soa_from_structs(&all_statics, num_batches),
+                storage | BufferUsages::COPY_SRC,
+            )
+            .unwrap(),
             links_static_mirror: all_statics.clone(),
             info_mirror,
             // COPY_SRC so hosts can read joint/link state back (observation

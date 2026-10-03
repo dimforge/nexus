@@ -4,8 +4,8 @@
 //! policy drive the motors without a host round-trip, and therefore what makes
 //! a rollout capturable into a compute graph (no per-step host writes).
 //!
-//! `links_static` is batch-interleaved: link `l` of env `e` lives at
-//! `l · num_envs + e`. Targets are row-major `[num_actuated x num_envs]`,
+//! `links_static` is quad-interleaved (see `link_static_soa`). Targets are
+//! row-major `[num_actuated x num_envs]`,
 //! element `(j, env)` at `j · num_envs + env`, matching the policy action
 //! buffer layout.
 
@@ -13,7 +13,10 @@ use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 
-use super::types::MultibodyLinkStatic;
+use super::link_static_soa::{
+    ls_motor_axes_word, ls_motor_target_word, ls_quad_index, ls_word_position,
+};
+use glamx::UVec4;
 
 /// Parameters of the on-device delay-state refresh
 /// ([`gpu_mb_delay_state_update`]).
@@ -48,8 +51,7 @@ pub struct MbDelayTickParams {
 pub fn gpu_scatter_motor_targets(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] motor_targets: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &mut [MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &mut [UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] actuated_link_ids: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] num_actuated: &u32,
     #[spirv(uniform, descriptor_set = 0, binding = 4)] num_envs: &u32,
@@ -61,17 +63,26 @@ pub fn gpu_scatter_motor_targets(
         return;
     }
     let link_id = actuated_link_ids[j as usize];
-    // Batch-interleaved links layout.
-    let global_idx = (link_id * *num_envs + env) as usize;
     let target = motor_targets[(j * *num_envs + env) as usize];
+    // Quad-interleaved link records (see `link_static_soa`).
+    let (target_quad, target_lane) = ls_word_position(ls_motor_target_word(*axis_id as usize));
+    let (axes_quad, axes_lane) = ls_word_position(ls_motor_axes_word());
+    let target_idx = ls_quad_index(link_id as usize, target_quad, *num_envs, env);
+    let axes_idx = ls_quad_index(link_id as usize, axes_quad, *num_envs, env);
 
     // The single-iteration loop matches `gpu_lbvh_reset_collision_pairs`:
     // rust-gpu sometimes prunes the SPIR-V for kernels it deems trivial, and
     // the loop shell keeps the entry point emitted.
     for _ in 0..1 {
-        let link = &mut links_static[global_idx];
-        link.data.motors[*axis_id as usize].target_pos = target;
-        link.data.motor_axes |= 1u32 << *axis_id;
+        set_quad_lane(links_static, target_idx, target_lane, target.to_bits());
+        let axes = links_static[axes_idx];
+        let bits = match axes_lane {
+            0 => axes.x,
+            1 => axes.y,
+            2 => axes.z,
+            _ => axes.w,
+        };
+        set_quad_lane(links_static, axes_idx, axes_lane, bits | (1u32 << *axis_id));
     }
 }
 
@@ -133,4 +144,14 @@ pub fn gpu_mb_delay_tick(
     let base = (env * params.stride) as usize;
     let tick = delay_state.read(base);
     delay_state.write(base, tick + 1.0);
+}
+
+#[inline(always)]
+fn set_quad_lane(buf: &mut [UVec4], idx: usize, lane: usize, value: u32) {
+    match lane {
+        0 => buf[idx].x = value,
+        1 => buf[idx].y = value,
+        2 => buf[idx].z = value,
+        _ => buf[idx].w = value,
+    }
 }

@@ -112,7 +112,8 @@ pub struct GpuMultibodySet {
     /// step by `gpu_mb_compute_solve_bounds`.
     pub(super) max_contact_constraints: Tensor<u32>,
     /// Per-batch static link data.
-    pub(super) links_static: Tensor<MultibodyLinkStatic>,
+    /// Quad-interleaved link records (see `link_static_soa` in the shaders).
+    pub(super) links_static: Tensor<glamx::UVec4>,
     /// CPU-side mirror of [`Self::links_static`] used to support runtime
     /// mutations like motor changes without round-tripping through a GPU read.
     pub(super) links_static_mirror: Vec<MultibodyLinkStatic>,
@@ -455,12 +456,28 @@ impl GpuMultibodySet {
         entry.data.motors[axis] = motor;
         entry.data.motors[axis].impulse = impulse;
         entry.data.motor_axes |= 1u32 << axis;
-        let snapshot = *entry;
-        backend.write_buffer(
-            self.links_static.buffer_mut(),
-            global_idx as u64,
-            std::slice::from_ref(&snapshot),
-        )
+        self.upload_link_static(backend, global_idx)
+    }
+
+    /// Uploads the mirror's record `global_idx` (`link · num_batches + batch`)
+    /// into the quad-interleaved GPU buffer, one quad at a time.
+    fn upload_link_static(
+        &mut self,
+        backend: &GpuBackend,
+        global_idx: usize,
+    ) -> Result<(), GpuBackendError> {
+        use crate::shaders::dynamics::{ls_quad_index, ls_record_quads};
+        let nb = self.num_batches as usize;
+        let (link, batch) = (global_idx / nb, global_idx % nb);
+        let quads = ls_record_quads(&self.links_static_mirror[global_idx]);
+        for (q, quad) in quads.iter().enumerate() {
+            backend.write_buffer(
+                self.links_static.buffer_mut(),
+                ls_quad_index(link, q, self.num_batches, batch as u32) as u64,
+                std::slice::from_ref(quad),
+            )?;
+        }
+        Ok(())
     }
 
     /// The motor currently configured on `axis` of multibody link `link_id`,
@@ -508,12 +525,7 @@ impl GpuMultibodySet {
         touched.sort_unstable();
         touched.dedup();
         for global_idx in touched {
-            let snapshot = self.links_static_mirror[global_idx];
-            backend.write_buffer(
-                self.links_static.buffer_mut(),
-                global_idx as u64,
-                std::slice::from_ref(&snapshot),
-            )?;
+            self.upload_link_static(backend, global_idx)?;
         }
         Ok(())
     }
@@ -544,12 +556,7 @@ impl GpuMultibodySet {
         };
         entry.data.motors[axis_id].target_vel = target_vel;
         entry.data.motor_axes |= 1u32 << axis_id;
-        let snapshot = *entry;
-        backend.write_buffer(
-            self.links_static.buffer_mut(),
-            global_idx as u64,
-            std::slice::from_ref(&snapshot),
-        )
+        self.upload_link_static(backend, global_idx)
     }
 
     /// Scatters per-(actuated joint, env) motor target positions into
@@ -639,10 +646,11 @@ impl GpuMultibodySet {
     }
 
     /// Per-batch static link data (joint definitions, motors, limits, mass
-    /// properties), batch-interleaved like [`Self::links_workspace`]. Exposed
-    /// for diagnostics; use [`Self::set_motor`] / [`Self::set_motors`] to
-    /// mutate motors so the CPU mirror stays in sync.
-    pub fn links_static(&self) -> &Tensor<MultibodyLinkStatic> {
+    /// properties), quad-interleaved across batches like
+    /// [`Self::links_workspace`] (see `ls_soa_to_structs`). Exposed for
+    /// diagnostics; use [`Self::set_motor`] / [`Self::set_motors`] to mutate
+    /// motors so the CPU mirror stays in sync.
+    pub fn links_static(&self) -> &Tensor<glamx::UVec4> {
         &self.links_static
     }
 
@@ -701,7 +709,14 @@ impl GpuMultibodySet {
                 offset += 1;
             }
         }
-        backend.write_buffer(self.links_static.buffer_mut(), 0, &self.links_static_mirror)
+        backend.write_buffer(
+            self.links_static.buffer_mut(),
+            0,
+            &crate::shaders::dynamics::ls_soa_from_structs(
+                &self.links_static_mirror,
+                self.num_batches,
+            ),
+        )
     }
 
     /// Number of multibody-touching impulse joints in any batch.

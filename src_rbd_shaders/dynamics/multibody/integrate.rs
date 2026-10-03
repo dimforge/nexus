@@ -18,7 +18,7 @@ use crate::{Vector, rotation_from_scaled_axis, rotation_renormalize_fast};
 #[cfg(feature = "dim3")]
 use parry::math::VectorExt;
 
-use super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::types::MultibodyInfo;
 #[cfg(feature = "dim3")]
 use super::ws_soa::ws_rot;
 use super::ws_soa::{WS_JOINT_ROT, WsAddr, ws_coord, ws_set_coord, ws_set_rot};
@@ -66,8 +66,7 @@ pub fn gpu_mb_integrate_velocities(
 pub fn gpu_mb_integrate(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] dof_state: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] dt_uniform: &f32,
@@ -85,7 +84,7 @@ pub fn gpu_mb_integrate(
     let num_links = mb.num_links;
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let dof_vel = batch_ids
@@ -98,7 +97,7 @@ pub fn gpu_mb_integrate(
     // in place through `&mut ws_slice[k]` so SPIR-V emits field-targeted stores
     // instead of a whole `MultibodyLinkWorkspace` round-trip (~240 B in 3D).
     for k in 0..num_links {
-        let stat = stat_slice[k as usize];
+        let stat = stat_slice.get(k as usize);
         let locked = stat.data.locked_axes;
         let aid = stat.assembly_id as usize;
 

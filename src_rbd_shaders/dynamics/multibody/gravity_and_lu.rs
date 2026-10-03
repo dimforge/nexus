@@ -24,12 +24,13 @@ use crate::utils::linalg::{
 use crate::utils::{BatchIndices, ISlice};
 use crate::{AngVector, Vector, gcross_av};
 
+use super::link_static_soa::LinkStatics;
 use super::lu::{
     LANES, lu_apply_pivots, lu_apply_pivots_packed, lu_factor_in_shared,
     lu_factor_in_shared_packed, lu_triangular_solve_in_place, lu_triangular_solve_in_place_packed,
     sm_idx, sm_idx_packed,
 };
-use super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::types::MultibodyInfo;
 use super::ws_soa::{
     WS_JOINT_VEL, WS_KIN_ACC, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WsAddr, ws_coord,
     ws_ext_wrench, ws_pose, ws_set_vel, ws_vec, ws_vel, ws_vel_ang, ws_world_inertia,
@@ -46,7 +47,7 @@ pub(super) fn apply_spring_forces(
     gen_forces: &mut [f32],
     // Dense base of this multibody's generalized-force region.
     gen0: usize,
-    stat_slice: &ISlice<MultibodyLinkStatic>,
+    stat_slice: &LinkStatics,
     links_workspace: &[Vec4],
     wa: WsAddr,
     num_links: u32,
@@ -56,7 +57,7 @@ pub(super) fn apply_spring_forces(
     dt: f32,
 ) {
     for k in 0..num_links {
-        let stat = stat_slice[k as usize];
+        let stat = stat_slice.get(k as usize);
         let locked = stat.data.locked_axes;
         let mut curr_free = 0u32;
         // Free axes in `0..SPATIAL_DIM` order = linear DOFs then angular
@@ -86,8 +87,7 @@ pub fn gpu_mb_gravity_and_lu(
     #[spirv(workgroup_id)] wg_id: UVec3,
     #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
@@ -126,7 +126,7 @@ pub fn gpu_mb_gravity_and_lu(
     let piv = VSlice::dense(gen0);
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
@@ -187,7 +187,7 @@ pub fn gpu_mb_gravity_and_lu(
             };
 
             if k != 0 {
-                let stat = stat_slice[k as usize];
+                let stat = stat_slice.get(k as usize);
                 let pid = stat.parent_link_id;
                 let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
                 let parent_acc_lin = parent_acc.linear;
@@ -234,7 +234,7 @@ pub fn gpu_mb_gravity_and_lu(
         if active {
             #[cfg(feature = "dim3")]
             let rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
-            let lmp = stat_slice[k as usize].local_mprops;
+            let lmp = stat_slice.get(k as usize).local_mprops;
             let inv_mass_x = lmp.inv_mass.x;
             if inv_mass_x != 0.0 {
                 let mass = 1.0 / inv_mass_x;
@@ -403,7 +403,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     wg_id: UVec3,
     lid: UVec3,
     multibody_info: &[MultibodyInfo],
-    links_static: &[MultibodyLinkStatic],
+    links_static: &[glamx::UVec4],
     links_workspace: &mut [Vec4],
     body_jacobians: &[f32],
     gen_forces: &mut [f32],
@@ -452,7 +452,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
     let piv = VSlice::dense(gen0);
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
@@ -509,7 +509,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
             };
 
             if k != 0 {
-                let stat = stat_slice[k as usize];
+                let stat = stat_slice.get(k as usize);
                 let pid = stat.parent_link_id;
                 let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
                 let parent_acc_lin = parent_acc.linear;
@@ -556,7 +556,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
         if active {
             #[cfg(feature = "dim3")]
             let rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
-            let lmp = stat_slice[k as usize].local_mprops;
+            let lmp = stat_slice.get(k as usize).local_mprops;
             let inv_mass_x = lmp.inv_mass.x;
             if inv_mass_x != 0.0 {
                 let mass = 1.0 / inv_mass_x;
@@ -742,8 +742,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
 pub fn gpu_mb_gravity_and_lu_t1(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
@@ -777,7 +776,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
     let piv = VSlice::dense(gen0);
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
@@ -826,7 +825,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
         };
 
         if k != 0 {
-            let stat = stat_slice[k as usize];
+            let stat = stat_slice.get(k as usize);
             let pid = stat.parent_link_id;
             let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
             let parent_acc_lin = parent_acc.linear;
@@ -863,7 +862,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
             Velocity::new(acc_lin, acc_ang),
         );
 
-        let lmp = stat_slice[k as usize].local_mprops;
+        let lmp = stat_slice.get(k as usize).local_mprops;
         let inv_mass_x = lmp.inv_mass.x;
         if inv_mass_x != 0.0 {
             let mass = 1.0 / inv_mass_x;
@@ -982,7 +981,7 @@ macro_rules! gravity_and_lu_packed_entry {
             #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
             multibody_info: &[MultibodyInfo],
             #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-            links_static: &[MultibodyLinkStatic],
+            links_static: &[glamx::UVec4],
             #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
             links_workspace: &mut [Vec4],
             #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],

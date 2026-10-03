@@ -1,7 +1,7 @@
 //! Composite inertia mass assembly in world coordinates.
-use super::types::MultibodyLinkStatic;
+use super::link_static_soa::LinkStatics;
 use super::ws_soa::{WS_WORLD_COM, WsAddr, ws_vec, ws_world_inertia};
-use crate::utils::{ISlice, linalg::MatSlice};
+use crate::utils::linalg::MatSlice;
 use glamx::{Mat3, Vec3, Vec4};
 use khal_std::index::MaybeIndexUnchecked;
 
@@ -12,7 +12,7 @@ pub(super) fn mass_column(
     lane: u32,
     ndofs: u32,
     num_links: u32,
-    stat: &ISlice<MultibodyLinkStatic>,
+    stat: &LinkStatics,
     workspace: &[Vec4],
     wa: WsAddr,
     jacobians: &[f32],
@@ -25,8 +25,8 @@ pub(super) fn mass_column(
     }
     let mut owner = 0;
     for k in 0..num_links {
-        let link = stat[k as usize];
-        if lane >= link.assembly_id && lane < link.assembly_id + link.ndofs {
+        let link = stat.at(k as usize);
+        if lane >= link.assembly_id() && lane < link.assembly_id() + link.ndofs() {
             owner = k;
         }
     }
@@ -35,7 +35,7 @@ pub(super) fn mass_column(
     let mut moment = Vec3::ZERO;
     let mut inertia = Mat3::ZERO;
     for k in 0..num_links {
-        let link = stat[k as usize];
+        let link = stat.get(k as usize);
         if link.ancestor_dofs[(lane / 32) as usize] & (1 << (lane % 32)) == 0 {
             continue;
         }

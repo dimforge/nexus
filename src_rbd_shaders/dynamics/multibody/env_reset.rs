@@ -9,8 +9,9 @@ use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 
-use super::types::MultibodyLinkStatic;
+use super::link_static_soa::{LS_QUADS, ls_quad_index};
 use super::ws_soa::{WS_COORDS, WS_LTP, WS_LTW, WS_QUADS};
+use glamx::UVec4;
 
 /// One entry of the batched-reset list: restore environment `env` from the
 /// GPU-resident template `template`.
@@ -85,12 +86,11 @@ pub struct EnvResetBodiesParams {
 pub fn gpu_mb_env_reset(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] staging_ws: &[Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    staging_links: &[MultibodyLinkStatic],
+    // Dense per-link quads (`link * LS_QUADS + q`).
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] staging_links: &[UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] staging_dofs: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] links_workspace: &mut [Vec4],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
-    links_static: &mut [MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] links_static: &mut [UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] dof_state: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 6)] params: &MbEnvResetParams,
 ) {
@@ -111,7 +111,12 @@ pub fn gpu_mb_env_reset(
         );
     }
     if i < lpb {
-        links_static.write((i * nb + env) as usize, staging_links.read(i as usize));
+        for q in 0..LS_QUADS {
+            links_static.write(
+                ls_quad_index(i as usize, q as usize, nb, env),
+                staging_links.read((i * LS_QUADS + q) as usize),
+            );
+        }
     }
     if i < dpb {
         dof_state.write((i * nb + env) as usize, staging_dofs.read(i as usize));
@@ -192,12 +197,11 @@ pub fn gpu_mb_env_reset_batch(
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_env_reset_batch_dofs(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    templates_links: &[MultibodyLinkStatic],
+    // Dense per-template link quads (`(t * lpb + link) * LS_QUADS + q`).
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] templates_links: &[UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] resets: &[EnvResetRecord],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] dof_vels: &[f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
-    links_static: &mut [MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] links_static: &mut [UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dof_state: &mut [f32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] params: &MbEnvResetBatchParams,
 ) {
@@ -214,10 +218,12 @@ pub fn gpu_mb_env_reset_batch_dofs(
     let t = meta.template;
 
     if i < lpb {
-        links_static.write(
-            (i * nb + env) as usize,
-            templates_links.read((t * lpb + i) as usize),
-        );
+        for q in 0..LS_QUADS {
+            links_static.write(
+                ls_quad_index(i as usize, q as usize, nb, env),
+                templates_links.read(((t * lpb + i) * LS_QUADS + q) as usize),
+            );
+        }
     }
     if i < dpb {
         dof_state.write(

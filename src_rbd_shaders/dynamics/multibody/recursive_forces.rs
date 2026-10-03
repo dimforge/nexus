@@ -1,6 +1,6 @@
 //! Recursive Newton-Euler generalized forces, reusing the unused Coriolis scratch.
 use super::gravity_and_lu::apply_spring_forces;
-use super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::types::MultibodyInfo;
 use super::ws_soa::*;
 use crate::dynamics::{Velocity, joint::SPATIAL_DIM};
 use crate::utils::{BatchIndices, linalg::MatSlice};
@@ -56,8 +56,7 @@ fn write_wrench(buf: &mut [f32], lin0: usize, ang0: usize, k: u32, f: Velocity) 
 pub fn gpu_mb_recursive_forces(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] body_jacobians: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] gen_forces: &mut [f32],
@@ -96,7 +95,7 @@ pub fn gpu_mb_recursive_forces(
     );
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(gen_base);
@@ -146,7 +145,7 @@ pub fn gpu_mb_recursive_forces(
         };
 
         if k != 0 {
-            let stat = stat_slice[k as usize];
+            let stat = stat_slice.get(k as usize);
             let pid = stat.parent_link_id;
             let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
             let parent_acc_lin = parent_acc.linear;
@@ -183,7 +182,7 @@ pub fn gpu_mb_recursive_forces(
             Velocity::new(acc_lin, acc_ang),
         );
 
-        let lmp = stat_slice[k as usize].local_mprops;
+        let lmp = stat_slice.get(k as usize).local_mprops;
         let inv_mass_x = lmp.inv_mass.x;
         if inv_mass_x != 0.0 {
             let mass = 1.0 / inv_mass_x;
@@ -209,7 +208,7 @@ pub fn gpu_mb_recursive_forces(
 
     for reverse in 0..num_links {
         let k = num_links - 1 - reverse;
-        let stat = stat_slice[k as usize];
+        let stat = stat_slice.get(k as usize);
         let force = read_wrench(scratch, lin0, ang0, k);
         let jac = MatSlice::dense(
             jac0 + k as usize * SPATIAL_DIM * ndofs as usize,

@@ -23,6 +23,8 @@ mod impulse_joint_constraints;
 mod integrate;
 mod jacobian;
 mod joint_constraints;
+mod link_static_soa;
+pub use link_static_soa::*;
 mod lu;
 mod scatter_motor;
 mod solve_constraints;

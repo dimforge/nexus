@@ -165,7 +165,9 @@ async fn test_tree_dynamics_equivalence() {
                     }
                 }
                 let gpu_infos = Tensor::vector(&backend, infos, storage).unwrap();
-                let gpu_stat = Tensor::vector(&backend, statics.clone(), storage).unwrap();
+                let gpu_stat =
+                    Tensor::vector(&backend, ls_soa_from_structs(&statics, batches), storage)
+                        .unwrap();
                 let gpu_dofs = Tensor::vector(&backend, dofs.clone(), storage).unwrap();
                 let gpu_params = Tensor::scalar(&backend, params, BufferUsages::UNIFORM).unwrap();
                 let mut outputs = vec![];

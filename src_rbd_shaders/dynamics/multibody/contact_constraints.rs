@@ -34,7 +34,6 @@ use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 use super::types::{
     CONTACT_CONSTRAINTS_PER_POINT, MB_CONS_SLOT_RESERVE, MB_CONTACT_KIND_NORMAL,
     MB_CONTACT_KIND_TANGENT, MbContactIndexEntry, MultibodyContactConstraint, MultibodyInfo,
-    MultibodyLinkStatic,
 };
 
 /// Workgroup width of the flat contact dispatches below (must match the
@@ -970,8 +969,7 @@ pub fn gpu_mb_finalize_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     contact_constraints: &mut [MultibodyContactConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_jac_cols: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] body_jacobians: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
 ) {
@@ -1022,7 +1020,7 @@ pub fn gpu_mb_finalize_contact_constraints(
     );
     let count = mb.contact_constraint_count;
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
 
     for s in StepRng::new(lane..count, lanes) {

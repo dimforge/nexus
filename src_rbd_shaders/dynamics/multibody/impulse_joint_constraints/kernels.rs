@@ -15,7 +15,7 @@ use crate::utils::BatchIndices;
 use crate::utils::linalg::VSlice;
 
 use super::super::lu::LANES;
-use super::super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::super::types::MultibodyInfo;
 
 use super::jacobians::*;
 use super::types::*;
@@ -106,8 +106,7 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] mass_matrices: &[f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] lu_pivots: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] links_static: &[glamx::UVec4],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * 64;

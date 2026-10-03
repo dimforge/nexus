@@ -19,7 +19,7 @@ use crate::{DIM, MAX_FLT};
 use super::types::{
     MB_JOINT_KIND_COUPLING, MB_JOINT_KIND_FRICTION, MB_JOINT_KIND_LIMIT,
     MB_JOINT_KIND_LIMIT_INACTIVE, MB_JOINT_KIND_MOTOR, MbDofCoupling, MultibodyInfo,
-    MultibodyJointConstraint, MultibodyLinkStatic,
+    MultibodyJointConstraint,
 };
 use super::ws_soa::{WsAddr, ws_coord};
 
@@ -112,7 +112,7 @@ fn lu_solve_unit(
 #[inline]
 #[allow(clippy::too_many_arguments)]
 fn emit_joint_constraints(
-    links_static: &[MultibodyLinkStatic],
+    links_static: &[glamx::UVec4],
     links_workspace: &[Vec4],
     dof_couplings: &[MbDofCoupling],
     joint_constraints: &mut [MultibodyJointConstraint],
@@ -129,7 +129,7 @@ fn emit_joint_constraints(
     let num_links = mb.num_links;
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
@@ -137,21 +137,21 @@ fn emit_joint_constraints(
 
     let mut slot = 0u32;
     for k in 0..num_links {
-        let stat = &stat_slice[k as usize];
-        let locked = stat.data.locked_axes;
-        let limit_axes = stat.data.limit_axes & !locked;
-        let motor_axes = stat.data.motor_axes & !locked;
+        let stat = stat_slice.at(k as usize);
+        let locked = stat.locked_axes();
+        let limit_axes = stat.limit_axes() & !locked;
+        let motor_axes = stat.motor_axes() & !locked;
         if limit_axes == 0 && motor_axes == 0 {
             continue;
         }
-        if stat.kinematic != 0 {
+        if stat.kinematic() != 0 {
             continue;
         }
 
         // Walk free axes in DOF order, mirroring `MultibodyJoint::velocity_constraints`.
         // `curr_free_dof` tracks the position within this joint's slice of the
         // multibody's generalized-velocity vector; the absolute index is
-        // `stat.assembly_id + curr_free_dof`.
+        // `stat.assembly_id() + curr_free_dof`.
         let mut curr_free_dof = 0u32;
 
         // Linear DOFs first.
@@ -159,13 +159,13 @@ fn emit_joint_constraints(
             if (locked & (1 << axis)) != 0 {
                 continue;
             }
-            let abs_dof = stat.assembly_id + curr_free_dof;
+            let abs_dof = stat.assembly_id() + curr_free_dof;
             let curr_pos = ws_coord(links_workspace, wa, k, axis);
 
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
-                let limit_min = stat.data.limits.read(axis as usize).min;
-                let limit_max = stat.data.limits.read(axis as usize).max;
+                let limit_min = stat.limit(axis as usize).min;
+                let limit_max = stat.limit(axis as usize).max;
                 let cons = build_motor_constraint(
                     abs_dof,
                     k,
@@ -173,13 +173,13 @@ fn emit_joint_constraints(
                     curr_pos,
                     inv_dt,
                     dt,
-                    stat.data.motors.at(axis as usize),
+                    &stat.motor(axis as usize),
                     delayed_motor_target(
                         motor_delay_state,
                         batch_ids,
                         batch_id,
                         mb.first_link + k,
-                        stat.data.motors.read(axis as usize).target_pos,
+                        stat.motor(axis as usize).target_pos,
                     ),
                     has_limits,
                     limit_min,
@@ -196,10 +196,7 @@ fn emit_joint_constraints(
                     k,
                     axis,
                     curr_pos,
-                    [
-                        stat.data.limits.read(axis as usize).min,
-                        stat.data.limits.read(axis as usize).max,
-                    ],
+                    [stat.limit(axis as usize).min, stat.limit(axis as usize).max],
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
@@ -216,7 +213,7 @@ fn emit_joint_constraints(
             if (locked & (1 << axis)) != 0 {
                 continue;
             }
-            let abs_dof = stat.assembly_id + curr_free_dof;
+            let abs_dof = stat.assembly_id() + curr_free_dof;
             let curr_pos = ws_coord(links_workspace, wa, k, axis);
 
             if (limit_axes & (1 << axis)) != 0 {
@@ -225,10 +222,7 @@ fn emit_joint_constraints(
                     k,
                     axis,
                     curr_pos,
-                    [
-                        stat.data.limits.read(axis as usize).min,
-                        stat.data.limits.read(axis as usize).max,
-                    ],
+                    [stat.limit(axis as usize).min, stat.limit(axis as usize).max],
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
@@ -239,8 +233,8 @@ fn emit_joint_constraints(
             }
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
-                let limit_min = stat.data.limits.read(axis as usize).min;
-                let limit_max = stat.data.limits.read(axis as usize).max;
+                let limit_min = stat.limit(axis as usize).min;
+                let limit_max = stat.limit(axis as usize).max;
                 let cons = build_motor_constraint(
                     abs_dof,
                     k,
@@ -248,13 +242,13 @@ fn emit_joint_constraints(
                     curr_pos,
                     inv_dt,
                     dt,
-                    stat.data.motors.at(axis as usize),
+                    &stat.motor(axis as usize),
                     delayed_motor_target(
                         motor_delay_state,
                         batch_ids,
                         batch_id,
                         mb.first_link + k,
-                        stat.data.motors.read(axis as usize).target_pos,
+                        stat.motor(axis as usize).target_pos,
                     ),
                     has_limits,
                     limit_min,
@@ -562,8 +556,7 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     joint_constraints: &mut [MultibodyJointConstraint],
@@ -751,8 +744,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     joint_constraints: &mut [MultibodyJointConstraint],
@@ -791,7 +783,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     }
     let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
@@ -818,17 +810,17 @@ pub fn gpu_mb_refresh_joint_constraints(
         }
         let link_id = old._kind_extra & 0xffff;
         let axis = old._kind_extra >> 16;
-        let stat = &stat_slice[link_id as usize];
+        let stat = stat_slice.at(link_id as usize);
         let curr_pos = ws_coord(links_workspace, wa, link_id, axis);
-        let limit_min = stat.data.limits.read(axis as usize).min;
-        let limit_max = stat.data.limits.read(axis as usize).max;
+        let limit_min = stat.limit(axis as usize).min;
+        let limit_max = stat.limit(axis as usize).max;
 
         // Rebuild the per-substep fields with the same formulas the full
         // emission uses, then graft back the per-step constants (the
         // column-derived `inv_lhs` and the folded `cfm_gain`).
         let mut fresh = if old.kind == MB_JOINT_KIND_MOTOR {
-            let locked = stat.data.locked_axes;
-            let has_limits = (stat.data.limit_axes & !locked & (1 << axis)) != 0;
+            let locked = stat.locked_axes();
+            let has_limits = (stat.limit_axes() & !locked & (1 << axis)) != 0;
             build_motor_constraint(
                 old.dof_id,
                 link_id,
@@ -836,13 +828,13 @@ pub fn gpu_mb_refresh_joint_constraints(
                 curr_pos,
                 inv_dt,
                 dt,
-                stat.data.motors.at(axis as usize),
+                &stat.motor(axis as usize),
                 delayed_motor_target(
                     motor_delay_state,
                     batch_ids,
                     batch_id,
                     mb.first_link + link_id,
-                    stat.data.motors.read(axis as usize).target_pos,
+                    stat.motor(axis as usize).target_pos,
                 ),
                 has_limits,
                 limit_min,

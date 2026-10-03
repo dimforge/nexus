@@ -14,7 +14,8 @@ use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
-use super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::link_static_soa::LinkStatics;
+use super::types::MultibodyInfo;
 use super::ws_soa::{
     WS_JOINT_ROT, WS_JOINT_VEL, WS_LTP, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WS_WORLD_COM,
     WsAddr, ws_coords, ws_pose, ws_rot, ws_set_pose, ws_set_vec, ws_set_vel, ws_vec, ws_vel,
@@ -67,8 +68,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     #[spirv(workgroup_id)] wg_id: UVec3,
     #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] poses: &mut [Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_jacobians: &mut [f32],
@@ -100,8 +100,7 @@ pub fn gpu_mb_compute_dynamics_parallel(
     #[spirv(workgroup_id)] wg_id: UVec3,
     #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] poses: &mut [Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_jacobians: &mut [f32],
@@ -131,7 +130,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
     wg_id: UVec3,
     lid: UVec3,
     multibody_info: &[MultibodyInfo],
-    links_static: &[MultibodyLinkStatic],
+    links_static: &[glamx::UVec4],
     links_workspace: &mut [Vec4],
     poses: &mut [Pose],
     body_jacobians: &mut [f32],
@@ -172,7 +171,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
     let vel_base = mb.first_dof as usize;
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let mut poses_slice = batch_ids.ib_mut(batch_id, poses);
@@ -298,7 +297,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
             let mut mass = 0.0;
 
             if loop_is_active {
-                let lmp = stat_slice[k as usize].local_mprops;
+                let lmp = stat_slice.get(k as usize).local_mprops;
 
                 inv_mass_x = lmp.inv_mass.x;
 
@@ -346,7 +345,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
             let mut rb_inertia = Default::default();
 
             if loop_is_active {
-                let lmp = stat_slice[k as usize].local_mprops;
+                let lmp = stat_slice.get(k as usize).local_mprops;
                 mass = 1.0 / inv_mass_x;
                 rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
 
@@ -369,7 +368,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
                 );
 
                 if split && k != 0 {
-                    let stat = stat_slice[k as usize];
+                    let stat = stat_slice.get(k as usize);
                     let parent_id = stat.parent_link_id;
                     let parent_j = MatSlice::dense(
                         jac0 + (parent_id as usize) * SPATIAL_DIM * (ndofs as usize),
@@ -465,7 +464,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
 
             if loop_is_active && split {
                 if k != 0 {
-                    let stat = stat_slice[k as usize];
+                    let stat = stat_slice.get(k as usize);
                     let parent_id = stat.parent_link_id;
 
                     if stat.kinematic == 0 {
@@ -725,14 +724,14 @@ fn jacobian_mul_coordinates(
 // sequentially on a single thread.
 fn forward_kinematics(
     mb: &MultibodyInfo,
-    stat_slice: &ISlice<MultibodyLinkStatic>,
+    stat_slice: &LinkStatics,
     poses_slice: &mut ISliceMut<Pose>,
     ws: &mut [Vec4],
     wa: WsAddr,
     num_links: u32,
 ) {
     // Root pose.
-    let root_config = stat_slice[0];
+    let root_config = stat_slice.get(0);
     let root_pose = if mb.root_is_dynamic == 0 {
         poses_slice[root_config.rb_id as usize]
     } else {
@@ -754,14 +753,14 @@ fn forward_kinematics(
 
     for k in 1..num_links {
         let k_usize = k as usize;
-        let stat = &stat_slice[k_usize];
+        let stat = &stat_slice.get(k_usize);
         let parent_to_world = ws_pose(ws, wa, stat.parent_link_id, WS_LTW);
         let jr = ws_rot(ws, wa, k, WS_JOINT_ROT);
         let coords = ws_coords(ws, wa, k);
         let local_to_parent = stat.body_to_parent(jr, &coords);
         let local_to_world = parent_to_world * local_to_parent;
 
-        let parent_lmp = stat_slice[stat.parent_link_id as usize].local_mprops;
+        let parent_lmp = stat_slice.get(stat.parent_link_id as usize).local_mprops;
         let lmp = stat.local_mprops;
         let world_com = local_to_world * lmp.com;
         let parent_com_world = parent_to_world * parent_lmp.com;
@@ -787,7 +786,7 @@ fn update_body_jacobians_direct(
     jac0: usize,
     ndofs: u32,
     num_links: u32,
-    stat: &ISlice<MultibodyLinkStatic>,
+    stat: &LinkStatics,
     ws: &[Vec4],
     wa: WsAddr,
     jac: &mut [f32],
@@ -795,12 +794,12 @@ fn update_body_jacobians_direct(
     for dof in (lane..ndofs).step_by(lanes as usize) {
         let mut owner = 0;
         for k in 0..num_links {
-            let link = stat[k as usize];
-            if dof >= link.assembly_id && dof < link.assembly_id + link.ndofs {
+            let link = stat.at(k as usize);
+            if dof >= link.assembly_id() && dof < link.assembly_id() + link.ndofs() {
                 owner = k;
             }
         }
-        let link = stat[owner as usize];
+        let link = stat.get(owner as usize);
         let parent_rot = if owner == 0 {
             Pose::default().rotation
         } else {
@@ -813,7 +812,7 @@ fn update_body_jacobians_direct(
         let anchor = ws_vec(ws, wa, owner, WS_WORLD_COM) - ws_vec(ws, wa, owner, WS_SHIFT23);
         for k in 0..num_links {
             let active =
-                stat[k as usize].ancestor_dofs[(dof / 32) as usize] & (1 << (dof % 32)) != 0;
+                stat.at(k as usize).ancestor_dofs((dof / 32) as usize) & (1 << (dof % 32)) != 0;
             let lin = if active {
                 v + w.cross(ws_vec(ws, wa, k, WS_WORLD_COM) - anchor)
             } else {
@@ -841,7 +840,7 @@ fn update_body_jacobians(
     ndofs: u32,
     num_links: u32,
     max_links: u32,
-    stat_slice: &ISlice<MultibodyLinkStatic>,
+    stat_slice: &LinkStatics,
     ws: &[Vec4],
     wa: WsAddr,
     body_jacobians: &mut [f32],
@@ -859,7 +858,7 @@ fn update_body_jacobians(
         );
 
         if k < num_links {
-            let link_infos = &stat_slice[k as usize];
+            let link_infos = &stat_slice.get(k as usize);
 
             if k != 0 {
                 let parent_j = MatSlice::dense(
@@ -890,7 +889,7 @@ fn update_body_jacobians(
         sync_slots(lanes);
 
         if k < num_links {
-            let link_infos = &stat_slice[k as usize];
+            let link_infos = &stat_slice.get(k as usize);
             let link_j_part = link_j.columns(link_infos.assembly_id, link_infos.ndofs);
             link_infos.joint_jacobian_accumulate_par(
                 parent_to_world.rotation * link_infos.data.local_frame_a.rotation,
@@ -923,14 +922,14 @@ fn update_body_jacobians(
 
 fn propagate_velocities(
     num_links: u32,
-    stat_slice: &ISlice<MultibodyLinkStatic>,
+    stat_slice: &LinkStatics,
     vel_slice: &ISlice<f32>,
     ws: &mut [Vec4],
     wa: WsAddr,
 ) {
     for k in 0..num_links {
         let k_usize = k as usize;
-        let stat = stat_slice[k_usize];
+        let stat = stat_slice.get(k_usize);
 
         let (jv_local_lin, jv_local_ang) =
             jacobian_mul_coordinates(stat.data.locked_axes, stat.assembly_id, vel_slice);
@@ -946,7 +945,7 @@ fn propagate_velocities(
             let parent_rb_lin = parent_rb.linear;
             let parent_rb_ang = parent_rb.angular;
 
-            let parent_lmp = stat_slice[parent_id as usize].local_mprops;
+            let parent_lmp = stat_slice.get(parent_id as usize).local_mprops;
             let transform_rot = parent_to_world_rot * stat.data.local_frame_a.rotation;
 
             #[cfg(feature = "dim3")]
@@ -982,7 +981,7 @@ fn propagate_velocities(
 pub fn gpu_mb_kinematics_serial(
     #[spirv(global_invocation_id)] id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] infos: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] statics: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] statics: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] poses: &mut [Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dofs: &[f32],
@@ -997,7 +996,7 @@ pub fn gpu_mb_kinematics_serial(
     if mb.num_links == 0 {
         return;
     }
-    let stat = batches.ib(batch, statics).offset(mb.first_link as usize);
+    let stat = batches.ls(batch, statics).offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batches.num_batches, batch);
     forward_kinematics(
         &mb,
