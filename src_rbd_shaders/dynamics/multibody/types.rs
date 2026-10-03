@@ -103,10 +103,10 @@ pub struct MultibodyLinkStatic {
     /// 1 if this joint's generalized velocities are user-controlled (ignored by the
     /// LU solve). 0 otherwise.
     pub kinematic: u32,
-    /// Pad to 16-byte alignment before `data` in 3D (Pose3 starts with a Quat).
-    /// In 2D, Pose2 only needs 4-byte alignment so no extra padding is required.
+    /// Generalized coordinates belonging to this link or its ancestors.
+    /// Uses the former 8-byte alignment padding in 3D (at most 64 DOFs).
     #[cfg(feature = "dim3")]
-    pub _pad0: [u32; 2],
+    pub ancestor_dofs: [u32; 2],
     /// Joint configuration — reused directly from the impulse-joint infrastructure.
     pub data: GenericJoint,
     /// Per-link mass properties in body-local coordinates. `GenericJoint` ends

@@ -395,7 +395,11 @@ fn build_mb_env(ball_colliders: bool) -> (RigidBodySet, ColliderSet, MultibodyJo
     let mut prev = None;
     for i in 0..3 {
         let x = i as f32 * 0.5;
-        let link = bodies.insert(RigidBodyBuilder::dynamic().translation(Vec3::new(x, 1.0, 0.0)));
+        let link = bodies.insert(
+            RigidBodyBuilder::dynamic()
+                .can_sleep(false)
+                .translation(Vec3::new(x, 1.0, 0.0)),
+        );
         let shape = if ball_colliders {
             ColliderBuilder::ball(0.1)
         } else {
@@ -420,20 +424,27 @@ fn build_mb_env(ball_colliders: bool) -> (RigidBodySet, ColliderSet, MultibodyJo
 #[serial_test::serial]
 #[ignore]
 async fn test_stacks_6_multibody() {
-    run_multibody_case(crate::dynamics::FrictionModel::Coulomb).await;
+    run_multibody_chain(4, crate::dynamics::FrictionModel::Coulomb).await;
 }
 
 #[futures_test::test]
 #[serial_test::serial]
 #[ignore = "requires a WebGPU adapter"]
 async fn twist_friction_keeps_multibody_contacts_on_coulomb() {
-    run_multibody_case(crate::dynamics::FrictionModel::Simplified).await;
+    run_multibody_chain(4, crate::dynamics::FrictionModel::Simplified).await;
 }
 
-async fn run_multibody_case(friction_model: crate::dynamics::FrictionModel) {
-    let backend = test_backend().await;
+/// Eight-DOF bodies must retain an eight-column dynamics tile even when
+/// batching exceeds the threshold previously selecting a one-column tile.
+#[futures_test::test]
+#[serial_test::serial]
+#[ignore]
+async fn test_many_small_multibodies() {
+    run_multibody_chain(1024, crate::dynamics::FrictionModel::Coulomb).await;
+}
 
-    let num_envs = 4u32;
+async fn run_multibody_chain(num_envs: u32, friction_model: crate::dynamics::FrictionModel) {
+    let backend = test_backend().await;
     let envs: Vec<_> = (0..num_envs).map(|_| build_mb_env(false)).collect();
     let joints = ImpulseJointSet::new();
     let params = RbdSimParams {

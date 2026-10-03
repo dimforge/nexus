@@ -312,7 +312,7 @@ fn write_band(v: &mut glamx::Vec4, i: usize, x: f32) {
     }
 }
 #[inline(always)]
-fn solve_packed8(
+fn solve_packed8<const MODE: u32>(
     batch_id: u32,
     mb_idx: u32,
     lane: u32,
@@ -336,7 +336,7 @@ fn solve_packed8(
     if ndofs == 0 || (mb.max_constraints == 0 && mb.contact_constraint_count == 0) {
         return;
     }
-    let (use_bias, solve_friction) = decode_bias_mode(use_bias);
+    let (use_bias, solve_friction) = decode_bias_mode(if MODE < 3 { MODE } else { use_bias });
     let v_base = mb.first_dof as usize;
     let stride = batch_ids.dof_batch_capacity as usize;
     let jcons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
@@ -553,8 +553,72 @@ pub fn gpu_mb_solve_constraints_packed(
     if batch_id >= batch_ids.num_batches {
         return;
     }
-    if cfg!(target_arch = "spirv") && width >= 8 && width % 8 == 0 {
-        solve_packed8(
+    if cfg!(target_arch = "spirv") && width == 32 {
+        solve_packed8::<3>(
+            batch_id,
+            id.y,
+            lane,
+            subgroup_lane - lane,
+            multibody_info,
+            joint_constraints,
+            joint_constraint_columns,
+            contact_constraints,
+            contact_jac_cols,
+            *use_bias,
+            batch_ids,
+            dof_state,
+            solver_vels,
+            *num_iterations,
+        );
+    } else if lane == 0 {
+        // A fully serial fallback has no subgroup-width requirements.
+        solve_simd::<1, 32>(
+            batch_id,
+            id.y,
+            0,
+            0,
+            multibody_info,
+            joint_constraints,
+            joint_constraint_columns,
+            contact_constraints,
+            contact_jac_cols,
+            *use_bias,
+            batch_ids,
+            dof_state,
+            solver_vels,
+            *num_iterations,
+        );
+    }
+}
+
+#[spirv_bindgen]
+#[spirv(compute(threads(32)))]
+pub fn gpu_mb_solve_constraints_packed_bias(
+    #[spirv(global_invocation_id)] id: khal_std::glamx::UVec3,
+    #[spirv(subgroup_local_invocation_id)] subgroup_lane: u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    joint_constraints: &mut [MultibodyJointConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] joint_constraint_columns: &[f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
+    contact_constraints: &mut [MultibodyContactConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_jac_cols: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] use_bias: &u32,
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
+    #[spirv(uniform, descriptor_set = 0, binding = 7)] max_contact_constraints: &u32,
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] dof_state: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
+    #[spirv(uniform, descriptor_set = 1, binding = 2)] num_iterations: &u32,
+) {
+    let width = subgroup_f_add(1.0) as u32;
+    let _ = max_contact_constraints;
+    let batch_id = id.x / 8;
+    let lane = id.x % 8;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
+    if cfg!(target_arch = "spirv") && width == 32 {
+        solve_packed8::<1>(
             batch_id,
             id.y,
             lane,

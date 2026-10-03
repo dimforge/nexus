@@ -14,6 +14,8 @@ struct Solvers {
     simd: GpuMbSolveConstraintsSimd,
     #[cfg(feature = "metal")]
     packed: GpuMbSolveConstraintsPacked,
+    #[cfg(feature = "metal")]
+    packed_bias: GpuMbSolveConstraintsPackedBias,
 }
 
 #[futures_test::test]
@@ -158,7 +160,11 @@ async fn test_small_multibody_solver_equivalence() {
                 for iteration_count in [1u32, 4] {
                     let mode = Tensor::scalar(&backend, bias, BufferUsages::UNIFORM).unwrap();
                     let mut outputs = vec![];
-                    for variant in 0..if cfg!(feature = "metal") { 6 } else { 2 } {
+                    for variant in 0..if cfg!(feature = "metal") {
+                        if bias == 1 { 7 } else { 6 }
+                    } else {
+                        2
+                    } {
                         let mut gpu_jc = Tensor::vector(&backend, jc.clone(), usage).unwrap();
                         let mut gpu_cc = Tensor::vector(&backend, cc.clone(), usage).unwrap();
                         let mut gpu_velocities =
@@ -171,7 +177,7 @@ async fn test_small_multibody_solver_equivalence() {
                         .unwrap();
                         let iterations = Tensor::scalar(
                             &backend,
-                            if variant == 3 || variant == 5 {
+                            if variant == 3 || variant == 5 || variant == 6 {
                                 iteration_count
                             } else {
                                 1u32
@@ -182,7 +188,7 @@ async fn test_small_multibody_solver_equivalence() {
                         let mut encoder = backend.begin_encoding();
                         {
                             let mut pass = encoder.begin_pass("solver-equivalence", None);
-                            for _ in 0..if variant == 3 || variant == 5 {
+                            for _ in 0..if variant == 3 || variant == 5 || variant == 6 {
                                 1
                             } else {
                                 iteration_count
@@ -216,6 +222,8 @@ async fn test_small_multibody_solver_equivalence() {
                                 }
                                 match variant {
                                     #[cfg(feature = "metal")]
+                                    6 => solve!(packed_bias, 8),
+                                    #[cfg(feature = "metal")]
                                     4 | 5 => solve!(packed, 8),
                                     #[cfg(feature = "metal")]
                                     2 | 3 => solve!(simd, 32),
@@ -246,7 +254,7 @@ async fn test_small_multibody_solver_equivalence() {
                     assert_eq!(outputs[0], outputs[1], "ndofs={ndofs} bias={bias}");
                     #[cfg(feature = "metal")]
                     {
-                        for target in [2, 4, 5] {
+                        for target in 2..outputs.len() {
                             for (&a, &b) in outputs[0].2.iter().zip(&outputs[target].2) {
                                 close(a, b);
                             }

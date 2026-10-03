@@ -9,12 +9,11 @@ use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::sync::control_barrier;
 
 use crate::dynamics::ConstraintSoftness;
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
+use crate::utils::linalg::{MatSlice, VSlice};
 use crate::{DIM, MAX_FLT};
 
 use super::types::{
@@ -99,7 +98,14 @@ fn lu_solve_unit(
         }
         dst[dst_offset + i as usize] = v;
     }
-    lu_solve_in_place(buf_m, m, buf_pivots, piv, dst, VSlice::dense(dst_offset));
+    crate::utils::linalg::lu_solve_in_place(
+        buf_m,
+        m,
+        buf_pivots,
+        piv,
+        dst,
+        VSlice::dense(dst_offset),
+    );
 }
 
 /// Serially writes the metadata of every active limit/motor constraint slot.
@@ -545,9 +551,8 @@ fn build_motor_constraint(
 /// Must run after `gpu_mb_lu_decompose` — the LU factors of `M` are used to compute
 /// the per-constraint M⁻¹ column and effective inverse mass.
 ///
-/// One 64-lane workgroup per (multibody, batch), in two stages:
-///   1. lane-parallel: zero all constraint slots;
-///   2. lane 0: the serial link walk emitting constraint metadata (cheap).
+/// One thread owns a multibody: clears its slots and walks its links to emit
+/// constraint metadata. Adjacent threads process independent environments.
 ///
 /// The M⁻¹-column back-solve is a separate dispatch
 /// ([`gpu_mb_finalize_joint_constraints`]), so each pass fits 8 storage buffers.
@@ -572,13 +577,20 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 7)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
+    const LANES: u32 = 1;
 
-    // One workgroup per (multibody, batch): grid `[mbs · LANES, batches, 1]`.
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    // Flatten (batch, multibody) into individual threads.
     let num_mb = batch_ids.multibodies_len;
+    if num_mb == 0 {
+        return;
+    }
+    let flat = workgroup_id.x * 64 + local_id.x;
+    let batch_id = flat / num_mb;
+    let mb_idx = flat % num_mb;
+    let lane = 0;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let in_range = mb_idx < num_mb;
     #[cfg(not(feature = "web-compat"))]
     if !in_range {
@@ -607,15 +619,6 @@ pub fn gpu_mb_init_joint_constraints(
         }
     }
 
-    control_barrier::<
-        { khal_std::memory::Scope::Workgroup as u32 },
-        { khal_std::memory::Scope::QueueFamily as u32 },
-        {
-            khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
-                | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
-        },
-    >();
-
     // Stage 2: serial metadata emission on lane 0.
     if active && lane == 0 {
         emit_joint_constraints(
@@ -643,7 +646,9 @@ pub fn gpu_mb_init_joint_constraints(
 /// the 8-storage-buffer WebGPU limit. Must run after it, and after
 /// `gpu_mb_lu_decompose`, whose LU factors of `M` it consumes.
 ///
-/// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
+/// Large batches use eight lanes per multibody at up to 32 DOFs; other
+/// configurations keep one 64-lane group per multibody.
+/// Lanes stride independent constraint slots.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_joint_constraints(
@@ -658,11 +663,27 @@ pub fn gpu_mb_finalize_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] lu_pivots: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+        8
+    } else {
+        64
+    };
 
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 8 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 8 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let num_mb = batch_ids.multibodies_len;
     let in_range = mb_idx < num_mb;
     #[cfg(not(feature = "web-compat"))]
@@ -691,7 +712,7 @@ pub fn gpu_mb_finalize_joint_constraints(
     );
 
     if active {
-        for s in StepRng::new(lane..mb.max_constraints, LANES) {
+        for s in StepRng::new(lane..mb.max_constraints, lanes) {
             let mut cons = joint_constraints.read(cons_base + s as usize);
             if cons.kind == 0 {
                 continue;
@@ -721,7 +742,9 @@ pub fn gpu_mb_finalize_joint_constraints(
 /// Per-substep refresh of the joint limit / motor slots, the cheap alternative
 /// to a full rebuild.
 ///
-/// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
+/// Large batches use eight lanes per multibody at up to 32 DOFs; other
+/// configurations keep one 64-lane group per multibody.
+/// Lanes stride independent constraint slots.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_refresh_joint_constraints(
@@ -738,10 +761,26 @@ pub fn gpu_mb_refresh_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 5)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+        8
+    } else {
+        64
+    };
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 8 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 8 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     if mb_idx >= batch_ids.multibodies_len {
         return;
     }
@@ -759,7 +798,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     let dt = softness.dt;
     let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
 
-    for s in StepRng::new(lane..mb.max_constraints, LANES) {
+    for s in StepRng::new(lane..mb.max_constraints, lanes) {
         let old = joint_constraints.read(cons_base + s as usize);
         // Friction rows are per-step constants except for the accumulated
         // impulse, which must restart from zero so the `±frictionloss·dt`

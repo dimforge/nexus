@@ -3,10 +3,12 @@
 //! For each link i, the `SPATIAL_DIM × ndofs` body jacobian J_i maps generalized
 //! velocities to the link's world-frame spatial velocity at its COM.
 
+#[cfg(feature = "dim2")]
 use khal_std::index::MaybeIndexUnchecked;
 
 #[cfg(feature = "dim3")]
 use crate::rotation_to_matrix;
+#[cfg(feature = "dim2")]
 use crate::utils::linalg::MatSlice;
 use crate::{ANG_DIM, DIM, Rotation, Vector};
 use parry::math::VectorExt;
@@ -21,6 +23,7 @@ impl MultibodyLinkStatic {
     /// matches `curr_free_dof`); lanes outside `[0, total_free)` pass through with
     /// no writes. Structured this way to avoid subtle rust-gpu lowering bugs.
     #[inline]
+    #[cfg(feature = "dim2")]
     pub(super) fn joint_jacobian_accumulate_par(
         &self,
         transform_rot: Rotation,

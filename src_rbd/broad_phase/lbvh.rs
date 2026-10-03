@@ -7,10 +7,10 @@ use crate::math::Pose;
 use crate::shaders::PaddedVector;
 use crate::shaders::bounding_volumes::Aabb;
 use crate::shaders::broad_phase::{
-    CollisionPair, DOMAIN_WORKGROUPS, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch,
-    GpuLbvhBuild, GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhDomainMerge, GpuLbvhEscapes,
-    GpuLbvhFindCollisionPairs, GpuLbvhRefitChunks, GpuLbvhRefitFrontier, GpuLbvhRefitLeaves,
-    GpuLbvhResetCollisionPairs, LbvhNode,
+    CollisionPair, DOMAIN_WORKGROUPS, GpuBfComputeAabbs, GpuBfFindPairs, GpuBfFindPairsSerial,
+    GpuFlatListDispatch, GpuLbvhBuild, GpuLbvhComputeDomain, GpuLbvhComputeMorton,
+    GpuLbvhDomainMerge, GpuLbvhEscapes, GpuLbvhFindCollisionPairs, GpuLbvhRefitChunks,
+    GpuLbvhRefitFrontier, GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs, LbvhNode,
 };
 use crate::shaders::shapes::Shape;
 use crate::utils::{RadixSort, RadixSortWorkspace};
@@ -45,6 +45,7 @@ pub struct GpuLbvh {
     // (typically, small scenes but many batches).
     bf_compute_aabbs: GpuBfComputeAabbs,
     bf_find_pairs: GpuBfFindPairs,
+    bf_find_pairs_serial: GpuBfFindPairsSerial,
 }
 
 /// GPU-resident state for LBVH construction and queries.
@@ -432,17 +433,31 @@ impl Lbvh {
         self.shaders
             .reset_collision_pairs
             .call(pass, [1u32, 1, 1], collision_pairs_len)?;
-        self.shaders.bf_find_pairs.call(
-            pass,
-            [active_per_batch * active_per_batch * num_batches, 1, 1],
-            &state.aabbs,
-            collision_pairs,
-            collision_pairs_len,
-            collision_groups,
-            batch_indices,
-            pair_filter,
-            sim_params,
-        )?;
+        if num_batches >= 128 {
+            self.shaders.bf_find_pairs_serial.call(
+                pass,
+                [active_per_batch * num_batches, 1, 1],
+                &state.aabbs,
+                collision_pairs,
+                collision_pairs_len,
+                collision_groups,
+                batch_indices,
+                pair_filter,
+                sim_params,
+            )?;
+        } else {
+            self.shaders.bf_find_pairs.call(
+                pass,
+                [active_per_batch * active_per_batch * num_batches, 1, 1],
+                &state.aabbs,
+                collision_pairs,
+                collision_pairs_len,
+                collision_groups,
+                batch_indices,
+                pair_filter,
+                sim_params,
+            )?;
+        }
         self.shaders.flat_list_dispatch.call(
             pass,
             1u32,

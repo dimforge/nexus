@@ -28,7 +28,7 @@ use crate::dynamics::body::{Velocity, WorldMassProperties};
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::queries::IndexedManifold;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, VSlice, lu_solve_in_place};
+use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, VSlice};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 
 use super::types::{
@@ -427,9 +427,16 @@ pub fn gpu_mb_init_contact_constraints(
     // below is kept for all-locked (zero-dof) multibodies. Padding slots past
     // `multibodies_len` are never read (every consumer guards on it).
     let num_mb = batch_ids.multibodies_len;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    if num_mb == 0 {
+        return;
+    }
+    let flat = workgroup_id.x * 64 + local_id.x;
+    let batch_id = flat / num_mb;
+    let mb_idx = flat % num_mb;
+    let lane = 0;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     if mb_idx >= num_mb {
         return;
     }
@@ -852,7 +859,7 @@ pub fn gpu_mb_snapshot_contact_warmstart(
 /// solver velocities. Applies the FULL accumulated impulse (no `rhs` term, no
 /// clamping).
 ///
-/// One 64-lane workgroup per (multibody, batch).
+/// One lane per DOF; large batches pack two small multibodies per workgroup.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_warmstart_contact_constraints(
@@ -866,9 +873,26 @@ pub fn gpu_mb_warmstart_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+        32
+    } else {
+        64
+    };
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 32 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 32 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let num_mb = batch_ids.multibodies_len;
     if mb_idx >= num_mb {
         return;
@@ -946,10 +970,26 @@ pub fn gpu_mb_finalize_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] body_jacobians: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+        8
+    } else {
+        64
+    };
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 8 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 8 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let num_mb = batch_ids.multibodies_len;
     if mb_idx >= num_mb {
         return;
@@ -980,7 +1020,7 @@ pub fn gpu_mb_finalize_contact_constraints(
         .ib(batch_id, links_static)
         .offset(mb.first_link as usize);
 
-    for s in StepRng::new(lane..count, LANES) {
+    for s in StepRng::new(lane..count, lanes) {
         let jac_offset = jc_base + (s as usize) * 2 * dofs_stride;
         let col_offset = jac_offset + dofs_stride;
         let mut cons = contact_constraints.read(cons_base + s as usize);
@@ -1019,8 +1059,8 @@ pub fn gpu_mb_finalize_contact_constraints(
             let v = contact_jac_cols.read(jac_offset + i as usize);
             contact_jac_cols.write(col_offset + i as usize, v);
         }
-        // 3) Solve M · column = J^T  (in place).
-        lu_solve_in_place(
+        // 3) Solve M · column = J^T (in place).
+        crate::utils::linalg::lu_solve_in_place(
             mass_matrices,
             m,
             lu_pivots,

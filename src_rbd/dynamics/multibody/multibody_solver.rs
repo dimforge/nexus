@@ -6,19 +6,21 @@ use crate::queries::GpuIndexedContact;
 use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
-    GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsPre,
-    GpuMbComputeSolveBounds, GpuMbConsOffsetsScan, GpuMbCountContactConstraints, GpuMbDelayTick,
+    GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsParallel,
+    GpuMbComputeDynamicsPre, GpuMbComputeSolveBounds, GpuMbConsOffsetsScan,
+    GpuMbCountContactConstraints, GpuMbDelayTick, GpuMbFactorSolveSimd,
     GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
     GpuMbFinalizeJointConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
     GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
-    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities,
-    GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias, GpuMbSavePrevConsBounds,
-    GpuMbScatterContactIndex, GpuMbSeedContactRestitution, GpuMbSenseContactImpulses,
-    GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveConstraints32,
-    GpuMbSolveConstraintsPacked, GpuMbSolveConstraintsSimd, GpuMbSolveContactsDelassus,
-    GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbTransferContactWarmstart,
-    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints,
-    GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity, WorldMassProperties,
+    GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities, GpuMbKinematicsSerial,
+    GpuMbRecursiveForces, GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
+    GpuMbSavePrevConsBounds, GpuMbScatterContactIndex, GpuMbSeedContactRestitution,
+    GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints,
+    GpuMbSolveConstraints32, GpuMbSolveConstraintsPacked, GpuMbSolveConstraintsPackedBias,
+    GpuMbSolveConstraintsSimd, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
+    GpuMbSolveJoints, GpuMbTransferContactWarmstart, GpuMbUpdateImpulseJointConstraints,
+    GpuMbWarmstartContactConstraints, GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity,
+    WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -29,6 +31,11 @@ use vortx::tensor::Tensor;
 struct MetalSolvers {
     per_multibody: GpuMbSolveConstraintsSimd,
     packed: GpuMbSolveConstraintsPacked,
+    packed_bias: GpuMbSolveConstraintsPackedBias,
+    recursive_forces: GpuMbRecursiveForces,
+    factor_solve: GpuMbFactorSolveSimd,
+    kinematics: GpuMbKinematicsSerial,
+    dynamics_parallel: GpuMbComputeDynamicsParallel,
 }
 struct MetalSimdSolver(Option<MetalSolvers>);
 impl MetalSimdSolver {
@@ -42,6 +49,11 @@ impl MetalSimdSolver {
             return Ok(Self(Some(MetalSolvers {
                 per_multibody: GpuMbSolveConstraintsSimd::from_dir(backend, dir)?,
                 packed: GpuMbSolveConstraintsPacked::from_dir(backend, dir)?,
+                packed_bias: GpuMbSolveConstraintsPackedBias::from_dir(backend, dir)?,
+                recursive_forces: GpuMbRecursiveForces::from_dir(backend, dir)?,
+                factor_solve: GpuMbFactorSolveSimd::from_dir(backend, dir)?,
+                kinematics: GpuMbKinematicsSerial::from_dir(backend, dir)?,
+                dynamics_parallel: GpuMbComputeDynamicsParallel::from_dir(backend, dir)?,
             })));
         }
         Ok(Self(None))
@@ -375,7 +387,15 @@ impl GpuMultibodySolver {
             let mut pass = encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
             self.refresh_joint_constraints.call(
                 &mut pass,
-                [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1],
+                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                    [
+                        (mb.multibodies_per_batch * mb.num_batches).div_ceil(8) * 64,
+                        1,
+                        1,
+                    ]
+                } else {
+                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]
+                },
                 &mb.multibody_info,
                 &mb.links_static,
                 &mb.links_workspace,
@@ -427,7 +447,15 @@ impl GpuMultibodySolver {
             // when no batch has any contact this step.
             self.warmstart_contact_constraints.call(
                 &mut pass,
-                args.mb_dispatch_indirect,
+                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                    [
+                        (mb.multibodies_per_batch * mb.num_batches).div_ceil(2) * 64,
+                        1,
+                        1,
+                    ]
+                } else {
+                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]
+                },
                 &mb.multibody_info,
                 &mb.contact_constraints,
                 &mb.contact_jac_cols,
@@ -471,7 +499,7 @@ impl GpuMultibodySolver {
         // (lane 0 emits the metadata serially).
         if mb.has_joint_constraints {
             let mut pass = encoder.begin_pass("[RBD] mbb/init-joint", timestamps.as_deref_mut());
-            let init_joint_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            let init_joint_dispatch = mb.flat_mb_dispatch();
             self.init_joint_with_bias.call(
                 &mut pass,
                 init_joint_dispatch,
@@ -494,7 +522,11 @@ impl GpuMultibodySolver {
                 encoder.begin_pass("[RBD] mbb/finalize-joint", timestamps.as_deref_mut());
             self.finalize_joint_constraints.call(
                 &mut pass,
-                init_joint_dispatch,
+                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                    [mb.num_batches * mb.multibodies_per_batch * 8, 1, 1]
+                } else {
+                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]
+                },
                 &mb.multibody_info,
                 &mut mb.joint_constraints,
                 &mut mb.joint_constraint_columns,
@@ -507,7 +539,7 @@ impl GpuMultibodySolver {
         // One 64-lane workgroup per multibody.
         {
             let mut pass = encoder.begin_pass("[RBD] mbb/init-contact", timestamps.as_deref_mut());
-            let init_contact_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
+            let init_contact_dispatch = mb.flat_mb_dispatch();
             self.init_contact_constraints.call(
                 &mut pass,
                 init_contact_dispatch,
@@ -531,7 +563,11 @@ impl GpuMultibodySolver {
                 encoder.begin_pass("[RBD] mbb/finalize-contact", timestamps.as_deref_mut());
             self.finalize_contact_constraints.call(
                 &mut pass,
-                args.mb_dispatch_indirect,
+                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                    [mb.num_batches * mb.multibodies_per_batch * 8, 1, 1]
+                } else {
+                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]
+                },
                 &mb.multibody_info,
                 &mb.mass_matrices,
                 &mb.lu_pivots,
@@ -643,10 +679,17 @@ impl GpuMultibodySolver {
             // Keep one full group per robot at smaller batch counts, where the
             // extra groups are needed to occupy the GPU (measured on M4 Max).
             if mb.num_batches >= 4096 {
-                solve_simd!(
-                    solvers.packed,
-                    [mb.num_batches * 8, mb.multibodies_per_batch, 1]
-                );
+                if use_bias_idx == 1 {
+                    solve_simd!(
+                        solvers.packed_bias,
+                        [mb.num_batches * 8, mb.multibodies_per_batch, 1]
+                    );
+                } else {
+                    solve_simd!(
+                        solvers.packed,
+                        [mb.num_batches * 8, mb.multibodies_per_batch, 1]
+                    );
+                }
             } else if mb.has_joint_constraints {
                 solve_simd!(
                     solvers.per_multibody,
@@ -970,6 +1013,16 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
     ) -> Result<(), GpuBackendError> {
+        self.compute_dynamics_pre(pass, mb, args)?;
+        self.compute_gravity_lu(pass, mb, args)
+    }
+
+    fn compute_dynamics_pre(
+        &self,
+        pass: &mut GpuPass,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
         // Fused FK + body-jacobians + velocity propagation + Mass-matrix
         // assembly. Packed: `64 / mb_pack_lanes` multibodies per workgroup,
         // flattened (multibody, batch) grid.
@@ -982,6 +1035,35 @@ impl GpuMultibodySolver {
             "implicit-coriolis changed without rebuilding batch_indices: use \
              RbdState::set_implicit_coriolis, not GpuMultibodySet's"
         );
+        if mb.num_batches >= 128
+            && let Some(kernels) = &self.solve_constraints_simd.0
+        {
+            kernels.kinematics.call(
+                pass,
+                mb.flat_mb_dispatch(),
+                &mb.multibody_info,
+                &mb.links_static,
+                &mut mb.links_workspace,
+                args.poses,
+                &mb.dof_state,
+                args.batch_indices,
+            )?;
+            kernels.dynamics_parallel.call(
+                pass,
+                mb.packed_wg_dispatch(),
+                &mb.multibody_info,
+                &mb.links_static,
+                &mut mb.links_workspace,
+                args.poses,
+                &mut mb.body_jacobians,
+                &mut mb.mass_matrices,
+                &mut mb.coriolis_packed,
+                &mb.dof_state,
+                &mb.dt,
+                args.batch_indices,
+            )?;
+            return Ok(());
+        }
         let pre_dispatch = mb.packed_wg_dispatch();
         self.compute_dynamics_pre.call(
             pass,
@@ -998,6 +1080,43 @@ impl GpuMultibodySolver {
             args.batch_indices,
         )?;
 
+        Ok(())
+    }
+
+    fn compute_gravity_lu(
+        &self,
+        pass: &mut GpuPass,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+    ) -> Result<(), GpuBackendError> {
+        if mb.num_batches >= 128 && mb.max_ndofs <= 32 && !mb.implicit_coriolis {
+            if let Some(kernels) = &self.solve_constraints_simd.0 {
+                kernels.recursive_forces.call(
+                    pass,
+                    mb.flat_mb_dispatch(),
+                    &mb.multibody_info,
+                    &mb.links_static,
+                    &mut mb.links_workspace,
+                    &mb.body_jacobians,
+                    &mut mb.gen_forces,
+                    &mut mb.coriolis_packed,
+                    &mb.dof_state,
+                    args.gravity,
+                    args.batch_indices,
+                    &mb.dt,
+                )?;
+                kernels.factor_solve.call(
+                    pass,
+                    [mb.multibodies_per_batch * 32, mb.num_batches, 1],
+                    &mb.multibody_info,
+                    &mut mb.mass_matrices,
+                    &mut mb.lu_pivots,
+                    &mut mb.gen_forces,
+                    args.batch_indices,
+                )?;
+                return Ok(());
+            }
+        }
         // Fused gravity + LU factor + LU solve. Select an implementation based on how many
         // environments we can pack on the same workgroup (depending on its dofs).
         macro_rules! grav_lu {

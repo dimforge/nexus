@@ -116,3 +116,53 @@ pub fn gpu_bf_find_pairs(
         );
     }
 }
+
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_bf_find_pairs_serial(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] aabbs: &[Aabb],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+    collision_pairs: &mut [CollisionPair],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] collision_pairs_len: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
+    collision_groups: &[InteractionGroups],
+    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pair_filter: &[[u32; 2]],
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] params: &RbdSimParams,
+) {
+    let n = batch_ids.colliders_len;
+    let batch = invocation_id.x % batch_ids.num_batches;
+    let i = invocation_id.x / batch_ids.num_batches;
+    if i >= n {
+        return;
+    }
+    let groups = batch_ids.ib(batch, collision_groups);
+    let filters = batch_ids.ib(batch, pair_filter);
+    let gi = groups[i as usize];
+    let fi = filters[i as usize];
+    let start = crate::broad_phase::scratch_start(batch_ids, batch) as usize;
+    let mut ai = aabbs.read(start + i as usize);
+    let dilation = Vector::splat(params.prediction_distance());
+    ai.mins -= dilation;
+    ai.maxs += dilation;
+    for j in i + 1..n {
+        let fj = filters[j as usize];
+        let allowed =
+            gi.test(groups[j as usize]) && fi[0] != fj[0] && (fi[1] == 0 || fi[1] != fj[1]);
+        if allowed && ai.intersects(&aabbs.read(start + j as usize)) {
+            let index = atomic_add_u32(collision_pairs_len.at_mut(0), 1);
+            if index < batch_ids.collision_pairs_capacity {
+                collision_pairs.write(
+                    index as usize,
+                    CollisionPair {
+                        colliders: UVec2::new(
+                            batch_ids.body_global(batch, i) as u32,
+                            batch_ids.body_global(batch, j) as u32,
+                        ),
+                    },
+                );
+            }
+        }
+    }
+}

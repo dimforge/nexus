@@ -291,7 +291,9 @@ impl GpuMultibodySet {
     /// (`compute_dynamics_pre`, `gravity_and_lu`).
     pub(crate) fn pack_lanes(&self) -> u32 {
         let total_mb = self.num_active_multibodies * self.num_batches;
-        if self.max_ndofs <= 8 && total_mb >= 1024 {
+        // Every cooperative lane owns one matrix column. The scalar LU tile
+        // has room for one DOF per body, not eight.
+        if self.max_ndofs <= 1 && total_mb >= 1024 {
             1
         } else {
             self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)

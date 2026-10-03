@@ -42,7 +42,7 @@ use super::ws_soa::{
 /// from one lane): one cheap update per sprung axis, and springs are rare.
 #[allow(clippy::too_many_arguments)]
 #[inline]
-fn apply_spring_forces(
+pub(super) fn apply_spring_forces(
     gen_forces: &mut [f32],
     // Dense base of this multibody's generalized-force region.
     gen0: usize,

@@ -39,5 +39,13 @@ mod test_twist_friction;
 #[cfg(test)]
 mod test_color_buckets;
 
+#[cfg(all(test, feature = "dim3", feature = "metal"))]
+mod test_multibody_dynamics;
 #[cfg(test)]
 mod test_web_preparation;
+
+#[cfg(all(test, feature = "dim3", any(feature = "metal", feature = "webgpu")))]
+mod test_broad_phase_packing;
+
+#[cfg(all(test, feature = "metal"))]
+mod test_multibody_factor;

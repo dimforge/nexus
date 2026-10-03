@@ -46,3 +46,12 @@ pub use solve_constraints::*;
 pub use types::*;
 pub use utils::*;
 pub use ws_soa::*;
+
+mod lu_simd;
+
+#[cfg(feature = "dim3")]
+mod crba;
+
+mod recursive_forces;
+pub use lu_simd::*;
+pub use recursive_forces::*;

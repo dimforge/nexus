@@ -75,7 +75,7 @@ impl GpuMultibodySet {
 
         for (set, body_ids, bodies) in environments {
             let mut infos = Vec::new();
-            let mut statics = Vec::new();
+            let mut statics: Vec<MultibodyLinkStatic> = Vec::new();
             let mut workspaces = Vec::new();
             let mut dof_vels = Vec::new();
             let mut dof_damping = Vec::new();
@@ -247,6 +247,14 @@ impl GpuMultibodySet {
                         mp
                     };
 
+                    let mut ancestor_dofs = if parent_id == u32::MAX {
+                        [0u32; 2]
+                    } else {
+                        statics[mb_statics_start + parent_id as usize].ancestor_dofs
+                    };
+                    for dof in assembly_counter..assembly_counter + link_ndofs {
+                        ancestor_dofs[(dof / 32) as usize] |= 1 << (dof % 32);
+                    }
                     let stat = MultibodyLinkStatic {
                         rb_id,
                         parent_link_id: parent_id,
@@ -254,7 +262,7 @@ impl GpuMultibodySet {
                         assembly_id: assembly_counter,
                         ndofs: link_ndofs,
                         kinematic: if link.joint().kinematic { 1 } else { 0 },
-                        _pad0: [0; 2],
+                        ancestor_dofs,
                         data,
                         local_mprops: mp,
                     };
@@ -595,6 +603,7 @@ impl GpuMultibodySet {
                 buf.extend_from_slice(&all_dof_friction);
                 buf.resize(7 * n, 0.0);
                 debug_assert_eq!(buf.len(), 7 * n);
+                // Environment snapshots read the velocity section back.
                 Tensor::vector(backend, &buf, storage | BufferUsages::COPY_SRC).unwrap()
             },
             gen_forces: Tensor::vector(
