@@ -822,8 +822,8 @@ impl GpuMultibodySet {
             ws_set_pose, ws_set_rot, ws_set_vec, ws_set_vel,
         };
 
-        // A link's quads are dense in the SoA buffer, so the record is built
-        // in a scratch one-link, one-batch view and uploaded as a prefix.
+        // The record is built in a scratch one-link, one-batch view; the live
+        // buffer interleaves batches per quad, so each quad is uploaded alone.
         let mut quads = vec![glamx::Vec4::ZERO; WS_QUADS as usize];
         let local = WsAddr::new(0, 1, 0);
         let zero_vel = Velocity {
@@ -846,11 +846,14 @@ impl GpuMultibodySet {
         ws_set_vec(&mut quads, local, 0, WS_WORLD_COM, world_com);
 
         let a = WsAddr::new(0, self.num_batches, batch_id);
-        backend.write_buffer(
-            self.links_workspace.buffer_mut(),
-            a.at(k, 0) as u64,
-            &quads[..WS_EXT_FORCE as usize],
-        )
+        for (q, quad) in quads[..WS_EXT_FORCE as usize].iter().enumerate() {
+            backend.write_buffer(
+                self.links_workspace.buffer_mut(),
+                a.at(k, q as u32) as u64,
+                std::slice::from_ref(quad),
+            )?;
+        }
+        Ok(())
     }
 
     /// Zeroes the generalized velocities of the per-batch DoFs

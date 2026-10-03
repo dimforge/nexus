@@ -101,12 +101,12 @@ pub fn gpu_mb_env_reset(
     let dpb = params.dofs_per_batch;
 
     if i < lpb * WS_QUADS {
-        // Staging is per-env dense; the live workspace is interleaved at
-        // per-link-record granularity (record = `WS_QUADS` dense quads).
+        // Staging is per-env dense; the live workspace is interleaved at quad
+        // granularity (see `WsAddr::at`).
         let link = i / WS_QUADS;
         let q = i % WS_QUADS;
         links_workspace.write(
-            ((link * nb + env) * WS_QUADS + q) as usize,
+            ((link * WS_QUADS + q) * nb + env) as usize,
             staging_ws.read(i as usize),
         );
     }
@@ -175,8 +175,8 @@ pub fn gpu_mb_env_reset_batch(
             v.y += off.y;
             v.z += off.z;
         }
-        // Live workspace is interleaved at per-link-record granularity.
-        links_workspace.write(((link * nb + env) * WS_QUADS + q) as usize, v);
+        // Live workspace is interleaved at quad granularity.
+        links_workspace.write(((link * WS_QUADS + q) * nb + env) as usize, v);
     }
 }
 
