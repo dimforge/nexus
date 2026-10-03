@@ -26,6 +26,11 @@
   the joint-velocity counterpart of `robot_state`'s `qpos`.
 - Viewer: `SensorCamera::set_ambient_color` (Python: `set_sensor_camera_ambient_color`) tints a
   sensor camera's ambient fill light, whose brightness `set_sensor_camera_ambient` already set.
+- `NexusState::set_deterministic`: two runs of the same scene give identical results on the same
+  machine and build. Costs ~10-17% per step, up to ~45% with trimeshes or polylines.
+- Testbed: a "Deterministic" checkbox and `--deterministic` flag, and a step counter
+  (`NexusState::steps`) next to the Play/Step/Restart buttons.
+- `determinism` integration tests in `nexus2d` and `nexus3d` (need a GPU, run with `--ignored`).
 
 ### Fixed
 
@@ -38,6 +43,7 @@
   link. The second copy saw the link as never moving, so a robot lifting a grasped object had
   its friction cancelled by a "ghost" of its own fingers. The rigid-body constraint builder now
   leaves multibody-owned manifolds to the multibody solver.
+- `RbdState::debug_constraint_colors` now reads the constraints and colors of the last step.
 
 ### Modified
 

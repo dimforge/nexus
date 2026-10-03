@@ -78,6 +78,9 @@ pub struct ColoringArgs<'a> {
     pub constraints: &'a Tensor<TwoBodyConstraint>,
     /// Output: color assigned to each constraint.
     pub constraints_colors: &'a mut Tensor<u32>,
+    /// Color picked by each constraint in the current round, before the conflict pass.
+    /// Only read in deterministic mode, but always bound.
+    pub constraints_pending_colors: &'a mut Tensor<u32>,
     /// Random values for Luby's algorithm.
     pub constraints_rands: &'a mut Tensor<u32>,
     /// Current color being assigned.
@@ -151,6 +154,7 @@ impl GpuColoring {
             args.colored,
             args.constraints,
             args.contact_plan,
+            args.constraints_pending_colors,
         )?;
         Ok(())
     }
@@ -172,6 +176,8 @@ impl GpuColoring {
             args.uncolored,
             args.contact_plan,
             args.body_group,
+            args.batch_indices,
+            args.constraints_pending_colors,
         )?;
         Ok(())
     }
@@ -193,6 +199,8 @@ impl GpuColoring {
             args.uncolored,
             args.contact_plan,
             args.body_group,
+            args.batch_indices,
+            args.constraints_pending_colors,
         )?;
         Ok(())
     }

@@ -18,7 +18,7 @@ use crate::shaders::dynamics::{
 use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::shapes::Shape;
 use crate::shaders::utils::BatchIndices;
-use crate::utils::{ComputeGraphCache, PrefixSumWorkspace};
+use crate::utils::{ComputeGraphCache, PrefixSumWorkspace, RadixSortWorkspace};
 
 use khal::BufferUsages;
 use khal::backend::{Backend, GpuBackend, GpuReadback};
@@ -331,6 +331,67 @@ pub struct RbdState {
     /// CPU-side mirror of the number of *active* rigid bodies per batch.
     /// Mirrors `BatchIndices::bodies_len`. Always `<= num_active_colliders`.
     pub(super) num_active_bodies: u32,
+    /// The state of the deterministic mode (see [`Self::set_deterministic`]).
+    pub(super) determinism: RbdDeterminismState,
+}
+
+/// Flags and buffers of the deterministic mode of an [`RbdState`].
+pub(super) struct RbdDeterminismState {
+    /// See [`RbdState::set_deterministic`].
+    pub(super) enabled: bool,
+    /// Whether any collider is a trimesh or polyline (several manifolds per pair).
+    /// Without them, the contact sort skips its sub-shape pass.
+    pub(super) has_composite_shapes: bool,
+    /// Color picked by each constraint in the current round, before the conflict pass.
+    /// Only used in deterministic mode, but always allocated (the kernels bind it).
+    pub(super) pending_colors: Tensor<u32>,
+    /// Output of the deterministic contact sort, swapped with [`RbdState::contacts`].
+    /// Only allocated in deterministic mode.
+    pub(super) contacts_scratch: Tensor<GpuIndexedContact>,
+    /// Output of the deterministic sort of the body constraint lists.
+    /// Only allocated in deterministic mode.
+    pub(super) stable_body_constraint_ids: Tensor<u32>,
+    /// Output of the deterministic sort of the multibody contact index.
+    /// Only allocated in deterministic mode.
+    #[cfg(feature = "dim3")]
+    pub(super) stable_mb_contact_index: Tensor<MbContactIndexEntry>,
+    /// Key and value buffers of the contact sort. Only allocated in deterministic mode.
+    pub(super) contact_sort_keys: Tensor<u32>,
+    pub(super) contact_sort_ids: Tensor<u32>,
+    pub(super) contact_sort_keys_out: Tensor<u32>,
+    pub(super) contact_sort_ids_out: Tensor<u32>,
+    pub(super) contact_sort_n: Tensor<u32>,
+    pub(super) contact_sort_workspace: RadixSortWorkspace,
+    /// `key_selector` uniforms of the contact sort (`[i] == i`), built once so no
+    /// buffer is rewritten between dispatches.
+    pub(super) contact_key_selectors: Vec<Tensor<u32>>,
+}
+
+impl RbdDeterminismState {
+    /// The deterministic mode off: only `pending_colors` is allocated.
+    pub(super) fn new(
+        backend: &GpuBackend,
+        has_composite_shapes: bool,
+        pending_colors: Tensor<u32>,
+    ) -> Self {
+        let storage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
+        Self {
+            enabled: false,
+            has_composite_shapes,
+            pending_colors,
+            contacts_scratch: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            stable_body_constraint_ids: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            #[cfg(feature = "dim3")]
+            stable_mb_contact_index: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            contact_sort_keys: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            contact_sort_ids: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            contact_sort_keys_out: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            contact_sort_ids_out: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            contact_sort_n: Tensor::vector_uninit(backend, 0, storage).unwrap(),
+            contact_sort_workspace: RadixSortWorkspace::new(backend),
+            contact_key_selectors: Vec::new(),
+        }
+    }
 }
 
 impl RbdState {
@@ -352,6 +413,10 @@ impl RbdState {
             contacts_capacity: self.contacts_capacity_cpu,
             impulse_joints_len: self.joints.num_active_joints(),
             solver_color_buckets_stride: self.max_colors + 3,
+            deterministic: self.determinism.enabled as u32,
+            contact_sort_collider_shift: crate::dynamics::contact_sort_collider_shift(
+                self.num_active_colliders * self.num_batches,
+            ),
             ..Default::default()
         };
         #[cfg(feature = "dim3")]
@@ -387,6 +452,99 @@ impl RbdState {
     /// Returns the configured max color count.
     pub fn max_colors(&self) -> u32 {
         self.max_colors
+    }
+
+    /// Makes two runs of the same scene give identical results (same machine and build).
+    /// Off by default. Adds a few sort passes and forces the fixed resize policies.
+    pub fn set_deterministic(&mut self, backend: &GpuBackend, deterministic: bool) {
+        // Does nothing if unchanged: the viewer calls this every frame.
+        if self.determinism.enabled == deterministic {
+            return;
+        }
+
+        self.determinism.enabled = deterministic;
+        // Reallocates buffers and changes the dispatched passes.
+        self.graph_generation += 1;
+
+        if deterministic {
+            self.capacities.collisions_resize_policy = RbdResizePolicy::Fixed;
+            self.capacities.solver_colors_resize_policy = RbdResizePolicy::Fixed;
+            self.alloc_deterministic_buffers(backend);
+            self.zero_index_buffers(backend);
+        } else {
+            // Frees the deterministic buffers, except the always-bound `pending_colors`.
+            let pending_colors = std::mem::replace(
+                &mut self.determinism.pending_colors,
+                Tensor::vector_uninit(backend, 0, BufferUsages::STORAGE).unwrap(),
+            );
+            let has_composite_shapes = self.determinism.has_composite_shapes;
+            self.determinism =
+                RbdDeterminismState::new(backend, has_composite_shapes, pending_colors);
+        }
+
+        self.rebuild_batch_indices(backend);
+    }
+
+    /// Whether the pipeline runs in deterministic mode.
+    pub fn deterministic(&self) -> bool {
+        self.determinism.enabled
+    }
+
+    /// Allocates the buffers of the deterministic passes, sized from the contact capacity.
+    fn alloc_deterministic_buffers(&mut self, backend: &GpuBackend) {
+        let storage = BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST;
+        let contacts_total = self.contacts.len() as u32;
+        #[cfg(feature = "dim3")]
+        let mb_contact_index_len = self.mb_contact_index.len() as u32;
+        let det = &mut self.determinism;
+
+        det.contacts_scratch = Tensor::vector_uninit(backend, contacts_total, storage).unwrap();
+        det.stable_body_constraint_ids =
+            Tensor::vector_uninit(backend, contacts_total * 2, storage).unwrap();
+        #[cfg(feature = "dim3")]
+        {
+            det.stable_mb_contact_index =
+                Tensor::vector_uninit(backend, mb_contact_index_len, storage).unwrap();
+        }
+        det.contact_sort_keys = Tensor::vector_uninit(backend, contacts_total, storage).unwrap();
+        det.contact_sort_ids = Tensor::vector_uninit(backend, contacts_total, storage).unwrap();
+        det.contact_sort_keys_out =
+            Tensor::vector_uninit(backend, contacts_total, storage).unwrap();
+        det.contact_sort_ids_out = Tensor::vector_uninit(backend, contacts_total, storage).unwrap();
+        det.contact_sort_n = Tensor::vector(backend, vec![0u32; 1], storage).unwrap();
+
+        // One uniform per key selector: rewriting one uniform between dispatches
+        // makes all of them read the last value on some backends.
+        det.contact_key_selectors = (0..8)
+            .map(|i| Tensor::scalar(backend, i, BufferUsages::UNIFORM).unwrap())
+            .collect();
+    }
+
+    /// Zeroes the `u32` scratch buffers, which are allocated uninitialized.
+    /// The big manifold and constraint buffers are skipped: their reads are bounded.
+    fn zero_index_buffers(&mut self, backend: &GpuBackend) {
+        // Reallocated instead of written: some buffers don't have `COPY_DST`.
+        fn zero(backend: &GpuBackend, t: &mut Tensor<u32>) {
+            let len = t.len() as u32;
+            if len != 0 {
+                let usages =
+                    BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST;
+                *t = Tensor::vector(backend, vec![0u32; len as usize], usages).unwrap();
+            }
+        }
+
+        zero(backend, &mut self.new_body_constraint_ids);
+        zero(backend, &mut self.old_body_constraint_ids);
+        zero(backend, &mut self.determinism.stable_body_constraint_ids);
+        zero(backend, &mut self.constraints_colors);
+        zero(backend, &mut self.determinism.pending_colors);
+        zero(backend, &mut self.old_constraints_colors);
+        zero(backend, &mut self.colored);
+        zero(backend, &mut self.color_sorted_ids);
+        zero(backend, &mut self.determinism.contact_sort_keys);
+        zero(backend, &mut self.determinism.contact_sort_ids);
+        zero(backend, &mut self.determinism.contact_sort_keys_out);
+        zero(backend, &mut self.determinism.contact_sort_ids_out);
     }
 
     /// `true` when every rigid-body contact constraint is provably a no-op.
@@ -721,15 +879,26 @@ impl RbdState {
     /// Debug: per active constraint `(index, solver_body_a, solver_body_b, color, len)`.
     /// Used to check the graph coloring never gives two constraints that share
     /// a body the same color.
+    ///
+    /// Reads the `old_*` buffers, i.e. the constraints and colors of the last step.
     pub fn debug_constraint_colors(&self, backend: &GpuBackend) -> Vec<(u32, u32, u32, u32, u32)> {
         let cons: Vec<TwoBodyConstraint> =
-            futures::executor::block_on(backend.slow_read_vec(self.new_constraints.buffer()))
+            futures::executor::block_on(backend.slow_read_vec(self.old_constraints.buffer()))
                 .unwrap_or_default();
-        let colors: Vec<u32> =
-            futures::executor::block_on(backend.slow_read_vec(self.constraints_colors.buffer()))
-                .unwrap_or_default();
+        let colors: Vec<u32> = futures::executor::block_on(
+            backend.slow_read_vec(self.old_constraints_colors.buffer()),
+        )
+        .unwrap_or_default();
+        // Only the slots below the contact bound of the last step are valid.
+        let bound = futures::executor::block_on(
+            backend.slow_read_vec::<ContactPlan>(self.contact_plan.buffer()),
+        )
+        .ok()
+        .and_then(|plan| plan.first().map(|p| p.bound as usize))
+        .unwrap_or(0);
+
         let mut out = Vec::new();
-        for (i, c) in cons.iter().enumerate() {
+        for (i, c) in cons.iter().enumerate().take(bound) {
             if c.len == 0 {
                 continue;
             }

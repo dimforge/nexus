@@ -40,3 +40,11 @@ nexus_mpm2d = { workspace = true, optional = true }
 bitflags = { workspace = true }
 web-time = { workspace = true }
 
+[dev-dependencies]
+rapier2d = { workspace = true, features = ["default"] }
+pollster = { workspace = true }
+
+[[test]]
+name = "determinism"
+path = "tests/determinism.rs"
+required-features = ["rbd", "mpm"]

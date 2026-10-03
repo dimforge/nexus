@@ -16,8 +16,8 @@ use crate::shaders::dynamics::{
     GpuMbScatterContactIndex, GpuMbSeedContactRestitution, GpuMbSenseContactImpulses,
     GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints, GpuMbSolveContactsDelassus,
     GpuMbSolveImpulseJointConstraints, GpuMbSolveJoints, GpuMbTransferContactWarmstart,
-    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints, MbContactIndexEntry,
-    Velocity, WorldMassProperties,
+    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints,
+    GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -81,6 +81,8 @@ pub struct GpuMultibodySolver {
     cons_offsets_scan: GpuMbConsOffsetsScan,
     /// Fills the contact→multibody index segments laid out by the scan.
     scatter_contact_index: GpuMbScatterContactIndex,
+    /// Deterministic mode: sorts each contact-index segment by contact slot.
+    stabilize_contact_index: GpuStabilizeMbContactIndex,
     /// Carry the snapshotted impulses over to this frame's matching contacts.
     transfer_contact_warmstart: GpuMbTransferContactWarmstart,
     /// Re-apply the accumulated contact impulse each substep (warmstart).
@@ -202,11 +204,14 @@ impl GpuMultibodySolver {
     /// over the contacts), prefix-scan them into segment starts (also
     /// publishing the total demand for the auto-resize readback), then
     /// scatter each contact's slot into its owner's index segment.
+    ///
+    /// With `stable_scratch` (deterministic mode), the segments are then sorted by contact slot.
     pub fn layout_contact_constraints(
         &self,
         pass: &mut GpuPass,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
+        stable_scratch: Option<&mut Tensor<MbContactIndexEntry>>,
     ) -> Result<(), GpuBackendError> {
         if mb.is_empty() {
             return Ok(());
@@ -242,6 +247,19 @@ impl GpuMultibodySolver {
             args.contact_plan,
             args.batch_indices,
         )?;
+        if let Some(scratch) = stable_scratch {
+            // One workgroup per `(multibody, batch)` info slot.
+            let infos = (mb.num_active_multibodies * mb.num_batches).clamp(1, 65535);
+            self.stabilize_contact_index.call(
+                pass,
+                [infos * 64, 1, 1],
+                &mb.multibody_info,
+                &*args.mb_contact_index,
+                scratch,
+                args.batch_indices,
+            )?;
+            std::mem::swap(args.mb_contact_index, scratch);
+        }
         Ok(())
     }
 

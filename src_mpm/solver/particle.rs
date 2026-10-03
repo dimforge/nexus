@@ -241,11 +241,25 @@ pub struct GpuRigidParticles {
     pub rigid_particle_needs_block: Tensor<u32>,
     /// Rigid particle indices sorted by grid block (with room for per-block "extras").
     pub sorted_ids: Tensor<u32>,
+    /// Output of the deterministic sort pass, swapped with [`Self::sorted_ids`].
+    /// Empty unless [`MpmState::deterministic`](crate::pipeline::MpmState::deterministic) is set.
+    pub stable_ids: Tensor<u32>,
     /// Metadata associating each sample with its source collider and body.
     pub sample_ids: Tensor<RigidParticleIndices>,
 }
 
 impl GpuRigidParticles {
+    /// Resizes [`Self::stable_ids`] like [`Self::sorted_ids`].
+    pub fn ensure_stable_ids(&mut self, backend: &GpuBackend) -> Result<(), GpuBackendError> {
+        if self.stable_ids.len() != self.sorted_ids.len() {
+            self.stable_ids = Tensor::vector_uninit(
+                backend,
+                self.sorted_ids.len() as u32,
+                BufferUsages::STORAGE,
+            )?;
+        }
+        Ok(())
+    }
     /// Creates an empty set of rigid particles.
     pub fn new(backend: &GpuBackend) -> Result<Self, GpuBackendError> {
         let empty_positions: &[Position] = &[];
@@ -254,6 +268,7 @@ impl GpuRigidParticles {
             local_sample_points: Tensor::vector(backend, empty_positions, BufferUsages::STORAGE)?,
             sample_points: Tensor::vector(backend, empty_positions, BufferUsages::STORAGE)?,
             sorted_ids: Tensor::vector_uninit(backend, 0, BufferUsages::STORAGE)?,
+            stable_ids: Tensor::vector_uninit(backend, 0, BufferUsages::STORAGE)?,
             sample_ids: Tensor::vector(backend, empty_ids, BufferUsages::STORAGE)?,
             rigid_particle_needs_block: Tensor::vector_uninit(backend, 0, BufferUsages::STORAGE)?,
         })
@@ -279,6 +294,7 @@ impl GpuRigidParticles {
                 sampling_buffers.samples.len() as u32 * 2_u32.pow(DIM as u32),
                 BufferUsages::STORAGE,
             )?,
+            stable_ids: Tensor::vector_uninit(backend, 0, BufferUsages::STORAGE)?,
             sample_ids: Tensor::vector(
                 backend,
                 &sampling_buffers.samples_ids,
@@ -369,9 +385,23 @@ pub struct GpuParticles {
     pub properties: Tensor<ParticleProperties>,
     pub models: Tensor<GpuParticleModel>,
     pub sorted_ids: Tensor<u32>,
+    /// Output of the deterministic sort pass, swapped with [`Self::sorted_ids`].
+    /// Empty unless [`MpmState::deterministic`](crate::pipeline::MpmState::deterministic) is set.
+    pub stable_ids: Tensor<u32>,
 }
 
 impl GpuParticles {
+    /// Resizes [`Self::stable_ids`] like [`Self::sorted_ids`], so both can be swapped.
+    /// Does nothing if the sizes already match.
+    pub fn ensure_stable_ids(&mut self, backend: &GpuBackend) -> Result<(), GpuBackendError> {
+        if self.stable_ids.len() != self.sorted_ids.len() {
+            let resizeable =
+                BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST;
+            self.stable_ids =
+                Tensor::vector_uninit(backend, self.sorted_ids.len() as u32, resizeable)?;
+        }
+        Ok(())
+    }
     /// Returns true if there are no particles.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -411,6 +441,7 @@ impl GpuParticles {
                 particles.len() as u32 * 2_u32.pow(DIM as u32),
                 resizeable,
             )?,
+            stable_ids: Tensor::vector_uninit(backend, 0, resizeable)?,
         })
     }
 
@@ -516,6 +547,7 @@ impl GpuParticles {
             properties,
             models,
             sorted_ids: _,
+            stable_ids: _,
         } = self;
 
         let removed = positions.shift_remove(backend, range.clone())?;
@@ -544,6 +576,8 @@ impl GpuParticles {
             properties,
             models,
             sorted_ids,
+            // Resized by `ensure_stable_ids` before the next sort.
+            stable_ids: _,
         } = self;
 
         let data = SoAParticles::new(particles);

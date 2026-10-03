@@ -118,6 +118,7 @@ struct CliOptions {
     compute_graphs: bool,
     metal: bool,
     run: bool,
+    deterministic: bool,
 }
 
 fn parse_command_line() -> CliOptions {
@@ -130,6 +131,7 @@ fn parse_command_line() -> CliOptions {
         compute_graphs: false,
         metal: false,
         run: false,
+        deterministic: false,
     };
 
     while let Some(arg) = args.next() {
@@ -141,6 +143,7 @@ fn parse_command_line() -> CliOptions {
             "--compute-graphs" => opts.compute_graphs = true,
             "--metal" => opts.metal = true,
             "--run" => opts.run = true,
+            "--deterministic" => opts.deterministic = true,
             _ => {}
         }
     }
@@ -194,6 +197,9 @@ pub async fn main() {
     }
     if opts.run {
         viewer = viewer.with_running();
+    }
+    if opts.deterministic {
+        viewer = viewer.with_deterministic(true);
     }
 
     // The GPU pipelines are owned here (not by `NexusState`) so they can be

@@ -661,6 +661,7 @@ impl RbdState {
         // initial spin was lost entirely).
         debug_assert_eq!(all_vels.len(), num_bodies_total);
         let storage: BufferUsages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
+        let has_composite_shapes = all_shapes.iter().any(|s| s.is_composite());
         let shapes = Tensor::vector(backend, &all_shapes, storage).unwrap();
         let collider_local_poses =
             Tensor::vector(backend, &all_collider_local_poses, storage).unwrap();
@@ -727,6 +728,8 @@ impl RbdState {
         let new_constraint_builders =
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_colors =
+            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let constraints_pending_colors =
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let old_constraints_colors =
             Tensor::vector(backend, vec![0u32; contacts_capacity as usize], storage).unwrap();
@@ -915,6 +918,11 @@ impl RbdState {
             rb_contacts_inert,
             num_active_colliders: num_colliders as u32,
             num_active_bodies: num_bodies as u32,
+            determinism: RbdDeterminismState::new(
+                backend,
+                has_composite_shapes,
+                constraints_pending_colors,
+            ),
         }
     }
 }

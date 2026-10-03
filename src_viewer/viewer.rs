@@ -130,6 +130,8 @@ pub struct UiState {
     pub(crate) has_rbd: bool,
     /// Current scene entity counts, refreshed every `sync` for the UI.
     pub(crate) counts: NexusCounts,
+    /// Number of steps of the current scene, updated by `sync`.
+    pub(crate) steps: u64,
     /// Per-particle coloring mode for MPM rendering (view-only; not a sim
     /// setting). Drives the `WgPrepReadback` render config in `sync`.
     pub mpm_render_mode: MpmRenderMode,
@@ -153,6 +155,9 @@ pub struct SimSettings {
     pub mpm_gravity: Vector,
     /// Rigid-body solver steps advanced per rendered frame.
     pub rbd_steps_per_frame: u32,
+    /// Identical runs (see [`NexusState::set_deterministic`]). A viewer setting,
+    /// kept across demos.
+    pub deterministic: bool,
 }
 
 impl Default for SimSettings {
@@ -162,6 +167,7 @@ impl Default for SimSettings {
             mpm_use_cpic: true,
             mpm_gravity: Vector::ZERO,
             rbd_steps_per_frame: 1,
+            deterministic: false,
         }
     }
 }
@@ -287,6 +293,9 @@ pub struct NexusViewer {
     body_pose_cache: Vec<Pose>,
     /// Debug geometry, rebuilt by [`Self::sync`] and drawn by [`Self::render_frame`].
     debug_renderer: DebugRenderer,
+    /// Whether the current scene got the viewer settings with a first [`Self::sync`].
+    /// Reset by [`Self::clear_scene`].
+    scene_synced: bool,
     pub ui: UiState,
 }
 
@@ -414,6 +423,7 @@ impl NexusViewer {
             #[cfg(feature = "dim3")]
             body_pose_cache: Vec::new(),
             debug_renderer: DebugRenderer::default(),
+            scene_synced: false,
             ui: UiState {
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
@@ -430,6 +440,7 @@ impl NexusViewer {
                 has_mpm: false,
                 has_rbd: false,
                 counts: NexusCounts::default(),
+                steps: 0,
                 mpm_render_mode: MpmRenderMode::default(),
                 debug_render: DebugRenderSettings::default(),
                 debug_lbvh: LbvhStatus::Off,
@@ -456,6 +467,12 @@ impl NexusViewer {
 
     pub fn with_cpu(mut self) -> Self {
         self.ui.backend_type = BackendType::Cpu;
+        self
+    }
+
+    /// Starts with the deterministic mode enabled (see [`NexusState::set_deterministic`]).
+    pub fn with_deterministic(mut self, enabled: bool) -> Self {
+        self.ui.sim_settings.deterministic = enabled;
         self
     }
 
@@ -1379,6 +1396,9 @@ impl NexusViewer {
         // setting: it always flows from the backend panel into the scene.
         state.set_compute_graphs_enabled(self.ui.compute_graphs);
 
+        // Set every frame, demo switches included. Does nothing if unchanged.
+        state.set_deterministic(self.backend(), self.ui.sim_settings.deterministic);
+
         if self.direct_render_path() {
             self.sync_without_readback(state).await?;
         } else {
@@ -1402,9 +1422,11 @@ impl NexusViewer {
             state.run_stats.gpu_total_time_ms = self.last_gpu_total_time_ms;
         }
 
+        self.ui.steps = state.steps();
         self.ui.run_stats = state.run_stats.clone();
         self.ui.sync_time = t0.elapsed();
         self.ui.counts = state.counts();
+        self.scene_synced = true;
         Ok(())
     }
 
@@ -1506,6 +1528,7 @@ impl NexusViewer {
         self.nexus_render.clear();
         self.mpm_node = None;
         self.debug_renderer.clear_scene();
+        self.scene_synced = false;
     }
 
     /// Whether the simulation should advance this frame, honoring the
@@ -1514,7 +1537,13 @@ impl NexusViewer {
     ///
     /// Examples driving a [`NexusState`] gate their `simulate` call on this, the
     /// way the legacy `RbdScene::simulate` did internally.
+    ///
+    /// Always `false` before the first [`Self::sync`] of a scene, so the first step
+    /// already uses the viewer settings (e.g. the deterministic mode).
     pub fn simulating(&mut self) -> bool {
+        if !self.scene_synced {
+            return false;
+        }
         match self.ui.run_state {
             RunState::Paused => false,
             RunState::Running => true,

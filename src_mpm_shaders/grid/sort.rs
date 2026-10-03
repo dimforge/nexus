@@ -26,6 +26,7 @@ use crate::grid::grid::*;
 use crate::solver::particle::Position;
 use crate::{IVector, UVector};
 use khal_std::index::MaybeIndexUnchecked;
+use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::atomic_add_u32;
 
@@ -416,6 +417,93 @@ pub fn gpu_copy_scan_values_to_first_particles(
             running += count;
         }
         active_blocks.at_mut(idx).num_particles_with_extras = running - first;
+    }
+}
+
+/// Workgroup size of the sort passes (one workgroup per active block).
+const STABILIZE_WORKGROUP_SIZE: u32 = 256;
+
+/// Writes entry `e` of the segment `[start, end)` at its rank in the segment.
+/// The rank is the number of entries before it, so all slots are written.
+#[inline]
+fn stabilize_entry(e: u32, start: u32, end: u32, sorted_ids: &[u32], stable_ids: &mut [u32]) {
+    let id = sorted_ids.read(e as usize);
+    let mut rank = 0u32;
+
+    for q in start..end {
+        let id_q = sorted_ids.read(q as usize);
+        // Breaking ties by position keeps a permutation even with duplicate ids.
+        if id_q < id || (id_q == id && q < e) {
+            rank += 1;
+        }
+    }
+
+    stable_ids.write((start + rank) as usize, id);
+}
+
+/// Sorts the particle ids of each bucket of a block, so the order doesn't depend on atomics.
+/// Reads `sorted_particle_ids`, writes `stable_particle_ids`. One workgroup per active block.
+#[spirv_bindgen]
+#[spirv(compute(threads(256)))]
+pub fn gpu_stabilize_particles_sort(
+    #[spirv(workgroup_id)] block_id: khal_std::glamx::UVec3,
+    #[spirv(local_invocation_index)] lane: u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] active_blocks: &[ActiveBlockHeader],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] sorted_particle_ids: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] stable_particle_ids: &mut [u32],
+) {
+    let block = active_blocks.at(block_id.x as usize);
+    let first = block.first_particle;
+    let last = first + block.num_particles_with_extras;
+
+    for e in StepRng::new(first + lane..last, STABILIZE_WORKGROUP_SIZE) {
+        // The bucket of `e`, as the number of bucket ends at or below it.
+        // There are at most ten buckets, so counting is enough.
+        let mut bucket = 0u32;
+
+        for k in 0..NUM_SORT_BUCKETS {
+            if e >= block.sort_bucket_cursors.read(k) {
+                bucket += 1;
+            }
+        }
+
+        // `e < last` and the last cursor is `last`, so this stays in bounds.
+        let bucket = (bucket as usize).min(NUM_SORT_BUCKETS - 1);
+        let start = if bucket == 0 {
+            first
+        } else {
+            block.sort_bucket_cursors.read(bucket - 1)
+        };
+        let end = block.sort_bucket_cursors.read(bucket);
+
+        stabilize_entry(e, start, end, sorted_particle_ids, stable_particle_ids);
+    }
+}
+
+/// Same as [`gpu_stabilize_particles_sort`] for the rigid particles.
+/// They have a single segment per block. One workgroup per active block.
+#[spirv_bindgen]
+#[spirv(compute(threads(256)))]
+pub fn gpu_stabilize_rigid_particles_sort(
+    #[spirv(workgroup_id)] block_id: khal_std::glamx::UVec3,
+    #[spirv(local_invocation_index)] lane: u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] active_blocks: &[ActiveBlockHeader],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] sorted_rigid_particle_ids: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    stable_rigid_particle_ids: &mut [u32],
+) {
+    let block = active_blocks.at(block_id.x as usize);
+    let start = block.first_rigid_particle;
+    let end = start + block.num_rigid_particles_with_extras;
+
+    for e in StepRng::new(start + lane..end, STABILIZE_WORKGROUP_SIZE) {
+        stabilize_entry(
+            e,
+            start,
+            end,
+            sorted_rigid_particle_ids,
+            stable_rigid_particle_ids,
+        );
     }
 }
 

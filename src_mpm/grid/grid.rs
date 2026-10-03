@@ -33,6 +33,7 @@ impl WgGrid {
         prefix_sum: &mut PrefixSumWorkspace,
         sort_module: &WgSort,
         prefix_sum_module: &GpuPrefixSum,
+        deterministic: bool,
     ) -> Result<(), GpuBackendError> {
         let particles_len = particles.len() as u32;
         let hmap_capacity = grid.cpu_meta.hmap_capacity;
@@ -186,6 +187,20 @@ impl WgGrid {
             &mut grid.active_blocks,
             &mut particles.sorted_ids,
         )?;
+
+        // The scatter above uses atomics, so the order in a bucket changes between runs.
+        // Sort each bucket by particle id, since P2G sums floats in that order.
+        if deterministic {
+            particles.ensure_stable_ids(backend)?;
+            sort_module.stabilize_particles_sort.call(
+                pass,
+                indirect_dispatch_tensor(&grid.indirect_n_g2p_p2g_groups),
+                &grid.active_blocks,
+                &particles.sorted_ids,
+                &mut particles.stable_ids,
+            )?;
+            std::mem::swap(&mut particles.sorted_ids, &mut particles.stable_ids);
+        }
 
         Ok(())
     }

@@ -67,6 +67,9 @@ pub struct MpmState {
     pub base_dt: f32,
     pub gravity: Vector,
     pub use_cpic: bool,
+    /// Makes two runs of the same scene give identical results, with an extra sort pass.
+    /// If coupled to rigid-bodies, they must be deterministic too.
+    pub deterministic: bool,
     /// Global simulation parameters (gravity, timestep).
     pub sim_params: GpuSimulationParams,
     /// Spatial grid for momentum transfer.
@@ -127,6 +130,8 @@ pub struct MpmGraphKey {
     pub num_hmap_entries: u64,
     /// Length of the coupled-body slot buffer.
     pub num_rbd_body_slots: u64,
+    /// Whether the deterministic particle-ordering pass is dispatched.
+    pub deterministic: bool,
 }
 
 impl MpmState {
@@ -141,6 +146,7 @@ impl MpmState {
             hmap_capacity: self.grid.cpu_meta.hmap_capacity,
             num_hmap_entries: self.grid.hmap_entries.len(),
             num_rbd_body_slots: self.rbd_body_slots.len(),
+            deterministic: self.deterministic,
         }
     }
 
@@ -195,6 +201,7 @@ impl MpmState {
             base_dt: params.dt,
             gravity: params.gravity,
             use_cpic: false,
+            deterministic: false,
             sim_params,
             grid,
             particles,
@@ -387,6 +394,7 @@ impl MpmState {
             particles,
             gravity: params.gravity,
             use_cpic: true,
+            deterministic: false,
             rigid_particles,
             bodies,
             body_materials,
@@ -465,6 +473,7 @@ impl MpmPipeline {
                 &mut data.prefix_sum,
                 &self.sort,
                 &self.prefix_sum,
+                data.deterministic,
             )?;
 
             if data.use_cpic {
@@ -475,6 +484,7 @@ impl MpmPipeline {
                     &mut data.grid,
                     &mut data.prefix_sum,
                     &self.prefix_sum,
+                    data.deterministic,
                 )?;
             }
         }
