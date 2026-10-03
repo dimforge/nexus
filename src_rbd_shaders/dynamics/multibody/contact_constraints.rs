@@ -837,7 +837,8 @@ pub fn gpu_mb_init_contact_constraints(
 /// bounds are saved separately by `gpu_mb_save_prev_cons_bounds`). Called once
 /// per visible frame from `init_step`, before the new layout is computed.
 ///
-/// One thread per slot.
+/// One thread per slot. Only the slots of the previous frame's segments are
+/// copied: they all lie below its total demand (see `gpu_mb_cons_offsets_scan`).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_snapshot_contact_warmstart(
@@ -847,9 +848,13 @@ pub fn gpu_mb_snapshot_contact_warmstart(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     old_contact_constraints: &mut [MultibodyContactConstraint],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_cons_demand: &[u32],
 ) {
     let i = invocation_id.x;
-    if i < batch_ids.mb_contact_constraints_capacity {
+    let used = mb_cons_demand
+        .read(0)
+        .min(batch_ids.mb_contact_constraints_capacity);
+    if i < used {
         old_contact_constraints.write(i as usize, contact_constraints.read(i as usize));
     }
 }

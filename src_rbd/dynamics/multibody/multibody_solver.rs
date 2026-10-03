@@ -257,6 +257,7 @@ impl GpuMultibodySolver {
                 &mb.contact_constraints,
                 &mut mb.old_contact_constraints,
                 args.batch_indices,
+                &mb.mb_cons_demand,
             )?;
         }
         let mut pass = encoder.begin_pass("[RBD] mbi/dynamics", timestamps);
