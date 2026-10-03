@@ -11,6 +11,7 @@ pub extern crate rapier2d as rapier;
 pub extern crate rapier3d as rapier;
 
 mod backend;
+pub mod debug_render;
 mod graphics;
 #[cfg(feature = "dim3")]
 pub mod sensors;
@@ -18,6 +19,7 @@ mod ui;
 pub mod viewer;
 
 pub use backend::BackendType;
+pub use debug_render::{DebugRenderSettings, DebugRenderer, LbvhStatus, MpmDebugRenderMode};
 #[cfg(feature = "dim3")]
 pub use graphics::{RenderMaterial, VisualTexture};
 #[cfg(feature = "dim3")]
@@ -31,11 +33,13 @@ pub enum RunState {
     Step,
 }
 
-#[derive(Copy, Clone)]
-pub struct UiSections {
-    pub show_examples: bool,
-    pub show_settings: bool,
-    pub show_performance: bool,
+/// The tabs of the viewer panel. Only one is shown at a time.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum UiSection {
+    Performance,
+    Settings,
+    Examples,
+    DebugRender,
 }
 
 /// The kind of solver a registered demo uses. Used only to group demos in the

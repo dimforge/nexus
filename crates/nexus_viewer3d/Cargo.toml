@@ -34,7 +34,8 @@ nexus3d = { workspace = true, features = ["rbd", "mpm"]}
 glamx = { workspace = true }
 khal = { workspace = true }
 vortx = { workspace = true }
-rapier3d = { workspace = true, features = ["default"] }
+rapier3d = { workspace = true, features = ["default", "debug-render"] }
+bitflags = { workspace = true }
 bytemuck = { workspace = true }
 kiss3d = { workspace = true, features = ["egui", "rt_switcher"] }
 web-time = { workspace = true }

@@ -513,9 +513,17 @@ impl GpuGrid {
         let default_entries = vec![default_entry; capacity as usize];
         let prev_hmap_entries = Tensor::vector(backend, &default_entries, BufferUsages::STORAGE)?;
         let hmap_entries = Tensor::vector(backend, &default_entries, BufferUsages::STORAGE)?;
-        let nodes =
-            Tensor::vector_uninit(backend, capacity * NODES_PER_BLOCK, BufferUsages::STORAGE)?;
-        let active_blocks = Tensor::vector_uninit(backend, capacity, BufferUsages::STORAGE)?;
+        // COPY_SRC so the debug-renderer can read the nodes.
+        let nodes = Tensor::vector_uninit(
+            backend,
+            capacity * NODES_PER_BLOCK,
+            BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        )?;
+        let active_blocks = Tensor::vector_uninit(
+            backend,
+            capacity,
+            BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        )?;
         let scan_values = Tensor::vector_uninit(backend, capacity, BufferUsages::STORAGE)?;
         let active_blocks_snapshot = Tensor::vector(backend, [0u32], BufferUsages::STORAGE)?;
         let indirect_n_blocks_groups =

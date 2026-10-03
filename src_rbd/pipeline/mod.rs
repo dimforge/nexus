@@ -18,5 +18,7 @@ mod test_polyline_warmstart;
 
 #[cfg(feature = "dim3")]
 pub use rbd_state::RbdSnapshot;
-pub use rbd_state::{RbdCapacities, RbdGraphKey, RbdResizePolicy, RbdState, RunStats};
+pub use rbd_state::{
+    DebugContact, DebugLbvhNode, RbdCapacities, RbdGraphKey, RbdResizePolicy, RbdState, RunStats,
+};
 pub use rbd_step::RbdPipeline;

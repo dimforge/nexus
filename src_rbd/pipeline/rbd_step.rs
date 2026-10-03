@@ -1,6 +1,6 @@
 //! The [`RbdPipeline`] running one full simulation step on the GPU.
 
-use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, GpuNarrowPhase, Lbvh};
+use crate::broad_phase::{GpuNarrowPhase, Lbvh};
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySolver;
 use crate::dynamics::{
@@ -215,8 +215,7 @@ impl RbdPipeline {
 
             drop(pass);
 
-            let use_bf = state.num_active_colliders <= BRUTE_FORCE_MAX_COLLIDERS
-                && std::env::var("NEXUS_DISABLE_BF").is_err();
+            let use_bf = state.uses_brute_force_broad_phase();
             if use_bf {
                 let mut pass = encoder.begin_pass("[RBD] bf-find-pairs", timestamps.as_deref_mut());
                 self.lbvh.brute_force_pairs(

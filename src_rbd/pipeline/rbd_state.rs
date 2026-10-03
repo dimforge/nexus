@@ -1,13 +1,13 @@
 //! GPU-resident rigid-body state ([`RbdState`]): buffer definitions, accessors,
 //! run statistics and capacity/resize policies.
-use crate::broad_phase::{LbvhState, PfmSortState};
+use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, LbvhState, PfmSortState};
 use crate::dynamics::GpuImpulseJointSet;
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
-use crate::math::Pose;
+use crate::math::{Pose, Vector};
 use crate::queries::{GpuColliderMaterial, GpuIndexedContact};
 use crate::shaders::PaddedVector;
-use crate::shaders::broad_phase::{CollisionPair, ContactPlan, NarrowPhasePfmPair};
+use crate::shaders::broad_phase::{CollisionPair, ContactPlan, LbvhNode, NarrowPhasePfmPair};
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
@@ -15,6 +15,7 @@ use crate::shaders::dynamics::{
     TwoBodyConstraintBuilder, Velocity as GpuVelocity,
     WorldMassProperties as GpuWorldMassProperties,
 };
+use crate::shaders::queries::MAX_MANIFOLD_POINTS;
 use crate::shaders::shapes::Shape;
 use crate::shaders::utils::BatchIndices;
 use crate::utils::{ComputeGraphCache, PrefixSumWorkspace};
@@ -23,6 +24,50 @@ use khal::BufferUsages;
 use khal::backend::{Backend, GpuBackend, GpuReadback};
 use std::time::Duration;
 use vortx::tensor::Tensor;
+
+/// One world-space contact point, read back by [`RbdState::debug_contacts`].
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct DebugContact {
+    /// Contact point on the first collider, in world space.
+    pub point: Vector,
+    /// World-space contact normal, pointing away from the first collider.
+    pub normal: Vector,
+    /// Signed distance along the normal (negative if penetrating).
+    pub dist: f32,
+    /// Batch (environment) the contact belongs to.
+    pub batch: u32,
+    /// Env-local indices of the two colliders.
+    pub colliders: [u32; 2],
+    /// Env-local indices of the parent rigid-bodies of the two colliders.
+    pub bodies: [u32; 2],
+}
+
+impl DebugContact {
+    /// The contact point on the second collider, in world space.
+    pub fn point_b(&self) -> Vector {
+        self.point + self.normal * self.dist
+    }
+
+    /// The point the contact constraint acts on: the middle of the two contact points.
+    pub fn solver_point(&self) -> Vector {
+        self.point + self.normal * (self.dist * 0.5)
+    }
+}
+
+/// One node of the broad-phase LBVH, read back by [`RbdState::debug_lbvh`].
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct DebugLbvhNode {
+    /// Lower corner of the world-space AABB of the node.
+    pub mins: Vector,
+    /// Upper corner of that AABB.
+    pub maxs: Vector,
+    /// Depth in the tree of its batch (the root is at depth 0).
+    pub depth: u32,
+    /// Whether the node is a leaf, i.e. the AABB of a single collider.
+    pub leaf: bool,
+    /// Batch (environment) of the tree of this node.
+    pub batch: u32,
+}
 
 /// Performance statistics collected during a physics simulation step.
 #[derive(Default, Clone, Debug)]
@@ -553,6 +598,104 @@ impl RbdState {
     /// step (impulses included). For debugging.
     pub fn rigid_contact_constraints(&self) -> &Tensor<TwoBodyConstraint> {
         &self.new_constraints
+    }
+
+    /// Debug: reads the contacts back from the GPU, as world-space points of all batches.
+    /// Slow: copies the whole contact and collider-pose buffers to the CPU.
+    pub async fn debug_contacts(&self, backend: &GpuBackend) -> Vec<DebugContact> {
+        let Ok(manifolds) = backend
+            .slow_read_vec::<GpuIndexedContact>(self.contacts.buffer())
+            .await
+        else {
+            return Vec::new();
+        };
+        let Ok(poses) = backend
+            .slow_read_vec::<Pose>(self.collider_world_poses.buffer())
+            .await
+        else {
+            return Vec::new();
+        };
+
+        // All slots of the flat contact buffer are written each frame (`len == 0` if empty).
+        // Collider and body ids are global: `global = local * num_batches + batch`.
+        let nb = self.num_batches.max(1);
+        let mut result = Vec::new();
+
+        for manifold in &manifolds {
+            let collider_a = manifold.colliders.x;
+            let Some(pose_a) = poses.get(collider_a as usize) else {
+                continue;
+            };
+            let normal = pose_a.transform_vector(manifold.contact.normal_a);
+
+            for k in 0..(manifold.contact.len as usize).min(MAX_MANIFOLD_POINTS) {
+                let point = manifold.contact.points_a[k];
+                result.push(DebugContact {
+                    point: pose_a.transform_point(point.pt),
+                    normal,
+                    dist: point.dist,
+                    batch: collider_a % nb,
+                    colliders: [manifold.colliders.x / nb, manifold.colliders.y / nb],
+                    bodies: [manifold.bodies.x / nb, manifold.bodies.y / nb],
+                });
+            }
+        }
+
+        result
+    }
+
+    /// Whether the broad phase tests all collider pairs instead of using the LBVH.
+    /// This happens for small scenes; `NEXUS_DISABLE_BF` forces the LBVH.
+    pub fn uses_brute_force_broad_phase(&self) -> bool {
+        self.num_active_colliders <= BRUTE_FORCE_MAX_COLLIDERS
+            && std::env::var("NEXUS_DISABLE_BF").is_err()
+    }
+
+    /// Debug: reads the LBVH back from the GPU, with the depth of each node.
+    /// `None` if the brute-force broad phase is used (there is no tree then). Slow.
+    pub async fn debug_lbvh(&self, backend: &GpuBackend) -> Option<Vec<DebugLbvhNode>> {
+        let n = self.num_active_colliders as usize;
+        if self.uses_brute_force_broad_phase() || n == 0 {
+            return None;
+        }
+        let tree = backend
+            .slow_read_vec::<LbvhNode>(self.lbvh.tree().buffer())
+            .await
+            .ok()?;
+
+        let stride = 2 * self.num_colliders_per_batch as usize;
+        let num_internal = n - 1;
+        let mut result = Vec::with_capacity(2 * n * self.num_batches as usize);
+        let mut stack = Vec::new();
+
+        for batch in 0..self.num_batches as usize {
+            let Some(nodes) = tree.get(batch * stride..batch * stride + 2 * n - 1) else {
+                break;
+            };
+            stack.clear();
+            stack.push((0usize, 0u32));
+            // Bounded by the node count, so a broken tree can't loop forever.
+            for _ in 0..nodes.len() {
+                let Some((id, depth)) = stack.pop() else {
+                    break;
+                };
+                let Some(node) = nodes.get(id) else { continue };
+                let leaf = id >= num_internal;
+                result.push(DebugLbvhNode {
+                    mins: node.aabb.mins,
+                    maxs: node.aabb.maxs,
+                    depth,
+                    leaf,
+                    batch: batch as u32,
+                });
+                if !leaf {
+                    stack.push((node.right as usize, depth + 1));
+                    stack.push((node.left as usize, depth + 1));
+                }
+            }
+        }
+
+        Some(result)
     }
 
     /// Debug: read back active contacts as `(collider_a, collider_b, body_a,
