@@ -873,7 +873,7 @@ pub fn gpu_mb_warmstart_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
         32
     } else {
         64
@@ -970,7 +970,7 @@ pub fn gpu_mb_finalize_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] body_jacobians: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
 ) {
-    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
         8
     } else {
         64

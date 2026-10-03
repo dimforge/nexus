@@ -387,7 +387,7 @@ impl GpuMultibodySolver {
             let mut pass = encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
             self.refresh_joint_constraints.call(
                 &mut pass,
-                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                if mb.max_ndofs <= 32 && mb.num_batches >= 1024 {
                     [
                         (mb.multibodies_per_batch * mb.num_batches).div_ceil(8) * 64,
                         1,
@@ -447,7 +447,7 @@ impl GpuMultibodySolver {
             // when no batch has any contact this step.
             self.warmstart_contact_constraints.call(
                 &mut pass,
-                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                if mb.max_ndofs <= 32 && mb.num_batches >= 1024 {
                     [
                         (mb.multibodies_per_batch * mb.num_batches).div_ceil(2) * 64,
                         1,
@@ -522,7 +522,7 @@ impl GpuMultibodySolver {
                 encoder.begin_pass("[RBD] mbb/finalize-joint", timestamps.as_deref_mut());
             self.finalize_joint_constraints.call(
                 &mut pass,
-                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                if mb.max_ndofs <= 32 && mb.num_batches >= 1024 {
                     [mb.num_batches * mb.multibodies_per_batch * 8, 1, 1]
                 } else {
                     [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]
@@ -563,7 +563,7 @@ impl GpuMultibodySolver {
                 encoder.begin_pass("[RBD] mbb/finalize-contact", timestamps.as_deref_mut());
             self.finalize_contact_constraints.call(
                 &mut pass,
-                if mb.max_ndofs <= 32 && mb.num_batches >= 128 {
+                if mb.max_ndofs <= 32 && mb.num_batches >= 1024 {
                     [mb.num_batches * mb.multibodies_per_batch * 8, 1, 1]
                 } else {
                     [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]

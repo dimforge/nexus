@@ -51,7 +51,7 @@ async fn test_factor_and_columns_equivalence() {
     let backend = GpuBackend::Metal(khal::backend::metal::Metal::new().unwrap());
     let kernels = Kernels::from_backend(&backend).unwrap();
     let usage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
-    for batches in [5u32, 129] {
+    for batches in [5u32, 1025] {
         let joints = 10u32;
         for n in [0u32, 1, 8, 18, 31, 32] {
             let cap = n.max(1);
@@ -169,7 +169,7 @@ async fn test_factor_and_columns_equivalence() {
                     .finalize
                     .call(
                         &mut pass,
-                        if batches >= 128 {
+                        if batches >= 1024 {
                             [(2 * batches).div_ceil(8) * 64, 1, 1]
                         } else {
                             [128, batches, 1]
@@ -228,6 +228,6 @@ async fn test_factor_and_columns_equivalence() {
         }
     }
     println!(
-        "1608 LU/column configurations passed, with small and large batch dispatch, pivoted matrices and motor/limit/coupling/friction columns"
+        "12360 LU/column configurations passed, with small and large batch dispatch, pivoted matrices and motor/limit/coupling/friction columns"
     );
 }

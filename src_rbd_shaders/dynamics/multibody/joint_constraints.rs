@@ -663,7 +663,7 @@ pub fn gpu_mb_finalize_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] lu_pivots: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
         8
     } else {
         64
@@ -761,7 +761,7 @@ pub fn gpu_mb_refresh_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 5)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 128 {
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
         8
     } else {
         64
