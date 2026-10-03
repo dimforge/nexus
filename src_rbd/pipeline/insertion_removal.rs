@@ -177,6 +177,8 @@ impl RbdState {
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_colors =
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let constraints_pending_colors =
+            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let old_constraints_colors =
             Tensor::vector(backend, vec![0u32; contacts_capacity as usize], storage).unwrap();
         let colored = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
@@ -335,6 +337,7 @@ impl RbdState {
             rb_contacts_inert: false,
             num_active_colliders: 0,
             num_active_bodies: 0,
+            determinism: RbdDeterminismState::new(backend, false, constraints_pending_colors),
         }
     }
 
@@ -441,6 +444,8 @@ impl RbdState {
                 rb.angvel(),
             ));
         }
+
+        self.determinism.has_composite_shapes |= shapes.iter().any(|s| s.is_composite());
 
         // The incremental path attaches exactly one collider per body, so a
         // body's collider slot equals its body slot: `collider_parent` is the

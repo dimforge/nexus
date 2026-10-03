@@ -7,7 +7,8 @@ use crate::shaders::PaddedVector;
 use crate::shaders::broad_phase::GpuReduceContacts;
 use crate::shaders::broad_phase::{
     CollisionPair, ContactPlan, GpuContactPlan, GpuNarrowPhasePfmPfm, GpuNarrowPhaseShapeShape,
-    GpuNarrowPhaseShapeShapeDeferred, GpuPfmSortKeys, GpuResetNarrowPhase, NarrowPhasePfmPair,
+    GpuNarrowPhaseShapeShapeDeferred, GpuPfmPairSortKeysPermuted, GpuPfmSortKeys,
+    GpuPfmSubShapeSortKeys, GpuResetNarrowPhase, NarrowPhasePfmPair,
 };
 use crate::shaders::shapes::Shape;
 use crate::utils::{RadixSort, RadixSortWorkspace};
@@ -30,6 +31,10 @@ struct GpuNarrowPhaseShaders {
     contact_plan: GpuContactPlan,
     /// Extracts each PFM entry's pair index into the radix-sort key buffer.
     pfm_sort_keys: GpuPfmSortKeys,
+    /// Deterministic mode: sub-shape keys of the first PFM sort pass.
+    pfm_sub_shape_sort_keys: GpuPfmSubShapeSortKeys,
+    /// Deterministic mode: pair-index keys of the second pass, in the first pass order.
+    pfm_pair_sort_keys_permuted: GpuPfmPairSortKeysPermuted,
 }
 
 /// GPU shader for narrow-phase collision detection.
@@ -62,6 +67,9 @@ pub struct PfmSortState {
     /// Sort outputs (pair-grouped keys + entry permutation).
     sorted_keys: Tensor<u32>,
     sorted_values: Tensor<u32>,
+    /// Outputs of the sub-shape pass done before the pair sort in deterministic mode.
+    sub_shape_sorted_keys: Tensor<u32>,
+    sub_shape_sorted_values: Tensor<u32>,
     /// Clamped PFM entry count (the sort's GPU-side `n_sort`), written by
     /// `gpu_contact_plan`.
     sort_len: Tensor<u32>,
@@ -78,6 +86,10 @@ impl PfmSortState {
             identity: Tensor::vector(backend, &identity, storage).unwrap(),
             sorted_keys: Tensor::vector_uninit(backend, capacity.max(1), storage).unwrap(),
             sorted_values: Tensor::vector_uninit(backend, capacity.max(1), storage).unwrap(),
+            sub_shape_sorted_keys: Tensor::vector_uninit(backend, capacity.max(1), storage)
+                .unwrap(),
+            sub_shape_sorted_values: Tensor::vector_uninit(backend, capacity.max(1), storage)
+                .unwrap(),
             sort_len: Tensor::vector(backend, [0u32], storage).unwrap(),
             workspace: RadixSortWorkspace::new(backend),
         }
@@ -124,6 +136,9 @@ impl GpuNarrowPhase {
         // solvers see them. Enables the per-pair PFM sort (the manifolds of a
         // pair must land in contiguous slots for the per-run reduction).
         reduce_contacts: bool,
+        // Deterministic mode with composite shapes: also sort the PFM entries of a pair by
+        // sub-shape, since the reduction merges them in order.
+        canonical_runs: bool,
         // The `[total/64, 1, 1]` grid written by the broad phase from the
         // single global pair counter.
         collision_pairs_indirect: &Tensor<[u32; 3]>,
@@ -190,13 +205,6 @@ impl GpuNarrowPhase {
         // the entries are consumed in emission order through the identity
         // permutation.
         if reduce_contacts {
-            self.shaders.pfm_sort_keys.call(
-                pass,
-                &*pfm_pairs_indirect,
-                pfm_pairs,
-                &*contact_plan,
-                &mut pfm_sort.keys,
-            )?;
             // Keys are flat pair indices: bounded by the pair capacity.
             let sorting_bits =
                 (32 - collision_pairs_capacity.saturating_sub(1).leading_zeros()).max(1);
@@ -207,21 +215,74 @@ impl GpuNarrowPhase {
                 identity,
                 sorted_keys,
                 sorted_values,
+                sub_shape_sorted_keys,
+                sub_shape_sorted_values,
                 sort_len,
                 workspace,
             } = pfm_sort;
-            self.sort.dispatch(
-                backend,
-                pass,
-                workspace,
-                keys,
-                identity,
-                sort_len,
-                sorting_bits,
-                1,
-                sorted_keys,
-                sorted_values,
-            )?;
+
+            if canonical_runs {
+                // Stable sort chain: sub-shape first, then the pair index.
+                self.shaders.pfm_sub_shape_sort_keys.call(
+                    pass,
+                    &*pfm_pairs_indirect,
+                    pfm_pairs,
+                    &*contact_plan,
+                    &mut *keys,
+                )?;
+                self.sort.dispatch(
+                    backend,
+                    pass,
+                    workspace,
+                    keys,
+                    identity,
+                    sort_len,
+                    32,
+                    1,
+                    sub_shape_sorted_keys,
+                    sub_shape_sorted_values,
+                )?;
+                self.shaders.pfm_pair_sort_keys_permuted.call(
+                    pass,
+                    &*pfm_pairs_indirect,
+                    pfm_pairs,
+                    &*contact_plan,
+                    &*sub_shape_sorted_values,
+                    &mut *keys,
+                )?;
+                self.sort.dispatch(
+                    backend,
+                    pass,
+                    workspace,
+                    keys,
+                    sub_shape_sorted_values,
+                    sort_len,
+                    sorting_bits,
+                    1,
+                    sorted_keys,
+                    sorted_values,
+                )?;
+            } else {
+                self.shaders.pfm_sort_keys.call(
+                    pass,
+                    &*pfm_pairs_indirect,
+                    pfm_pairs,
+                    &*contact_plan,
+                    &mut *keys,
+                )?;
+                self.sort.dispatch(
+                    backend,
+                    pass,
+                    workspace,
+                    keys,
+                    identity,
+                    sort_len,
+                    sorting_bits,
+                    1,
+                    sorted_keys,
+                    sorted_values,
+                )?;
+            }
         }
 
         // PFM entry `i` (in sorted order when the sort ran) writes contact

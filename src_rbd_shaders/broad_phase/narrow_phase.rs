@@ -134,6 +134,43 @@ pub fn gpu_pfm_sort_keys(
     }
 }
 
+/// Keys of the first pass of the deterministic PFM sort: the sub-shape of each entry.
+/// The reduction merges the entries of a pair in order, so this order must be fixed.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_pfm_sub_shape_sort_keys(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] pfm_pairs: &[NarrowPhasePfmPair],
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] contact_plan: &ContactPlan,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] sort_keys: &mut [u32],
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let total = contact_plan.pfm_len;
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        sort_keys.write(t as usize, pfm_pairs.read(t as usize).subshape);
+    }
+}
+
+/// Keys of the second pass of the deterministic PFM sort: the pair index of each entry.
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_pfm_pair_sort_keys_permuted(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] pfm_pairs: &[NarrowPhasePfmPair],
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] contact_plan: &ContactPlan,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] order: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] sort_keys: &mut [u32],
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    let total = contact_plan.pfm_len;
+    for t in StepRng::new(invocation_id.x..total, num_threads) {
+        let entry = order.read(t as usize);
+        sort_keys.write(t as usize, pfm_pairs.read(entry as usize).pair_index);
+    }
+}
+
 /// Default cluster threshold: normals must agree within ~5.1 degrees,
 /// matching rapier's `contact_clustering::COS_MERGE_ANGLE`. Passed as a
 /// uniform so it can be loosened (`-1` merges every manifold of a pair,

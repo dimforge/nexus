@@ -40,3 +40,11 @@ khal = { workspace = true }
 nexus_rbd3d = { workspace = true, optional = true, features = ["default"] }
 nexus_mpm3d = { workspace = true, optional = true }
 
+[dev-dependencies]
+rapier3d = { workspace = true, features = ["default"] }
+pollster = { workspace = true }
+
+[[test]]
+name = "determinism"
+path = "tests/determinism.rs"
+required-features = ["rbd", "mpm"]

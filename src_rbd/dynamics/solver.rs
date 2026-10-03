@@ -87,6 +87,9 @@ pub struct SolverArgs<'a> {
     /// `GpuMultibodySolver::layout_contact_constraints`.
     #[cfg(feature = "dim3")]
     pub mb_contact_index: &'a mut Tensor<MbContactIndexEntry>,
+    /// Deterministic mode only: output of the sort of the multibody contact-index segments.
+    #[cfg(feature = "dim3")]
+    pub stable_mb_contact_index: Option<&'a mut Tensor<MbContactIndexEntry>>,
     /// Flat dispatch grid over the whole contacts range.
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Solver constraints (output from constraint initialization).
@@ -284,6 +287,8 @@ impl GpuSolver {
 
         let skip_rb = args.rb_contacts_inert;
         let joints_empty = joint_args.joints.is_empty();
+        #[cfg(feature = "dim3")]
+        let stable_mb_contact_index = args.stable_mb_contact_index;
 
         /*
          * Init solver vel increments.
@@ -324,7 +329,12 @@ impl GpuSolver {
                     mb_sweep_indirect: args.mb_sweep_indirect,
                     friction_in_bias_pass: args.friction_in_bias_pass,
                 };
-                solver.layout_contact_constraints(&mut pass, state, &mut mb_args)?;
+                solver.layout_contact_constraints(
+                    &mut pass,
+                    state,
+                    &mut mb_args,
+                    stable_mb_contact_index,
+                )?;
             }
         }
 

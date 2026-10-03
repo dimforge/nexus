@@ -87,6 +87,12 @@ pub struct BatchIndices {
     pub mass_matrix_acc_section_offset: u32,
     /// Per-batch stride (capacity) of the multibody DoF-coupling buffer.
     pub mb_dof_couplings_batch_capacity: u32,
+    /// Bits of a collider index, i.e. the shift of `collider_a` in a packed pair key.
+    /// Only used in deterministic mode.
+    pub contact_sort_collider_shift: u32,
+    /// Non-zero in deterministic mode, so two runs give identical results on the same machine.
+    /// See `RbdState::set_deterministic`.
+    pub deterministic: u32,
 }
 
 impl BatchIndices {

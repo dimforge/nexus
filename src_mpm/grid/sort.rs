@@ -8,9 +8,9 @@ use crate::mpm_shaders::grid::sort::{
     GpuCopyParticlesLenToScanValue, GpuCopyRigidParticlesLenToScanValue,
     GpuCopyScanValuesToFirstParticles, GpuCopyScanValuesToFirstRigidParticles,
     GpuFinalizeParticlesSort, GpuFinalizeRigidParticlesSort, GpuMarkRigidParticlesNeedingBlock,
-    GpuTouchNeighborBlocks, GpuTouchParticleBlocks, GpuTouchPrimaryBlocks,
-    GpuTouchRigidParticleBlocks, GpuUpdateBlockParticleCount, GpuUpdateBlockRigidParticleCount,
-    GpuUpdateNbhBlockIds,
+    GpuStabilizeParticlesSort, GpuStabilizeRigidParticlesSort, GpuTouchNeighborBlocks,
+    GpuTouchParticleBlocks, GpuTouchPrimaryBlocks, GpuTouchRigidParticleBlocks,
+    GpuUpdateBlockParticleCount, GpuUpdateBlockRigidParticleCount, GpuUpdateNbhBlockIds,
 };
 use crate::solver::GpuRigidParticles;
 use khal::Shader;
@@ -35,10 +35,12 @@ pub struct WgSort {
     pub(crate) copy_particles_len_to_scan_value: GpuCopyParticlesLenToScanValue,
     pub(crate) copy_scan_values_to_first_particles: GpuCopyScanValuesToFirstParticles,
     pub(crate) finalize_particles_sort: GpuFinalizeParticlesSort,
+    pub(crate) stabilize_particles_sort: GpuStabilizeParticlesSort,
     pub(crate) update_block_rigid_particle_count: GpuUpdateBlockRigidParticleCount,
     pub(crate) copy_rigid_particles_len_to_scan_value: GpuCopyRigidParticlesLenToScanValue,
     pub(crate) copy_scan_values_to_first_rigid_particles: GpuCopyScanValuesToFirstRigidParticles,
     pub(crate) finalize_rigid_particles_sort: GpuFinalizeRigidParticlesSort,
+    pub(crate) stabilize_rigid_particles_sort: GpuStabilizeRigidParticlesSort,
 }
 
 impl WgSort {
@@ -55,6 +57,7 @@ impl WgSort {
         grid: &mut GpuGrid,
         prefix_sum: &mut PrefixSumWorkspace,
         prefix_sum_module: &GpuPrefixSum,
+        deterministic: bool,
     ) -> Result<(), GpuBackendError> {
         if rigid_particles.is_empty() {
             return Ok(());
@@ -97,6 +100,21 @@ impl WgSort {
             &mut grid.active_blocks,
             &mut rigid_particles.sorted_ids,
         )?;
+
+        if deterministic {
+            rigid_particles.ensure_stable_ids(backend)?;
+            self.stabilize_rigid_particles_sort.call(
+                pass,
+                indirect_dispatch_tensor(&grid.indirect_n_g2p_p2g_groups),
+                &grid.active_blocks,
+                &rigid_particles.sorted_ids,
+                &mut rigid_particles.stable_ids,
+            )?;
+            std::mem::swap(
+                &mut rigid_particles.sorted_ids,
+                &mut rigid_particles.stable_ids,
+            );
+        }
 
         Ok(())
     }

@@ -205,6 +205,9 @@ pub struct NexusState {
     /// [`Self::finalize`] to rebuild the MPM↔rapier coupling.
     #[cfg(feature = "mpm")]
     mpm_dirty: bool,
+    /// The deterministic mode, kept here until the sub-states are created.
+    /// See [`Self::set_deterministic`].
+    deterministic: bool,
 
     // Initial capacities used to allocate the states lazily.
     capacities: NexusCapacities,
@@ -235,6 +238,9 @@ pub struct NexusState {
     /// elsewhere). The graphs are re-recorded whenever the scene's structure
     /// changes; see `RbdState::compute_graph` and `MpmState::compute_graphs`.
     pub compute_graphs: bool,
+    /// Number of [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate)
+    /// calls on this state. See [`Self::steps`].
+    pub(crate) steps: u64,
     /// Per-environment GPU collider-slot reservation. When > 0, the GPU
     /// [`RbdState`] is built with this many slots (rather than exactly the
     /// current body count), leaving room for [`Self::add_rigid_body`] to append
@@ -269,6 +275,7 @@ impl NexusState {
             rbd_dirty: false,
             rbd_steps_per_frame: 1,
             compute_graphs: false,
+            steps: 0,
             rbd_reserve_per_env: 0,
             rbd2gpu: vec![Coarena::new()],
             #[cfg(feature = "mpm")]
@@ -284,6 +291,7 @@ impl NexusState {
             mpm_use_cpic: true,
             #[cfg(feature = "mpm")]
             mpm_dirty: false,
+            deterministic: false,
             capacities,
         }
     }
@@ -295,6 +303,33 @@ impl NexusState {
             env.reserve(additional.rbd.body_capacity as usize);
         }
         // TODO: reserve the MPM handle maps and resize the GPU buffers too.
+    }
+
+    /// Makes two runs of the same scene give identical results (same machine and build).
+    /// Off by default. Also needs fixed inputs: timestep, substeps, insertions and removals.
+    pub fn set_deterministic(&mut self, backend: &GpuBackend, enabled: bool) {
+        if self.deterministic == enabled {
+            return;
+        }
+
+        self.deterministic = enabled;
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.set_deterministic(backend, enabled);
+        }
+        if let Some(mpm) = self.mpm.as_mut() {
+            mpm.deterministic = enabled;
+        }
+    }
+
+    /// Whether the simulation runs in deterministic mode.
+    pub fn deterministic(&self) -> bool {
+        self.deterministic
+    }
+
+    /// Number of [`NexusPipeline::simulate`](crate::pipeline::NexusPipeline::simulate)
+    /// calls since the scene was created (one per testbed "Step").
+    pub fn steps(&self) -> u64 {
+        self.steps
     }
 
     /// Sets the MPM simulation parameters (gravity, timestep) and grid cell
@@ -533,6 +568,7 @@ impl NexusState {
                 mpm.set_simulation_params(backend, params)?;
             }
             mpm.use_cpic = self.mpm_use_cpic;
+            mpm.deterministic = self.deterministic;
             self.mpm = Some(mpm);
         }
         Ok(self.mpm.as_mut().unwrap())
@@ -1568,6 +1604,9 @@ impl NexusState {
             if self.rbd_substep_refresh != (true, false) {
                 rbd_state
                     .set_substep_refresh(self.rbd_substep_refresh.0, self.rbd_substep_refresh.1);
+            }
+            if self.deterministic {
+                rbd_state.set_deterministic(backend, true);
             }
             self.rbd = Some(rbd_state);
             self.rbd_dirty = false;

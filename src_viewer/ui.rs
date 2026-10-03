@@ -155,7 +155,13 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                     }
                     Some(UiSection::Performance) => {
                         ui.separator();
-                        performance_ui(ui, &state.counts, &state.run_stats, state.sync_time);
+                        performance_ui(
+                            ui,
+                            &state.counts,
+                            &state.run_stats,
+                            state.sync_time,
+                            state.steps,
+                        );
                     }
                     Some(UiSection::Examples) if !state.demos.is_empty() => {
                         ui.separator();
@@ -202,6 +208,10 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                 {
                     state.transition = Some(Transition::Switch);
                 }
+
+                ui.label(format!("step {}", state.steps)).on_hover_text(
+                    "Steps advanced since the example was (re)started, one per simulated frame",
+                );
             });
         });
 }
@@ -243,6 +253,13 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
         ui.label("Rigid bodies");
         ui.add(egui::Slider::new(&mut s.rbd_steps_per_frame, 1..=20).text("steps / frame"));
     }
+
+    ui.add_space(4.0);
+    ui.checkbox(&mut s.deterministic, "Deterministic")
+        .on_hover_text(
+            "Makes two runs of the same scene match bit for bit, at a ~25-40% cost per step. \
+         Also enabled by the testbed's --deterministic flag.",
+        );
 }
 
 /// Debug-renderer controls: what to draw, and how.
@@ -441,6 +458,7 @@ fn performance_ui(
     counts: &NexusCounts,
     run_stats: &RunStats,
     sync_time: Duration,
+    steps: u64,
 ) {
     // Scene entity counts.
     ui.label(RichText::new("Scene").strong());
@@ -454,6 +472,8 @@ fn performance_ui(
                 ui.label(format!("{value}"));
                 ui.end_row();
             };
+
+            row("Steps:", steps as usize);
 
             if counts.rigid_bodies > 0 {
                 row("Environments:", counts.num_environments);

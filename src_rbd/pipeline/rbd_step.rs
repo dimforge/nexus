@@ -4,8 +4,9 @@ use crate::broad_phase::{GpuNarrowPhase, Lbvh};
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySolver;
 use crate::dynamics::{
-    ColoringArgs, GpuColoring, GpuJointSolver, GpuMpropsUpdate, GpuSolver, GpuWarmstart,
-    JointSolverArgs, SolverArgs, warmstart::WarmstartArgs,
+    CanonicalContactsArgs, ColoringArgs, GpuCanonicalOrder, GpuColoring, GpuJointSolver,
+    GpuMpropsUpdate, GpuSolver, GpuWarmstart, JointSolverArgs, SolverArgs,
+    warmstart::WarmstartArgs,
 };
 use crate::shaders::broad_phase::LbvhNode;
 use crate::utils::GpuPrefixSum;
@@ -33,6 +34,8 @@ pub struct RbdPipeline {
     /// Optional (default `false`): merge each collider pair's manifolds
     /// (e.g. per-triangle trimesh contacts) into one before the solvers.
     pub contact_reduction: bool,
+    /// Passes that put the per-step lists in a fixed order (deterministic mode only).
+    canonical_order: GpuCanonicalOrder,
 }
 
 impl RbdPipeline {
@@ -55,6 +58,7 @@ impl RbdPipeline {
             coloring: GpuColoring::from_backend(backend)?,
             warmstart: GpuWarmstart::from_backend(backend)?,
             contact_reduction: false,
+            canonical_order: GpuCanonicalOrder::from_backend(backend)?,
         })
     }
 
@@ -325,9 +329,36 @@ impl RbdPipeline {
                 &state.collider_materials,
                 &state.sim_params,
                 self.contact_reduction,
+                state.determinism.enabled && state.determinism.has_composite_shapes,
                 &state.collision_pairs_indirect,
                 state.collision_pairs_capacity_cpu,
             )?;
+
+            // Deterministic mode: the contact order follows the pair order, which changes per run.
+            // Sort the contacts by `(collider_a, collider_b, subshape)`.
+            if state.determinism.enabled {
+                self.canonical_order.canonicalize_contacts(
+                    backend,
+                    &mut pass,
+                    CanonicalContactsArgs {
+                        contacts: &state.contacts,
+                        contacts_scratch: &mut state.determinism.contacts_scratch,
+                        contact_plan: &state.contact_plan,
+                        contacts_indirect: &state.contacts_indirect,
+                        sort_n: &mut state.determinism.contact_sort_n,
+                        sort_keys: &mut state.determinism.contact_sort_keys,
+                        sort_ids: &mut state.determinism.contact_sort_ids,
+                        sort_keys_out: &mut state.determinism.contact_sort_keys_out,
+                        sort_ids_out: &mut state.determinism.contact_sort_ids_out,
+                        sort_workspace: &mut state.determinism.contact_sort_workspace,
+                        key_selector_uniforms: &state.determinism.contact_key_selectors,
+                        batch_indices: &state.batch_indices,
+                        num_colliders: state.num_active_colliders * state.num_batches,
+                        has_composite_shapes: state.determinism.has_composite_shapes,
+                    },
+                )?;
+                std::mem::swap(&mut state.contacts, &mut state.determinism.contacts_scratch);
+            }
 
             drop(pass);
             if !merge_submits {
@@ -347,6 +378,8 @@ impl RbdPipeline {
                 contact_plan: &state.contact_plan,
                 #[cfg(feature = "dim3")]
                 mb_contact_index: &mut state.mb_contact_index,
+                #[cfg(feature = "dim3")]
+                stable_mb_contact_index: None,
                 contacts_len_indirect: &state.contacts_indirect,
                 constraints: &mut state.new_constraints,
                 constraint_builders: &mut state.new_constraint_builders,
@@ -388,6 +421,23 @@ impl RbdPipeline {
                 &mut state.prefix_sum_workspace,
             )?;
 
+            // Deterministic mode: the body constraint lists are filled with atomics,
+            // and the warmstart sums the impulses in list order.
+            if state.determinism.enabled && !state.rb_contacts_inert {
+                self.canonical_order.stabilize_body_constraint_ids(
+                    &mut pass,
+                    &state.new_constraints_counts,
+                    &state.new_body_constraint_ids,
+                    &mut state.determinism.stable_body_constraint_ids,
+                    &state.batch_indices,
+                    state.num_active_colliders * state.num_batches,
+                )?;
+                std::mem::swap(
+                    &mut state.new_body_constraint_ids,
+                    &mut state.determinism.stable_body_constraint_ids,
+                );
+            }
+
             if state.rb_contacts_inert {
                 stats.num_colors = state.max_colors + 1;
                 drop(pass);
@@ -413,6 +463,7 @@ impl RbdPipeline {
                     body_constraint_ids: &state.new_body_constraint_ids,
                     constraints: &state.new_constraints,
                     constraints_colors: &mut state.constraints_colors,
+                    constraints_pending_colors: &mut state.determinism.pending_colors,
                     constraints_rands: &mut state.constraints_rands,
                     curr_color: &mut state.curr_color,
                     uncolored: &mut state.uncolored,
@@ -448,6 +499,7 @@ impl RbdPipeline {
                     body_constraint_ids: &state.new_body_constraint_ids,
                     constraints: &state.new_constraints,
                     constraints_colors: &mut state.constraints_colors,
+                    constraints_pending_colors: &mut state.determinism.pending_colors,
                     constraints_rands: &mut state.constraints_rands,
                     curr_color: &mut state.curr_color,
                     uncolored: &mut state.uncolored,
@@ -501,6 +553,11 @@ impl RbdPipeline {
             contact_plan: &state.contact_plan,
             #[cfg(feature = "dim3")]
             mb_contact_index: &mut state.mb_contact_index,
+            #[cfg(feature = "dim3")]
+            stable_mb_contact_index: state
+                .determinism
+                .enabled
+                .then_some(&mut state.determinism.stable_mb_contact_index),
             contacts_len_indirect: &state.contacts_indirect,
             constraints: &mut state.new_constraints,
             constraint_builders: &mut state.new_constraint_builders,
@@ -732,6 +789,8 @@ impl RbdPipeline {
                 state.new_body_constraint_ids =
                     Tensor::vector_uninit(backend, new_contacts * 2, storage)?;
                 state.constraints_colors = Tensor::vector_uninit(backend, new_contacts, storage)?;
+                state.determinism.pending_colors =
+                    Tensor::vector_uninit(backend, new_contacts, storage)?;
                 // Zeroed (not uninit): 0 = "uncolored" disables color seeding
                 // for the frame right after the resize.
                 state.old_constraints_colors =

@@ -74,6 +74,14 @@ impl Shape {
         f32::to_bits(self.a.w)
     }
 
+    /// Whether the shape is a trimesh or polyline, i.e. a collider pair can give several
+    /// manifolds. The deterministic contact sort then needs an extra pass.
+    #[inline]
+    pub fn is_composite(&self) -> bool {
+        let ty = self.shape_type();
+        ty == SHAPE_TYPE_TRIMESH || ty == SHAPE_TYPE_POLYLINE
+    }
+
     /*
      *
      * Shape conversions.

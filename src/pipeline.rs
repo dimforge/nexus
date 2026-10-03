@@ -247,6 +247,7 @@ impl NexusPipeline {
             pipeline.writeback_body_poses(backend, mpm, rbd.body_poses_mut())?;
         }
 
+        state.steps += 1;
         state.run_stats.encoding_time = t0.elapsed();
 
         // If we recorded this frame, kick off the non-blocking readback of the

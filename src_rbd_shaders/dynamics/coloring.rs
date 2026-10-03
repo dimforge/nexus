@@ -11,7 +11,7 @@ use khal_std::{
     sync::{atomic_add_u32, atomic_max_u32},
 };
 
-use crate::utils::{Slice, SliceMut};
+use crate::utils::{BatchIndices, Slice, SliceMut};
 use khal_std::index::MaybeIndexUnchecked;
 
 use super::constraint::TwoBodyConstraint;
@@ -20,6 +20,10 @@ const WORKGROUP_SIZE: u32 = 64;
 
 /// Maximum u32 value (used to mark uncolored constraints in Luby algorithm).
 pub const MAX_U32: u32 = u32::MAX;
+
+/// Deterministic mode: the constraint picked a color this round and has no conflict yet.
+/// Becomes 1 (kept) or 0 (lost) in the same `gpu_fix_conflicts_topo_gc` dispatch.
+const PENDING_COLORED: u32 = 2;
 
 /// Hash function for generating random weights.
 ///
@@ -32,6 +36,30 @@ fn hash(packed_key: u32) -> u32 {
     key = key.rotate_left(15);
     key *= 0x1b873593;
     key
+}
+
+/// Returns the `n`-th free color of a 64-bit mask (`n = 0` is the lowest), or 63 if none.
+/// Spreads the picks of the same round over different colors to avoid conflicts.
+#[inline]
+fn nth_free_color(mask: (u32, u32), n: u32) -> u32 {
+    let mut result = 63u32;
+
+    for c in 0..64u32 {
+        let (free, below) = if c < 32 {
+            let occupied_below = (mask.0 & ((1u32 << c) - 1)).count_ones();
+            ((mask.0 >> c) & 1 == 0, c - occupied_below)
+        } else {
+            let bit = c - 32;
+            let occupied_below = mask.0.count_ones() + (mask.1 & ((1u32 << bit) - 1)).count_ones();
+            ((mask.1 >> bit) & 1 == 0, c - occupied_below)
+        };
+
+        if free && below == n && c < result {
+            result = c;
+        }
+    }
+
+    result
 }
 
 /*
@@ -186,6 +214,7 @@ pub fn gpu_reset_topo_gc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] pending_colors: &mut [u32],
 ) {
     let total = contact_plan.bound;
     let i = invocation_id.x;
@@ -198,6 +227,8 @@ pub fn gpu_reset_topo_gc(
         // skip them (and converge).
         let inert = if constraints.at(idx).len == 0 { 1 } else { 0 };
         colored.write(idx, inert);
+        // No pick yet, so the first fix pass only reads committed colors.
+        pending_colors.write(idx, MAX_U32);
     }
 }
 
@@ -255,6 +286,8 @@ pub fn gpu_step_graph_coloring_topo_gc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] body_group: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 9)] pending_colors: &mut [u32],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
@@ -265,6 +298,11 @@ pub fn gpu_step_graph_coloring_topo_gc(
     let constraints = Slice(constraints, 0);
     let mut constraints_colors = SliceMut(constraints_colors, 0);
     let mut colored = SliceMut(colored, 0);
+    let mut pending_colors = SliceMut(pending_colors, 0);
+
+    // Deterministic mode: the pick goes to `pending_colors` and the fix pass commits it.
+    // So this pass only reads colors from the previous rounds, whatever the thread order.
+    let deterministic = batch_ids.deterministic != 0;
 
     for constraint_i in StepRng::new(invocation_id.x..total, num_threads) {
         let i = constraint_i as usize;
@@ -321,11 +359,38 @@ pub fn gpu_step_graph_coloring_topo_gc(
                 }
             }
 
-            let my_color = (!color_mask.0).trailing_zeros() + (!color_mask.1).trailing_zeros();
-            constraints_colors[i] = my_color;
-            colored[i] = 1;
+            if deterministic {
+                // Rank among the neighbors picking in this round, so they get different colors.
+                // Counted in separate loops: the SPIR-V backend dislikes loops with many variables.
+                let mut rank = 0u32;
+
+                for j in first_constraint_id_a..last_constraint_id_a {
+                    let constraint_j = body_constraint_ids[j];
+                    if constraint_j < constraint_i && colored[constraint_j as usize] == 0 {
+                        rank += 1;
+                    }
+                }
+
+                for j in first_constraint_id_b..last_constraint_id_b {
+                    let constraint_j = body_constraint_ids[j];
+                    if constraint_j < constraint_i && colored[constraint_j as usize] == 0 {
+                        rank += 1;
+                    }
+                }
+
+                pending_colors[i] = nth_free_color(color_mask, rank);
+                // `colored` is not written here since the rank loops read it.
+                // The fix pass sets it, based on `pending_colors[i]`.
+            } else {
+                constraints_colors[i] =
+                    (!color_mask.0).trailing_zeros() + (!color_mask.1).trailing_zeros();
+                colored[i] = 1;
+            }
             // We are not finished coloring. 0 indicates the algorithm must continue.
             *num_colors = 0;
+        } else if deterministic {
+            // No pick in this round: the fix pass uses the committed color.
+            pending_colors[i] = MAX_U32;
         }
     }
 }
@@ -339,11 +404,13 @@ pub fn gpu_fix_conflicts_topo_gc(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] contact_plan: &ContactPlan,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] body_group: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 9)] pending_colors: &[u32],
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
 
@@ -352,8 +419,13 @@ pub fn gpu_fix_conflicts_topo_gc(
     let body_constraint_ids = Slice(body_constraint_ids, 0);
     let body_group = Slice(body_group, 0);
     let constraints = Slice(constraints, 0);
-    let constraints_colors = Slice(constraints_colors, 0);
+    let mut constraints_colors = SliceMut(constraints_colors, 0);
     let mut colored = SliceMut(colored, 0);
+    let pending_colors = Slice(pending_colors, 0);
+
+    // In deterministic mode, this pass also commits the picks that have no conflict.
+    // It never reads and writes `constraints_colors` at the same slot.
+    let deterministic = batch_ids.deterministic != 0;
 
     for constraint_i in StepRng::new(invocation_id.x..total, num_threads) {
         let i = constraint_i as usize;
@@ -361,7 +433,23 @@ pub fn gpu_fix_conflicts_topo_gc(
         if constraints[i].len == 0 {
             continue;
         }
-        let color_i = constraints_colors[i];
+        let pending_i = if deterministic {
+            pending_colors[i]
+        } else {
+            MAX_U32
+        };
+        // The color of the constraint in this round: its new pick, or its previous color.
+        let color_i = if pending_i != MAX_U32 {
+            pending_i
+        } else {
+            constraints_colors[i]
+        };
+
+        // Deterministic mode: mark the picks of this round. The loops below clear the
+        // mark on the ones in conflict.
+        if pending_i != MAX_U32 {
+            colored[i] = PENDING_COLORED;
+        }
 
         // NOTE: this `num_colors` read doesn't need to be atomic. Any non-zero value is indicative of a finished
         //       algorithm.
@@ -370,7 +458,7 @@ pub fn gpu_fix_conflicts_topo_gc(
         if *num_colors > 0 {
             // TODO PERF: not sure if that would have a significant impact but we could keep track of
             //            whether the last iteration of the TOPO-GC algorithm already finished, in which
-            //            case we can skip the atomic max entirely and just early-exist.
+            //            case we can skip the atomic max entirely and just early-exit.
 
             atomic_max_u32(num_colors, color_i);
         } else {
@@ -392,12 +480,23 @@ pub fn gpu_fix_conflicts_topo_gc(
             };
             let last_constraint_id_b = body_constraint_counts[body_b as usize] as usize;
 
-            // Traverse all constraints from body A.
+            // Traverse all constraints from body A. On a conflict, the largest index keeps
+            // its color, the others pick again in the next round.
             for j in first_constraint_id_a..last_constraint_id_a {
                 let constraint_j = body_constraint_ids[j];
 
                 if constraint_j != constraint_i {
-                    let color_j = constraints_colors[constraint_j as usize];
+                    let cj = constraint_j as usize;
+                    let pending_j = if deterministic {
+                        pending_colors[cj]
+                    } else {
+                        MAX_U32
+                    };
+                    let color_j = if pending_j != MAX_U32 {
+                        pending_j
+                    } else {
+                        constraints_colors[cj]
+                    };
                     if color_i == color_j && constraint_i < constraint_j {
                         // Found a conflict, uncolor this node.
                         colored[i] = 0;
@@ -410,12 +509,29 @@ pub fn gpu_fix_conflicts_topo_gc(
                 let constraint_j = body_constraint_ids[j];
 
                 if constraint_j != constraint_i {
-                    let color_j = constraints_colors[constraint_j as usize];
+                    let cj = constraint_j as usize;
+                    let pending_j = if deterministic {
+                        pending_colors[cj]
+                    } else {
+                        MAX_U32
+                    };
+                    let color_j = if pending_j != MAX_U32 {
+                        pending_j
+                    } else {
+                        constraints_colors[cj]
+                    };
                     if color_i == color_j && constraint_i < constraint_j {
                         // Found a conflict, uncolor this node.
                         colored[i] = 0;
                     }
                 }
+            }
+
+            // Deterministic mode: still marked, so there is no conflict and the pick is committed.
+            // Read from memory instead of a register (loop variables can miscompile).
+            if pending_i != MAX_U32 && colored[i] == PENDING_COLORED {
+                constraints_colors[i] = pending_i;
+                colored[i] = 1;
             }
         }
     }

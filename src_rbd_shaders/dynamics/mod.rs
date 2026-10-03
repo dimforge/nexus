@@ -19,6 +19,7 @@ mod solver_utils;
 mod warmstart;
 
 // GPU compute shader kernels
+mod canonical_order;
 mod color_buckets;
 mod coloring;
 mod mprops_update;
@@ -37,6 +38,7 @@ pub use joint_constraint_builder::{JointConstraintBuilder, JointConstraintHelper
 pub use multibody::*;
 pub use sim_params::*;
 // Re-export solver items; update_constraint comes from joint_constraint_builder for joints
+pub use canonical_order::*;
 pub use color_buckets::*;
 pub use coloring::*;
 pub use mprops_update::*;

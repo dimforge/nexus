@@ -2,6 +2,7 @@
 
 pub use crate::shaders::dynamics::RbdSimParams;
 pub use body::{BodyCoupling, BodyCouplingEntry, BodyDesc, GpuBodySet};
+pub use canonical_order::{CanonicalContactsArgs, GpuCanonicalOrder, contact_sort_collider_shift};
 pub use coloring::{ColorBucketsArgs, ColoringArgs, GpuColoring};
 pub use joint::{GpuImpulseJointSet, GpuJointSolver, JointSolverArgs, convert_joint_motor};
 pub use mprops_update::{GpuMpropsUpdate, GpuSyncColliderPosesShader};
@@ -14,6 +15,7 @@ pub use solver::{GpuSolver, SolverArgs};
 pub use warmstart::{GpuWarmstart, WarmstartArgs};
 
 pub mod body;
+mod canonical_order;
 mod coloring;
 mod joint;
 mod mprops_update;
