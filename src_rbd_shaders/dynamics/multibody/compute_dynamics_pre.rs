@@ -260,9 +260,16 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
     } else {
         plain_mass
     };
-    fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
-    if split {
-        fill_par(mass_matrices, plain_mass, 0.0, lane, t);
+    #[cfg(feature = "dim3")]
+    let use_crba = !split && t > 1;
+    #[cfg(feature = "dim2")]
+    let use_crba = false;
+    // The composite-inertia assembly writes every entry itself.
+    if !use_crba {
+        fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
+        if split {
+            fill_par(mass_matrices, plain_mass, 0.0, lane, t);
+        }
     }
 
     let i_coriolis_dt_view = MatSlice::dense(icdt0, SPATIAL_DIM as u32, ndofs);
@@ -270,11 +277,6 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
     let i_coriolis_dt_w = i_coriolis_dt_view.fixed_rows(DIM, ANG_DIM);
 
     sync_slots(t);
-
-    #[cfg(feature = "dim3")]
-    let use_crba = !split && t > 1;
-    #[cfg(feature = "dim2")]
-    let use_crba = false;
     #[cfg(feature = "dim3")]
     if use_crba {
         super::crba::mass_column(
@@ -792,13 +794,7 @@ fn update_body_jacobians_direct(
     jac: &mut [f32],
 ) {
     for dof in (lane..ndofs).step_by(lanes as usize) {
-        let mut owner = 0;
-        for k in 0..num_links {
-            let link = stat.at(k as usize);
-            if dof >= link.assembly_id() && dof < link.assembly_id() + link.ndofs() {
-                owner = k;
-            }
-        }
+        let owner = dof_owner(stat, num_links, dof);
         let link = stat.get(owner as usize);
         let parent_rot = if owner == 0 {
             Pose::default().rotation
@@ -810,24 +806,81 @@ fn update_body_jacobians_direct(
             dof - link.assembly_id,
         );
         let anchor = ws_vec(ws, wa, owner, WS_WORLD_COM) - ws_vec(ws, wa, owner, WS_SHIFT23);
-        for k in 0..num_links {
-            let active =
-                stat.at(k as usize).ancestor_dofs((dof / 32) as usize) & (1 << (dof % 32)) != 0;
-            let lin = if active {
-                v + w.cross(ws_vec(ws, wa, k, WS_WORLD_COM) - anchor)
-            } else {
-                Vector::ZERO
-            };
-            let ang = if active { w } else { Vector::ZERO };
-            let out = MatSlice::dense(jac0 + k as usize * 6 * ndofs as usize, 6, ndofs);
-            jac.write(out.idx(0, dof), lin.x);
-            jac.write(out.idx(1, dof), lin.y);
-            jac.write(out.idx(2, dof), lin.z);
-            jac.write(out.idx(3, dof), ang.x);
-            jac.write(out.idx(4, dof), ang.y);
-            jac.write(out.idx(5, dof), ang.z);
+        // Links in pairs, both loaded before either is written (the loads'
+        // latency overlaps).
+        for pair in 0..num_links.div_ceil(2) {
+            let k0 = 2 * pair;
+            let k1 = k0 + 1;
+            let has1 = k1 < num_links;
+            let k1r = if has1 { k1 } else { k0 };
+            let bits0 = stat.at(k0 as usize).ancestor_dofs((dof / 32) as usize);
+            let bits1 = stat.at(k1r as usize).ancestor_dofs((dof / 32) as usize);
+            let com0 = ws_vec(ws, wa, k0, WS_WORLD_COM);
+            let com1 = ws_vec(ws, wa, k1r, WS_WORLD_COM);
+            write_jacobian_column(jac, jac0, ndofs, k0, dof, bits0, com0, anchor, v, w);
+            if has1 {
+                write_jacobian_column(jac, jac0, ndofs, k1, dof, bits1, com1, anchor, v, w);
+            }
         }
     }
+}
+
+/// Link of the multibody owning `dof` (links in pairs, see
+/// `update_body_jacobians_direct`).
+#[cfg(feature = "dim3")]
+#[inline(always)]
+pub(super) fn dof_owner(stat: &LinkStatics, num_links: u32, dof: u32) -> u32 {
+    let mut owner = 0;
+    for pair in 0..num_links.div_ceil(2) {
+        let k0 = 2 * pair;
+        let k1 = k0 + 1;
+        let has1 = k1 < num_links;
+        let l0 = stat.at(k0 as usize);
+        let l1 = stat.at(if has1 { k1 } else { k0 } as usize);
+        let (a0, n0) = (l0.assembly_id(), l0.ndofs());
+        let (a1, n1) = (l1.assembly_id(), l1.ndofs());
+        if dof >= a0 && dof < a0 + n0 {
+            owner = k0;
+        }
+        if has1 && dof >= a1 && dof < a1 + n1 {
+            owner = k1;
+        }
+    }
+    owner
+}
+
+/// Column `dof` of link `k`'s body jacobian: the twist `(v, w)` of `dof`
+/// about `anchor`, moved to the link's COM, or zero when `dof` is not one of
+/// the link's ancestors.
+#[cfg(feature = "dim3")]
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn write_jacobian_column(
+    jac: &mut [f32],
+    jac0: usize,
+    ndofs: u32,
+    k: u32,
+    dof: u32,
+    ancestor_bits: u32,
+    com: Vector,
+    anchor: Vector,
+    v: Vector,
+    w: Vector,
+) {
+    let active = ancestor_bits & (1 << (dof % 32)) != 0;
+    let lin = if active {
+        v + w.cross(com - anchor)
+    } else {
+        Vector::ZERO
+    };
+    let ang = if active { w } else { Vector::ZERO };
+    let out = MatSlice::dense(jac0 + k as usize * 6 * ndofs as usize, 6, ndofs);
+    jac.write(out.idx(0, dof), lin.x);
+    jac.write(out.idx(1, dof), lin.y);
+    jac.write(out.idx(2, dof), lin.z);
+    jac.write(out.idx(3, dof), ang.x);
+    jac.write(out.idx(4, dof), ang.y);
+    jac.write(out.idx(5, dof), ang.z);
 }
 
 #[cfg(feature = "dim2")]

@@ -386,12 +386,21 @@ pub fn ws_world_inertia(
     k: u32,
     lmp: &crate::dynamics::body::LocalMassProperties,
 ) -> glamx::Mat3 {
+    world_inertia(ws_rot(buf, a, k, WS_LTW), lmp)
+}
+
+/// World-space inertia of a link whose local-to-world rotation is `rot`.
+#[cfg(feature = "dim3")]
+#[inline]
+pub fn world_inertia(
+    rot: crate::Rotation,
+    lmp: &crate::dynamics::body::LocalMassProperties,
+) -> glamx::Mat3 {
     use crate::rotation_to_matrix;
     let ipi = lmp.inv_principal_inertia;
     let px = if ipi.x != 0.0 { 1.0 / ipi.x } else { 0.0 };
     let py = if ipi.y != 0.0 { 1.0 / ipi.y } else { 0.0 };
     let pz = if ipi.z != 0.0 { 1.0 / ipi.z } else { 0.0 };
-    let rot = ws_rot(buf, a, k, WS_LTW);
     let r = rotation_to_matrix(rot * lmp.inertia_ref_frame);
     // M = r · diag(px, py, pz) (column-scale); I = M · rᵀ.
     let m = glamx::Mat3::from_cols(r.x_axis * px, r.y_axis * py, r.z_axis * pz);
