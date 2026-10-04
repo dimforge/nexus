@@ -7,7 +7,7 @@ build-backend = "maturin"
 # below); the `dimforge-` prefix avoids the pre-existing unrelated `nexus3d`
 # project on PyPI.
 name = "dimforge-nexus3d"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python bindings for the 3D nexus GPU physics engine and viewer"
 requires-python = ">=3.9"
 classifiers = [

@@ -1,56 +1,88 @@
-## Unreleased
+## v0.6.0 (4 October 2026)
+
+### Breaking changes
+
+- ⚠ Per-body, per-collider and joint GPU buffers are batch-interleaved: entity `i` of env `e` is at
+  `i * num_batches + e` (was `e * stride + i`). This affects `RbdState::body_poses` and the other
+  per-body tensors, and `GpuRigidBodyRef::gpu_id`.
+- ⚠ Collision pairs and contacts are one flat buffer shared by all envs: `collision_pairs_len` and
+  `NexusCounts::collision_pairs` report the total, `RbdCapacities::collisions_capacity` is a
+  per-env hint, and `RbdState::contacts_len` is removed.
+- ⚠ `RbdSimParams` is a single uniform shared by all envs (finalizing panics if envs differ). New
+  fields: `contact_merge_cos`, `num_internal_pgs_iterations`, `friction_in_bias_pass`.
+- ⚠ The contact prediction distance is `RbdSimParams::prediction_distance()` instead of a
+  hard-coded `0.02`.
+- ⚠ `GpuMultibodySet::set_num_internal_pgs_iterations` no longer drives the solver; use
+  `NexusState::set_rbd_num_internal_pgs_iterations` (or `RbdSimParams::num_internal_pgs_iterations`).
+- ⚠ `GpuMultibodySet`: `dof_values`, `contact_constraints_per_batch`, `contact_constraint_jacs` and
+  `contact_constraint_columns` are removed (see `contact_jac_cols`); `from_rapier` takes a
+  contact-slot count.
+- ⚠ Viewer: `UiSections` is replaced by the `UiSection` enum (`UiState::ui_section`); one panel tab
+  is open at a time.
+- ⚠ MPM shaders: `NBH_SHIFTS` is now a plain array; use `nbh_shift(i)` for a vector.
+- Many low-level kernel argument structs and dispatch signatures changed (`SolverArgs`,
+  `ColoringArgs`, `GpuNarrowPhase::dispatch`, `BatchIndices`, ...).
+- Built against khal `0.4`, vortx `0.5`, kiss3d `0.47`, rapier `0.36` and parry `0.31`.
 
 ### Added
 
-- `RbdSimParams::friction_in_bias_pass`: also solve the contact friction rows during the biased
-  PGS pass, instead of only during the once-per-substep stabilization sweep (rapier's
-  `friction_in_bias_pass`). Off by default; on, friction gets as many iterations as the normal
-  rows, which keeps pinch grasps and resting stacks from drifting.
-- Viewer: sensor cameras render with 4x MSAA by default (`set_sensor_antialiasing`) and expose
-  the shadow-edge softness (`set_sensor_shadow_softness`, `set_shadow_softness` for the window;
-  kiss3d's penumbra stays the default); the sharpest directional cascade covers the first 3 m instead of
-  12 (`set_sensor_shadow_range`, `set_shadow_range`), the shadow map is 4096 texels over a
-  4-layer atlas instead of 2048 over 16 (`set_sensor_shadow_resolution`, `set_shadow_resolution`),
-  `set_body_casts_shadows` excludes a body from the shadow map, and textures load with mip
-  chains and 16x anisotropic filtering. Needs kiss3d's offscreen MSAA, cascade, atlas-layer and
-  anisotropy controls.
-- `NexusState::set_rbd_implicit_coriolis` and `set_rbd_substep_refresh` (Python:
-  `set_rbd_implicit_coriolis`, `set_rbd_substep_refresh`), also honored when the state is
-  finalized after the call; `rbd_solver_params` reports them.
-- Python: `NexusState.set_rbd_solver_params(friction_in_bias_pass=...)`,
-  `ColliderBuilder.friction_combine_rule`, and the `debug_contacts` /
-  `debug_multibody_contact_impulses` GPU readbacks for contact diagnostics.
-- `GpuMultibodySet::read_dof_velocities` and `NexusState::multibody_joint_velocities` read the
-  generalized velocities of a batch (resp. of one multibody) back from the GPU, in the same
-  assembly order `read_dof_coords` and `multibody_joint_positions` use. Python: `robot_qvel`,
-  the joint-velocity counterpart of `robot_state`'s `qpos`.
-- Viewer: `SensorCamera::set_ambient_color` (Python: `set_sensor_camera_ambient_color`) tints a
-  sensor camera's ambient fill light, whose brightness `set_sensor_camera_ambient` already set.
 - `NexusState::set_deterministic`: two runs of the same scene give identical results on the same
-  machine and build. Costs ~10-17% per step, up to ~45% with trimeshes or polylines.
-- Testbed: a "Deterministic" checkbox and `--deterministic` flag, and a step counter
-  (`NexusState::steps`) next to the Play/Step/Restart buttons.
-- `determinism` integration tests in `nexus2d` and `nexus3d` (need a GPU, run with `--ignored`).
+  machine and build. Costs ~10-17% per step, up to ~45% with trimeshes or polylines, and fixes the
+  rigid-body resize policies. Testbed: "Deterministic" checkbox, `--deterministic` flag and a step
+  counter (`NexusState::steps`).
+- `cuda-oxide` feature (CUDA kernels compiled by cuda-oxide), and compute graphs:
+  `NexusState::set_compute_graphs_enabled` records the step once and replays it as a CUDA graph
+  (testbed: `--compute-graphs`). Both need the GitHub version of khal/vortx.
+- Viewer debug renderer ("Debug render" tab): collider shapes, AABBs, joints, contacts, LBVH
+  nodes, MPM particles and grid. Readbacks: `RbdState::debug_contacts`, `debug_lbvh`,
+  `MpmState::debug_particles`, `debug_grid`.
+- Viewer sensor cameras (3D): `add_sensor_camera`, `attach_sensor_camera`, `render_sensor_rgb`,
+  `render_sensor_depth`, `render_sensor_segmentation`, with MSAA, shadow and ambient controls.
+- Viewer: `set_ambient`, `add_directional_light`, `set_body_color`, `set_body_casts_shadows`,
+  textured visual meshes, `set_shadow_softness`/`range`/`resolution`.
+- Env reset (3D): `RbdState::snapshot`, `reset_env_from_snapshot`, and the batched
+  `publish_reset_templates`/`reset_envs_from_templates`.
+- Multibodies: joint dry friction (MJCF `frictionloss`), per-link contact sensors
+  (`set_contact_sensor_links`), actuator delay, motor targets read from a GPU tensor
+  (`scatter_motor_targets`), and `set_substep_refresh`.
+- `NexusState`: `control_multibody_motors`, `read_multibody_links`,
+  `multibody_joint_positions`/`set_multibody_joint_positions`/`multibody_joint_velocities`,
+  `read_rigid_body_poses`/`velocities` and `set_rigid_body_pose`/`velocity` (3D),
+  `set_rbd_timestep`, `set_rbd_collisions_capacity`, `set_rbd_mb_contact_constraints_capacity`,
+  `set_rbd_implicit_coriolis`, `set_rbd_substep_refresh`.
+- `RbdSimParams::friction_in_bias_pass`: also solve friction during the biased pass (off by
+  default), which keeps pinch grasps and resting stacks from drifting.
+- Optional contact reduction to at most 4 points per collider pair (`RbdPipeline::contact_reduction`).
+- `RbdPipeline::step_encoded` records a step into a caller-owned encoder.
+- Python: `Robot` (URDF/MJCF loading, `robot_state`/`robot_qvel`, `set_robot_targets`, FK/IK, PD
+  gains), MJCF actuators (`apply_actuator_controls`), body pose/velocity read/write,
+  `set_rbd_solver_params`, sensor cameras, contact debug readbacks, `set_compute_graphs_enabled`.
 
 ### Fixed
 
-- Contact warmstarting matched each new contact point to the *first* old point of the same pair
-  within 10 cm, so every point of a small manifold (a fingertip pad) inherited the first point's
-  normal and friction impulses and the solver had to redistribute them each step. Both the
-  rigid-body and multibody transfers now take the nearest old point.
-- Contacts between a multibody link and a rigid body were solved twice: by the multibody
-  contact solver and, again, by the rigid-body solver against a zero-inverse-mass copy of the
-  link. The second copy saw the link as never moving, so a robot lifting a grasped object had
-  its friction cancelled by a "ghost" of its own fingers. The rigid-body constraint builder now
-  leaves multibody-owned manifolds to the multibody solver.
+- Bodies resting on trimeshes were ejected (unvalidated seeded colors, EPA picking a triangle back
+  face, duplicate manifold points).
+- Warmstarting matched contacts by body pair and to the first old point within 10 cm; it now
+  matches by collider pair and sub-shape, to the nearest point. Also fixes polyline warmstart.
+- Contacts between a multibody link and a rigid body were solved twice, cancelling a robot's grip.
+- Multibody contacts beyond 128 points per multibody were silently dropped.
+- The narrow phase used env 0's collider parents in every env.
+- Polyline AABBs ignored the segment thickness.
+- `GpuMultibodySet::read_dof_coords` returned wrong locked axes for envs other than 0.
+- Buffer auto-resize could race in-flight steps on Metal and leave stale warmstart ranges.
+- The crates did not build without the `mpm` feature.
 - `RbdState::debug_constraint_colors` now reads the constraints and colors of the last step.
 
 ### Modified
 
-- `RbdSimParams::num_internal_pgs_iterations` now also drives the rigid-body contact and joint
-  sweeps of the biased pass, interleaved one iteration at a time with the multibody sweeps (it
-  used to loop the multibody solver alone, leaving a box pinched by a robot against a board with
-  eight multibody iterations against one rigid-body iteration per substep).
+- Performance: batched kernels run as flat dispatches over the interleaved layout, pair buffers
+  are sized by total demand instead of the busiest env, and multibody contacts are indexed per
+  multibody.
+- Multibody contact friction is velocity-level only, and CFM softening applies only to normal rows.
+- `num_internal_pgs_iterations` also drives the rigid-body sweeps of the biased pass, interleaved
+  with the multibody sweeps.
+- Viewer defaults: 4096 shadow map over 4 atlas layers, first cascade at 3 m, mipmapped textures
+  with 16x anisotropic filtering. The viewer no longer steps before the first sync of a scene.
 
 ## v0.5.0 (16 August 2026)
 
