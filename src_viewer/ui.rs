@@ -257,7 +257,7 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
     ui.add_space(4.0);
     ui.checkbox(&mut s.deterministic, "Deterministic")
         .on_hover_text(
-            "Makes two runs of the same scene match bit for bit, at a ~25-40% cost per step. \
+            "Makes two runs of the same scene match bit for bit. \
          Also enabled by the testbed's --deterministic flag.",
         );
 }
