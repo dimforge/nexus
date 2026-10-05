@@ -1240,6 +1240,25 @@ impl NexusState {
         self.0.set_rbd_implicit_coriolis(viewer.backend(), enabled);
     }
 
+    /// Same-machine determinism: two runs of the same scene with the same
+    /// inputs give bit-identical results on the same machine and build. Off by
+    /// default. Can be called before or after `finalize`.
+    /// `NexusViewer.sync` overrides it with the viewer's own setting, so a state
+    /// synced through a viewer is configured with `NexusViewer.set_deterministic`.
+    fn set_deterministic(&mut self, viewer: PyRef<NexusViewer>, enabled: bool) {
+        self.0.set_deterministic(viewer.backend(), enabled);
+    }
+
+    /// Whether the simulation runs in deterministic mode (see `set_deterministic`).
+    fn deterministic(&self) -> bool {
+        self.0.deterministic()
+    }
+
+    /// Number of `NexusPipeline.simulate` calls since the scene was created.
+    fn steps(&self) -> u64 {
+        self.0.steps()
+    }
+
     /// Multibody refresh cadence. `refresh` (default `True`) rebuilds the
     /// robots' constraints, mass matrix and LU factors every substep; `False`
     /// builds them once per step and later substeps only refresh the joint

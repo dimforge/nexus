@@ -97,6 +97,17 @@ impl NexusViewer {
         self.inner_mut().set_vsync(enabled);
     }
 
+    /// Same-machine determinism of the states this viewer syncs: `sync` applies
+    /// it to the state (see `NexusState.set_deterministic`). Off by default.
+    fn set_deterministic(&mut self, enabled: bool) {
+        self.inner_mut().ui.sim_settings.deterministic = enabled;
+    }
+
+    /// Whether `sync` puts the states it syncs in deterministic mode.
+    fn deterministic(&self) -> bool {
+        self.inner().ui.sim_settings.deterministic
+    }
+
     // --- backend selection (fluent) --------------------------------------
 
     fn with_cpu(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
