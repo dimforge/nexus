@@ -1,3 +1,11 @@
+## Unreleased
+
+### Added
+
+- Python: `NexusViewer.set_deterministic` / `deterministic` (applied to the state by `sync`),
+  and `NexusState.set_deterministic`, `deterministic` and `steps` for states stepped without a
+  viewer sync.
+
 ## v0.6.0 (4 October 2026)
 
 ### Breaking changes
