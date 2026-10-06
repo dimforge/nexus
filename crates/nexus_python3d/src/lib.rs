@@ -16,6 +16,12 @@ pub mod rbd;
 pub mod robot;
 pub mod viewer;
 
+/// Names of the GPU backends this build supports, for `NexusViewer.with_backend`.
+#[pyfunction]
+fn available_backends() -> Vec<&'static str> {
+    viewer::available_backend_names()
+}
+
 /// The `nexus3d` Python module.
 #[pymodule]
 fn nexus3d(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -57,6 +63,7 @@ fn nexus3d(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Viewer
     m.add_class::<viewer::NexusViewer>()?;
+    m.add_function(wrap_pyfunction!(available_backends, m)?)?;
 
     // Robot loaders (URDF / MJCF)
     m.add_class::<loaders::UrdfLoaderOptions>()?;

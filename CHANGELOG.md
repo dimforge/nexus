@@ -5,6 +5,9 @@
 - Python: `NexusViewer.set_deterministic` / `deterministic` (applied to the state by `sync`),
   and `NexusState.set_deterministic`, `deterministic` and `steps` for states stepped without a
   viewer sync.
+- Python: `NexusViewer.with_backend(name)` selects `"webgpu"`, `"cpu"`, `"metal"` or `"cuda"`,
+  raising `ValueError` for a backend the wheel was built without; `NexusViewer.backend_name()`
+  and `nexus3d.available_backends()` report the selection and what the wheel supports.
 
 ## v0.6.0 (4 October 2026)
 

@@ -10,9 +10,9 @@ use crate::nexus::{GpuTimestamps, NexusState};
 use crate::rbd::{RigidBodyHandle, SharedShape};
 use crate::robot::{pose_from_wxyz, to_wxyz};
 use khal::backend::GpuBackend;
-use nexus_viewer3d::{NexusViewer as RViewer, VisualTexture};
+use nexus_viewer3d::{BackendType, NexusViewer as RViewer, VisualTexture};
 use numpy::{IntoPyArray, PyArray2, PyArray3, PyArrayMethods};
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
 /// A windowed viewer that renders the simulation and drives the run loop.
@@ -59,6 +59,51 @@ impl NexusViewer {
         rgb.into_pyarray(py)
             .reshape([h as usize, w as usize, 3])
             .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
+    }
+}
+
+/// Python names of the backends this build was compiled with, in preference order.
+pub fn available_backend_names() -> Vec<&'static str> {
+    let mut names = Vec::new();
+    #[cfg(feature = "cuda")]
+    names.push("cuda");
+    #[cfg(feature = "metal")]
+    names.push("metal");
+    names.extend(["webgpu", "cpu"]);
+    names
+}
+
+/// The backend named `name` (as listed by [`available_backend_names`]).
+fn parse_backend(name: &str) -> PyResult<BackendType> {
+    match name {
+        "webgpu" => Ok(BackendType::Gpu),
+        "cpu" => Ok(BackendType::Cpu),
+        #[cfg(feature = "metal")]
+        "metal" => Ok(BackendType::Metal),
+        #[cfg(feature = "cuda")]
+        "cuda" => Ok(BackendType::Cuda),
+        // A known backend this build was compiled without.
+        _ if ["metal", "cuda"].contains(&name) => Err(PyValueError::new_err(format!(
+            "this nexus3d build has no {name} backend (built without the `{name}` feature); \
+             available: {}",
+            available_backend_names().join(", ")
+        ))),
+        _ => Err(PyValueError::new_err(format!(
+            "unknown backend {name:?}; available: {}",
+            available_backend_names().join(", ")
+        ))),
+    }
+}
+
+/// The Python name of `backend`.
+fn backend_name(backend: BackendType) -> &'static str {
+    match backend {
+        BackendType::Gpu => "webgpu",
+        BackendType::Cpu => "cpu",
+        #[cfg(feature = "metal")]
+        BackendType::Metal => "metal",
+        #[cfg(feature = "cuda")]
+        BackendType::Cuda => "cuda",
     }
 }
 
@@ -110,6 +155,24 @@ impl NexusViewer {
 
     // --- backend selection (fluent) --------------------------------------
 
+    /// Selects the GPU backend by name: `"webgpu"` (the default), `"cpu"`, and
+    /// `"metal"` / `"cuda"` when the wheel was built with that feature (see
+    /// `nexus3d.available_backends()`). Raises `ValueError` otherwise. Call
+    /// `init_backend` afterwards, and before creating any state.
+    fn with_backend<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        name: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let backend = parse_backend(name)?;
+        slf.map_inplace(|v| v.with_backend(backend));
+        Ok(slf)
+    }
+
+    /// The name of the selected backend (see `with_backend`).
+    fn backend_name(&self) -> &'static str {
+        backend_name(self.inner().backend_type())
+    }
+
     fn with_cpu(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
         slf.map_inplace(|v| v.with_cpu());
         slf
@@ -120,12 +183,12 @@ impl NexusViewer {
     }
     #[cfg(feature = "metal")]
     fn with_metal(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
-        slf.map_inplace(|v| v.with_backend(nexus_viewer3d::BackendType::Metal));
+        slf.map_inplace(|v| v.with_backend(BackendType::Metal));
         slf
     }
     #[cfg(feature = "cuda")]
     fn with_cuda(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
-        slf.map_inplace(|v| v.with_backend(nexus_viewer3d::BackendType::Cuda));
+        slf.map_inplace(|v| v.with_backend(BackendType::Cuda));
         slf
     }
 
