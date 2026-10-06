@@ -19,7 +19,8 @@ permissions:
 
 env:
   # Passed to every `maturin build`. Default features (webgpu + extension-module)
-  # give portable wheels; wgpu picks the native GPU API at runtime.
+  # give portable wheels; wgpu picks the native GPU API at runtime. A platform's
+  # `features` add to them (the macOS wheel also gets native Metal).
   MATURIN_ARGS: --release -m crates/nexus_python3d/Cargo.toml
   CARGO_GPU_VERSION: 0.10.0
   # cargo-gpu's default `cargo-generate` feature (only for `cargo gpu new`) pulls
@@ -39,7 +40,10 @@ jobs:
       matrix:
         platform:
           - { os: linux, runner: ubuntu-latest, target: x86_64 }
-          - { os: macos, runner: macos-14, target: aarch64 }
+          # Native ARM runner: the manylinux container and cargo-gpu run on aarch64
+          # directly instead of through a cross-compilation image.
+          - { os: linux, runner: ubuntu-24.04-arm, target: aarch64 }
+          - { os: macos, runner: macos-14, target: aarch64, features: --features metal }
           - { os: windows, runner: windows-latest, target: x64 }
     steps:
       - name: Checkout repository
@@ -71,7 +75,7 @@ jobs:
           before-script-linux: |
             cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }} ${{ env.CARGO_GPU_INSTALL_ARGS }}
             cargo gpu install --auto-install-rust-toolchain
-          args: ${{ env.MATURIN_ARGS }} --out dist
+          args: ${{ env.MATURIN_ARGS }} ${{ matrix.platform.features }} --out dist
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
