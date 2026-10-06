@@ -563,7 +563,7 @@ impl GpuMultibodySet {
                 BufferUsages::STORAGE | BufferUsages::UNIFORM,
             )
             .unwrap(),
-            links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_DST)
+            links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_SRC)
                 .unwrap(),
             links_static_mirror: all_statics.clone(),
             info_mirror,
@@ -595,7 +595,7 @@ impl GpuMultibodySet {
                 buf.extend_from_slice(&all_dof_friction);
                 buf.resize(7 * n, 0.0);
                 debug_assert_eq!(buf.len(), 7 * n);
-                Tensor::vector(backend, &buf, storage).unwrap()
+                Tensor::vector(backend, &buf, storage | BufferUsages::COPY_SRC).unwrap()
             },
             gen_forces: Tensor::vector(
                 backend,

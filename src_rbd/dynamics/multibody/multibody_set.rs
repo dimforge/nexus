@@ -1039,7 +1039,8 @@ impl GpuMultibodySet {
             }
         }
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_DST;
-        self.multibody_info = Tensor::vector(backend, &interleaved, storage).unwrap();
+        self.multibody_info =
+            Tensor::vector(backend, &interleaved, storage | BufferUsages::COPY_SRC).unwrap();
         self.joint_constraints = Tensor::vector(
             backend,
             vec![MultibodyJointConstraint::default(); cons_cap as usize * nb],

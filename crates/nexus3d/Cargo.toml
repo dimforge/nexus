@@ -48,3 +48,8 @@ pollster = { workspace = true }
 name = "determinism"
 path = "tests/determinism.rs"
 required-features = ["rbd", "mpm"]
+
+[[test]]
+name = "readback"
+path = "tests/readback.rs"
+required-features = ["rbd", "mpm"]

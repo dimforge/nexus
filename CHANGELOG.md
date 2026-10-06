@@ -11,6 +11,14 @@
 - Python wheels: the macOS wheel is built with the `metal` feature (native Metal, alongside
   WebGPU), and Linux aarch64 wheels are published.
 
+### Fixed
+
+- WebGPU: reading multibody state back no longer panics with a wgpu validation error. The
+  multibody DoF state, static link data and (once joint friction is set) multibody info buffers
+  lacked `COPY_SRC`, so `NexusState::multibody_joint_velocities` (Python: `robot_qvel`),
+  `RbdState::snapshot` and `GpuMultibodySet::debug_cons_layout` failed. Native Metal ignores
+  buffer usages, which hid the bug.
+
 ## v0.6.0 (4 October 2026)
 
 ### Breaking changes
