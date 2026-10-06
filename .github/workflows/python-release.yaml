@@ -22,6 +22,9 @@ env:
   # give portable wheels; wgpu picks the native GPU API at runtime.
   MATURIN_ARGS: --release -m crates/nexus_python3d/Cargo.toml
   CARGO_GPU_VERSION: 0.10.0
+  # cargo-gpu's default `cargo-generate` feature (only for `cargo gpu new`) pulls
+  # in OpenSSL, which the manylinux container lacks.
+  CARGO_GPU_INSTALL_ARGS: --no-default-features
 
 jobs:
   # One abi3 wheel per platform (see the `abi3-py39` pyo3 feature): a single
@@ -56,7 +59,7 @@ jobs:
       - name: Install cargo-gpu (macOS/Windows)
         if: matrix.platform.os != 'linux'
         run: |
-          cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }}
+          cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }} ${{ env.CARGO_GPU_INSTALL_ARGS }}
           cargo gpu install --auto-install-rust-toolchain
 
       - name: Build wheel
@@ -66,7 +69,7 @@ jobs:
           manylinux: auto
           # Runs inside the manylinux container before the build (Linux only).
           before-script-linux: |
-            cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }}
+            cargo install cargo-gpu --version ${{ env.CARGO_GPU_VERSION }} ${{ env.CARGO_GPU_INSTALL_ARGS }}
             cargo gpu install --auto-install-rust-toolchain
           args: ${{ env.MATURIN_ARGS }} --out dist
 
