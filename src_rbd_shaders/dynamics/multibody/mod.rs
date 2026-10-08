@@ -49,6 +49,8 @@ pub use types::*;
 pub use utils::*;
 pub use ws_soa::*;
 
+mod joint_columns_simd;
+pub use joint_columns_simd::*;
 mod lu_simd;
 
 #[cfg(feature = "dim3")]

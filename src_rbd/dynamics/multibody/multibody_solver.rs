@@ -10,8 +10,8 @@ use crate::shaders::dynamics::{
     GpuMbComputeDynamicsPre, GpuMbComputeSolveBounds, GpuMbConsOffsetsScan,
     GpuMbCountContactConstraints, GpuMbDelayTick, GpuMbFactorSolveSimd,
     GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
-    GpuMbFinalizeJointConstraints, GpuMbGravityAndLu, GpuMbGravityAndLuT1, GpuMbGravityAndLuT8,
-    GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
+    GpuMbFinalizeJointConstraints, GpuMbFinalizeJointSimd, GpuMbGravityAndLu, GpuMbGravityAndLuT1,
+    GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities, GpuMbKinematicsSerial,
     GpuMbRecursiveForces, GpuMbRefreshJointConstraints, GpuMbRemoveImpulseJointConstraintBias,
     GpuMbSavePrevConsBounds, GpuMbScatterContactIndex, GpuMbSeedContactRestitution,
@@ -36,6 +36,7 @@ struct MetalSolvers {
     factor_solve: GpuMbFactorSolveSimd,
     kinematics: GpuMbKinematicsSerial,
     dynamics_parallel: GpuMbComputeDynamicsParallel,
+    finalize_joint: GpuMbFinalizeJointSimd,
 }
 struct MetalSimdSolver(Option<MetalSolvers>);
 impl MetalSimdSolver {
@@ -54,6 +55,7 @@ impl MetalSimdSolver {
                 factor_solve: GpuMbFactorSolveSimd::from_dir(backend, dir)?,
                 kinematics: GpuMbKinematicsSerial::from_dir(backend, dir)?,
                 dynamics_parallel: GpuMbComputeDynamicsParallel::from_dir(backend, dir)?,
+                finalize_joint: GpuMbFinalizeJointSimd::from_dir(backend, dir)?,
             })));
         }
         Ok(Self(None))
@@ -521,20 +523,38 @@ impl GpuMultibodySolver {
             // the 8-storage-buffer budget.
             let mut pass =
                 encoder.begin_pass("[RBD] mbb/finalize-joint", timestamps.as_deref_mut());
-            self.finalize_joint_constraints.call(
-                &mut pass,
-                if mb.max_ndofs <= 32 && mb.num_batches >= 1024 {
-                    [mb.num_batches * mb.multibodies_per_batch * 8, 1, 1]
-                } else {
-                    [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]
-                },
-                &mb.multibody_info,
-                &mut mb.joint_constraints,
-                &mut mb.joint_constraint_columns,
-                &mb.mass_matrices,
-                &mb.lu_pivots,
-                args.batch_indices,
-            )?;
+            if let Some(kernels) = self
+                .solve_constraints_simd
+                .0
+                .as_ref()
+                .filter(|_| mb.max_ndofs <= 32 && mb.max_joint_constraints <= 64)
+            {
+                kernels.finalize_joint.call(
+                    &mut pass,
+                    [mb.multibodies_per_batch * 32, mb.num_batches, 1],
+                    &mb.multibody_info,
+                    &mut mb.joint_constraints,
+                    &mut mb.joint_constraint_columns,
+                    &mb.mass_matrices,
+                    &mb.lu_pivots,
+                    args.batch_indices,
+                )?;
+            } else {
+                self.finalize_joint_constraints.call(
+                    &mut pass,
+                    if mb.max_ndofs <= 32 && mb.num_batches >= 1024 {
+                        [mb.num_batches * mb.multibodies_per_batch * 8, 1, 1]
+                    } else {
+                        [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1]
+                    },
+                    &mb.multibody_info,
+                    &mut mb.joint_constraints,
+                    &mut mb.joint_constraint_columns,
+                    &mb.mass_matrices,
+                    &mb.lu_pivots,
+                    args.batch_indices,
+                )?;
+            }
         }
 
         // One 64-lane workgroup per multibody.
