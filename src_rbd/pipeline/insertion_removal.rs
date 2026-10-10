@@ -130,8 +130,11 @@ impl RbdState {
         let collider_materials = Tensor::vector(backend, &all_collider_materials, rw).unwrap();
 
         // The flat pair buffer is shared by every batch: `collisions_capacity`
-        // stays a per-batch sizing hint, so the initial total is `× num_batches`.
-        let pairs_capacity = collisions_capacity * num_batches;
+        // stays a per-batch sizing hint, so the initial total is `× num_batches`
+        // (within what the backend can bind).
+        let pairs_capacity = collisions_capacity
+            .saturating_mul(num_batches)
+            .min(max_collision_pairs(backend));
         // Positional contact slots: pair `t` owns slot `t`, PFM entry `i` owns
         // slot `pairs_total + i`, so the contacts buffer (and every
         // contacts-keyed buffer) is sized `pairs + pfm = 2 ×` the pair capacity.

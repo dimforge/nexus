@@ -171,6 +171,32 @@ impl RbdCapacities {
     }
 }
 
+/// The most collision pairs whose buffers `backend` can bind. Each pair owns a pair and a PFM
+/// entry, and two contact slots (whose largest buffer is the contact tiles). WebGPU caps the size
+/// of a buffer binding; capacities past this would fail validation.
+pub(crate) fn max_collision_pairs(backend: &GpuBackend) -> u32 {
+    use crate::shaders::dynamics::contact_tiles::TILE_LEN;
+    use crate::shaders::dynamics::coulomb_tiles::CoulombTile;
+    use crate::shaders::queries::IndexedManifold;
+    use std::mem::size_of;
+
+    let max_binding = match backend {
+        #[cfg(feature = "webgpu")]
+        GpuBackend::WebGpu(webgpu) => webgpu.device().limits().max_storage_buffer_binding_size,
+        _ => return u32::MAX,
+    };
+    let slot_bytes = size_of::<IndexedManifold>().max(size_of::<CoulombTile>().div_ceil(TILE_LEN));
+    #[cfg(feature = "dim3")]
+    let slot_bytes = slot_bytes
+        .max(size_of::<crate::shaders::dynamics::twist_tiles::TwistTile>().div_ceil(TILE_LEN));
+    let pair_bytes = size_of::<CollisionPair>()
+        .max(size_of::<NarrowPhasePfmPair>())
+        .max(2 * slot_bytes) as u64;
+    // Tiles are allocated whole: keep one tile of margin for the rounding up.
+    let max_pairs = (max_binding / pair_bytes).saturating_sub(TILE_LEN as u64);
+    max_pairs.min(u32::MAX as u64) as u32
+}
+
 /// Governs the way the rigid-body dynamics pipeline automatically resizes internal buffers storing
 /// data with unpredictable size (like collisions).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
@@ -784,27 +810,20 @@ impl RbdState {
             let mut params = self.sim_params_cpu;
             params.friction_model = model;
             let usage = khal::BufferUsages::STORAGE | khal::BufferUsages::COPY_SRC;
-            let old = crate::dynamics::ContactConstraints::new(
-                backend,
-                self.contacts_capacity_cpu,
-                usage,
-                &params,
-            )
-            .expect("allocate contact model storage");
-            let new = crate::dynamics::ContactConstraints::new(
-                backend,
-                self.contacts_capacity_cpu,
-                usage,
-                &params,
-            )
-            .expect("allocate contact model storage");
+            // Only the tiles depend on the model. Each is freed (swapped for a single tile)
+            // before its replacement is allocated: large scenes can't hold both at once.
+            for constraints in [&mut self.old_constraints, &mut self.new_constraints] {
+                for capacity in [0, self.contacts_capacity_cpu] {
+                    constraints.tiles =
+                        crate::dynamics::ContactTiles::new(backend, capacity, &params)
+                            .expect("allocate contact model storage");
+                }
+            }
             // Adjacency counts gate every previous-contact read; clear them before
             // exposing the newly allocated buffers to the next step.
             let empty_counts = vec![0u32; self.old_constraints_counts.len() as usize];
             self.old_constraints_counts =
                 Tensor::vector(backend, &empty_counts, usage).expect("reset contact warmstarts");
-            self.old_constraints = old;
-            self.new_constraints = new;
             self.sim_params_cpu.friction_model = model;
             let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[self.sim_params_cpu]);
             self.graph_generation += 1;

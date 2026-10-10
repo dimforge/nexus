@@ -436,6 +436,14 @@ fn tile_warmstart(
     (a, b)
 }
 
+/// Tags the shared kernels with this model (see `tile_kernels.rs`).
+macro_rules! model_kernel {
+    ($($kernel:tt)*) => {
+        #[doc(alias = "coulomb")]
+        $($kernel)*
+    };
+}
+
 // The kernels are shared by both friction models, each instantiating them with its own tiles.
 #[allow(clippy::duplicate_mod)]
 #[path = "tile_kernels.rs"]
