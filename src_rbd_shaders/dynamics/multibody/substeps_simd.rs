@@ -274,14 +274,24 @@ fn sweep_packed(
     solver_vels: &mut [Velocity],
 ) {
     let (use_bias, solve_friction) = decode_bias_mode(mode);
-    for i in 0..num_active_rows {
-        let s = ((active_rows[part * 16 + (i / 4) as usize] >> (8 * (i % 4))) & 0xff) as usize;
-        let cons = joint_constraints.read(jcons_base + s);
-        let col = load_column(joint_columns, jcons_base + s, quads, p);
+    // Rows are processed in pairs with both rows' data loaded first: the loads
+    // do not depend on the velocity, so the second row's latency hides behind
+    // the first row's update instead of stalling the sweep's dependency chain.
+    let slot_of =
+        |i: u32| ((active_rows[part * 16 + (i / 4) as usize] >> (8 * (i % 4))) & 0xff) as usize;
+    for pair in 0..num_active_rows.div_ceil(2) {
+        let i0 = 2 * pair;
+        let has_second = i0 + 1 < num_active_rows;
+        let s0 = slot_of(i0);
+        let s1 = if has_second { slot_of(i0 + 1) } else { s0 };
+        let cons0 = joint_constraints.read(jcons_base + s0);
+        let cons1 = joint_constraints.read(jcons_base + s1);
+        let col0 = load_column(joint_columns, jcons_base + s0, quads, p);
+        let col1 = load_column(joint_columns, jcons_base + s1, quads, p);
         solve_joint_row(
-            cons,
-            col,
-            s,
+            cons0,
+            col0,
+            s0,
             p,
             base,
             use_bias,
@@ -290,6 +300,20 @@ fn sweep_packed(
             joint_constraints,
             jcons_base,
         );
+        if has_second {
+            solve_joint_row(
+                cons1,
+                col1,
+                s1,
+                p,
+                base,
+                use_bias,
+                writes,
+                velocity,
+                joint_constraints,
+                jcons_base,
+            );
+        }
     }
     // No barrier: each sweep takes the impulse from lane `p == 0`, which
     // wrote it (see the shuffle above).
@@ -652,27 +676,55 @@ pub fn gpu_mb_substeps_packed(
             });
             workgroup_memory_barrier_with_group_sync();
             let mut mask = 0u32;
-            for j in 0..slot_rounds {
-                let s = p + j * LANES;
-                if s < max_constraints {
-                    let index = jcons_base + s as usize;
-                    let solved = if writes {
-                        refresh_slot(
+            // Slots in pairs, parameters loaded first (see `sweep_packed`).
+            for pair in 0..slot_rounds.div_ceil(2) {
+                let j0 = 2 * pair;
+                let s0 = p + j0 * LANES;
+                let s1 = s0 + LANES;
+                let in0 = s0 < max_constraints;
+                let in1 = j0 + 1 < slot_rounds && s1 < max_constraints;
+                if !writes {
+                    // Replayed partition: only its loop bounds matter.
+                    if in0 && is_solved(joint_constraints.read(jcons_base + s0 as usize).kind) {
+                        mask |= 1 << j0;
+                    }
+                    if in1 && is_solved(joint_constraints.read(jcons_base + s1 as usize).kind) {
+                        mask |= 1 << (j0 + 1);
+                    }
+                } else {
+                    let index0 = jcons_base + s0 as usize;
+                    let index1 = jcons_base + if in1 { s1 } else { s0 } as usize;
+                    let pa0 = refresh_params.read(2 * index0);
+                    let pb0 = refresh_params.read(2 * index0 + 1);
+                    let pa1 = refresh_params.read(2 * index1);
+                    let pb1 = refresh_params.read(2 * index1 + 1);
+                    if in0
+                        && refresh_slot(
                             joint_constraints,
-                            index,
-                            refresh_params.read(2 * index),
-                            refresh_params.read(2 * index + 1),
+                            index0,
+                            pa0,
+                            pb0,
                             shared_vals,
                             sb,
                             inv_dt,
                             softness,
                         )
-                    } else {
-                        // Replayed partition: only its loop bounds matter.
-                        is_solved(joint_constraints.read(index).kind)
-                    };
-                    if solved {
-                        mask |= 1 << j;
+                    {
+                        mask |= 1 << j0;
+                    }
+                    if in1
+                        && refresh_slot(
+                            joint_constraints,
+                            index1,
+                            pa1,
+                            pb1,
+                            shared_vals,
+                            sb,
+                            inv_dt,
+                            softness,
+                        )
+                    {
+                        mask |= 1 << (j0 + 1);
                     }
                 }
             }
