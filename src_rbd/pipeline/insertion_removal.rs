@@ -17,6 +17,7 @@ use crate::utils::PrefixSumWorkspace;
 use std::ops::Range;
 
 use super::rbd_state::*;
+use crate::dynamics::HubState;
 #[cfg(feature = "dim3")]
 use crate::rapier::dynamics::{MultibodyJointSet, RigidBodySet};
 use khal::BufferUsages;
@@ -145,10 +146,7 @@ impl RbdState {
         .unwrap();
         // Readback: pair count, PFM count, uncolored count (+ the multibody
         // contact-constraint demand on dim3).
-        #[cfg(feature = "dim3")]
-        let resize_readback = GpuReadback::new(backend, 4).unwrap();
-        #[cfg(not(feature = "dim3"))]
-        let resize_readback = GpuReadback::new(backend, 3).unwrap();
+        let resize_readback = GpuReadback::new(backend, ResizeFeedback::WORDS).unwrap();
         let collision_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let contacts = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
@@ -156,7 +154,7 @@ impl RbdState {
         let mb_contact_index = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let contacts_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
-        let mb_sweep_indirect =
+        let mb_dispatch_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let pfm_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
@@ -169,12 +167,23 @@ impl RbdState {
             BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         )
         .unwrap();
-        let old_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let old_constraint_builders =
-            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let new_constraints = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
-        let new_constraint_builders =
-            Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let old_constraints = crate::dynamics::ContactConstraints::new(
+            backend,
+            contacts_capacity,
+            storage,
+            &base_sim_params,
+        )
+        .unwrap();
+        let new_constraints = crate::dynamics::ContactConstraints::new(
+            backend,
+            contacts_capacity,
+            storage,
+            &base_sim_params,
+        )
+        .unwrap();
+        let recycle_states =
+            crate::dynamics::ContactRecycleStates::new(backend, contacts_capacity, storage)
+                .unwrap();
         let constraints_colors =
             Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         let constraints_pending_colors =
@@ -194,7 +203,7 @@ impl RbdState {
             storage | BufferUsages::UNIFORM,
         )
         .unwrap();
-        let color_sorted_ids = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
+        let sorted_links = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         // Zeroed: see `RbdState::from_rapier`.
         let old_constraints_counts = Tensor::vector(
             backend,
@@ -251,8 +260,9 @@ impl RbdState {
             vels: Tensor::vector(backend, &all_vels, rw).unwrap(),
             #[cfg(feature = "dim3")]
             reset_templates_bodies: None,
-            solver_vels: Tensor::vector(backend, &all_vels, storage).unwrap(),
+            solver_vels: HubState::solver_vels(backend, &all_vels, storage),
             solver_vels_inc: Tensor::vector(backend, &all_vels, storage).unwrap(),
+            hubs: HubState::new(backend, all_vels.len()),
             joints,
             #[cfg(feature = "dim3")]
             multibodies,
@@ -278,7 +288,8 @@ impl RbdState {
             collision_pairs_indirect,
             contacts_capacity_cpu,
             collision_pairs_capacity_cpu,
-            collision_pairs_len_cpu: 0,
+            collision_pairs_len_cpu: None,
+            stepped_since_readback: false,
             graph_generation: 0,
             compute_graph: Default::default(),
             #[cfg(feature = "dim3")]
@@ -290,22 +301,21 @@ impl RbdState {
             pfm_sort,
             #[cfg(feature = "dim3")]
             mb_contact_index,
-            mb_sweep_indirect,
+            mb_dispatch_indirect,
             pfm_pairs,
             pfm_pairs_len,
             pfm_pairs_indirect,
             old_constraints,
-            old_constraint_builders,
             old_constraints_counts,
             new_constraints,
-            new_constraint_builders,
+            recycle_states,
             new_constraints_counts,
             constraints_colors,
             old_constraints_colors,
             colored,
             constraints_rands,
             color_buckets,
-            color_sorted_ids,
+            sorted_links,
             curr_color: Tensor::scalar(
                 backend,
                 0u32,
@@ -321,6 +331,7 @@ impl RbdState {
                 BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
             )
             .unwrap(),
+            coloring_dispatch: ColoringDispatch::new(backend),
             uncolored_staging: Tensor::scalar(
                 backend,
                 0,

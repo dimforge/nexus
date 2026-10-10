@@ -717,7 +717,7 @@ impl GpuMultibodySet {
             )
             .unwrap(),
             // Per-multibody Delassus blocks for the constraint-space contact
-            // sweep: MAX_MB_CONTACT_CONSTRAINTS_PER_MB² floats each (147 KB
+            // iteration: MAX_MB_CONTACT_CONSTRAINTS_PER_MB² floats each (147 KB
             // in 3D), so only small total multibody counts get them; larger
             // batched scenes keep the dof-space solve.
             contact_delassus: {

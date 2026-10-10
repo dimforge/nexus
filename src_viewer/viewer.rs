@@ -111,6 +111,9 @@ pub struct UiState {
     pub backend_type: BackendType,
     /// Replay each frame's GPU work through a compute graph (backends with graph support only).
     pub compute_graphs: bool,
+    /// Wait for each frame's rendering to finish on the GPU before stepping, so the GPU pass
+    /// timings don't include rendering work running concurrently.
+    pub wait_for_render: bool,
     pub gpu_init_error: Option<String>,
     /// Names + kinds of all registered demos, used to populate the demo picker.
     pub demos: Vec<(String, DemoKind)>,
@@ -155,6 +158,11 @@ pub struct SimSettings {
     pub mpm_gravity: Vector,
     /// Rigid-body solver steps advanced per rendered frame.
     pub rbd_steps_per_frame: u32,
+    /// TGS substeps per rigid-body solver step.
+    pub rbd_substeps: u32,
+    /// Simulation-wide rigid-body contact friction model.
+    #[cfg(feature = "dim3")]
+    pub rbd_friction_model: nexus::rbd::dynamics::FrictionModel,
     /// Identical runs (see [`NexusState::set_deterministic`]). A viewer setting,
     /// kept across demos.
     pub deterministic: bool,
@@ -167,6 +175,9 @@ impl Default for SimSettings {
             mpm_use_cpic: true,
             mpm_gravity: Vector::ZERO,
             rbd_steps_per_frame: 1,
+            rbd_substeps: nexus::rbd::dynamics::RbdSimParams::default().num_solver_iterations,
+            #[cfg(feature = "dim3")]
+            rbd_friction_model: nexus::rbd::dynamics::FrictionModel::Coulomb,
             deterministic: false,
         }
     }
@@ -263,6 +274,11 @@ pub struct NexusViewer {
     /// Whether [`Self::render_frame`] draws the built-in egui panel. Disable
     /// for clean frame capture ([`Self::snap_rgb`]).
     draw_ui: bool,
+    /// Frame to save as an image, and where (see [`Self::with_snapshot`]).
+    #[cfg(not(target_arch = "wasm32"))]
+    snapshot: Option<(u32, std::path::PathBuf)>,
+    /// Number of frames rendered so far.
+    frames_rendered: u32,
     /// Lazily-created path tracer for [`Self::raytrace_frame`]. Kept across
     /// frames so samples keep accumulating while the scene is static.
     #[cfg(feature = "dim3")]
@@ -408,6 +424,9 @@ impl NexusViewer {
             last_gpu_pass_times: Vec::new(),
             last_gpu_total_time_ms: 0.0,
             draw_ui: true,
+            #[cfg(not(target_arch = "wasm32"))]
+            snapshot: None,
+            frames_rendered: 0,
             #[cfg(feature = "dim3")]
             raytracer: None,
             #[cfg(feature = "dim3")]
@@ -431,6 +450,7 @@ impl NexusViewer {
                 ui_section: Some(UiSection::Examples),
                 backend_type: BackendType::Gpu,
                 compute_graphs: false,
+                wait_for_render: false,
                 gpu_init_error: None,
                 demos,
                 selected_demo: 0,
@@ -465,6 +485,13 @@ impl NexusViewer {
         self
     }
 
+    /// Waits for each frame's rendering to finish on the GPU before stepping. Also toggled from
+    /// the performance panel.
+    pub fn with_wait_for_render(mut self, enabled: bool) -> Self {
+        self.ui.wait_for_render = enabled;
+        self
+    }
+
     pub fn with_cpu(mut self) -> Self {
         self.ui.backend_type = BackendType::Cpu;
         self
@@ -473,6 +500,13 @@ impl NexusViewer {
     /// Starts with the deterministic mode enabled (see [`NexusState::set_deterministic`]).
     pub fn with_deterministic(mut self, enabled: bool) -> Self {
         self.ui.sim_settings.deterministic = enabled;
+        self
+    }
+
+    /// Saves the `frame`-th rendered frame (counting from 1) as an image at `path`, then quits.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn with_snapshot(mut self, frame: u32, path: impl Into<std::path::PathBuf>) -> Self {
+        self.snapshot = Some((frame, path.into()));
         self
     }
 
@@ -1054,6 +1088,7 @@ impl NexusViewer {
     /// Renders sensor camera `id`'s shaded RGB image (row-major, top-left
     /// origin, `width * height * 3` bytes).
     #[cfg(feature = "dim3")]
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn render_sensor_rgb(&mut self, id: usize) -> Option<Vec<u8>> {
         let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_rgb(&mut self.scene3d).await)
@@ -1061,6 +1096,7 @@ impl NexusViewer {
 
     /// Renders sensor camera `id`'s linear metric depth (`0.0` = background).
     #[cfg(feature = "dim3")]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render_sensor_depth(&mut self, id: usize) -> Option<Vec<f32>> {
         let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_depth(&mut self.scene3d))
@@ -1068,6 +1104,7 @@ impl NexusViewer {
 
     /// Renders sensor camera `id`'s per-pixel segmentation ids (`0` = background).
     #[cfg(feature = "dim3")]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render_sensor_segmentation(&mut self, id: usize) -> Option<Vec<u32>> {
         let sensor = self.sensors.get_mut(id)?.as_mut()?;
         Some(sensor.render_segmentation(&mut self.scene3d))
@@ -1384,6 +1421,14 @@ impl NexusViewer {
             self.ui.sim_settings.mpm_use_cpic = state.mpm_use_cpic();
             self.ui.sim_settings.mpm_gravity = state.mpm_gravity();
             self.ui.sim_settings.rbd_steps_per_frame = state.rbd_steps_per_frame();
+            self.ui.sim_settings.rbd_substeps = state.rbd_substeps();
+            #[cfg(feature = "dim3")]
+            {
+                self.ui.sim_settings.rbd_friction_model = state
+                    .rbd_sim_params(0)
+                    .map(|params| params.friction_model)
+                    .unwrap_or_default();
+            }
             self.ui.settings_demo = Some(self.ui.selected_demo);
         } else {
             let s = self.ui.sim_settings.clone();
@@ -1391,6 +1436,9 @@ impl NexusViewer {
             state.set_mpm_use_cpic(s.mpm_use_cpic);
             state.set_mpm_gravity(s.mpm_gravity);
             state.set_rbd_steps_per_frame(s.rbd_steps_per_frame);
+            state.set_rbd_substeps(self.backend(), s.rbd_substeps);
+            #[cfg(feature = "dim3")]
+            state.set_rbd_friction_model(s.rbd_friction_model);
         }
         // The compute-graph toggle is a testbed-wide choice, not a scene
         // setting: it always flows from the backend panel into the scene.
@@ -1590,6 +1638,21 @@ impl NexusViewer {
             return false;
         }
 
+        self.frames_rendered += 1;
+        if self.ui.wait_for_render {
+            Self::wait_for_render().await;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some((frame, path)) = &self.snapshot
+            && self.frames_rendered == *frame
+        {
+            if let Err(err) = self.window.snap_image().save(path) {
+                eprintln!("Failed to save the snapshot to {}: {err}", path.display());
+            }
+            self.ui.transition = Some(Transition::Quit);
+            return false;
+        }
+
         let gpu_available = self.webgpu.is_some();
         // Disjoint closure capture (edition 2024): the closure borrows `self.ui`
         // and `scene_ui` while `self.window` is the receiver.
@@ -1601,6 +1664,23 @@ impl NexusViewer {
         }
 
         self.ui.transition.is_none()
+    }
+
+    /// Waits until the work submitted to kiss3d's queue (this frame's rendering) is done.
+    async fn wait_for_render() {
+        if !kiss3d::context::Context::is_initialized() {
+            return;
+        }
+        let ctxt = kiss3d::context::Context::get();
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        ctxt.queue.on_submitted_work_done(move || {
+            let _ = sender.send(());
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = ctxt
+            .device
+            .poll(khal::re_exports::wgpu::PollType::wait_indefinitely());
+        let _ = receiver.await;
     }
 
     /// Captures the last rendered frame as `(width, height, rgb)`, where `rgb`

@@ -2,6 +2,26 @@
 
 use crate::MAX_FLT;
 
+/// Simulation-wide friction choice for 3D rigid-body contacts.
+///
+/// Multibody contacts always use Coulomb, as in Rapier. This transparent value
+/// has a stable four-byte GPU representation; unknown values behave as Coulomb.
+#[cfg(feature = "dim3")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
+#[repr(transparent)]
+pub struct FrictionModel(u32);
+
+#[cfg(feature = "dim3")]
+#[allow(non_upper_case_globals)]
+impl FrictionModel {
+    /// One Coulomb friction constraint at every contact point (Nexus's default).
+    pub const Coulomb: Self = Self(0);
+    /// Rapier's simplified model: one central friction constraint and one
+    /// angular twist constraint per manifold of up to four contact points.
+    pub const Simplified: Self = Self(1);
+}
+
 /// Two times pi (2π), used for converting natural frequency to angular frequency.
 pub const TWO_PI: f32 = core::f32::consts::TAU;
 
@@ -18,7 +38,7 @@ pub struct ConstraintSoftness {
     /// overshoots and jitters.
     pub erp_inv_dt: f32,
     /// Contact `1 / (1 + cfm_coeff)` — multiplies the contact impulse each PGS
-    /// sweep for constraint-force-mixing compliance.
+    /// iteration for constraint-force-mixing compliance.
     pub cfm_factor: f32,
     /// Geometric slop distance.
     pub allowed_lin_err: f32,
@@ -70,7 +90,7 @@ impl ConstraintSoftness {
 }
 
 /// Bias-mode uniform handed to the constraint solve kernels: the unbiased
-/// stabilization sweep, the biased pass with friction rows skipped (rapier's
+/// stabilization iteration, the biased pass with friction rows skipped (rapier's
 /// default scheduling), or the biased pass with friction rows solved
 /// (`RbdSimParams::friction_in_bias_pass`). The values double as indices into
 /// the solver's constant uniforms (`color_uniforms[c] == c`).
@@ -184,7 +204,7 @@ pub struct RbdSimParams {
     pub contact_merge_cos: f32,
 
     /// PGS iterations over the joint + contact constraints run per substep in
-    /// the biased pass (default: `1`). The rigid-body and multibody sweeps
+    /// the biased pass (default: `1`). The rigid-body and multibody iterations
     /// interleave, one iteration each, so both sides of a rigid-body/multibody
     /// contact converge at the same rate.
     ///
@@ -192,7 +212,7 @@ pub struct RbdSimParams {
     pub num_internal_pgs_iterations: u32,
 
     /// Nonzero: friction rows are also solved during the biased pass instead
-    /// of only during the unbiased stabilization sweep (default: `0`, matching
+    /// of only during the unbiased stabilization iteration (default: `0`, matching
     /// rapier's `friction_in_bias_pass`). Turning it on gives friction as many
     /// PGS iterations as the normal rows, which stiffens grasps and resting
     /// contacts at a small cost per iteration.
@@ -200,11 +220,19 @@ pub struct RbdSimParams {
     /// Host-side only: it selects the bias-mode uniform passed to the solve
     /// kernels, never read by a shader.
     pub friction_in_bias_pass: u32,
-    // Uniform-layout padding to a 16-byte multiple (scalars: an array member
-    // here would itself need 16-byte alignment).
+
+    /// A contact pair whose relative pose drifted less than this since its contacts were computed
+    /// keeps them, frozen on the bodies (default: `0.05` as in rapier, `0` disables recycling).
+    ///
+    /// This value is implicitly scaled by `length_unit`.
+    pub normalized_contact_recycle_distance: f32,
+    // Reserved scalar, matching the 3D friction-model slot.
+    #[cfg(feature = "dim2")]
     pub _padding0: u32,
-    pub _padding1: u32,
-    pub _padding2: u32,
+    /// Friction model for all rigid-body contact manifolds. Multibody contacts
+    /// remain Coulomb. Defaults to [`FrictionModel::Coulomb`].
+    #[cfg(feature = "dim3")]
+    pub friction_model: FrictionModel,
 }
 
 impl RbdSimParams {
@@ -231,9 +259,11 @@ impl RbdSimParams {
             length_unit: 1.0,
             num_internal_pgs_iterations: 1,
             friction_in_bias_pass: 0,
+            normalized_contact_recycle_distance: 0.05,
+            #[cfg(feature = "dim2")]
             _padding0: 0,
-            _padding1: 0,
-            _padding2: 0,
+            #[cfg(feature = "dim3")]
+            friction_model: FrictionModel::Coulomb,
         }
     }
 }
@@ -377,6 +407,12 @@ impl RbdSimParams {
     /// (default: `0.02m` multiplied by `length_unit`).
     pub fn prediction_distance(&self) -> f32 {
         self.normalized_prediction_distance * self.length_unit
+    }
+
+    /// The distance below which a contact pair's drift lets it keep its contacts (default:
+    /// `0.05` multiplied by `length_unit`, `0` when recycling is disabled).
+    pub fn contact_recycle_distance(&self) -> f32 {
+        self.normalized_contact_recycle_distance * self.length_unit
     }
 
     /// Maximum linear velocity a body may have after each solver substep.

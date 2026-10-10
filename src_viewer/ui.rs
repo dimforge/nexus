@@ -161,6 +161,7 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                             &state.run_stats,
                             state.sync_time,
                             state.steps,
+                            &mut state.wait_for_render,
                         );
                     }
                     Some(UiSection::Examples) if !state.demos.is_empty() => {
@@ -252,6 +253,20 @@ fn simulation_settings(ui: &mut egui::Ui, state: &mut UiState) {
         }
         ui.label("Rigid bodies");
         ui.add(egui::Slider::new(&mut s.rbd_steps_per_frame, 1..=20).text("steps / frame"));
+        ui.add(egui::Slider::new(&mut s.rbd_substeps, 1..=20).text("iterations (substeps)"))
+            .on_hover_text(
+                "TGS substeps per physics step. More substeps improve accuracy at a higher \
+                 cost, without changing the amount of simulated time.",
+            );
+        #[cfg(feature = "dim3")]
+        ui.horizontal(|ui| {
+            use nexus::rbd::dynamics::FrictionModel;
+            ui.label("Friction");
+            ui.selectable_value(&mut s.rbd_friction_model, FrictionModel::Coulomb, "Coulomb")
+                .on_hover_text("Friction at each contact point");
+            ui.selectable_value(&mut s.rbd_friction_model, FrictionModel::Simplified, "Twist")
+                .on_hover_text("Central friction and twist resistance per contact manifold. Multibody contacts use Coulomb.");
+        });
     }
 
     ui.add_space(4.0);
@@ -459,6 +474,7 @@ fn performance_ui(
     run_stats: &RunStats,
     sync_time: Duration,
     steps: u64,
+    wait_for_render: &mut bool,
 ) {
     // Scene entity counts.
     ui.label(RichText::new("Scene").strong());
@@ -510,6 +526,11 @@ fn performance_ui(
         ))
         .strong(),
     );
+    ui.checkbox(wait_for_render, "Wait for render before stepping")
+        .on_hover_text(
+            "Wait for each frame's rendering to finish on the GPU before stepping, so the GPU \
+             pass timings don't include rendering work running concurrently.",
+        );
     if !run_stats.gpu_pass_times.is_empty() {
         CollapsingHeader::new(format!("GPU passes: {:.2}ms", run_stats.gpu_total_time_ms))
             .id_salt("rbd_gpu_passes")
@@ -542,13 +563,13 @@ fn performance_ui(
 }
 
 impl UiState {
-    /// Order in which demos appear in the picker: grouped by kind (Rbd, Mpm),
+    /// Order in which demos appear in the picker: grouped by kind (Rbd, Mpm, Stress),
     /// preserving each group's listing order. Prev/Next walks this sequence so it
     /// matches the visible list rather than the raw (lexicographically-sorted)
     /// `demos` index order.
     fn demo_display_order(&self) -> Vec<usize> {
         let mut order = Vec::with_capacity(self.demos.len());
-        for kind in [DemoKind::Rbd, DemoKind::Mpm] {
+        for kind in [DemoKind::Rbd, DemoKind::Mpm, DemoKind::Stress] {
             for (i, (_, k)) in self.demos.iter().enumerate() {
                 if *k == kind {
                     order.push(i);
@@ -598,6 +619,7 @@ fn demo_navigation(ui: &mut egui::Ui, state: &mut UiState) {
 fn examples_section(ui: &mut egui::Ui, state: &mut UiState) {
     demo_group(ui, state, DemoKind::Rbd, "Rigid Bodies");
     demo_group(ui, state, DemoKind::Mpm, "MPM");
+    demo_group(ui, state, DemoKind::Stress, "Stress tests");
 }
 
 fn demo_group(ui: &mut egui::Ui, state: &mut UiState, kind: DemoKind, label: &str) {

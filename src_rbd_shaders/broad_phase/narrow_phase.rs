@@ -35,12 +35,12 @@ const WORKGROUP_SIZE: u32 = 64;
 /// `i`-th PFM entry (in sorted order when the sort runs) owns slot
 /// `pfm_base + i`. Every slot in `[0, bound)` is (re)written each frame by
 /// exactly one producer (`len = 0` when the pair yields no manifold), so no
-/// zeroing pass is needed and the flat consumers can sweep the whole bound.
+/// zeroing pass is needed and the flat consumers can cover the whole bound.
 #[derive(Copy, Clone, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
 pub struct ContactPlan {
-    /// Total contact-slot bound (`pfm_base + pfm_len`): the sweep range of
+    /// Total contact-slot bound (`pfm_base + pfm_len`): the dispatch range of
     /// every flat contacts-keyed kernel.
     pub bound: u32,
     /// Clamped flat collision-pair total; also the base contact slot of the
@@ -64,8 +64,8 @@ pub fn gpu_reset_narrow_phase(
 }
 
 /// Publishes this frame's clamped list totals (the `contact_plan`) and every
-/// grid derived from them: the flat contacts sweep grid, the PFM sweep grid,
-/// the (clamped) PFM sort count, and the per-multibody contact sweep grid
+/// grid derived from them: the flat contacts dispatch grid, the PFM dispatch grid,
+/// the (clamped) PFM sort count, and the per-multibody contact dispatch grid
 /// (`[multibodies_batch_capacity, num_batches, 1]`, zero workgroups when the
 /// frame cannot produce any contact).
 ///
@@ -84,7 +84,7 @@ pub fn gpu_contact_plan(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] pfm_sort_len: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contacts_indirect: &mut [u32; 3],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pfm_indirect: &mut [u32; 3],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] mb_sweep_indirect: &mut [u32; 3],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] mb_dispatch_indirect: &mut [u32; 3],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
 ) {
     let pairs =
@@ -106,13 +106,13 @@ pub fn gpu_contact_plan(
     *pfm_indirect.at_mut(1) = 1;
     *pfm_indirect.at_mut(2) = 1;
 
-    *mb_sweep_indirect.at_mut(0) = if bound > 0 {
+    *mb_dispatch_indirect.at_mut(0) = if bound > 0 {
         batch_ids.multibodies_batch_capacity
     } else {
         0
     };
-    *mb_sweep_indirect.at_mut(1) = batch_ids.num_batches;
-    *mb_sweep_indirect.at_mut(2) = 1;
+    *mb_dispatch_indirect.at_mut(1) = batch_ids.num_batches;
+    *mb_dispatch_indirect.at_mut(2) = 1;
 }
 
 /// Copies each PFM entry's originating pair index into the flat sort-key
@@ -357,7 +357,7 @@ pub fn gpu_reduce_contacts(
 /// Contact slots are positional: pair `t` owns contact slot `t` and this pass
 /// writes every slot in `[0, pairs_total)` exactly once (`len = 0` when the
 /// pair yields no manifold here: separated, same-body, or deferred), so the
-/// flat consumers can sweep the whole bound without a zeroing pass.
+/// flat consumers can cover the whole bound without a zeroing pass.
 ///
 /// The complex cases (generic convex via PFM, trimesh, polyline) are deferred
 /// to `gpu_narrow_phase_shape_shape_deferred`.
@@ -396,6 +396,7 @@ pub fn gpu_narrow_phase_shape_shape(
         let body1 = collider_parent.read(pair.colliders.x as usize);
         let body2 = collider_parent.read(pair.colliders.y as usize);
         let mut manifold = ContactManifold::default();
+        let mut recycle_extent = 0.0;
         if body1 != body2 {
             let pose1 = poses.read(pair.colliders.x as usize);
             let pose2 = poses.read(pair.colliders.y as usize);
@@ -404,6 +405,9 @@ pub fn gpu_narrow_phase_shape_shape(
             let shape_ty1 = shape1.shape_type();
             let shape_ty2 = shape2.shape_type();
             let pose12 = pose1.inverse() * pose2;
+            recycle_extent = shape1
+                .primitive_local_extent()
+                .max(shape2.primitive_local_extent());
 
             // Ball - Convex
             if shape_ty1 == SHAPE_TYPE_BALL {
@@ -455,7 +459,7 @@ pub fn gpu_narrow_phase_shape_shape(
                     friction: mat1.combined_friction(&mat2),
                     restitution: mat1.combined_restitution(&mat2),
                     subshape: 0,
-                    _padding: 0.0,
+                    recycle_extent,
                 },
             );
         } else {
@@ -564,7 +568,10 @@ pub fn gpu_narrow_phase_shape_shape_deferred(
                     colliders: pair.colliders,
                     pair_index: t,
                     subshape: 0,
-                    _padding: [0; 2],
+                    recycle_extent: shape1
+                        .local_extent(vertices)
+                        .max(shape2.local_extent(vertices)),
+                    _padding: [0; 1],
                 };
                 let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
                 // NOTE: if we exceed capacity, just skip the pair.
@@ -715,7 +722,9 @@ fn trimesh_convex(
                 colliders,
                 pair_index,
                 subshape: idx.shape_index + 1,
-                _padding: [0; 2],
+                // One manifold per triangle or segment: not recyclable.
+                recycle_extent: -1.0,
+                _padding: [0; 1],
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
             // Skip (don’t write) on overflow; the caller resizes and re-runs.
@@ -793,7 +802,9 @@ fn polyline_convex(
                 colliders,
                 pair_index,
                 subshape: idx.shape_index + 1,
-                _padding: [0; 2],
+                // One manifold per triangle or segment: not recyclable.
+                recycle_extent: -1.0,
+                _padding: [0; 1],
             };
             let pfm_index = atomic_add_u32(pfm_pairs_len, 1);
             // Skip (don’t write) on overflow; the caller resizes and re-runs.
@@ -829,7 +840,9 @@ pub struct NarrowPhasePfmPair {
     pair_index: u32,
     /// See [`IndexedManifold::subshape`].
     subshape: u32,
-    _padding: [u32; 2],
+    /// See [`IndexedManifold::recycle_extent`].
+    recycle_extent: f32,
+    _padding: [u32; 1],
 }
 
 /// PFM (GJK/EPA) manifold computation for the deferred work-list entries.
@@ -906,7 +919,7 @@ pub fn gpu_narrow_phase_pfm_pfm(
                     friction: mat1.combined_friction(&mat2),
                     restitution: mat1.combined_restitution(&mat2),
                     subshape: pair.subshape,
-                    _padding: 0.0,
+                    recycle_extent: pair.recycle_extent,
                 },
             );
         } else {

@@ -102,6 +102,10 @@ async fn rest_report(num_envs: usize, settle: u32, steps: u32) -> RestReport {
         .map(|(b, c)| (b, c, &impulse_joints, &multibody_joints, &params))
         .collect();
     let capacities = RbdCapacities {
+        // Size each nine-body fixture explicitly: defaults multiplied by 256
+        // environments exceed WebGPU's default buffer-size limit.
+        body_capacity: 32,
+        collisions_capacity: 512,
         batches: num_envs as u32,
         ..Default::default()
     };

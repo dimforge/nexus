@@ -1,18 +1,18 @@
 //! GPU-resident rigid-body state ([`RbdState`]): buffer definitions, accessors,
 //! run statistics and capacity/resize policies.
 use crate::broad_phase::{BRUTE_FORCE_MAX_COLLIDERS, LbvhState, PfmSortState};
-use crate::dynamics::GpuImpulseJointSet;
 #[cfg(feature = "dim3")]
 use crate::dynamics::GpuMultibodySet;
+use crate::dynamics::{ColorStatsBuffer, GpuImpulseJointSet, HubState};
 use crate::math::{Pose, Vector};
 use crate::queries::{GpuColliderMaterial, GpuIndexedContact};
 use crate::shaders::PaddedVector;
 use crate::shaders::broad_phase::{CollisionPair, ContactPlan, LbvhNode, NarrowPhasePfmPair};
+use crate::shaders::dynamics::ColorStats;
 #[cfg(feature = "dim3")]
 use crate::shaders::dynamics::MbContactIndexEntry;
 use crate::shaders::dynamics::{
-    LocalMassProperties as GpuLocalMassProperties, RbdSimParams, TwoBodyConstraint,
-    TwoBodyConstraintBuilder, Velocity as GpuVelocity,
+    LocalMassProperties as GpuLocalMassProperties, RbdSimParams, Velocity as GpuVelocity,
     WorldMassProperties as GpuWorldMassProperties,
 };
 use crate::shaders::queries::MAX_MANIFOLD_POINTS;
@@ -118,15 +118,15 @@ pub struct RbdCapacities {
     /// GPU->CPU buffer readback, resulting in a larger performance gain than just setting
     /// only one of them to `Fixed`.
     pub collisions_resize_policy: RbdResizePolicy,
-    /// Maximum number of colors used by the solver for constraints coloring.
+    /// Initial/minimum coloring budget. Large adaptive scenes start with additional
+    /// convergence margin; sparse contact graphs can shrink back to this minimum.
     pub solver_colors: u32,
     /// How internal constraints coloring gets automatically adjusted (or not).
     ///
     /// While this doesn’t change any buffer allocation, this affects the number of
     /// iterations the constraints coloring step applies, which has a computational cost.
     ///
-    /// Note that `RbdResizePolicy::Fit` for solver colors will currently act like `::Grow`
-    /// (i.e. the color won’t go back down yet).
+    /// Adaptive policies grow on failed convergence and shrink above the minimum budget.
     ///
     /// Note that setting both [`Self::collisions_resize_policy`] and
     /// [`Self::solver_colors_resize_policy`] to [`RbdResizePolicy::Fixed`] eliminates a
@@ -149,6 +149,28 @@ impl Default for RbdCapacities {
     }
 }
 
+impl RbdCapacities {
+    pub(super) fn minimum_solver_colors(
+        &self,
+        active_colliders: u32,
+        highest_color: Option<u32>,
+    ) -> u32 {
+        // Before feedback, and for dense contact graphs, leave room to converge before
+        // CPU feedback arrives. Sparse graphs need no such floor: extra empty color
+        // dispatches can cost more than their actual solver work.
+        let dense = highest_color.is_none_or(|highest| highest >= 16);
+        if active_colliders >= 4096
+            && dense
+            && self.solver_colors_resize_policy != RbdResizePolicy::Fixed
+        {
+            self.solver_colors
+                .max(if active_colliders >= 65536 { 64 } else { 32 })
+        } else {
+            self.solver_colors
+        }
+    }
+}
+
 /// Governs the way the rigid-body dynamics pipeline automatically resizes internal buffers storing
 /// data with unpredictable size (like collisions).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
@@ -162,6 +184,64 @@ pub enum RbdResizePolicy {
     Grow,
     /// If specified, the internal storage buffers are grown and shrunk automatically.
     Fit,
+}
+
+/// Dispatch grids and stats of the graph coloring and the colored dispatches.
+pub(crate) struct ColoringDispatch {
+    /// Grid of the current topo-gc iteration: empty once the coloring converged.
+    pub(crate) coloring_indirect: Tensor<[u32; 3]>,
+    /// Grid of the colored dispatches: sized to the largest color bucket.
+    pub(crate) dispatch_indirect: Tensor<[u32; 3]>,
+    /// CPU scheduling hints, in threads, for colors 0..64. Never used as loop bounds.
+    pub(crate) dispatch_threads: [u32; 64],
+    /// Whether the sparse colors from `TAIL_COLOR` are solved by a single workgroup. Hint
+    /// only: that workgroup still visits the full current GPU bucket range.
+    pub(crate) fuse_tail_colors: bool,
+    /// The color statistics of the current step.
+    pub(crate) color_stats: ColorStatsBuffer,
+}
+
+/// The counters read back after each step, to resize the buffers and size the next dispatches.
+/// [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers)
+/// gathers them in field order.
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub(super) struct ResizeFeedback {
+    /// Total collision-pair count, over all batches.
+    pub collision_pairs: u32,
+    /// Total PFM work-list count, over all batches.
+    pub pfm_pairs: u32,
+    /// Non-zero when the topo-gc coloring converged.
+    pub coloring_converged: u32,
+    /// Total multibody contact-constraint demand.
+    #[cfg(feature = "dim3")]
+    pub mb_cons_demand: u32,
+    pub color_stats: ColorStats,
+}
+
+impl ResizeFeedback {
+    /// Number of `u32` words in a [`ResizeFeedback`].
+    pub(super) const WORDS: usize = size_of::<ResizeFeedback>() / size_of::<u32>();
+}
+
+impl ColoringDispatch {
+    pub(crate) fn new(backend: &GpuBackend) -> Self {
+        let indirect = BufferUsages::STORAGE | BufferUsages::INDIRECT;
+        Self {
+            coloring_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
+            dispatch_indirect: Tensor::scalar(backend, [0u32, 1, 1], indirect).unwrap(),
+            dispatch_threads: [0; 64],
+            fuse_tail_colors: false,
+            color_stats: ColorStatsBuffer(
+                Tensor::vector(
+                    backend,
+                    vec![0u32; ColorStatsBuffer::WORDS],
+                    BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+                )
+                .unwrap(),
+            ),
+        }
+    }
 }
 
 /// GPU-resident physics simulation state containing all rigid bodies, shapes, and solver data.
@@ -191,8 +271,12 @@ pub struct RbdState {
     /// `publish_reset_templates` and consumed by `reset_envs_from_templates`.
     #[cfg(feature = "dim3")]
     pub(super) reset_templates_bodies: Option<ResetTemplatesBodies>,
+    /// Solver velocities: one slot per body, followed by the sub-body slots of split bodies
+    /// (see [`HubState`]).
     pub(super) solver_vels: Tensor<GpuVelocity>,
     pub(super) solver_vels_inc: Tensor<GpuVelocity>,
+    /// Mass-splitting state of bodies with many contacts.
+    pub(super) hubs: HubState,
     pub(super) vertex_buffers: Tensor<PaddedVector>,
     pub(super) index_buffers: Tensor<u32>,
     pub(super) shapes: Tensor<Shape>,
@@ -218,8 +302,7 @@ pub struct RbdState {
     /// Single global live collision-pair count (length 1): every batch appends
     /// to the same flat pair buffer.
     pub(super) collision_pairs_len: Tensor<u32>,
-    /// Non-blocking readback of `[collision_pairs_len, pfm_pairs_len,
-    /// uncolored]` used by
+    /// Non-blocking readback of the [`ResizeFeedback`] words, used by
     /// [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers)
     /// to grow buffers without stalling.
     pub(super) resize_readback: GpuReadback<u32>,
@@ -234,8 +317,12 @@ pub struct RbdState {
     pub(super) collision_pairs_capacity_cpu: u32,
     /// Most recently read live collision-pair count — the total across all
     /// batches, harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers).
-    /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize.
-    pub(super) collision_pairs_len_cpu: u32,
+    /// Surfaced in the viewer UI; lags the GPU by a frame or two like the resize. `None` until
+    /// the first readback completes.
+    pub(super) collision_pairs_len_cpu: Option<u32>,
+    /// Whether a step ran since the last resize readback request: the counters are only read
+    /// back once a step wrote them.
+    pub(super) stepped_since_readback: bool,
     /// Bumped on every GPU buffer (re)allocation or capacity change; part of
     /// [`Self::graph_key`].
     pub(super) graph_generation: u64,
@@ -259,7 +346,7 @@ pub struct RbdState {
     /// Flat dispatch grid over the whole contacts range, written by
     /// `gpu_contact_plan`.
     pub(super) contacts_indirect: Tensor<[u32; 3]>,
-    /// Clamped per-frame list totals (see `gpu_contact_plan`): the sweep
+    /// Clamped per-frame list totals (see `gpu_contact_plan`): the dispatch
     /// bound and the positional-slot bases of the flat contacts buffer.
     pub(super) contact_plan: Tensor<ContactPlan>,
     /// Buffers backing the per-pair PFM sort of the contact-reduction path.
@@ -271,13 +358,13 @@ pub struct RbdState {
     pub(super) mb_contact_index: Tensor<MbContactIndexEntry>,
     /// Workgroup grid for the per-multibody contact-constraint dispatches:
     /// `[multibodies_batch_capacity, num_batches, 1]`.
-    pub(super) mb_sweep_indirect: Tensor<[u32; 3]>,
-    pub(super) new_constraints: Tensor<TwoBodyConstraint>,
-    pub(super) new_constraint_builders: Tensor<TwoBodyConstraintBuilder>,
+    pub(super) mb_dispatch_indirect: Tensor<[u32; 3]>,
+    pub(super) new_constraints: crate::dynamics::ContactConstraints,
     pub(super) new_constraints_counts: Tensor<u32>,
     pub(super) new_body_constraint_ids: Tensor<u32>,
-    pub(super) old_constraints: Tensor<TwoBodyConstraint>,
-    pub(super) old_constraint_builders: Tensor<TwoBodyConstraintBuilder>,
+    pub(super) old_constraints: crate::dynamics::ContactConstraints,
+    /// Previous and current recycling metadata in one storage allocation.
+    pub(super) recycle_states: crate::dynamics::ContactRecycleStates,
     pub(super) old_constraints_counts: Tensor<u32>,
     pub(super) old_body_constraint_ids: Tensor<u32>,
     pub(super) constraints_colors: Tensor<u32>,
@@ -286,15 +373,17 @@ pub struct RbdState {
     pub(super) constraints_rands: Tensor<u32>,
     /// The single `(color, batch)` bucket buffer, color-major, of length
     /// `(max_colors + 3) * num_batches`: counts, then scanned exclusive
-    /// starts, then post-scatter exclusive ends (what the sweeps read).
+    /// starts, then post-scatter exclusive ends (what the solve kernels read).
     pub(super) color_buckets: Tensor<u32>,
-    /// Constraint indices bucket-sorted by `(color, batch)`.
-    pub(super) color_sorted_ids: Tensor<u32>,
+    /// The constraint links bucket-sorted by `(color, batch)`.
+    pub(super) sorted_links: Tensor<crate::shaders::dynamics::ContactLink>,
     pub(super) curr_color: Tensor<u32>,
     /// Pre-built per-color-index uniforms: `color_uniforms[c] == c`.
     /// [`Self::ensure_color_uniforms`].
     pub(super) color_uniforms: Vec<Tensor<u32>>,
     pub(super) uncolored: Tensor<u32>,
+    /// Dispatch grids and stats of the coloring and colored dispatches.
+    pub(super) coloring_dispatch: ColoringDispatch,
     pub(super) uncolored_staging: Tensor<u32>,
     pub(super) lbvh: LbvhState,
     pub(super) joints: GpuImpulseJointSet,
@@ -540,7 +629,6 @@ impl RbdState {
         zero(backend, &mut self.determinism.pending_colors);
         zero(backend, &mut self.old_constraints_colors);
         zero(backend, &mut self.colored);
-        zero(backend, &mut self.color_sorted_ids);
         zero(backend, &mut self.determinism.contact_sort_keys);
         zero(backend, &mut self.determinism.contact_sort_ids);
         zero(backend, &mut self.determinism.contact_sort_keys_out);
@@ -593,7 +681,7 @@ impl RbdState {
     /// harvested by the non-blocking readback in [`RbdPipeline::auto_resize_buffers`](crate::pipeline::RbdPipeline::auto_resize_buffers). Lags the GPU by a
     /// frame or two; `0` until the first readback completes.
     pub fn collision_pairs_len(&self) -> u32 {
-        self.collision_pairs_len_cpu
+        self.collision_pairs_len_cpu.unwrap_or(0)
     }
 
     /// GPU buffer of the broad-phase collision pairs found this step.
@@ -635,8 +723,32 @@ impl RbdState {
         self.sim_params_cpu = params;
     }
 
+    /// Sets the duration of a full physics step and its TGS substep count,
+    /// without rebuilding bodies.
+    pub fn set_timestep(&mut self, backend: &GpuBackend, dt: f32, substeps: u32) {
+        let substeps = substeps.max(1);
+        let substep_dt = dt / substeps as f32;
+        if self.num_solver_iterations == substeps && self.sim_params_cpu.dt == substep_dt {
+            return;
+        }
+        let mut params = self.sim_params_cpu;
+        params.dt = substep_dt;
+        params.num_solver_iterations = substeps;
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
+        self.sim_params_cpu = params;
+        self.num_solver_iterations = substeps;
+        #[cfg(feature = "dim3")]
+        {
+            self.multibodies.set_num_solver_iterations(substeps);
+            self.multibodies.set_visible_dt(backend, dt);
+            self.multibodies.set_constraint_softness(backend, &params);
+        }
+        // Multibody uniforms were replaced and captured dispatch counts changed.
+        self.graph_generation += 1;
+    }
+
     /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
-    /// and multibody sweeps alike), without rebuilding the GPU state.
+    /// and multibody alike), without rebuilding the GPU state.
     #[cfg(feature = "dim3")]
     pub fn set_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
         let n = n.max(1);
@@ -647,6 +759,62 @@ impl RbdState {
         params.num_internal_pgs_iterations = n;
         let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
         self.sim_params_cpu = params;
+    }
+
+    /// Sets the drift below which a contact pair keeps its contacts instead of computing them
+    /// again, before scaling by `length_unit` (see
+    /// [`RbdSimParams::normalized_contact_recycle_distance`]). `0` disables contact recycling.
+    pub fn set_contact_recycle_distance(&mut self, backend: &GpuBackend, normalized_distance: f32) {
+        let mut params = self.sim_params_cpu;
+        params.normalized_contact_recycle_distance = normalized_distance;
+        let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[params]);
+        self.sim_params_cpu = params;
+    }
+
+    /// Selects the friction model for every rigid-body contact in every batch.
+    /// Switching models reallocates contact storage and resets contact warmstarts
+    /// and color seeds. Multibody contacts always use Coulomb.
+    #[cfg(feature = "dim3")]
+    pub fn set_friction_model(
+        &mut self,
+        backend: &GpuBackend,
+        model: crate::dynamics::FrictionModel,
+    ) {
+        if self.sim_params_cpu.friction_model != model {
+            let mut params = self.sim_params_cpu;
+            params.friction_model = model;
+            let usage = khal::BufferUsages::STORAGE | khal::BufferUsages::COPY_SRC;
+            let old = crate::dynamics::ContactConstraints::new(
+                backend,
+                self.contacts_capacity_cpu,
+                usage,
+                &params,
+            )
+            .expect("allocate contact model storage");
+            let new = crate::dynamics::ContactConstraints::new(
+                backend,
+                self.contacts_capacity_cpu,
+                usage,
+                &params,
+            )
+            .expect("allocate contact model storage");
+            // Adjacency counts gate every previous-contact read; clear them before
+            // exposing the newly allocated buffers to the next step.
+            let empty_counts = vec![0u32; self.old_constraints_counts.len() as usize];
+            self.old_constraints_counts =
+                Tensor::vector(backend, &empty_counts, usage).expect("reset contact warmstarts");
+            self.old_constraints = old;
+            self.new_constraints = new;
+            self.sim_params_cpu.friction_model = model;
+            let _ = backend.write_buffer(self.sim_params.buffer_mut(), 0, &[self.sim_params_cpu]);
+            self.graph_generation += 1;
+        }
+    }
+
+    /// The simulation-wide rigid-body friction model.
+    #[cfg(feature = "dim3")]
+    pub fn friction_model(&self) -> crate::dynamics::FrictionModel {
+        self.sim_params_cpu.friction_model
     }
 
     /// PGS iterations per substep in the biased pass.
@@ -754,8 +922,8 @@ impl RbdState {
 
     /// GPU buffer holding the rigid-body contact constraints of the current
     /// step (impulses included). For debugging.
-    pub fn rigid_contact_constraints(&self) -> &Tensor<TwoBodyConstraint> {
-        &self.new_constraints
+    pub fn rigid_contact_constraints(&self) -> &crate::dynamics::ContactConstraints {
+        &self.old_constraints
     }
 
     /// Debug: reads the contacts back from the GPU, as world-space points of all batches.
@@ -882,9 +1050,6 @@ impl RbdState {
     ///
     /// Reads the `old_*` buffers, i.e. the constraints and colors of the last step.
     pub fn debug_constraint_colors(&self, backend: &GpuBackend) -> Vec<(u32, u32, u32, u32, u32)> {
-        let cons: Vec<TwoBodyConstraint> =
-            futures::executor::block_on(backend.slow_read_vec(self.old_constraints.buffer()))
-                .unwrap_or_default();
         let colors: Vec<u32> = futures::executor::block_on(
             backend.slow_read_vec(self.old_constraints_colors.buffer()),
         )
@@ -897,15 +1062,28 @@ impl RbdState {
         .and_then(|plan| plan.first().map(|p| p.bound as usize))
         .unwrap_or(0);
 
+        let cons = futures::executor::block_on(self.old_constraints.read_impulses(backend, bound))
+            .unwrap_or_default();
         let mut out = Vec::new();
         for (i, c) in cons.iter().enumerate().take(bound) {
             if c.len == 0 {
                 continue;
             }
             let color = colors.get(i).copied().unwrap_or(u32::MAX);
-            out.push((i as u32, c.solver_body_a, c.solver_body_b, color, c.len));
+            out.push((i as u32, c.body_a, c.body_b, color, c.len));
         }
         out
+    }
+
+    /// Diagnostic readback of the last step's active contact range.
+    pub async fn read_rigid_contact_impulses(
+        &self,
+        backend: &GpuBackend,
+    ) -> Result<Vec<crate::dynamics::ContactImpulseSnapshot>, khal::backend::GpuBackendError> {
+        let plan: Vec<ContactPlan> = backend.slow_read_vec(self.contact_plan.buffer()).await?;
+        self.old_constraints
+            .read_impulses(backend, plan[0].bound as usize)
+            .await
     }
 
     /// The number of colliders per batch.
@@ -1286,7 +1464,7 @@ pub struct RbdGraphKey {
     pub num_active_colliders: u32,
     /// Collider slots per environment.
     pub num_colliders_per_batch: u32,
-    /// Maximum number of graph colors the solver sweeps.
+    /// Maximum number of graph colors the solver iterates over.
     pub max_colors: u32,
     /// Number of per-color uniform buffers.
     pub num_color_uniforms: usize,
@@ -1311,8 +1489,8 @@ pub struct RbdGraphKey {
     /// Number of graph colors of the multibody impulse joints.
     #[cfg(feature = "dim3")]
     pub mb_imp_joint_num_colors: u32,
-    /// Whether the fused colored-sweep kernels are used.
-    pub fused_color_sweeps: bool,
+    /// Whether the fused colored kernels are used.
+    pub fused_color_dispatches: bool,
 }
 
 impl RbdState {
@@ -1343,7 +1521,7 @@ impl RbdState {
             multibodies_empty: self.multibodies.is_empty(),
             #[cfg(feature = "dim3")]
             mb_imp_joint_num_colors: self.multibodies.mb_imp_joint_num_colors(),
-            fused_color_sweeps: crate::pipeline::RbdPipeline::fused_color_sweeps(self),
+            fused_color_dispatches: crate::pipeline::RbdPipeline::fused_color_dispatches(self),
         }
     }
 }

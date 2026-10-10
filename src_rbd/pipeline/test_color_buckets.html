@@ -1,0 +1,139 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Contact bucket WebGPU regression</title>
+<pre id="result">RUNNING</pre>
+<script type="module">
+// Generated WGSL and layout metadata come from color_bucket_shaders_translate_for_web.
+// Serve its output directory over localhost and open this page in a WebGPU browser.
+const result = { userAgent: navigator.userAgent, passed: false, models: [], uncapturedErrors: [] };
+const output = document.querySelector('#result');
+const check = (ok, message) => { if (!ok) throw new Error(message); };
+try {
+  const adapter = await navigator.gpu.requestAdapter();
+  check(adapter, 'No WebGPU adapter');
+  result.adapter = { vendor: adapter.info.vendor, architecture: adapter.info.architecture };
+  const device = await adapter.requestDevice();
+  device.addEventListener('uncapturederror', event => result.uncapturedErrors.push(event.error.message));
+  const base = new URLSearchParams(location.search).get('variant') || '.';
+  const fetchFile = async name => {
+    const response = await fetch(`${base}/${name}`);
+    check(response.ok, `Missing ${name}: export both dimensions before running`);
+    return response;
+  };
+  for (const dim of ['2d', '3d']) {
+    const layout = await (await fetchFile(`${dim}.json`)).json();
+    for (const model of layout.models) {
+      const entry = { dim, model: model.model, pipelines: [], cases: 0 };
+      result.models.push(entry);
+      const pipelines = {};
+      for (const phase of ['count', 'scatter']) {
+        device.pushErrorScope('validation');
+        const code = await (await fetchFile(`${dim}-${model.model}-${phase}.wgsl`)).text();
+        const module = device.createShaderModule({ code });
+        const compilation = await module.getCompilationInfo();
+        const errors = compilation.messages.filter(m => m.type === 'error').map(m => m.message);
+        let pipelineError = null;
+        try {
+          pipelines[phase] = await device.createComputePipelineAsync({
+            layout: 'auto', compute: { module,
+              entryPoint: `dynamics_color_buckets_gpu_color_buckets_${phase}` }
+          });
+        } catch (error) { pipelineError = String(error); }
+        const validation = await device.popErrorScope();
+        entry.pipelines.push({ phase, errors, pipelineError, validation: validation?.message || null });
+      }
+      // Preserve all compilation failures for diagnosis; never dispatch invalid shaders.
+      if (entry.pipelines.some(p => p.errors.length || p.pipelineError || p.validation)) continue;
+      for (const n of [0, 1, 63, 64, 65, 193]) {
+        for (const nb of [1, 3]) {
+          for (const stride of [5, 67, 129, 133]) {
+            for (const mixed of [false, true]) {
+              for (const groups of new Set([1, Math.ceil(Math.max(n, 1) / 64)])) {
+                const buffers = [];
+                const buffer = (data, usage) => {
+                  const b = device.createBuffer({ size: data.byteLength, usage, mappedAtCreation: true });
+                  new Uint8Array(b.getMappedRange()).set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+                  b.unmap(); buffers.push(b); return b;
+                };
+                const storage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC;
+                const colors = new Uint32Array(Math.max(n, 1));
+                const links = new Uint32Array(Math.max(n, 1) * model.linkSize / 4);
+                const members = Array.from({ length: stride * nb }, () => []);
+                for (let i = 0; i < n; ++i) {
+                  const color = mixed ? [0, 1, 2, 63, 64, 127, stride - 1, 0xffffffff][i % 8] : 1;
+                  const body = (i % 17) * nb + Math.floor(i / 7) % nb;
+                  colors[i] = color;
+                  links[(i * model.linkSize + model.bodyOffset) / 4] = body;
+                  links[(i * model.linkSize + model.lenOffset) / 4] = 1;
+                  links[(i * model.linkSize + model.contactOffset) / 4] = i;
+                  // Active constraints left uncolored go to the last bucket.
+                  const bucket = color !== 0 && color < stride - 1 ? color : stride - 1;
+                  members[bucket * nb + body % nb].push(i);
+                }
+                const counts = Uint32Array.from(members, m => m.length);
+                const starts = new Uint32Array(counts.length), ends = new Uint32Array(counts.length);
+                let total = 0;
+                for (let i = 0; i < counts.length; ++i) {
+                  starts[i] = total; total += counts[i]; ends[i] = total;
+                }
+                const plan = new Uint32Array(layout.planSize / 4);
+                plan[layout.boundOffset / 4] = n;
+                const batch = new Uint32Array(layout.batchSize / 4);
+                batch[layout.numBatchesOffset / 4] = nb;
+                batch[layout.strideOffset / 4] = stride;
+                const shared = [buffer(colors, storage), buffer(links, storage), buffer(plan, GPUBufferUsage.UNIFORM)];
+                const countOut = buffer(new Uint32Array(counts.length), storage);
+                const endOut = buffer(starts, storage);
+                const linkWords = model.linkSize / 4;
+                const sortedLinksOut = buffer(new Uint32Array((total + 16) * linkWords).fill(0xffffffff), storage);
+                const batchIn = buffer(batch, GPUBufferUsage.UNIFORM);
+                const indicesOut = buffer(new Uint32Array(Math.max(n, 1)), storage);
+                const encoder = device.createCommandEncoder();
+                const pass = encoder.beginComputePass();
+                for (const phase of ['count', 'scatter']) {
+                  const bindings = phase === 'count' ? [...shared, countOut, batchIn, sortedLinksOut] : [...shared, endOut, sortedLinksOut, batchIn, indicesOut];
+                  pass.setPipeline(pipelines[phase]);
+                  pass.setBindGroup(0, device.createBindGroup({ layout: pipelines[phase].getBindGroupLayout(0),
+                    entries: bindings.map((b, binding) => ({ binding, resource: { buffer: b } })) }));
+                  pass.dispatchWorkgroups(groups);
+                }
+                pass.end();
+                const sortedLinksWords = (total + 16) * linkWords;
+                const readback = device.createBuffer({ size: (counts.length * 2 + sortedLinksWords + Math.max(n, 1)) * 4,
+                  usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+                encoder.copyBufferToBuffer(countOut, 0, readback, 0, counts.byteLength);
+                encoder.copyBufferToBuffer(endOut, 0, readback, counts.byteLength, ends.byteLength);
+                encoder.copyBufferToBuffer(sortedLinksOut, 0, readback, counts.byteLength * 2, sortedLinksWords * 4);
+                encoder.copyBufferToBuffer(indicesOut, 0, readback, (counts.length * 2 + sortedLinksWords) * 4, Math.max(n, 1) * 4);
+                device.queue.submit([encoder.finish()]);
+                await readback.mapAsync(GPUMapMode.READ);
+                const data = new Uint32Array(readback.getMappedRange());
+                const context = `${dim}/${model.model}: n=${n}, batches=${nb}, stride=${stride}, mixed=${mixed}, groups=${groups}`;
+                const contactAt = index => data[counts.length * 2 + index * linkWords + model.contactOffset / 4];
+                for (let i = 0; i < counts.length; ++i) {
+                  check(data[i] === counts[i] && data[counts.length + i] === ends[i], `Count/end mismatch: ${context}`);
+                  const actual = Array.from({ length: ends[i] - starts[i] }, (_, j) => contactAt(starts[i] + j)).sort((a, b) => a - b);
+                  check(actual.every((v, j) => v === members[i][j]), `Membership mismatch: ${context}`);
+                }
+                check(data.slice(counts.length * 2 + total * linkWords, counts.length * 2 + sortedLinksWords).every(v => v === 0xffffffff), `Sentinel overwritten: ${context}`);
+                const indices = data.slice(counts.length * 2 + sortedLinksWords);
+                for (let i = 0; i < n; ++i) {
+                  check(contactAt(indices[i]) === i, `Index mismatch: ${context}`);
+                }
+                readback.unmap(); readback.destroy();
+                for (const b of buffers) b.destroy();
+                ++entry.cases;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  result.passed = result.uncapturedErrors.length === 0 && result.models.length === 2 && result.models.every(m => m.cases === 128);
+  device.destroy();
+} catch (error) { result.error = String(error); }
+output.textContent = JSON.stringify(result, null, 2);
+// Optional result collector used for archiving runs; a static server is sufficient.
+fetch('/result', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result) }).catch(() => {});
+</script>

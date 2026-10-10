@@ -126,8 +126,9 @@ pub struct IndexedManifold {
     /// this manifold, or 0 for a whole convex shape. With `colliders`, it identifies the
     /// manifold across frames for warmstarting.
     pub subshape: u32,
-    /// Padding so the struct size stays a multiple of 16 bytes (std430 array stride).
-    pub _padding: f32,
+    /// Bound on the distance between each collider's local origin and its points (rapier's
+    /// contact-recycling `max_extent`), or a negative value if the pair can't be recycled.
+    pub recycle_extent: f32,
 }
 
 /// Computes the contact between two balls.

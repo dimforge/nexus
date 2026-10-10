@@ -26,6 +26,31 @@ Nexus is organized into independent physics modules, each available in 2D and 3D
   materials, fluids, etc. Supports one-way coupling with rigid-bodies (= rigid-bodies can push particles but particles
   cannot push rigid-bodies).
 
+## Rigid-body friction (3D)
+
+Choose the contact model globally with `RbdSimParams::friction_model`:
+
+```rust ignore
+use nexus_rbd3d::dynamics::{FrictionModel, RbdSimParams};
+
+let params = RbdSimParams {
+    friction_model: FrictionModel::Simplified,
+    ..RbdSimParams::default()
+};
+```
+
+`Coulomb` (the default) solves sliding friction at each contact point.
+`Simplified` follows Rapier's twist-friction model: per-point normal constraints,
+one sliding-friction constraint at the manifold center, and one angular constraint
+resisting twist about its normal. A single-point contact has no twist constraint.
+The models approximate friction differently and can produce different motion.
+Multibody contacts always use Coulomb, as in Rapier; 2D is unchanged.
+
+Pass these parameters to `RbdState::from_rapier` (identically for every environment),
+or call `NexusState::set_rbd_friction_model` before `finalize`. A live `RbdState`
+can switch all environments with `set_friction_model(&backend, model)`.
+Switching clears incompatible friction warmstarts and preserves normal warmstarts.
+
 ## Prerequisites
 
 ### Install `cargo gpu`

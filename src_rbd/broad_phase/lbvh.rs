@@ -7,9 +7,10 @@ use crate::math::Pose;
 use crate::shaders::PaddedVector;
 use crate::shaders::bounding_volumes::Aabb;
 use crate::shaders::broad_phase::{
-    CollisionPair, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch, GpuLbvhBuild,
-    GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhFindCollisionPairs, GpuLbvhRefitInternal,
-    GpuLbvhRefitLeaves, GpuLbvhResetCollisionPairs, LbvhNode,
+    CollisionPair, DOMAIN_WORKGROUPS, GpuBfComputeAabbs, GpuBfFindPairs, GpuFlatListDispatch,
+    GpuLbvhBuild, GpuLbvhComputeDomain, GpuLbvhComputeMorton, GpuLbvhDomainMerge, GpuLbvhEscapes,
+    GpuLbvhFindCollisionPairs, GpuLbvhRefitChunks, GpuLbvhRefitFrontier, GpuLbvhRefitLeaves,
+    GpuLbvhResetCollisionPairs, LbvhNode,
 };
 use crate::shaders::shapes::Shape;
 use crate::utils::{RadixSort, RadixSortWorkspace};
@@ -26,10 +27,15 @@ use vortx::tensor::Tensor;
 #[derive(Shader)]
 pub struct GpuLbvh {
     compute_domain: GpuLbvhComputeDomain,
+    domain_merge: GpuLbvhDomainMerge,
     compute_morton: GpuLbvhComputeMorton,
     build: GpuLbvhBuild,
+    escapes: GpuLbvhEscapes,
     refit_leaves: GpuLbvhRefitLeaves,
-    refit_internal: GpuLbvhRefitInternal,
+    refit_chunks: GpuLbvhRefitChunks,
+    refit_frontier: GpuLbvhRefitFrontier,
+    #[cfg(target_arch = "wasm32")]
+    refit_plan: crate::shaders::broad_phase::GpuLbvhRefitPlan,
     reset_collision_pairs: GpuLbvhResetCollisionPairs,
     find_collision_pairs: GpuLbvhFindCollisionPairs,
     /// Writes the `[total/64, 1, 1]` indirect grid from the single global pair
@@ -47,6 +53,8 @@ pub struct GpuLbvh {
 pub struct LbvhState {
     buffer_usages: BufferUsages,
     domain_aabb: Tensor<Aabb>,
+    /// Per-workgroup domains of each batch, merged into `domain_aabb`.
+    domain_partials: Tensor<Aabb>,
     n_sort: Tensor<u32>,
     /// Per-batch active key count currently uploaded to `n_sort`, as
     /// `(active_per_batch, num_batches)`. `None` forces a re-upload (e.g. after
@@ -60,6 +68,13 @@ pub struct LbvhState {
     unsorted_colliders: Tensor<u32>,
     sorted_colliders: Tensor<u32>,
     tree: Tensor<LbvhNode>,
+    /// Per batch (strided like the colliders): the nodes left by the chunked refit for its
+    /// second phase.
+    refit_frontier: Tensor<u32>,
+    /// Per batch: the length of its refit frontier.
+    refit_frontier_len: Tensor<u32>,
+    /// GPU-written uniform bound for all batches of the web frontier refit.
+    refit_rounds: Tensor<u32>,
     sort_workspace: RadixSortWorkspace,
     /// Per-collider world AABBs, only used by the brute-force tiny-batch path
     /// (strided by the per-batch collider capacity, like the other
@@ -92,11 +107,15 @@ impl LbvhState {
             n_sort_active: None,
             generation: 0,
             domain_aabb: Tensor::scalar_uninit(backend, usages).unwrap(),
+            domain_partials: Tensor::vector_uninit(backend, DOMAIN_WORKGROUPS, usages).unwrap(),
             unsorted_morton_keys: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             sorted_morton_keys: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             unsorted_colliders: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             sorted_colliders: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             tree: Tensor::vector_uninit(backend, 0, usages).unwrap(),
+            refit_frontier: Tensor::vector_uninit(backend, 0, usages).unwrap(),
+            refit_frontier_len: Tensor::vector_uninit(backend, 0, usages).unwrap(),
+            refit_rounds: Tensor::scalar(backend, 0, usages | BufferUsages::UNIFORM).unwrap(),
             sort_workspace: RadixSortWorkspace::new(backend),
             aabbs: Tensor::vector_uninit(backend, 0, usages).unwrap(),
             buffer_usages: usages,
@@ -115,6 +134,14 @@ impl LbvhState {
         if (self.domain_aabb.len() as u32) < num_batches {
             self.generation += 1;
             self.domain_aabb =
+                Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
+            self.domain_partials =
+                Tensor::vector_uninit(backend, num_batches * DOMAIN_WORKGROUPS, self.buffer_usages)
+                    .unwrap();
+        }
+        // Its own check: it starts empty, while `domain_aabb` starts with one batch.
+        if (self.refit_frontier_len.len() as u32) < num_batches {
+            self.refit_frontier_len =
                 Tensor::vector_uninit(backend, num_batches, self.buffer_usages).unwrap();
         }
 
@@ -138,6 +165,8 @@ impl LbvhState {
                 Tensor::vector_uninit(backend, colliders_len, self.buffer_usages).unwrap();
             self.tree =
                 Tensor::vector_uninit(backend, 2 * colliders_len, self.buffer_usages).unwrap();
+            self.refit_frontier =
+                Tensor::vector_uninit(backend, colliders_len, self.buffer_usages).unwrap();
 
             // FIXME: this doesn’t account for batches having mismatched numbers of colliders.
             // n_sort is a per-batch vector: each element is the per-batch *active*
@@ -215,12 +244,22 @@ impl Lbvh {
         let colliders_per_batch = active_per_batch;
 
         let mut pass = encoder.begin_pass("[RBD] lbvh-compute-domain", timestamps.as_deref_mut());
+        // About 4k colliders per workgroup.
+        let domain_workgroups = colliders_per_batch
+            .div_ceil(4096)
+            .clamp(1, DOMAIN_WORKGROUPS);
         self.shaders.compute_domain.call(
             &mut pass,
-            [1u32, num_batches, 1],
+            [domain_workgroups * 128, num_batches, 1],
             poses,
-            &mut state.domain_aabb,
+            &mut state.domain_partials,
             batch_indices,
+        )?;
+        self.shaders.domain_merge.call(
+            &mut pass,
+            [DOMAIN_WORKGROUPS, num_batches, 1],
+            &state.domain_partials,
+            &mut state.domain_aabb,
         )?;
         drop(pass);
 
@@ -258,6 +297,12 @@ impl Lbvh {
             &mut state.tree,
             batch_indices,
         )?;
+        self.shaders.escapes.call(
+            &mut pass,
+            [(2 * colliders_per_batch).saturating_sub(1), num_batches, 1],
+            &mut state.tree,
+            batch_indices,
+        )?;
         drop(pass);
 
         let mut pass = encoder.begin_pass("[RBD] lbvh-refit_leaves", timestamps.as_deref_mut());
@@ -269,16 +314,37 @@ impl Lbvh {
             &state.sorted_colliders,
             &mut state.tree,
             batch_indices,
+            &mut state.refit_frontier_len,
             vertex_buffers,
         )?;
         drop(pass);
 
         let mut pass = encoder.begin_pass("[RBD] lbvh-refit-internal", timestamps);
-        self.shaders.refit_internal.call(
+        // One workgroup per chunk of sorted leaves, then one per batch for the top of the tree.
+        self.shaders.refit_chunks.call(
+            &mut pass,
+            [colliders_per_batch, num_batches, 1],
+            &mut state.tree,
+            &mut state.refit_frontier,
+            &mut state.refit_frontier_len,
+            batch_indices,
+        )?;
+        #[cfg(target_arch = "wasm32")]
+        self.shaders.refit_plan.call(
+            &mut pass,
+            1u32,
+            &state.refit_frontier_len,
+            &mut state.refit_rounds,
+            batch_indices,
+        )?;
+        self.shaders.refit_frontier.call(
             &mut pass,
             [1u32, num_batches, 1],
             &mut state.tree,
+            &state.refit_frontier,
+            &state.refit_frontier_len,
             batch_indices,
+            &state.refit_rounds,
         )?;
         drop(pass);
 

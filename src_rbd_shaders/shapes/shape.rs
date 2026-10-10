@@ -640,6 +640,46 @@ impl Shape {
         Aabb::default()
     }
 
+    /// The distance from the local origin to the farthest corner of the local AABB (rapier's
+    /// contact-recycling extent).
+    pub fn local_extent(&self, vertices: &[PaddedVector]) -> f32 {
+        let aabb = self.compute_aabb(Pose::IDENTITY, vertices);
+        aabb.mins.length().max(aabb.maxs.length())
+    }
+
+    /// [`Self::local_extent`] of a ball, cuboid, capsule, cone or cylinder, without vertex
+    /// buffer (0 for the other shapes).
+    pub fn primitive_local_extent(&self) -> f32 {
+        let ty = self.shape_type();
+        if ty == SHAPE_TYPE_BALL {
+            #[cfg(feature = "dim2")]
+            return self.to_ball().radius * core::f32::consts::SQRT_2;
+            #[cfg(feature = "dim3")]
+            return self.to_ball().radius * 1.732_050_8;
+        }
+        if ty == SHAPE_TYPE_CUBOID {
+            return self.to_cuboid().half_extents.length();
+        }
+        if ty == SHAPE_TYPE_CAPSULE {
+            let capsule = self.to_capsule();
+            let (a, b) = (capsule.segment.a, capsule.segment.b);
+            let r = Vector::splat(capsule.radius);
+            return (a.min(b) - r).length().max((a.max(b) + r).length());
+        }
+        #[cfg(feature = "dim3")]
+        {
+            if ty == SHAPE_TYPE_CONE {
+                let cone = self.to_cone();
+                return Vector::new(cone.radius, cone.half_height, cone.radius).length();
+            }
+            if ty == SHAPE_TYPE_CYLINDER {
+                let cyl = self.to_cylinder();
+                return Vector::new(cyl.radius, cyl.half_height, cyl.radius).length();
+            }
+        }
+        0.0
+    }
+
     /// Creates a ball (sphere/circle) shape.
     ///
     /// # Parameters

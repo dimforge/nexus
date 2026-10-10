@@ -314,7 +314,7 @@ pub struct MultibodyContactConstraint {
     /// `J·v_target + bias` — bias from penetration (`erp_inv_dt · depth`)
     /// for normals, surface velocity for tangents.
     pub rhs: f32,
-    /// `rhs` without the positional bias (used by the stabilization sweep).
+    /// `rhs` without the positional bias (used by the stabilization iteration).
     pub rhs_wo_bias: f32,
     /// Accumulated impulse (warmstart-able).
     pub impulse: f32,

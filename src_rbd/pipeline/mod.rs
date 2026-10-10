@@ -22,3 +22,18 @@ pub use rbd_state::{
     DebugContact, DebugLbvhNode, RbdCapacities, RbdGraphKey, RbdResizePolicy, RbdState, RunStats,
 };
 pub use rbd_step::RbdPipeline;
+
+#[cfg(test)]
+mod test_large_warmstart;
+
+#[cfg(all(test, feature = "dim3"))]
+mod test_tail_colors;
+
+#[cfg(all(test, feature = "dim3"))]
+mod test_twist_friction;
+
+#[cfg(test)]
+mod test_color_buckets;
+
+#[cfg(test)]
+mod test_web_preparation;

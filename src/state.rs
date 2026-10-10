@@ -434,7 +434,7 @@ impl NexusState {
     }
 
     /// Sets how many PGS iterations the biased pass runs per substep (rigid-body
-    /// and multibody sweeps alike).
+    /// and multibody alike).
     #[cfg(all(feature = "rbd", feature = "dim3"))]
     pub fn set_rbd_num_internal_pgs_iterations(&mut self, backend: &GpuBackend, n: u32) {
         for params in &mut self.rbd_sim_params {
@@ -582,7 +582,13 @@ impl NexusState {
     /// poses.
     pub fn add_environment(&mut self) -> usize {
         self.rbd_envs.push(PhysicsWorld::default());
-        self.rbd_sim_params.push(RbdSimParams::tgs_soft());
+        #[allow(unused_mut)]
+        let mut params = RbdSimParams::tgs_soft();
+        #[cfg(feature = "dim3")]
+        {
+            params.friction_model = self.rbd_sim_params[0].friction_model;
+        }
+        self.rbd_sim_params.push(params);
         self.rbd2gpu.push(Coarena::new());
         self.rbd_dirty = true;
         self.rbd_envs.len() - 1
@@ -601,6 +607,17 @@ impl NexusState {
     /// the next GPU build).
     pub fn rbd_sim_params(&self, env: usize) -> Option<RbdSimParams> {
         self.rbd_sim_params.get(env).copied()
+    }
+
+    /// Selects the friction model across all environments, applied by `finalize`.
+    /// A running scene keeps its body poses and velocities; only contact storage
+    /// and warmstarts are reset when the model changes. Multibody contacts always
+    /// use Coulomb.
+    #[cfg(feature = "dim3")]
+    pub fn set_rbd_friction_model(&mut self, model: crate::rbd::dynamics::FrictionModel) {
+        for params in &mut self.rbd_sim_params {
+            params.friction_model = model;
+        }
     }
 
     pub fn set_rbd_sim_params(&mut self, env: usize, params: RbdSimParams) {
@@ -850,6 +867,24 @@ impl NexusState {
             params.dt = dt;
             params.num_solver_iterations = substeps.max(1);
         }
+    }
+
+    /// Sets the TGS substep count for every environment, clamped to at least one.
+    /// Updates a running simulation without resetting bodies, preserving each
+    /// physics step's duration.
+    pub fn set_rbd_substeps(&mut self, backend: &GpuBackend, substeps: u32) {
+        let substeps = substeps.max(1);
+        for params in &mut self.rbd_sim_params {
+            params.num_solver_iterations = substeps;
+        }
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.set_timestep(backend, self.rbd_sim_params[0].dt, substeps);
+        }
+    }
+
+    /// Number of TGS substeps per rigid-body physics step.
+    pub fn rbd_substeps(&self) -> u32 {
+        self.rbd_sim_params[0].num_solver_iterations
     }
 
     /// The multibody rooted at (or containing) `body` in environment `env`, as
@@ -1608,8 +1643,18 @@ impl NexusState {
             if self.deterministic {
                 rbd_state.set_deterministic(backend, true);
             }
+            // Reserved-slot builds start with default parameters too: apply the scene's timestep.
+            let params = self.rbd_sim_params[0];
+            rbd_state.set_timestep(backend, params.dt, params.num_solver_iterations);
             self.rbd = Some(rbd_state);
             self.rbd_dirty = false;
+        }
+
+        // Apply a pending friction-model edit without rebuilding the rigid bodies
+        // from their original CPU poses. Also covers reserved-slot initial builds.
+        #[cfg(feature = "dim3")]
+        if let Some(rbd) = self.rbd.as_mut() {
+            rbd.set_friction_model(backend, self.rbd_sim_params[0].friction_model);
         }
 
         // MPM/rapier coupling. Boundary colliders are inserted into environment 0

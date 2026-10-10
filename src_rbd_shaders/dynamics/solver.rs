@@ -7,81 +7,19 @@ use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
 
 use crate::{AngVector, Pose, Vector};
-use khal_std::{
-    index::MaybeIndexUnchecked,
-    iter::StepRng,
-    sync::{atomic_add_u32, control_barrier},
-};
+use khal_std::{index::MaybeIndexUnchecked, iter::StepRng, sync::atomic_add_u32};
 
 use super::body::{LocalMassProperties, Velocity, WorldMassProperties};
-use super::constraint::{TwoBodyConstraint, TwoBodyConstraintBuilder};
-use super::sim_params::{RbdSimParams, decode_bias_mode};
-use super::solver_utils::warmstart_body;
+use super::mass_splitting::{HubCounts, NOT_A_HUB};
+use super::sim_params::RbdSimParams;
 
 use crate::queries::IndexedManifold;
 use crate::utils::{BatchIndices, Slice, SliceMut};
 
 const WORKGROUP_SIZE: u32 = 64;
 
-/// Initializes constraints from contact manifolds.
-///
-/// Split into two passes to stay within WebGPU's 8-storage-buffer per-stage
-/// limit: this pass builds the per-contact constraint/builder;
-/// `gpu_solver_count_constraints` does the per-body-group constraint counting.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_solver_init_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] contacts: &[IndexedManifold],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
-    constraint_builders: &mut [TwoBodyConstraintBuilder],
-    #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_is_multibody: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] collider_world_poses: &[Pose],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_body_poses: &[Pose],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] vels: &[Velocity],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] mprops: &[WorldMassProperties],
-    #[spirv(uniform, descriptor_set = 1, binding = 4)] params: &RbdSimParams,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-
-    let total = contact_plan.bound;
-    let collider_world_poses = Slice(collider_world_poses, 0);
-    let solver_body_poses = Slice(solver_body_poses, 0);
-    let vels = Slice(vels, 0);
-    let mprops = Slice(mprops, 0);
-    let body_is_multibody = Slice(body_is_multibody, 0);
-
-    for i in StepRng::new(invocation_id.x..total, num_threads) {
-        let i = i as usize;
-        let im = contacts.at(i);
-        // Manifolds touching a multibody link belong to the multibody contact
-        // solver (`gpu_mb_init_contact_constraints`); building a rigid-body
-        // constraint for them too would solve the contact twice, the second
-        // time against a zero-inverse-mass copy of the link that never moves.
-        if im.contact.len == 0 || touches_multibody(im, &body_is_multibody) {
-            // Gap, inert or multibody-owned slot: clear the (stale)
-            // constraint so every flat consumer skips it.
-            constraints.at_mut(i).len = 0;
-            continue;
-        }
-        im.contact_to_constraint(
-            &mprops,
-            &collider_world_poses,
-            &solver_body_poses,
-            &vels,
-            params,
-            constraints.at_mut(i),
-            constraint_builders.at_mut(i),
-        );
-    }
-}
-
-/// Companion pass to `gpu_solver_init_constraints`: counts, per body-group, how
-/// many constraints touch each body (used to size the graph-coloring graph).
+/// Counts, per body, how many constraints touch it (the adjacency lists of mass splitting,
+/// graph coloring and the warmstart gather).
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solver_count_constraints(
@@ -108,7 +46,7 @@ pub fn gpu_solver_count_constraints(
             continue;
         }
         // Multibody-owned manifolds have no rigid-body constraint (see
-        // `gpu_solver_init_constraints`).
+        // `gpu_init_contact_links`).
         if touches_multibody(im, &body_is_multibody) {
             continue;
         }
@@ -132,75 +70,6 @@ pub fn gpu_solver_count_constraints(
 #[inline(always)]
 fn touches_multibody(im: &IndexedManifold, body_is_multibody: &Slice<'_, u32>) -> bool {
     body_is_multibody[im.bodies.x as usize] != 0 || body_is_multibody[im.bodies.y as usize] != 0
-}
-
-/// Updates constraints for a new substep.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_solver_update_constraints(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-
-    let total = contact_plan.bound;
-    let mut constraints = SliceMut(constraints, 0);
-    let constraint_builders = Slice(constraint_builders, 0);
-    let solver_body_poses = Slice(solver_body_poses, 0);
-
-    for i in StepRng::new(invocation_id.x..total, num_threads) {
-        if constraints[i as usize].len == 0 {
-            // Gap / inert slot.
-            continue;
-        }
-        constraints[i as usize].update_constraint(
-            &constraint_builders[i as usize],
-            &solver_body_poses,
-            params,
-        );
-    }
-}
-
-/// Relax-pass refresh: recomputes the unbiased normal rhs of every contact
-/// constraint from the current (post-integration) solver poses.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_solver_refresh_rhs_wo_bias(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    constraint_builders: &[TwoBodyConstraintBuilder],
-    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] solver_body_poses: &[Pose],
-    #[spirv(uniform, descriptor_set = 1, binding = 1)] params: &RbdSimParams,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-
-    let total = contact_plan.bound;
-    let mut constraints = SliceMut(constraints, 0);
-    let constraint_builders = Slice(constraint_builders, 0);
-    let solver_body_poses = Slice(solver_body_poses, 0);
-
-    for i in StepRng::new(invocation_id.x..total, num_threads) {
-        if constraints[i as usize].len == 0 {
-            // Gap / inert slot.
-            continue;
-        }
-        constraints[i as usize].refresh_rhs_wo_bias(
-            &constraint_builders[i as usize],
-            &solver_body_poses,
-            params,
-        );
-    }
 }
 
 #[spirv_bindgen]
@@ -255,13 +124,21 @@ pub fn gpu_solver_cleanup(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] vels: &[Velocity],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] mprops: &[WorldMassProperties],
     #[spirv(uniform, descriptor_set = 1, binding = 2)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] hub_first_slot: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 4)] hub_counts: &mut HubCounts,
 ) {
     let num_threads = num_workgroups.x * WORKGROUP_SIZE;
     let num_slots = batch_ids.colliders_batch_capacity * batch_ids.num_batches;
 
+    if invocation_id.x == 0 {
+        hub_counts.hubs = 0;
+        hub_counts.slots = 0;
+    }
+
     for i in StepRng::new(invocation_id.x..num_slots, num_threads) {
         let idx = i as usize;
         body_constraint_counts.write(idx, 0);
+        hub_first_slot.write(idx, NOT_A_HUB);
 
         // HACK: to handle static bodies.
         if mprops.at(idx).inv_mass != Vector::ZERO {
@@ -323,263 +200,6 @@ pub fn gpu_apply_solver_vels_inc(
         let idx = i as usize;
         solver_vels.at_mut(idx).linear += solver_vels_inc.at(idx).linear;
         solver_vels.at_mut(idx).angular += solver_vels_inc.at(idx).angular;
-    }
-}
-
-/// Applies warmstart impulses without graph coloring (gather-style per body).
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_warmstart_without_colors(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] solver_vels: &mut [Velocity],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let num_bodies = batch_ids.bodies_len * batch_ids.num_batches;
-
-    let body_constraint_counts = Slice(body_constraint_counts, 0);
-    let body_constraint_ids = Slice(body_constraint_ids, 0);
-    let constraints = Slice(constraints, 0);
-    let mut solver_vels = SliceMut(solver_vels, 0);
-
-    for body_id in StepRng::new(invocation_id.x..num_bodies, num_threads) {
-        let mut solver_vel = solver_vels[body_id as usize];
-        warmstart_body(
-            body_id,
-            &body_constraint_counts,
-            &body_constraint_ids,
-            &constraints,
-            &mut solver_vel,
-        );
-        solver_vels[body_id as usize] = solver_vel;
-    }
-}
-
-/// Applies warmstart impulses with graph coloring (scatter-style per constraint).
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_warmstart(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] color_starts: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_sorted_ids: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] curr_color: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let nb = batch_ids.num_batches;
-
-    let constraints = Slice(constraints, 0);
-    let color_sorted_ids = Slice(color_sorted_ids, 0);
-    let mut solver_vels = SliceMut(solver_vels, 0);
-    let color = *curr_color;
-
-    // Buckets are color-major (`color * num_batches + batch`) and the buffer
-    // holds post-scatter exclusive ENDS, so color `c` (over every batch) spans
-    // `[ends[c*nb - 1], ends[(c+1)*nb - 1])`. `c >= 1` keeps the index valid.
-    let start = color_starts.read((color * nb - 1) as usize);
-    let end = color_starts.read(((color + 1) * nb - 1) as usize);
-
-    for k in StepRng::new(start + invocation_id.x..end, num_threads) {
-        let i = color_sorted_ids[k as usize];
-        let constraint = &constraints[i as usize];
-        let solver_id1 = constraint.solver_body_a as usize;
-        let solver_id2 = constraint.solver_body_b as usize;
-
-        let mut solver_vel1 = solver_vels[solver_id1];
-        let mut solver_vel2 = solver_vels[solver_id2];
-
-        constraint.warmstart_constraint(&mut solver_vel1, &mut solver_vel2);
-
-        solver_vels[solver_id1] = solver_vel1;
-        solver_vels[solver_id2] = solver_vel2;
-    }
-}
-
-/// Main constraint solver iteration kernel (Projected Gauss-Seidel).
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_step_gauss_seidel(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] color_starts: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_sorted_ids: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] curr_color: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
-) {
-    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
-    let nb = batch_ids.num_batches;
-
-    let mut constraints = SliceMut(constraints, 0);
-    let color_sorted_ids = Slice(color_sorted_ids, 0);
-    let mut solver_vels = SliceMut(solver_vels, 0);
-    let color = *curr_color;
-    let (use_bias, solve_friction) = decode_bias_mode(*use_bias);
-
-    // Color-major bucket ends; see `gpu_warmstart`.
-    let start = color_starts.read((color * nb - 1) as usize);
-    let end = color_starts.read(((color + 1) * nb - 1) as usize);
-
-    for k in StepRng::new(start + invocation_id.x..end, num_threads) {
-        let i = color_sorted_ids[k as usize];
-        let solver_id1 = constraints[i as usize].solver_body_a as usize;
-        let solver_id2 = constraints[i as usize].solver_body_b as usize;
-
-        let mut solver_vel1 = solver_vels[solver_id1];
-        let mut solver_vel2 = solver_vels[solver_id2];
-
-        constraints[i as usize].solve_constraint_gauss_seidel(
-            &mut solver_vel1,
-            &mut solver_vel2,
-            use_bias,
-            solve_friction,
-        );
-
-        solver_vels[solver_id1] = solver_vel1;
-        solver_vels[solver_id2] = solver_vel2;
-    }
-}
-
-/// Fused colored warmstart: only one 64-lane workgroup per batch walks every color
-/// bucket.
-///
-/// Used for small scenes where the contact count is small wrt. the environment count.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_warmstart_fused(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints: &[TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] color_starts: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_sorted_ids: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
-) {
-    let lane = invocation_id.x;
-    let batch_id = invocation_id.y;
-    let nb = batch_ids.num_batches;
-
-    let constraints = Slice(constraints, 0);
-    let color_sorted_ids = Slice(color_sorted_ids, 0);
-    let mut solver_vels = SliceMut(solver_vels, 0);
-    let num_colors = *num_colors;
-
-    for color in 1..=num_colors {
-        // This batch's bucket for `color` (color-major layout, post-scatter
-        // exclusive ends; the index is >= num_batches >= 1 for color >= 1).
-        let bucket = (color * nb + batch_id) as usize;
-        let start = color_starts.read(bucket - 1);
-        let end = color_starts.read(bucket);
-        #[cfg(not(feature = "web-compat"))]
-        if start == end {
-            // Empty color.
-            continue;
-        }
-
-        if start != end {
-            for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
-                let i = color_sorted_ids[k as usize];
-                let constraint = &constraints[i as usize];
-                let solver_id1 = constraint.solver_body_a as usize;
-                let solver_id2 = constraint.solver_body_b as usize;
-
-                let mut solver_vel1 = solver_vels[solver_id1];
-                let mut solver_vel2 = solver_vels[solver_id2];
-
-                constraint.warmstart_constraint(&mut solver_vel1, &mut solver_vel2);
-
-                solver_vels[solver_id1] = solver_vel1;
-                solver_vels[solver_id2] = solver_vel2;
-            }
-        }
-
-        control_barrier::<
-            { khal_std::memory::Scope::Workgroup as u32 },
-            { khal_std::memory::Scope::QueueFamily as u32 },
-            {
-                khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
-                    | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
-            },
-        >();
-    }
-}
-
-/// Fused colored Gauss-Seidel sweep: only one 64-lane workgroup per batch walks
-/// every color bucket with a storage barrier between colors.
-///
-/// Used for small scenes where the contact count is small wrt. the environment count.
-#[spirv_bindgen]
-#[spirv(compute(threads(64)))]
-pub fn gpu_step_gauss_seidel_fused(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
-    constraints: &mut [TwoBodyConstraint],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] solver_vels: &mut [Velocity],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] color_starts: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] color_sorted_ids: &[u32],
-    #[spirv(uniform, descriptor_set = 0, binding = 4)] num_colors: &u32,
-    #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
-    #[spirv(uniform, descriptor_set = 0, binding = 6)] use_bias: &u32,
-) {
-    let lane = invocation_id.x;
-    let batch_id = invocation_id.y;
-    let nb = batch_ids.num_batches;
-
-    let mut constraints = SliceMut(constraints, 0);
-    let color_sorted_ids = Slice(color_sorted_ids, 0);
-    let mut solver_vels = SliceMut(solver_vels, 0);
-    let num_colors = *num_colors;
-    let (use_bias, solve_friction) = decode_bias_mode(*use_bias);
-
-    for color in 1..=num_colors {
-        // Empty-color skip: see `gpu_warmstart_fused`.
-        let bucket = (color * nb + batch_id) as usize;
-        let start = color_starts.read(bucket - 1);
-        let end = color_starts.read(bucket);
-        #[cfg(not(feature = "web-compat"))]
-        if start == end {
-            continue;
-        }
-
-        if start != end {
-            for k in StepRng::new(start + lane..end, WORKGROUP_SIZE) {
-                let i = color_sorted_ids[k as usize];
-                let solver_id1 = constraints[i as usize].solver_body_a as usize;
-                let solver_id2 = constraints[i as usize].solver_body_b as usize;
-
-                let mut solver_vel1 = solver_vels[solver_id1];
-                let mut solver_vel2 = solver_vels[solver_id2];
-
-                constraints[i as usize].solve_constraint_gauss_seidel(
-                    &mut solver_vel1,
-                    &mut solver_vel2,
-                    use_bias,
-                    solve_friction,
-                );
-
-                solver_vels[solver_id1] = solver_vel1;
-                solver_vels[solver_id2] = solver_vel2;
-            }
-        }
-
-        control_barrier::<
-            { khal_std::memory::Scope::Workgroup as u32 },
-            { khal_std::memory::Scope::QueueFamily as u32 },
-            {
-                khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
-                    | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
-            },
-        >();
     }
 }
 

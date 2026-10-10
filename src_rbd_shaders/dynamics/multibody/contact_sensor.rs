@@ -10,7 +10,7 @@ use khal_std::macros::{spirv, spirv_bindgen};
 pub const MAX_CONTACT_SENSORS: u32 = 4;
 
 /// Per sensed link, sums the accumulated normal-constraint impulses. Dispatch
-/// it once per step, after the last substep's stabilization sweep: the value is
+/// it once per step, after the last substep's stabilization iteration: the value is
 /// then the step's total accumulated normal impulse (divide by the step `dt`
 /// for an average force) when the constraints are built once per step, or the
 /// last substep's impulse when they are rebuilt per substep.

@@ -52,7 +52,7 @@ pub fn gpu_mb_update_impulse_joint_constraints(
     let lock_cfm_coeff = softness.joint_cfm_coeff;
     let max_corr_velocity = softness.max_corr_velocity;
 
-    // Flat sweep over the interleaved builder slots (slot `t` = joint `t / nb`
+    // Flat dispatch over the interleaved builder slots (slot `t` = joint `t / nb`
     // of batch `t % nb`). Iterating to `cap * nb` instead of the per-batch
     // lengths lets us drop the `num_joints` storage binding — the host pads
     // unused slots with `side_a_kind == SIDE_KIND_FIXED && side_b_kind ==
@@ -170,9 +170,8 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
 ///
 /// Joints are graph-colored at init time (see `set_impulse_joints`): within
 /// one color no two joints share a multibody or a free body, so the color's
-/// joints run race-free in parallel. The host dispatches one color per
-/// iteration, giving an exact sequential Gauss–Seidel sweep in color-sorted
-/// order.
+/// joints run race-free in parallel. The host dispatches one color at a time,
+/// giving an exact sequential Gauss–Seidel iteration in color-sorted order.
 #[spirv_bindgen]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_solve_impulse_joint_constraints(
@@ -326,7 +325,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
 }
 
 /// Strip the positional bias from each active constraint's `rhs` for the
-/// stabilization sweep — mirrors `gpu_mb_remove_joint_constraint_bias`.
+/// stabilization iteration — mirrors `gpu_mb_remove_joint_constraint_bias`.
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_remove_impulse_joint_constraint_bias(

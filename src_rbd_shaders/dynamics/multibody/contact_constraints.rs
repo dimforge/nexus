@@ -37,7 +37,7 @@ use super::types::{
     MultibodyLinkStatic,
 };
 
-/// Workgroup width of the flat contact sweeps below (must match the
+/// Workgroup width of the flat contact dispatches below (must match the
 /// `contacts_indirect` grid written by `gpu_contact_plan`).
 const MB_SWEEP_WG: u32 = 64;
 use super::utils::zero_kinematic_dofs;
@@ -208,7 +208,7 @@ fn mb_contact_owner(
 
 /// Predicts, per (multibody, batch), how many contact-constraint slots the
 /// emission pass needs, and how many contacts touch each multibody. One flat
-/// sweep over the contacts: each contact resolves its owner and atomically
+/// dispatch over the contacts: each contact resolves its owner and atomically
 /// bumps that owner's counters, so the pass costs one visit per contact
 /// instead of one full-list scan per (multibody, batch).
 ///
@@ -310,7 +310,7 @@ pub fn gpu_mb_cons_offsets_scan(
     mb_cons_demand.write(0, demand);
 }
 
-/// Builds the contact→multibody index: one flat sweep over the contacts,
+/// Builds the contact→multibody index: one flat dispatch over the contacts,
 /// each contact appending its entry to its owner's segment (laid out by the
 /// offsets scan; `mb_index_counts` still holds the per-multibody counts and
 /// serves as write cursors counting down to zero). Entry order within a segment follows the
@@ -1281,13 +1281,13 @@ pub fn gpu_mb_apply_contact_restitution(
     workgroup_memory_barrier_with_group_sync();
 
     #[cfg(feature = "web-compat")]
-    let contact_sweep_len = *max_contact_constraints;
+    let contact_iteration_len = *max_contact_constraints;
     #[cfg(not(feature = "web-compat"))]
-    let contact_sweep_len = count;
+    let contact_iteration_len = count;
     #[cfg(not(feature = "web-compat"))]
     let _ = max_contact_constraints;
 
-    for s in 0..contact_sweep_len {
+    for s in 0..contact_iteration_len {
         let slot_active = active && s < count;
         let cons_idx = if slot_active {
             cons_base + s as usize

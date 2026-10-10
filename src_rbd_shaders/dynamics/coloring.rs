@@ -6,15 +6,12 @@
 use crate::broad_phase::ContactPlan;
 use khal_std::glamx::UVec3;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::{
-    iter::StepRng,
-    sync::{atomic_add_u32, atomic_max_u32},
-};
+use khal_std::{iter::StepRng, sync::atomic_add_u32};
 
 use crate::utils::{BatchIndices, Slice, SliceMut};
 use khal_std::index::MaybeIndexUnchecked;
 
-use super::constraint::TwoBodyConstraint;
+use super::ContactLink;
 
 const WORKGROUP_SIZE: u32 = 64;
 
@@ -36,6 +33,19 @@ fn hash(packed_key: u32) -> u32 {
     key = key.rotate_left(15);
     key *= 0x1b873593;
     key
+}
+
+/// Lowest free color. The upper word only contributes when the lower word is full.
+/// Adding both words' trailing-zero counts can select an occupied color when a previous
+/// frame seeded colors above 31, repeatedly recreating the same conflict.
+#[inline(always)]
+pub(super) fn first_free_color(mask: (u32, u32)) -> u32 {
+    let low = (!mask.0).trailing_zeros();
+    if low < 32 {
+        low
+    } else {
+        32 + (!mask.1).trailing_zeros()
+    }
 }
 
 /// Returns the `n`-th free color of a 64-bit mask (`n = 0` is the lowest), or 63 if none.
@@ -76,7 +86,7 @@ pub fn gpu_reset_luby(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints_rands: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
 ) {
     let total = contact_plan.bound;
@@ -104,7 +114,7 @@ pub fn gpu_step_graph_coloring_luby(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] constraints_rands: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] uncolored: &mut u32,
@@ -212,12 +222,18 @@ pub fn gpu_reset_topo_gc(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] colored: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] contact_plan: &ContactPlan,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] pending_colors: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] num_colors: &mut u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] pending_colors: &mut [u32],
 ) {
     let total = contact_plan.bound;
     let i = invocation_id.x;
+
+    if i == 0 {
+        // Not converged: the first iteration runs.
+        *num_colors = 0;
+    }
 
     if i < total {
         let idx = i as usize;
@@ -232,27 +248,30 @@ pub fn gpu_reset_topo_gc(
     }
 }
 
-/// Resets the convergence flag for Topo-GC.
+/// Resets the convergence flag for Topo-GC, and sizes this iteration's dispatches: none once
+/// the coloring has converged (the flag stayed non-zero through the previous iteration).
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_reset_completion_flag_topo_gc(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] num_colors: &mut u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_indirect: &[[u32; 3]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] coloring_indirect: &mut [[u32; 3]],
 ) {
     if invocation_id.x == 0 {
-        // NOTE: this `for` loop is silly. It doesn’t do anything
-        //       more than a `*num_colors = 1` in a convoluted
-        //       way because otherwise rustgpu apparently does not generate
-        //       the spirv for this kernel (seems to happen if the kernel is
-        //       too trivial.
-        for k in 0..1 {
-            // Non-zero value indicates algorithm should continue
-            *num_colors = k + 1;
-        }
+        let converged = *num_colors != 0;
+        let grid = if converged {
+            [0, 1, 1]
+        } else {
+            contacts_indirect.read(0)
+        };
+        coloring_indirect.write(0, grid);
+        *num_colors = 1;
     }
 }
 
-/// Clears the convergence flag so the first fix-conflicts pass validates every color.
+/// Clears the convergence flag and opens the full coloring grid so the first fix-conflicts pass
+/// validates every color.
 ///
 /// Colors seeded from the previous frame are marked colored, so the first step may color
 /// nothing and leave the flag set, which would skip the validation of the seeds.
@@ -261,12 +280,12 @@ pub fn gpu_reset_completion_flag_topo_gc(
 pub fn gpu_clear_completion_flag_topo_gc(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] num_colors: &mut u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] contacts_indirect: &[[u32; 3]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] coloring_indirect: &mut [[u32; 3]],
 ) {
     if invocation_id.x == 0 {
-        // NOTE: same trivial-kernel workaround as `gpu_reset_completion_flag_topo_gc`.
-        for k in 0..1 {
-            *num_colors = k;
-        }
+        coloring_indirect.write(0, contacts_indirect.read(0));
+        *num_colors = 0;
     }
 }
 
@@ -280,7 +299,7 @@ pub fn gpu_step_graph_coloring_topo_gc(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,
@@ -322,14 +341,23 @@ pub fn gpu_step_graph_coloring_topo_gc(
             } else {
                 0
             };
-            let last_constraint_id_a = body_constraint_counts[body_a as usize] as usize;
+            let mut last_constraint_id_a = body_constraint_counts[body_a as usize] as usize;
 
             let first_constraint_id_b = if body_b != 0 {
                 body_constraint_counts[body_b as usize - 1] as usize
             } else {
                 0
             };
-            let last_constraint_id_b = body_constraint_counts[body_b as usize] as usize;
+            let mut last_constraint_id_b = body_constraint_counts[body_b as usize] as usize;
+
+            // A split body's constraints each act on their own sub-body: they don't conflict.
+            // The split points them at a sub-body velocity slot instead of the body's own.
+            if constraints[i].vel_slot_a != constraints[i].solver_body_a {
+                last_constraint_id_a = first_constraint_id_a;
+            }
+            if constraints[i].vel_slot_b != constraints[i].solver_body_b {
+                last_constraint_id_b = first_constraint_id_b;
+            }
 
             // Traverse all constraints from body A.
             for j in first_constraint_id_a..last_constraint_id_a {
@@ -382,8 +410,7 @@ pub fn gpu_step_graph_coloring_topo_gc(
                 // `colored` is not written here since the rank loops read it.
                 // The fix pass sets it, based on `pending_colors[i]`.
             } else {
-                constraints_colors[i] =
-                    (!color_mask.0).trailing_zeros() + (!color_mask.1).trailing_zeros();
+                constraints_colors[i] = first_free_color(color_mask);
                 colored[i] = 1;
             }
             // We are not finished coloring. 0 indicates the algorithm must continue.
@@ -403,7 +430,7 @@ pub fn gpu_fix_conflicts_topo_gc(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] body_constraint_counts: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] body_constraint_ids: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[TwoBodyConstraint],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] constraints: &[ContactLink],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] constraints_colors: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] colored: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] num_colors: &mut u32,
@@ -451,17 +478,10 @@ pub fn gpu_fix_conflicts_topo_gc(
             colored[i] = PENDING_COLORED;
         }
 
-        // NOTE: this `num_colors` read doesn't need to be atomic. Any non-zero value is indicative of a finished
-        //       algorithm.
-        // If `num_colors > 0u` then we know that the coloring algorithm has converged. So we use this dispatch
-        // as an opportunity to compute the colors count that will be ready back to the CPU side.
-        if *num_colors > 0 {
-            // TODO PERF: not sure if that would have a significant impact but we could keep track of
-            //            whether the last iteration of the TOPO-GC algorithm already finished, in which
-            //            case we can skip the atomic max entirely and just early-exit.
-
-            atomic_max_u32(num_colors, color_i);
-        } else {
+        // A non-zero `num_colors` means the previous step iteration colored nothing new: the
+        // coloring has converged and there is nothing left to fix. (The CPU only reads it as a
+        // convergence flag.)
+        if *num_colors == 0 {
             // Map raw body ids to graph-coloring GROUP ids (multibody-aware).
             let body_a = body_group[constraints[i].solver_body_a as usize];
             let body_b = body_group[constraints[i].solver_body_b as usize];
@@ -471,21 +491,30 @@ pub fn gpu_fix_conflicts_topo_gc(
             } else {
                 0
             };
-            let last_constraint_id_a = body_constraint_counts[body_a as usize] as usize;
+            let mut last_constraint_id_a = body_constraint_counts[body_a as usize] as usize;
 
             let first_constraint_id_b = if body_b != 0 {
                 body_constraint_counts[body_b as usize - 1] as usize
             } else {
                 0
             };
-            let last_constraint_id_b = body_constraint_counts[body_b as usize] as usize;
+            let mut last_constraint_id_b = body_constraint_counts[body_b as usize] as usize;
+
+            // A split body's constraints each act on their own sub-body: they don't conflict.
+            // The split points them at a sub-body velocity slot instead of the body's own.
+            if constraints[i].vel_slot_a != constraints[i].solver_body_a {
+                last_constraint_id_a = first_constraint_id_a;
+            }
+            if constraints[i].vel_slot_b != constraints[i].solver_body_b {
+                last_constraint_id_b = first_constraint_id_b;
+            }
 
             // Traverse all constraints from body A. On a conflict, the largest index keeps
             // its color, the others pick again in the next round.
             for j in first_constraint_id_a..last_constraint_id_a {
                 let constraint_j = body_constraint_ids[j];
 
-                if constraint_j != constraint_i {
+                if constraint_i < constraint_j {
                     let cj = constraint_j as usize;
                     let pending_j = if deterministic {
                         pending_colors[cj]
@@ -497,32 +526,36 @@ pub fn gpu_fix_conflicts_topo_gc(
                     } else {
                         constraints_colors[cj]
                     };
-                    if color_i == color_j && constraint_i < constraint_j {
+                    if color_i == color_j {
                         // Found a conflict, uncolor this node.
                         colored[i] = 0;
+                        break;
                     }
                 }
             }
 
-            // Traverse all constraints from body B.
-            for j in first_constraint_id_b..last_constraint_id_b {
-                let constraint_j = body_constraint_ids[j];
+            if colored[i] != 0 {
+                // Traverse all constraints from body B.
+                for j in first_constraint_id_b..last_constraint_id_b {
+                    let constraint_j = body_constraint_ids[j];
 
-                if constraint_j != constraint_i {
-                    let cj = constraint_j as usize;
-                    let pending_j = if deterministic {
-                        pending_colors[cj]
-                    } else {
-                        MAX_U32
-                    };
-                    let color_j = if pending_j != MAX_U32 {
-                        pending_j
-                    } else {
-                        constraints_colors[cj]
-                    };
-                    if color_i == color_j && constraint_i < constraint_j {
-                        // Found a conflict, uncolor this node.
-                        colored[i] = 0;
+                    if constraint_i < constraint_j {
+                        let cj = constraint_j as usize;
+                        let pending_j = if deterministic {
+                            pending_colors[cj]
+                        } else {
+                            MAX_U32
+                        };
+                        let color_j = if pending_j != MAX_U32 {
+                            pending_j
+                        } else {
+                            constraints_colors[cj]
+                        };
+                        if color_i == color_j {
+                            // Found a conflict, uncolor this node.
+                            colored[i] = 0;
+                            break;
+                        }
                     }
                 }
             }
@@ -536,3 +569,7 @@ pub fn gpu_fix_conflicts_topo_gc(
         }
     }
 }
+
+#[cfg(all(test, not(target_arch_is_gpu)))]
+#[path = "../tests/coloring.rs"]
+mod tests;

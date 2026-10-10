@@ -38,6 +38,9 @@ mod mpm_jelly_drop3;
 mod mpm_sand3;
 mod mpm_snow3;
 
+// Large stress scenes, listed in their own picker group.
+mod stress_scenes;
+
 /// Declares the demo registry: a `(name, kind)` list for the picker UI and a
 /// name -> `run()` dispatcher. Keeping both in one macro keeps them in sync.
 /// Entries can carry attributes (e.g. `#[cfg(...)]`) to exclude a demo from
@@ -53,6 +56,7 @@ macro_rules! demos {
                 $(#[$attr])*
                 demos.push(($name.to_string(), DemoKind::$kind));
             )*
+            demos.extend(stress_scenes::demo_list());
             // Lexicographic sort, with stress tests (names starting with '(')
             // moved to the end of the list.
             demos.sort_by(|a, b| match (a.0.starts_with('('), b.0.starts_with('(')) {
@@ -69,7 +73,11 @@ macro_rules! demos {
                 // migrated to the `NexusState` API); discard whatever it yields
                 // so every arm has the same `()` type.
                 $( $(#[$attr])* $name => { let _ = $module::run(viewer, pipeline).await; }, )*
-                _ => eprintln!("Unknown demo: '{name}'"),
+                _ => {
+                    if stress_scenes::run(name, viewer, pipeline).await.is_none() {
+                        eprintln!("Unknown demo: '{name}'");
+                    }
+                }
             }
         }
     };
@@ -119,6 +127,8 @@ struct CliOptions {
     metal: bool,
     run: bool,
     deterministic: bool,
+    snapshot: Option<(u32, String)>,
+    headless: bool,
 }
 
 fn parse_command_line() -> CliOptions {
@@ -132,6 +142,8 @@ fn parse_command_line() -> CliOptions {
         metal: false,
         run: false,
         deterministic: false,
+        snapshot: None,
+        headless: false,
     };
 
     while let Some(arg) = args.next() {
@@ -144,6 +156,11 @@ fn parse_command_line() -> CliOptions {
             "--metal" => opts.metal = true,
             "--run" => opts.run = true,
             "--deterministic" => opts.deterministic = true,
+            "--snapshot" => {
+                let frame = args.next().and_then(|f| f.parse().ok());
+                opts.snapshot = frame.zip(args.next());
+            }
+            "--headless" => opts.headless = true,
             _ => {}
         }
     }
@@ -179,8 +196,14 @@ pub async fn main() {
         }
     }
 
-    let mut viewer = NexusViewer::new(demos.clone()).await;
-    viewer = viewer.with_selected_demo(selected);
+    let mut viewer = if opts.headless {
+        NexusViewer::new_headless_with_size(demos.clone(), 1600, 1200).await
+    } else {
+        NexusViewer::new(demos.clone()).await
+    };
+    viewer = viewer
+        .with_selected_demo(selected)
+        .with_wait_for_render(true);
     if opts.cpu {
         viewer = viewer.with_cpu();
     }
@@ -200,6 +223,10 @@ pub async fn main() {
     }
     if opts.deterministic {
         viewer = viewer.with_deterministic(true);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some((frame, path)) = opts.snapshot.clone() {
+        viewer = viewer.with_snapshot(frame, path);
     }
 
     // The GPU pipelines are owned here (not by `NexusState`) so they can be

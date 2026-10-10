@@ -1,7 +1,7 @@
 //! Multibody joint limit / motor constraints.
 //!
 //! Each constraint targets a single generalized DOF and is solved with PGS
-//! sweeps. Per-multibody, all constraint slots are scanned (`kind == 0` ones
+//! iterations. Per-multibody, all constraint slots are scanned (`kind == 0` ones
 //! are skipped).
 
 use glamx::Vec4;

@@ -1179,12 +1179,15 @@ impl NexusState {
     /// tolerated penetration in length units, `max_corrective_velocity` caps
     /// penetration recovery, `prediction_distance` is the contact detection
     /// margin, `internal_pgs_iterations` the biased-pass PGS iterations per
-    /// substep (rigid-body and multibody sweeps alike), and `friction_in_bias_pass` whether friction
+    /// substep (rigid-body and multibody alike), and `friction_in_bias_pass` whether friction
     /// rows are solved in every biased PGS iteration instead of only in the
-    /// per-substep stabilization sweep (rapier's default, `False`); `True`
+    /// per-substep stabilization iteration (rapier's default, `False`); `True`
     /// gives friction as many iterations as the normal rows, which holds
-    /// grasps and resting contacts far more firmly.
-    #[pyo3(signature = (contact_natural_frequency=None, contact_damping_ratio=None, static_contact_natural_frequency=None, static_contact_damping_ratio=None, allowed_linear_error=None, max_corrective_velocity=None, prediction_distance=None, internal_pgs_iterations=None, friction_in_bias_pass=None))]
+    /// grasps and resting contacts far more firmly. `friction_model` is
+    /// "coulomb" (default, friction at each contact) or "simplified" (Rapier's
+    /// central friction plus twist). It applies to every environment; multibody
+    /// contacts always use Coulomb.
+    #[pyo3(signature = (contact_natural_frequency=None, contact_damping_ratio=None, static_contact_natural_frequency=None, static_contact_damping_ratio=None, allowed_linear_error=None, max_corrective_velocity=None, prediction_distance=None, internal_pgs_iterations=None, friction_in_bias_pass=None, friction_model=None))]
     #[allow(clippy::too_many_arguments)]
     fn set_rbd_solver_params(
         &mut self,
@@ -1197,7 +1200,19 @@ impl NexusState {
         prediction_distance: Option<f32>,
         internal_pgs_iterations: Option<u32>,
         friction_in_bias_pass: Option<bool>,
-    ) {
+        friction_model: Option<&str>,
+    ) -> PyResult<()> {
+        use nexus3d::rbd::dynamics::FrictionModel;
+        let friction_model = match friction_model {
+            None => None,
+            Some("coulomb") => Some(FrictionModel::Coulomb),
+            Some("simplified") => Some(FrictionModel::Simplified),
+            Some(_) => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "friction_model must be 'coulomb' or 'simplified'",
+                ));
+            }
+        };
         for env in 0..self.0.num_environments() {
             let Some(mut params) = self.0.rbd_sim_params(env) else {
                 continue;
@@ -1229,8 +1244,12 @@ impl NexusState {
             if let Some(v) = friction_in_bias_pass {
                 params.friction_in_bias_pass = v as u32;
             }
+            if let Some(v) = friction_model {
+                params.friction_model = v;
+            }
             self.0.set_rbd_sim_params(env, params);
         }
+        Ok(())
     }
 
     /// Implicit (default) or explicit treatment of the robots' Coriolis and
@@ -1276,6 +1295,14 @@ impl NexusState {
         use pyo3::types::PyDict;
         let dict = PyDict::new(py);
         if let Some(p) = self.0.rbd_sim_params(0) {
+            dict.set_item(
+                "friction_model",
+                if p.friction_model == nexus3d::rbd::dynamics::FrictionModel::Simplified {
+                    "simplified"
+                } else {
+                    "coulomb"
+                },
+            )?;
             dict.set_item("dt", p.dt)?;
             dict.set_item("substeps", p.num_solver_iterations)?;
             dict.set_item("contact_natural_frequency", p.contact_natural_frequency)?;
@@ -1409,37 +1436,24 @@ impl NexusState {
         py: Python<'py>,
         viewer: PyRef<NexusViewer>,
     ) -> PyResult<Vec<Bound<'py, pyo3::types::PyDict>>> {
-        use nexus3d::rbd::shaders::dynamics::TwoBodyConstraint;
         use pyo3::types::PyDict;
         let Some(rbd) = self.0.rbd.as_ref() else {
             return Ok(Vec::new());
         };
-        let cons: Vec<TwoBodyConstraint> = pollster::block_on(
-            viewer
-                .backend()
-                .slow_read_vec(rbd.rigid_contact_constraints().buffer()),
-        )
-        .map_err(gpu_err)?;
+        let cons = pollster::block_on(rbd.read_rigid_contact_impulses(viewer.backend()))
+            .map_err(gpu_err)?;
         let mut out = Vec::new();
         for c in cons.iter().filter(|c| c.len > 0) {
             let dict = PyDict::new(py);
-            dict.set_item("body_a", c.solver_body_a)?;
-            dict.set_item("body_b", c.solver_body_b)?;
+            dict.set_item("body_a", c.body_a)?;
+            dict.set_item("body_b", c.body_b)?;
             dict.set_item("dir_a", [c.dir_a.x, c.dir_a.y, c.dir_a.z])?;
-            dict.set_item("friction", c.limit)?;
-            dict.set_item("inv_mass_a", c.im_a.x)?;
-            dict.set_item("inv_mass_b", c.im_b.x)?;
-            let normal: Vec<f32> = (0..c.len as usize)
-                .map(|k| c.elements[k].normal_part.impulse)
-                .collect();
-            let tangent: Vec<[f32; 2]> = (0..c.len as usize)
-                .map(|k| {
-                    let t = c.elements[k].tangent_part.impulse;
-                    [t.x, t.y]
-                })
-                .collect();
-            dict.set_item("normal_impulse", normal)?;
-            dict.set_item("tangent_impulse", tangent)?;
+            dict.set_item("friction", c.friction)?;
+            dict.set_item("inv_mass_a", c.inv_mass_a.x)?;
+            dict.set_item("inv_mass_b", c.inv_mass_b.x)?;
+            dict.set_item("normal_impulse", &c.normal_impulse)?;
+            dict.set_item("tangent_impulse", &c.tangent_impulse)?;
+            dict.set_item("twist_impulse", c.twist_impulse)?;
             out.push(dict);
         }
         Ok(out)

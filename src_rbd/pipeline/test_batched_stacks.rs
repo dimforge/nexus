@@ -420,12 +420,26 @@ fn build_mb_env(ball_colliders: bool) -> (RigidBodySet, ColliderSet, MultibodyJo
 #[serial_test::serial]
 #[ignore]
 async fn test_stacks_6_multibody() {
+    run_multibody_case(crate::dynamics::FrictionModel::Coulomb).await;
+}
+
+#[futures_test::test]
+#[serial_test::serial]
+#[ignore = "requires a WebGPU adapter"]
+async fn twist_friction_keeps_multibody_contacts_on_coulomb() {
+    run_multibody_case(crate::dynamics::FrictionModel::Simplified).await;
+}
+
+async fn run_multibody_case(friction_model: crate::dynamics::FrictionModel) {
     let backend = test_backend().await;
 
     let num_envs = 4u32;
     let envs: Vec<_> = (0..num_envs).map(|_| build_mb_env(false)).collect();
     let joints = ImpulseJointSet::new();
-    let params = RbdSimParams::tgs_soft();
+    let params = RbdSimParams {
+        friction_model,
+        ..RbdSimParams::tgs_soft()
+    };
     let refs: Vec<_> = envs
         .iter()
         .map(|(b, c, mb)| (b, c, &joints, mb, &params))

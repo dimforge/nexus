@@ -9,15 +9,18 @@
 
 use crate::pipeline::RunStats;
 use crate::shaders::broad_phase::ContactPlan;
-use crate::shaders::dynamics::TwoBodyConstraint;
 use crate::shaders::dynamics::{
-    GpuClearCompletionFlagTopoGc, GpuColorBucketsCount, GpuColorBucketsReset,
-    GpuColorBucketsScatter, GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc, GpuResetLuby,
-    GpuResetTopoGc, GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
+    ColorStats, ContactLink, GpuClearCompletionFlagTopoGc, GpuColorBucketsCount,
+    GpuColorBucketsReset, GpuColorBucketsScatter, GpuColorDispatchGrid, GpuFixConflictsTopoGc,
+    GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby,
+    GpuStepGraphColoringTopoGc,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
-use khal::backend::{Backend, Encoder, GpuBackend, GpuBackendError, GpuPass, GpuTimestamps};
+use khal::backend::{
+    AsGpuSlice, AsGpuSliceMut, Backend, Encoder, GpuBackend, GpuBackendError, GpuBufferSlice,
+    GpuBufferSliceMut, GpuPass,
+};
 use vortx::tensor::Tensor;
 
 /// GPU shaders for constraint graph coloring.
@@ -37,11 +40,34 @@ pub struct GpuColoring {
     fix_conflicts_topo_gc_kernel: GpuFixConflictsTopoGc,
     reset_completion_flag_topo_gc: GpuResetCompletionFlagTopoGc,
     clear_completion_flag_topo_gc: GpuClearCompletionFlagTopoGc,
+    /// Sizes the colored dispatches from the color buckets.
+    color_dispatch_grid: GpuColorDispatchGrid,
     // Workspace for bucket-sorting constraint ids by color so each color iteration
     // only touches their own constraint.
     color_buckets_reset: GpuColorBucketsReset,
     color_buckets_count: GpuColorBucketsCount,
     color_buckets_scatter: GpuColorBucketsScatter,
+}
+
+/// The [`ColorStats`] of a step. Stored as words so the resize readback can gather them with the
+/// other `u32` counters, and seen by the kernels as a [`ColorStats`].
+pub struct ColorStatsBuffer(pub(crate) Tensor<u32>);
+
+impl ColorStatsBuffer {
+    /// Number of `u32` words in a [`ColorStats`].
+    pub(crate) const WORDS: usize = size_of::<ColorStats>() / size_of::<u32>();
+}
+
+impl AsGpuSlice<ColorStats> for ColorStatsBuffer {
+    fn as_gpu_slice(&self) -> GpuBufferSlice<'_, ColorStats> {
+        self.0.buffer_slice().reinterpret()
+    }
+}
+
+impl AsGpuSliceMut<ColorStats> for ColorStatsBuffer {
+    fn as_gpu_slice_mut(&mut self) -> GpuBufferSliceMut<'_, ColorStats> {
+        self.0.buffer_slice_mut().reinterpret()
+    }
 }
 
 /// Buffers for the per-color constraint bucket sort.
@@ -50,18 +76,25 @@ pub struct ColorBucketsArgs<'a> {
     pub contacts_len_indirect: &'a Tensor<[u32; 3]>,
     /// Color assigned to each constraint by graph coloring.
     pub constraints_colors: &'a Tensor<u32>,
-    /// The colored constraints (batch recovered from their global body ids).
-    pub constraints: &'a Tensor<TwoBodyConstraint>,
-    /// Clamped per-frame list totals (the flat contact sweep bound).
+    /// The links of the colored constraints (batch recovered from their global body ids).
+    pub links: &'a Tensor<ContactLink>,
+    /// Clamped per-frame list totals (the flat contact dispatch bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// The single `(color, batch)` bucket buffer, color-major
     /// (`solver_color_buckets_stride * num_batches` entries): counts, then
     /// scanned exclusive starts, then post-scatter exclusive ends.
     pub color_buckets: &'a mut Tensor<u32>,
-    /// Constraint ids bucket-sorted by `(color, batch)`.
-    pub color_sorted_ids: &'a mut Tensor<u32>,
+    /// Output: the constraint links bucket-sorted by `(color, batch)`, inactive past the last
+    /// constraint.
+    pub sorted_links: &'a mut Tensor<ContactLink>,
+    /// Output: the index of each constraint in the color order.
+    pub constraint_indices: &'a mut Tensor<u32>,
     /// Shared per-batch capacity / section-offset uniform.
     pub batch_indices: &'a Tensor<crate::shaders::utils::BatchIndices>,
+    /// Output: `[largest bucket, highest color, size of colors 0..64]`.
+    pub color_stats: &'a mut ColorStatsBuffer,
+    /// Output: the grid of the colored dispatches.
+    pub dispatch_indirect: &'a mut Tensor<[u32; 3]>,
 }
 
 /// Arguments for graph coloring dispatch.
@@ -74,8 +107,8 @@ pub struct ColoringArgs<'a> {
     pub body_constraint_counts: &'a Tensor<u32>,
     /// Constraint IDs associated with each body.
     pub body_constraint_ids: &'a Tensor<u32>,
-    /// The constraints to be colored.
-    pub constraints: &'a Tensor<TwoBodyConstraint>,
+    /// The links of the constraints to be colored.
+    pub links: &'a Tensor<ContactLink>,
     /// Output: color assigned to each constraint.
     pub constraints_colors: &'a mut Tensor<u32>,
     /// Color picked by each constraint in the current round, before the conflict pass.
@@ -89,7 +122,7 @@ pub struct ColoringArgs<'a> {
     pub uncolored: &'a mut Tensor<u32>,
     /// Staging buffer for reading uncolored count on CPU.
     pub uncolored_staging: &'a Tensor<u32>,
-    /// Clamped per-frame list totals (the flat contact sweep bound).
+    /// Clamped per-frame list totals (the flat contact dispatch bound).
     pub contact_plan: &'a Tensor<ContactPlan>,
     /// Buffer tracking which constraints are colored.
     pub colored: &'a mut Tensor<u32>,
@@ -99,6 +132,8 @@ pub struct ColoringArgs<'a> {
     /// different bodies of the same multibody share a group and never share
     /// a color. For free bodies, `body_group[i] = i`.
     pub body_group: &'a Tensor<u32>,
+    /// Dispatch grid of the current topo-gc iteration (empty once converged).
+    pub coloring_indirect: &'a mut Tensor<[u32; 3]>,
 }
 
 impl GpuColoring {
@@ -113,7 +148,7 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.constraints_rands,
-            args.constraints,
+            args.links,
             args.contact_plan,
         )?;
         Ok(())
@@ -130,7 +165,7 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
-            args.constraints,
+            args.links,
             args.constraints_colors,
             args.constraints_rands,
             args.uncolored,
@@ -152,8 +187,9 @@ impl GpuColoring {
             args.contacts_len_indirect,
             args.constraints_colors,
             args.colored,
-            args.constraints,
+            args.links,
             args.contact_plan,
+            args.uncolored,
             args.constraints_pending_colors,
         )?;
         Ok(())
@@ -167,10 +203,10 @@ impl GpuColoring {
     ) -> Result<(), GpuBackendError> {
         self.step_graph_coloring_topo_gc_kernel.call(
             pass,
-            args.contacts_len_indirect,
+            &*args.coloring_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
-            args.constraints,
+            args.links,
             args.constraints_colors,
             args.colored,
             args.uncolored,
@@ -190,10 +226,10 @@ impl GpuColoring {
     ) -> Result<(), GpuBackendError> {
         self.fix_conflicts_topo_gc_kernel.call(
             pass,
-            args.contacts_len_indirect,
+            &*args.coloring_indirect,
             args.body_constraint_counts,
             args.body_constraint_ids,
-            args.constraints,
+            args.links,
             args.constraints_colors,
             args.colored,
             args.uncolored,
@@ -257,7 +293,7 @@ impl GpuColoring {
 
     /// Bucket-sorts the constraint ids by `(color, batch)`: zero the buckets,
     /// count, exclusive-prefix-scan them in place, then scatter (which turns
-    /// the starts into exclusive ends, the form the sweeps read).
+    /// the starts into exclusive ends, the form the solve kernels read).
     pub fn dispatch_build_color_buckets(
         &self,
         backend: &GpuBackend,
@@ -273,20 +309,31 @@ impl GpuColoring {
             pass,
             args.contacts_len_indirect,
             args.constraints_colors,
-            args.constraints,
+            args.links,
             args.contact_plan,
             args.color_buckets,
             args.batch_indices,
+            args.sorted_links,
         )?;
         prefix_sum.launch(backend, pass, prefix_workspace, args.color_buckets, 1)?;
         self.color_buckets_scatter.call(
             pass,
             args.contacts_len_indirect,
             args.constraints_colors,
-            args.constraints,
+            args.links,
             args.contact_plan,
             args.color_buckets,
-            args.color_sorted_ids,
+            args.sorted_links,
+            args.batch_indices,
+            args.constraint_indices,
+        )?;
+        // A single workgroup reduces over the colors.
+        self.color_dispatch_grid.call(
+            pass,
+            64u32,
+            &*args.color_buckets,
+            args.color_stats,
+            args.dispatch_indirect,
             args.batch_indices,
         )?;
         Ok(())
@@ -324,76 +371,29 @@ impl GpuColoring {
         max_colors: u32,
     ) -> Result<(), GpuBackendError> {
         // The first fix-conflicts pass must validate the seeded colors even when the first step
-        // colors nothing, so it starts from a cleared ("not converged") flag. At least two rounds
-        // run so the last pass can still record the color count.
-        self.clear_completion_flag_topo_gc
-            .call(pass, 1u32, args.uncolored)?;
+        // colors nothing, so it starts from a cleared ("not converged") flag and a full grid. At
+        // least two rounds run so the last pass can still record the color count.
+        self.clear_completion_flag_topo_gc.call(
+            pass,
+            1u32,
+            &mut *args.uncolored,
+            args.contacts_len_indirect,
+            &mut *args.coloring_indirect,
+        )?;
         for i in 0..max_colors.max(2) {
             if i > 0 {
-                self.reset_completion_flag_topo_gc
-                    .call(pass, 1u32, args.uncolored)?;
+                self.reset_completion_flag_topo_gc.call(
+                    pass,
+                    1u32,
+                    &mut *args.uncolored,
+                    args.contacts_len_indirect,
+                    &mut *args.coloring_indirect,
+                )?;
             }
             self.dispatch_step_topo_gc(pass, &mut args)?;
             self.dispatch_fix_conflicts_topo_gc(pass, &mut args)?;
         }
 
         Ok(())
-    }
-
-    /// Executes the TOPO-GC (Topological Graph Coloring) algorithm.
-    ///
-    /// Returns `Some(num_colors)` (1-indexed) on success, or `None` if convergence
-    /// fails (caller should fall back to [`dispatch_luby`](Self::dispatch_luby)).
-    pub async fn dispatch_topo_gc<'a>(
-        &self,
-        backend: &GpuBackend,
-        mut args: ColoringArgs<'a>,
-        stats: &mut RunStats,
-        mut timestamps: Option<&mut GpuTimestamps>,
-    ) -> Option<u32> {
-        // Initialize TOPO-GC state
-        {
-            let mut encoder = backend.begin_encoding();
-            let mut pass = encoder.begin_pass("topo-gc-coloring-reset", timestamps.as_deref_mut());
-            self.dispatch_reset_topo_gc(&mut pass, &mut args).unwrap();
-            drop(pass);
-            backend.submit(encoder).unwrap();
-        }
-
-        let mut num_loops = 0;
-        loop {
-            num_loops += 1;
-            if num_loops > 64 {
-                return None;
-            }
-
-            // Batch multiple iterations to reduce CPU-GPU sync overhead
-            {
-                let mut encoder = backend.begin_encoding();
-                let mut pass =
-                    encoder.begin_pass("topo-gc-coloring-step", timestamps.as_deref_mut());
-                for _ in 0..10 {
-                    self.reset_completion_flag_topo_gc
-                        .call(&mut pass, 1u32, args.uncolored)
-                        .unwrap();
-                    self.dispatch_step_topo_gc(&mut pass, &mut args).unwrap();
-                    self.dispatch_fix_conflicts_topo_gc(&mut pass, &mut args)
-                        .unwrap();
-                }
-                drop(pass);
-                backend.submit(encoder).unwrap();
-            }
-
-            let max_color = backend
-                .slow_read_vec(args.uncolored.buffer())
-                .await
-                .unwrap()[0];
-
-            if max_color != 0 {
-                stats.num_colors = max_color;
-                stats.coloring_iterations = num_loops;
-                return Some(max_color + 1); // NOTE: color indices are 1-based.
-            }
-        }
     }
 }
