@@ -8,10 +8,9 @@ use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::GpuMbSubstepsPacked;
 use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
-    GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsParallel,
-    GpuMbComputeDynamicsPre, GpuMbComputeSolveBounds, GpuMbConsOffsetsScan,
-    GpuMbCountContactConstraints, GpuMbDelayTick, GpuMbFactorSolveSimd,
-    GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
+    GpuMbApplyContactRestitution, GpuMbComputeDynamicsParallel, GpuMbComputeDynamicsPre,
+    GpuMbComputeSolveBounds, GpuMbConsOffsetsScan, GpuMbCountContactConstraints, GpuMbDelayTick,
+    GpuMbFactorSolveSimd, GpuMbFinalizeContactConstraints, GpuMbFinalizeImpulseJointConstraints,
     GpuMbFinalizeJointConstraints, GpuMbFinalizeJointSimd, GpuMbGravityAndLu, GpuMbGravityAndLuT1,
     GpuMbGravityAndLuT8, GpuMbGravityAndLuT16, GpuMbGravityAndLuT32, GpuMbInitContactConstraints,
     GpuMbInitJointConstraints, GpuMbIntegrate, GpuMbIntegrateVelocities, GpuMbKinematicsSerial,
@@ -19,10 +18,9 @@ use crate::shaders::dynamics::{
     GpuMbSavePrevConsBounds, GpuMbScatterContactIndex, GpuMbSeedContactRestitution,
     GpuMbSenseContactImpulses, GpuMbSnapshotContactWarmstart, GpuMbSolveConstraints,
     GpuMbSolveConstraints32, GpuMbSolveConstraintsPacked, GpuMbSolveConstraintsPackedBias,
-    GpuMbSolveConstraintsSimd, GpuMbSolveContactsDelassus, GpuMbSolveImpulseJointConstraints,
-    GpuMbSolveJoints, GpuMbTransferContactWarmstart, GpuMbUpdateImpulseJointConstraints,
-    GpuMbWarmstartContactConstraints, GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity,
-    WorldMassProperties,
+    GpuMbSolveConstraintsSimd, GpuMbSolveImpulseJointConstraints, GpuMbTransferContactWarmstart,
+    GpuMbUpdateImpulseJointConstraints, GpuMbWarmstartContactConstraints,
+    GpuStabilizeMbContactIndex, MbContactIndexEntry, Velocity, WorldMassProperties,
 };
 use crate::shaders::utils::BatchIndices;
 use khal::Shader;
@@ -108,20 +106,9 @@ pub struct GpuMultibodySolver {
     /// Register-resident native Metal solvers; portable backends keep the
     /// cooperative kernels above.
     solve_constraints_simd: MetalSimdSolver,
-    /// Joint-only half of the iteration, used with the Delassus contact path
-    /// (one kernel binding both joint and Delassus buffers would exceed the
-    /// 8-storage-buffer budget).
-    solve_joints: GpuMbSolveJoints,
-    /// Fills the per-multibody Delassus blocks (`D = J M⁻¹ Jᵀ` + free-body
-    /// coupling) right after the contact columns are finalized.
-    build_contact_delassus: GpuMbBuildContactDelassus,
     /// Reduces the per-multibody contact-constraint counts to their maximum,
     /// the trip count of the `web-compat` contact iterations.
     compute_solve_bounds: GpuMbComputeSolveBounds,
-    /// Constraint-space contact iteration: `a = J·u` tracked incrementally in
-    /// shared memory via the Delassus rows, breaking the per-iteration
-    /// dof-space latency chain.
-    solve_contacts_delassus: GpuMbSolveContactsDelassus,
     /// Snapshot the contact impulses once per frame, for the cross-frame match.
     snapshot_contact_warmstart: GpuMbSnapshotContactWarmstart,
     /// Saves the previous frame's constraint-segment bounds before the new
@@ -213,7 +200,6 @@ impl GpuMultibodySolver {
             && mb.num_internal_pgs_iterations == requested_iterations
             && mb.multibodies_per_batch == 1
             && mb.mb_imp_joint_num_colors == 0
-            && mb.contact_delassus.is_none()
             && (mb.num_internal_pgs_iterations as usize) < uniform_count
     }
 
@@ -680,7 +666,7 @@ impl GpuMultibodySolver {
         }
 
         {
-            let mut pass = encoder.begin_pass("[RBD] mbb/solve-bounds", timestamps.as_deref_mut());
+            let mut pass = encoder.begin_pass("[RBD] mbb/solve-bounds", timestamps);
             self.compute_solve_bounds.call(
                 &mut pass,
                 MB_LU_LANES,
@@ -690,67 +676,21 @@ impl GpuMultibodySolver {
             )?;
         }
 
-        // Delassus blocks for the constraint-space contact iteration (consumes
-        // the columns finalized just above).
-        if let Some(delassus) = &mut mb.contact_delassus {
-            let mut pass = encoder.begin_pass("[RBD] mbb/build-delassus", timestamps);
-            self.build_contact_delassus.call(
-                &mut pass,
-                args.mb_dispatch_indirect,
-                &mb.multibody_info,
-                &mb.contact_constraints,
-                &mb.contact_jac_cols,
-                delassus,
-                args.batch_indices,
-            )?;
-        }
-
         Ok(())
     }
 
-    /// One joint+contact PGS iteration: the dof-space fused kernel, or (when the
-    /// Delassus blocks are allocated) the joint-only kernel followed by the
-    /// constraint-space contact kernel. `use_bias_idx` indexes
-    /// `color_uniforms` (0 or 1, holding those constants).
+    /// One joint+contact PGS iteration. `use_bias_idx` indexes `color_uniforms` (0 or 1, holding
+    /// those constants).
     fn dispatch_solve(
         &self,
         pass: &mut GpuPass,
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
-        solve_dispatch: [u32; 3],
         use_bias_idx: usize,
         num_iterations: usize,
     ) -> Result<(), GpuBackendError> {
         let use_bias = &args.color_uniforms[use_bias_idx];
-        if let Some(delassus) = &mb.contact_delassus {
-            if mb.has_joint_constraints {
-                self.solve_joints.call(
-                    pass,
-                    solve_dispatch,
-                    &mb.multibody_info,
-                    &mut mb.joint_constraints,
-                    &mb.joint_constraint_columns,
-                    &mut mb.dof_state,
-                    use_bias,
-                    args.batch_indices,
-                )?;
-            }
-            // Contact-only work: indirect grid collapses to zero workgroups
-            // on contact-free steps.
-            self.solve_contacts_delassus.call(
-                pass,
-                args.mb_dispatch_indirect,
-                &mb.multibody_info,
-                &mut mb.contact_constraints,
-                &mb.contact_jac_cols,
-                delassus,
-                use_bias,
-                args.batch_indices,
-                &mb.max_contact_constraints,
-                &mut mb.dof_state,
-                args.solver_vels,
-            )?;
-        } else if let Some(solvers) = self
+        if let Some(solvers) = self
             .solve_constraints_simd
             .0
             .as_ref()
@@ -875,20 +815,16 @@ impl GpuMultibodySolver {
 
         // One 64-lane workgroup per multibody with the generalized velocities
         // held in workgroup memory (`color_uniforms[bias_mode]` holds the
-        // bias-mode constant, see `decode_bias_mode`). With the Delassus blocks
-        // allocated, the contact half runs in constraint space instead (joints
-        // first, same order).
+        // bias-mode constant, see `decode_bias_mode`).
         let bias_mode = if args.friction_in_bias_pass {
             BIAS_MODE_BIAS_FRICTION as usize
         } else {
             BIAS_MODE_BIAS as usize
         };
-        let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
         self.dispatch_solve(
             pass,
             mb,
             args,
-            solve_dispatch,
             bias_mode,
             if fuse_iterations {
                 mb.num_internal_pgs_iterations as usize
@@ -1015,8 +951,7 @@ impl GpuMultibodySolver {
         }
 
         // Stabilization iteration: `use_bias = 0` (`color_uniforms[0] == 0`).
-        let solve_dispatch = [mb.multibodies_per_batch * MB_LU_LANES, mb.num_batches, 1];
-        self.dispatch_solve(pass, mb, args, solve_dispatch, 0, 1)?;
+        self.dispatch_solve(pass, mb, args, 0, 1)?;
         if mb.mb_imp_joint_num_colors > 0 {
             // Flat 1-D dispatch over the interleaved joint slots.
             let imp_dispatch = [mb.mb_imp_joints_per_batch * mb.num_batches, 1, 1];

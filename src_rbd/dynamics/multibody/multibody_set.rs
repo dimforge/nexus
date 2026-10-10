@@ -19,12 +19,6 @@ use vortx::tensor::Tensor;
 /// `gpu_mb_lu_solve`.
 pub(super) const MB_LU_LANES: u32 = 64;
 
-/// Maximum total multibody count (capacity × batches) for which the
-/// constraint-space (Delassus) contact solve is enabled: each multibody's
-/// Delassus block costs `MAX_MB_CONTACT_CONSTRAINTS_PER_MB²` floats (~147 KB
-/// in 3D), so huge batched scenes would run out of memory.
-pub(super) const MAX_DELASSUS_MULTIBODIES: u32 = 0; // 128;
-
 use crate::shaders::dynamics::{GenericJoint, JointLimits, JointMotor};
 
 /// The motor-target scatter entry point, loaded once per backend.
@@ -198,10 +192,6 @@ pub struct GpuMultibodySet {
     /// owns `2 * dofs_per_batch` dense floats, its `Jᵀ` row followed by its
     /// `M⁻¹·Jᵀ` column (same pairing as the impulse-joint jacobians arena).
     pub(super) contact_jac_cols: Tensor<f32>,
-    /// Per-multibody Delassus blocks (`MAX_MB_CONTACT_CONSTRAINTS_PER_MB²`
-    /// floats each) only allocated when the total multibody count is at most
-    /// [`MAX_DELASSUS_MULTIBODIES`].
-    pub(super) contact_delassus: Option<Tensor<f32>>,
 
     /// Batch-interleaved impulse-joint builder descriptors (joint slot `i` of
     /// batch `b` at `i * num_batches + b`; unused slots padded with a
