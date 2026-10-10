@@ -162,6 +162,45 @@ fn is_solved(kind: u32) -> bool {
         || kind == MB_JOINT_KIND_FRICTION
 }
 
+/// Rebuilds a partition's list of solved joint rows, in slot order: lane `p`
+/// passes `mask` with bit `j` set when its slot `p + 8j` is solved. Inactive
+/// rows (most limits) then cost the sweeps nothing. Slot indices are packed
+/// four per word. Every lane must call this.
+#[inline(always)]
+#[allow(clippy::manual_is_multiple_of)]
+fn publish_active_rows(
+    p: u32,
+    part: usize,
+    max_constraints: u32,
+    mask: u32,
+    lane_masks: &mut [u32; 128],
+    active_rows: &mut [u32; 64],
+    active_counts: &mut [u32; 4],
+) {
+    workgroup_memory_barrier_with_group_sync();
+    lane_masks[part * 32 + p as usize] = mask;
+    workgroup_memory_barrier_with_group_sync();
+    if p == 0 {
+        let mut count = 0u32;
+        let mut word = 0u32;
+        for s in 0..max_constraints.min(64) {
+            if (lane_masks[part * 32 + (s % LANES) as usize] >> (s / LANES)) & 1 != 0 {
+                word |= s << (8 * (count % 4));
+                count += 1;
+                if count % 4 == 0 {
+                    active_rows[part * 16 + (count / 4 - 1) as usize] = word;
+                    word = 0;
+                }
+            }
+        }
+        if count % 4 != 0 {
+            active_rows[part * 16 + (count / 4) as usize] = word;
+        }
+        active_counts[part] = count;
+    }
+    workgroup_memory_barrier_with_group_sync();
+}
+
 /// This lane's quad of one joint slot's padded column (zero past `ndofs`).
 #[inline(always)]
 fn load_column(joint_columns: &[Vec4], slot: usize, quads: u32, p: u32) -> Vec4 {
@@ -217,7 +256,9 @@ fn sweep_packed(
     p: u32,
     base: u32,
     ndofs: u32,
-    max_constraints: u32,
+    active_rows: &[u32; 64],
+    part: usize,
+    num_active_rows: u32,
     velocity: &mut Vec4,
     mode: u32,
     writes: bool,
@@ -233,11 +274,9 @@ fn sweep_packed(
     solver_vels: &mut [Velocity],
 ) {
     let (use_bias, solve_friction) = decode_bias_mode(mode);
-    for s in 0..max_constraints.min(64) as usize {
+    for i in 0..num_active_rows {
+        let s = ((active_rows[part * 16 + (i / 4) as usize] >> (8 * (i % 4))) & 0xff) as usize;
         let cons = joint_constraints.read(jcons_base + s);
-        if !is_solved(cons.kind) {
-            continue;
-        }
         let col = load_column(joint_columns, jcons_base + s, quads, p);
         solve_joint_row(
             cons,
@@ -373,6 +412,7 @@ fn sweep_packed(
 
 /// Same rebuild as `gpu_mb_refresh_joint_constraints` for one slot, from its
 /// refresh parameters (`JointRefreshParams`) instead of the link data.
+/// Returns whether the sweeps solve the refreshed row.
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 fn refresh_slot(
@@ -384,7 +424,7 @@ fn refresh_slot(
     sb: usize,
     inv_dt: f32,
     softness: &ConstraintSoftness,
-) {
+) -> bool {
     let meta = pb.y.to_bits();
     let kind = meta & 0xff;
     let dof = (meta >> 8) & 0xff;
@@ -404,6 +444,7 @@ fn refresh_slot(
         row.rhs = rhs;
         row.rhs_wo_bias = rhs;
         row.impulse = 0.0;
+        true
     } else if kind == MB_JOINT_KIND_LIMIT {
         let fresh = build_limit_constraint(
             dof,
@@ -421,8 +462,12 @@ fn refresh_slot(
         row.impulse = 0.0;
         row.impulse_lo = fresh.impulse_lo;
         row.impulse_hi = fresh.impulse_hi;
+        fresh.kind == MB_JOINT_KIND_LIMIT
     } else if kind == MB_JOINT_KIND_FRICTION {
         joint_constraints.at_mut(index).impulse = 0.0;
+        true
+    } else {
+        kind == MB_JOINT_KIND_COUPLING
     }
 }
 
@@ -465,6 +510,8 @@ pub fn gpu_mb_substeps_packed(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 7)] refresh_params: &[Vec4],
     #[spirv(workgroup)] shared_vals: &mut [f32; 128],
     #[spirv(workgroup)] shared_words: &mut [u32; 128],
+    #[spirv(workgroup)] active_rows: &mut [u32; 64],
+    #[spirv(workgroup)] active_counts: &mut [u32; 4],
 ) {
     let lane = lid.x;
     let p = lane % LANES;
@@ -567,7 +614,25 @@ pub fn gpu_mb_substeps_packed(
     });
     let any_rot3 = khal_std::sync::subgroup_f_max(rot3_links as f32) > 0.0;
 
+    // The first substep's rows were emitted by the joint build pass.
     let slot_rounds = max_constraints.min(64).div_ceil(LANES);
+    let mut mask = 0u32;
+    for j in 0..slot_rounds {
+        let s = p + j * LANES;
+        if s < max_constraints && is_solved(joint_constraints.read(jcons_base + s as usize).kind) {
+            mask |= 1 << j;
+        }
+    }
+    publish_active_rows(
+        p,
+        part,
+        max_constraints,
+        mask,
+        shared_words,
+        active_rows,
+        active_counts,
+    );
+
     for substep in 0..*num_substeps {
         if substep > 0 {
             // P1: `v += a · dt`.
@@ -586,11 +651,12 @@ pub fn gpu_mb_substeps_packed(
                 }
             });
             workgroup_memory_barrier_with_group_sync();
-            if writes {
-                for j in 0..slot_rounds {
-                    let s = p + j * LANES;
-                    if s < max_constraints {
-                        let index = jcons_base + s as usize;
+            let mut mask = 0u32;
+            for j in 0..slot_rounds {
+                let s = p + j * LANES;
+                if s < max_constraints {
+                    let index = jcons_base + s as usize;
+                    let solved = if writes {
                         refresh_slot(
                             joint_constraints,
                             index,
@@ -600,11 +666,26 @@ pub fn gpu_mb_substeps_packed(
                             sb,
                             inv_dt,
                             softness,
-                        );
+                        )
+                    } else {
+                        // Replayed partition: only its loop bounds matter.
+                        is_solved(joint_constraints.read(index).kind)
+                    };
+                    if solved {
+                        mask |= 1 << j;
                     }
                 }
             }
             storage_barrier();
+            publish_active_rows(
+                p,
+                part,
+                max_constraints,
+                mask,
+                shared_words,
+                active_rows,
+                active_counts,
+            );
         }
 
         // Contact warmstart: re-apply the accumulated impulses.
@@ -682,7 +763,9 @@ pub fn gpu_mb_substeps_packed(
                 p,
                 base,
                 ndofs,
-                max_constraints,
+                active_rows,
+                part,
+                active_counts[part],
                 &mut velocity,
                 if last { 0 } else { bias_mode },
                 writes,
