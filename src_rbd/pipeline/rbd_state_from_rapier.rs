@@ -672,13 +672,13 @@ impl RbdState {
         let collider_materials = Tensor::vector(backend, &all_collider_materials, storage).unwrap();
 
         // The flat pair buffer is shared by every batch: `collisions_capacity`
-        // stays a per-batch sizing hint, so the initial total is `× num_batches`.
-        let collision_pairs = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
+        // stays a per-batch sizing hint, so the initial total is `× num_batches`
+        // (within what the backend can bind).
+        let pairs_capacity = capacities
+            .collisions_capacity
+            .saturating_mul(num_batches)
+            .min(max_collision_pairs(backend));
+        let collision_pairs = Tensor::vector_uninit(backend, pairs_capacity, storage).unwrap();
         // Single global pair counter.
         let collision_pairs_len = Tensor::vector(
             backend,
@@ -695,7 +695,6 @@ impl RbdState {
         // Positional contact slots: pair `t` owns slot `t`, PFM entry `i` owns
         // slot `pairs_total + i`, so the contacts buffer (and every
         // contacts-keyed buffer) is sized `pairs + pfm = 2 ×` the pair capacity.
-        let pairs_capacity = capacities.collisions_capacity * num_batches;
         let contacts_capacity = pairs_capacity * 2;
         let contacts = Tensor::vector_uninit(backend, contacts_capacity, storage).unwrap();
         #[cfg(feature = "dim3")]
@@ -706,12 +705,7 @@ impl RbdState {
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
         let pfm_pairs_indirect =
             Tensor::scalar_uninit(backend, BufferUsages::STORAGE | BufferUsages::INDIRECT).unwrap();
-        let pfm_pairs = Tensor::vector_uninit(
-            backend,
-            capacities.collisions_capacity * num_batches,
-            storage,
-        )
-        .unwrap();
+        let pfm_pairs = Tensor::vector_uninit(backend, pairs_capacity, storage).unwrap();
         // Single global PFM work-list counter.
         let pfm_pairs_len = Tensor::vector(
             backend,

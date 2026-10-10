@@ -757,12 +757,18 @@ impl RbdPipeline {
             let safe_total = pairs_len.saturating_add(pairs_len / 4);
             let new_total = pairs_len
                 .saturating_add(pairs_len / 2)
-                .max(state.capacities.collisions_capacity.saturating_mul(nb));
-            let resize_pairs = match state.capacities.collisions_resize_policy {
-                RbdResizePolicy::Fixed => false,
-                RbdResizePolicy::Grow => safe_total >= total_capacity,
-                RbdResizePolicy::Fit => safe_total >= total_capacity || total_capacity >= new_total,
-            };
+                .max(state.capacities.collisions_capacity.saturating_mul(nb))
+                .min(max_collision_pairs(backend));
+            // Past the backend's limit, the capacity stays at it (dropping the excess pairs)
+            // instead of being reallocated every step.
+            let resize_pairs = new_total != total_capacity
+                && match state.capacities.collisions_resize_policy {
+                    RbdResizePolicy::Fixed => false,
+                    RbdResizePolicy::Grow => safe_total >= total_capacity,
+                    RbdResizePolicy::Fit => {
+                        safe_total >= total_capacity || total_capacity >= new_total
+                    }
+                };
 
             #[cfg(feature = "dim3")]
             let (resize_mb, new_mb) = {
@@ -830,6 +836,7 @@ impl RbdPipeline {
                 // owns slot `pairs_total + i`), so their capacity is always
                 // `2 ×` the pair/PFM capacity.
                 let new_contacts = new_total * 2;
+                state.contacts_capacity_cpu = new_contacts;
                 state.contacts = Tensor::vector_uninit(backend, new_contacts, storage)?;
                 #[cfg(feature = "dim3")]
                 {

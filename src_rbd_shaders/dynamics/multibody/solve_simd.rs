@@ -546,6 +546,8 @@ pub fn gpu_mb_solve_constraints_packed(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 1, binding = 2)] num_iterations: &u32,
 ) {
+    // khal's CUDA bindgen lowers subgroup builtins to an untyped `Default::default()`.
+    let subgroup_lane: u32 = subgroup_lane;
     let width = subgroup_f_add(1.0) as u32;
     let _ = max_contact_constraints;
     let batch_id = id.x / 8;
@@ -610,6 +612,8 @@ pub fn gpu_mb_solve_constraints_packed_bias(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 1, binding = 2)] num_iterations: &u32,
 ) {
+    // khal's CUDA bindgen lowers subgroup builtins to an untyped `Default::default()`.
+    let subgroup_lane: u32 = subgroup_lane;
     let width = subgroup_f_add(1.0) as u32;
     let _ = max_contact_constraints;
     let batch_id = id.x / 8;
