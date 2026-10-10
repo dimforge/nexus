@@ -4,6 +4,8 @@ use super::multibody_set::*;
 use crate::math::Pose;
 use crate::queries::GpuIndexedContact;
 use crate::shaders::broad_phase::ContactPlan;
+#[cfg(feature = "dim3")]
+use crate::shaders::dynamics::GpuMbSubstepsPacked;
 use crate::shaders::dynamics::{BIAS_MODE_BIAS, BIAS_MODE_BIAS_FRICTION};
 use crate::shaders::dynamics::{
     GpuMbApplyContactRestitution, GpuMbBuildContactDelassus, GpuMbComputeDynamicsParallel,
@@ -37,6 +39,8 @@ struct MetalSolvers {
     kinematics: GpuMbKinematicsSerial,
     dynamics_parallel: GpuMbComputeDynamicsParallel,
     finalize_joint: GpuMbFinalizeJointSimd,
+    #[cfg(feature = "dim3")]
+    substeps_packed: GpuMbSubstepsPacked,
 }
 struct MetalSimdSolver(Option<MetalSolvers>);
 impl MetalSimdSolver {
@@ -56,6 +60,8 @@ impl MetalSimdSolver {
                 kinematics: GpuMbKinematicsSerial::from_dir(backend, dir)?,
                 dynamics_parallel: GpuMbComputeDynamicsParallel::from_dir(backend, dir)?,
                 finalize_joint: GpuMbFinalizeJointSimd::from_dir(backend, dir)?,
+                #[cfg(feature = "dim3")]
+                substeps_packed: GpuMbSubstepsPacked::from_dir(backend, dir)?,
             })));
         }
         Ok(Self(None))
@@ -209,6 +215,71 @@ impl GpuMultibodySolver {
             && mb.mb_imp_joint_num_colors == 0
             && mb.contact_delassus.is_none()
             && (mb.num_internal_pgs_iterations as usize) < uniform_count
+    }
+
+    /// Whether [`Self::substeps_fused`] can replace the per-phase substep
+    /// dispatches. Same preconditions as [`Self::can_fuse_iterations`], plus the
+    /// once-per-step constraint build of explicit-Coriolis mode and the
+    /// register budget of the fused kernel.
+    #[cfg(feature = "dim3")]
+    pub(crate) fn can_fuse_substeps(
+        &self,
+        mb: &GpuMultibodySet,
+        num_substeps: u32,
+        requested_iterations: u32,
+        uniform_count: usize,
+    ) -> bool {
+        self.can_fuse_iterations(mb, requested_iterations, uniform_count)
+            && !mb.implicit_coriolis
+            && !mb.substep_refresh
+            && !mb.substep_refresh_light
+            && mb.links_per_batch <= 32
+            && mb.joint_constraints_per_batch <= 64
+            && (num_substeps as usize) < uniform_count
+            && std::env::var_os("NEXUS_NO_FUSED_SUBSTEPS").is_none()
+    }
+
+    /// Runs the whole substep loop in one dispatch, starting at the first
+    /// substep's contact warmstart (the caller has already run that substep's
+    /// velocity update and constraint build). See [`Self::can_fuse_substeps`].
+    #[cfg(feature = "dim3")]
+    pub(crate) fn substeps_fused(
+        &self,
+        pass: &mut GpuPass,
+        mb: &mut GpuMultibodySet,
+        args: &mut MultibodySolverArgs<'_>,
+        num_substeps: u32,
+    ) -> Result<(), GpuBackendError> {
+        let Some(kernels) = &self.solve_constraints_simd.0 else {
+            return Ok(());
+        };
+        let bias_mode = if args.friction_in_bias_pass {
+            BIAS_MODE_BIAS_FRICTION as usize
+        } else {
+            BIAS_MODE_BIAS as usize
+        };
+        kernels.substeps_packed.call(
+            pass,
+            [mb.num_batches.div_ceil(4) * 32, 1, 1],
+            &mb.multibody_info,
+            &mb.links_static,
+            &mut mb.links_workspace,
+            &mut mb.joint_constraints,
+            &mb.joint_columns_padded,
+            &mut mb.contact_constraints,
+            &mb.contact_jac_cols,
+            &mb.gen_forces,
+            args.batch_indices,
+            &mb.constraint_softness,
+            &mb.dt,
+            &mut mb.dof_state,
+            args.solver_vels,
+            &args.color_uniforms[num_substeps as usize],
+            &args.color_uniforms[mb.num_internal_pgs_iterations as usize],
+            &args.color_uniforms[bias_mode],
+            &args.color_uniforms[(mb.warmstart_coefficient != 0.0) as usize],
+            &mb.joint_refresh_params,
+        )
     }
 
     /// Runs FK → jacobians → mass matrix → gravity → LU solve in sequence on one pass.
@@ -367,6 +438,7 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
         first_substep: bool,
+        fused: bool,
     ) -> Result<(), GpuBackendError> {
         use khal::backend::Encoder;
         if mb.is_empty() {
@@ -385,6 +457,7 @@ impl GpuMultibodySolver {
                 mb,
                 args,
                 first_substep,
+                fused,
             )?;
         } else if mb.has_joint_constraints {
             let mut pass = encoder.begin_pass("[RBD] mbb/refresh-joint", timestamps.as_deref_mut());
@@ -444,7 +517,8 @@ impl GpuMultibodySolver {
         // the free-body solver velocities) so the contact starts "warm" each
         // substep, including the first, which carries the previous frame's.
         // One 64-lane workgroup per multibody (one DOF per lane).
-        if mb.warmstart_coefficient != 0.0 {
+        // The fused substep kernel warmstarts the contacts itself.
+        if !fused && mb.warmstart_coefficient != 0.0 {
             let mut pass = encoder.begin_pass("[RBD] mbb/warmstart-contact", timestamps);
             // Contact-only work: indirect grid collapses to zero workgroups
             // when no batch has any contact this step.
@@ -480,6 +554,7 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
         first_substep: bool,
+        fused: bool,
     ) -> Result<(), GpuBackendError> {
         use khal::backend::Encoder;
         if mb.is_empty() {
@@ -515,6 +590,7 @@ impl GpuMultibodySolver {
                 &mb.dof_state,
                 &mb.constraint_softness,
                 args.batch_indices,
+                &mut mb.joint_refresh_params,
             )?;
             drop(pass);
 
@@ -529,6 +605,7 @@ impl GpuMultibodySolver {
                 .as_ref()
                 .filter(|_| mb.max_ndofs <= 32 && mb.max_joint_constraints <= 64)
             {
+                // The fused substep kernel reads the padded column layout.
                 kernels.finalize_joint.call(
                     &mut pass,
                     [mb.multibodies_per_batch * 32, mb.num_batches, 1],
@@ -538,6 +615,8 @@ impl GpuMultibodySolver {
                     &mb.mass_matrices,
                     &mb.lu_pivots,
                     args.batch_indices,
+                    &args.color_uniforms[fused as usize],
+                    &mut mb.joint_columns_padded,
                 )?;
             } else {
                 self.finalize_joint_constraints.call(

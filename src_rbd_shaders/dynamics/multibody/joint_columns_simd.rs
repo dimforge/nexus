@@ -14,6 +14,7 @@ use crate::utils::BatchIndices;
 use crate::utils::linalg::MatSlice;
 use glamx::Vec4;
 use khal_std::index::MaybeIndexUnchecked;
+use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
@@ -1380,6 +1381,10 @@ pub fn gpu_mb_finalize_joint_simd(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] matrix: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] pivots: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
+    // Nonzero: write the columns padded to whole quads into `padded_columns`
+    // (read by `gpu_mb_substeps_packed`) instead of `joint_constraint_columns`.
+    #[spirv(uniform, descriptor_set = 0, binding = 6)] padded: &u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] padded_columns: &mut [Vec4],
     #[spirv(workgroup)] inverse: &mut [f32; 1024],
     #[spirv(workgroup)] slot_meta: &mut [Vec4; 64],
 ) {
@@ -1655,6 +1660,40 @@ pub fn gpu_mb_finalize_joint_simd(
     }
     workgroup_memory_barrier_with_group_sync();
 
+    if *padded != 0 {
+        // `quads` quads per slot (`mb_max_ndofs` rounded up to 4); every lane
+        // assembles whole quads so the stores coalesce.
+        let quads = batch_ids.mb_max_ndofs.div_ceil(4);
+        for idx in StepRng::new(lane..num_slots * quads, 32) {
+            let s = (idx / quads) as usize;
+            let q = idx % quads;
+            let meta = slot_meta[s];
+            if meta.x.to_bits() == 0 {
+                continue;
+            }
+            let coeff = meta.w;
+            let c1 = meta.y.to_bits() as usize * 32;
+            let c2 = meta.z.to_bits() as usize * 32;
+            let mut col = Vec4::ZERO;
+            for k in 0..4u32 {
+                let row = q * 4 + k;
+                if row < n {
+                    let mut x = inverse[c1 + row as usize];
+                    if coeff != 0.0 {
+                        x -= coeff * inverse[c2 + row as usize];
+                    }
+                    match k {
+                        0 => col.x = x,
+                        1 => col.y = x,
+                        2 => col.z = x,
+                        _ => col.w = x,
+                    }
+                }
+            }
+            padded_columns.write((cons_base + s) * quads as usize + q as usize, col);
+        }
+        return;
+    }
     #[allow(clippy::needless_range_loop)]
     for s in 0..num_slots as usize {
         let meta = slot_meta[s];
