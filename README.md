@@ -30,7 +30,7 @@ Nexus is organized into independent physics modules, each available in 2D and 3D
 
 Choose the contact model globally with `RbdSimParams::friction_model`:
 
-```rust
+```rust ignore
 use nexus_rbd3d::dynamics::{FrictionModel, RbdSimParams};
 
 let params = RbdSimParams {

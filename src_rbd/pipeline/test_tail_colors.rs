@@ -55,19 +55,21 @@ async fn check_tail_colors(model: FrictionModel) {
             for index in 0..95u32 {
                 let a = (index * 2 + color % 2) % 192;
                 let b = (a + 1) % 192;
-                let mut c = TwoBodyConstraint::default();
-                c.len = 1 + index % 4;
-                c.dir_a = Vec3::Y;
-                c.tangent_a = Vec3::Z;
-                c.limit = 0.7;
-                c.im_a = Vec3::splat(0.4);
-                c.im_b = Vec3::splat(0.6);
+                let mut c = TwoBodyConstraint {
+                    len: 1 + index % 4,
+                    dir_a: Vec3::Y,
+                    tangent_a: Vec3::Z,
+                    limit: 0.7,
+                    im_a: Vec3::splat(0.4),
+                    im_b: Vec3::splat(0.6),
+                    solver_body_a: a,
+                    solver_body_b: b,
+                    vel_slot_a: a + if a % 7 == 0 { 192 } else { 0 },
+                    vel_slot_b: b + if b % 7 == 0 { 192 } else { 0 },
+                    ..Default::default()
+                };
                 c.ii_a.diag = Vec3::splat(0.2);
                 c.ii_b.diag = Vec3::splat(0.3);
-                c.solver_body_a = a;
-                c.solver_body_b = b;
-                c.vel_slot_a = a + if a % 7 == 0 { 192 } else { 0 };
-                c.vel_slot_b = b + if b % 7 == 0 { 192 } else { 0 };
                 for k in 0..c.len as usize {
                     let p = &mut c.points[k];
                     p.r_a = Vec3::new(k as f32 * 0.07, -0.2, 0.1);
@@ -122,22 +124,24 @@ async fn check_tail_colors(model: FrictionModel) {
                     let compact: Vec<_> = input
                         .iter()
                         .map(|c| {
-                            let mut t = TwistConstraint::default();
-                            t.dir_a = c.dir_a;
-                            t.tangent_a = c.tangent_a;
-                            t.len = c.len;
-                            t.limit = c.limit;
-                            t.im_a = c.im_a;
-                            t.im_b = c.im_b;
-                            t.ii_a = c.ii_a;
-                            t.ii_b = c.ii_b;
-                            t.solver_body_a = c.solver_body_a;
-                            t.solver_body_b = c.solver_body_b;
-                            t.vel_slot_a = c.vel_slot_a;
-                            t.vel_slot_b = c.vel_slot_b;
-                            t.offset_b = c.points[0].r_b - c.points[0].r_a;
-                            t.frame_a = glamx::Quat::from_rotation_x(0.13);
-                            t.frame_b = glamx::Quat::from_rotation_y(-0.08);
+                            let mut t = TwistConstraint {
+                                dir_a: c.dir_a,
+                                tangent_a: c.tangent_a,
+                                len: c.len,
+                                limit: c.limit,
+                                im_a: c.im_a,
+                                im_b: c.im_b,
+                                ii_a: c.ii_a,
+                                ii_b: c.ii_b,
+                                solver_body_a: c.solver_body_a,
+                                solver_body_b: c.solver_body_b,
+                                vel_slot_a: c.vel_slot_a,
+                                vel_slot_b: c.vel_slot_b,
+                                offset_b: c.points[0].r_b - c.points[0].r_a,
+                                frame_a: glamx::Quat::from_rotation_x(0.13),
+                                frame_b: glamx::Quat::from_rotation_y(-0.08),
+                                ..Default::default()
+                            };
                             for k in 0..t.len as usize {
                                 let p = c.points[k];
                                 t.points[k] = TwistContactPoint {

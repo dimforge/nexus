@@ -3,14 +3,16 @@ use crate::dynamics::{FrictionModel, RbdSimParams};
 use crate::{Pose, utils::Slice};
 
 fn patch(len: usize) -> TwistConstraint {
-    let mut c = TwistConstraint::default();
-    c.len = len as u32;
-    c.dir_a = Vec3::Y;
-    c.tangent_a = Vec3::X;
-    c.im_a = Vec3::ONE;
+    let mut c = TwistConstraint {
+        len: len as u32,
+        dir_a: Vec3::Y,
+        tangent_a: Vec3::X,
+        im_a: Vec3::ONE,
+        solver_body_b: 1,
+        limit: 0.5,
+        ..Default::default()
+    };
     c.ii_a.diag = Vec3::ONE;
-    c.solver_body_b = 1;
-    c.limit = 0.5;
     for (i, x) in [-1.0, 1.0, -1.0, 1.0].into_iter().enumerate().take(len) {
         let p = &mut c.points[i];
         p.r_a = Vec3::new(x, -1.0, if i < 2 { -1.0 } else { 1.0 });
@@ -238,13 +240,15 @@ fn twist_constraints_recycle_or_partially_transfer_previous_contacts() {
     let mut props = [WorldMassProperties::default(); 2];
     props[0].inv_mass = Vec3::ONE;
     props[0].inv_inertia = glamx::Mat4::IDENTITY;
-    let mut manifold = IndexedManifold::default();
-    manifold.bodies = UVec2::new(0, 1);
-    manifold.colliders = UVec2::new(0, 1);
+    let mut manifold = IndexedManifold {
+        bodies: UVec2::new(0, 1),
+        colliders: UVec2::new(0, 1),
+        friction: 0.5,
+        recycle_extent: 1.0,
+        ..Default::default()
+    };
     manifold.contact.len = 4;
     manifold.contact.normal_a = -Vec3::Y;
-    manifold.friction = 0.5;
-    manifold.recycle_extent = 1.0;
     for k in 0..4 {
         manifold.contact.points_a[k].pt = Vec3::new((k % 2) as f32, 0.0, (k / 2) as f32);
     }

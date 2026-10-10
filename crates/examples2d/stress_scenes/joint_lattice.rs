@@ -15,14 +15,14 @@ fn joint_lattice(camera: Camera, w: usize, h: usize) -> Scene {
         }
         grid.push(column);
     }
-    for x in 1..w {
-        for y in 0..h {
-            s.fixed_joint(grid[x - 1][y], grid[x][y], [0.5, 0.0], [-0.5, 0.0]);
+    for (left, right) in grid.iter().zip(&grid[1..]) {
+        for (&a, &b) in left.iter().zip(right) {
+            s.fixed_joint(a, b, [0.5, 0.0], [-0.5, 0.0]);
         }
     }
-    for x in 0..w {
-        for y in 1..h {
-            s.fixed_joint(grid[x][y - 1], grid[x][y], [0.0, 0.5], [0.0, -0.5]);
+    for column in &grid {
+        for (&below, &above) in column.iter().zip(&column[1..]) {
+            s.fixed_joint(below, above, [0.0, 0.5], [0.0, -0.5]);
         }
     }
     for x in 1..w {

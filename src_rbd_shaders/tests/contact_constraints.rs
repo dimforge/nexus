@@ -33,9 +33,11 @@ fn links_of(manifolds: &[IndexedManifold]) -> Vec<ContactLink> {
 #[test]
 fn matching_distinguishes_subshapes_and_clears_stale_matches() {
     // Two manifolds of the same body/collider pair, in opposite adjacency order.
-    let mut manifold = IndexedManifold::default();
-    manifold.bodies = UVec2::new(1, 2);
-    manifold.colliders = UVec2::new(1, 2);
+    let mut manifold = IndexedManifold {
+        bodies: UVec2::new(1, 2),
+        colliders: UVec2::new(1, 2),
+        ..Default::default()
+    };
     manifold.contact.len = 1;
     let mut old_manifolds = [manifold; 2];
     old_manifolds[1].subshape = 1;

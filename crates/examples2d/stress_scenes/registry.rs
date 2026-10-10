@@ -3,7 +3,10 @@ use super::{box_rain, joint_lattice, pyramid, wrecking_ball};
 use nexus_viewer2d::{DemoKind, NexusViewer};
 use nexus2d::prelude::NexusPipeline;
 
-const SCENES: &[(&str, fn() -> Scene)] = &[
+/// A stress scene: its display name and its builder.
+type SceneEntry = (&'static str, fn() -> Scene);
+
+const SCENES: &[SceneEntry] = &[
     ("Pyramid 50 (1.3k)", pyramid::pyramid_50),
     ("Pyramid 100 (5k)", pyramid::pyramid_100),
     ("Pyramid 200 (20k)", pyramid::pyramid_200),

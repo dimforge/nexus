@@ -45,7 +45,7 @@ fn conflict_pruning_matches_full_graph_with_seeded_and_pending_colors() {
                         0
                     };
                 colors[i] = 1 + ((i as u32 * 17 + seed) % 7) * 9;
-                if deterministic != 0 && (i as u32 + seed) % 3 == 0 {
+                if deterministic != 0 && (i as u32 + seed).is_multiple_of(3) {
                     pending[i] = 1 + ((i as u32 * 13 + seed) % 7) * 9;
                     colored[i] = 0;
                 }

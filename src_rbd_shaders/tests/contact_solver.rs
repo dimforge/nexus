@@ -151,9 +151,11 @@ fn optimized_iterations_match_original_point_order() {
             for locked in [false, true] {
                 for use_bias in [false, true] {
                     for solve_friction in [false, true] {
-                        let mut c = TwoBodyConstraint::default();
-                        c.len = len as u32;
-                        c.dir_a = Vector::splat(1.0).normalize();
+                        let mut c = TwoBodyConstraint {
+                            len: len as u32,
+                            dir_a: Vector::splat(1.0).normalize(),
+                            ..Default::default()
+                        };
                         #[cfg(feature = "dim3")]
                         {
                             c.tangent_a = compute_tangent_contact_directions(c.dir_a)[0];

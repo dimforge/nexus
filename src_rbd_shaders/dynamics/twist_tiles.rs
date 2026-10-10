@@ -355,6 +355,8 @@ impl TwistAccess for TileConstraint<'_> {
     fn write_friction(&mut self, _tangent: Vec2, _twist: f32) {}
 }
 
+// The kernels are shared by both friction models, each instantiating them with its own tiles.
+#[allow(clippy::duplicate_mod)]
 #[path = "tile_kernels.rs"]
 mod kernels;
 pub use kernels::*;

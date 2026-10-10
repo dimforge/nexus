@@ -3,7 +3,10 @@ use super::{box_columns, box_pile, brick_ring, brick_walls, jointed_drop, ragdol
 use nexus_viewer3d::{DemoKind, NexusViewer};
 use nexus3d::prelude::NexusPipeline;
 
-const SCENES: &[(&str, fn() -> Scene)] = &[
+/// A stress scene: its display name and its builder.
+type SceneEntry = (&'static str, fn() -> Scene);
+
+const SCENES: &[SceneEntry] = &[
     ("Brick ring (28k)", brick_ring::brick_ring_28k),
     ("Brick ring (110k)", brick_ring::brick_ring_110k),
     ("Brick walls (27k)", brick_walls::brick_walls_27k),

@@ -436,6 +436,8 @@ fn tile_warmstart(
     (a, b)
 }
 
+// The kernels are shared by both friction models, each instantiating them with its own tiles.
+#[allow(clippy::duplicate_mod)]
 #[path = "tile_kernels.rs"]
 mod kernels;
 pub use kernels::*;

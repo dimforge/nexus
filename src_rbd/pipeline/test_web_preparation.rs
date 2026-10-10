@@ -26,11 +26,7 @@ fn tree_fixture(n: usize, capacity: usize, batch: usize) -> Vec<LbvhNode> {
                 + Vector::Y * (first % 31) as f32;
             let half = Vector::splat((first % 5 + 1) as f32 * 0.125);
             nodes[id] = LbvhNode {
-                aabb: Aabb {
-                    mins: center - half,
-                    maxs: center + half,
-                    ..Default::default()
-                },
+                aabb: Aabb::new(center - half, center + half),
                 first_leaf: first as u32,
                 last_leaf: first as u32,
                 parent,
@@ -99,7 +95,7 @@ pub async fn check_refit(backend: &GpuBackend) -> usize {
             let expected: Vec<_> = (0..nb).flat_map(|b| tree_fixture(n, capacity, b)).collect();
             let mut initial = expected.clone();
             let mut expected_counts = vec![0u32; nb];
-            for batch in 0..nb {
+            for (batch, expected_count) in expected_counts.iter_mut().enumerate() {
                 let start = batch * capacity * 2;
                 for id in 1..n.saturating_mul(2).saturating_sub(1) {
                     let node = &expected[start + id];
@@ -107,7 +103,7 @@ pub async fn check_refit(backend: &GpuBackend) -> usize {
                     if node.first_leaf / 256 == node.last_leaf / 256
                         && parent.first_leaf / 256 != parent.last_leaf / 256
                     {
-                        expected_counts[batch] += 1;
+                        *expected_count += 1;
                     }
                 }
                 for node in &mut initial[start..start + n.saturating_sub(1)] {
