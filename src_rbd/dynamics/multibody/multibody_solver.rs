@@ -1124,33 +1124,35 @@ impl GpuMultibodySolver {
         mb: &mut GpuMultibodySet,
         args: &mut MultibodySolverArgs<'_>,
     ) -> Result<(), GpuBackendError> {
-        if mb.num_batches >= 128 && mb.max_ndofs <= 32 && !mb.implicit_coriolis {
-            if let Some(kernels) = &self.solve_constraints_simd.0 {
-                kernels.recursive_forces.call(
-                    pass,
-                    mb.flat_mb_dispatch(),
-                    &mb.multibody_info,
-                    &mb.links_static,
-                    &mut mb.links_workspace,
-                    &mb.body_jacobians,
-                    &mut mb.gen_forces,
-                    &mut mb.coriolis_packed,
-                    &mb.dof_state,
-                    args.gravity,
-                    args.batch_indices,
-                    &mb.dt,
-                )?;
-                kernels.factor_solve.call(
-                    pass,
-                    [mb.multibodies_per_batch * 32, mb.num_batches, 1],
-                    &mb.multibody_info,
-                    &mut mb.mass_matrices,
-                    &mut mb.lu_pivots,
-                    &mut mb.gen_forces,
-                    args.batch_indices,
-                )?;
-                return Ok(());
-            }
+        if mb.num_batches >= 128
+            && mb.max_ndofs <= 32
+            && !mb.implicit_coriolis
+            && let Some(kernels) = &self.solve_constraints_simd.0
+        {
+            kernels.recursive_forces.call(
+                pass,
+                mb.flat_mb_dispatch(),
+                &mb.multibody_info,
+                &mb.links_static,
+                &mut mb.links_workspace,
+                &mb.body_jacobians,
+                &mut mb.gen_forces,
+                &mut mb.coriolis_packed,
+                &mb.dof_state,
+                args.gravity,
+                args.batch_indices,
+                &mb.dt,
+            )?;
+            kernels.factor_solve.call(
+                pass,
+                [mb.multibodies_per_batch * 32, mb.num_batches, 1],
+                &mb.multibody_info,
+                &mut mb.mass_matrices,
+                &mut mb.lu_pivots,
+                &mut mb.gen_forces,
+                args.batch_indices,
+            )?;
+            return Ok(());
         }
         // Fused gravity + LU factor + LU solve. Select an implementation based on how many
         // environments we can pack on the same workgroup (depending on its dofs).
