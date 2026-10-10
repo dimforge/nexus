@@ -480,6 +480,23 @@ impl GpuSolver {
             BIAS_MODE_BIAS as usize
         };
 
+        // Everything after the first substep's constraint build runs in one
+        // multibody dispatch when there is no rigid-body work to interleave.
+        #[cfg(feature = "dim3")]
+        let fuse_substeps = skip_rb
+            && joints_empty
+            && mb_solver
+                .zip(mb_state.as_deref())
+                .is_some_and(|(solver, state)| {
+                    !state.is_empty()
+                        && solver.can_fuse_substeps(
+                            state,
+                            num_substeps,
+                            args.num_internal_pgs_iterations.max(1),
+                            args.color_uniforms.len(),
+                        )
+                });
+
         for substep_id in 0..num_substeps {
             let is_last_substep = substep_id == num_substeps - 1;
             // Only consumed by the dim3-only multibody phases.
@@ -529,8 +546,17 @@ impl GpuSolver {
                         state,
                         &mut mb_args,
                         substep_id == 0,
+                        fuse_substeps,
                     )?;
                 }
+            }
+
+            // The fused kernel runs the rest of this substep and all later
+            // ones; nothing on the rigid-body side remains to interleave.
+            #[cfg(feature = "dim3")]
+            if fuse_substeps {
+                mb_phase!("[RBD] slv/mb-substeps", substeps_fused, num_substeps);
+                break;
             }
             if !skip_rb || !joints_empty {
                 let mut pass =

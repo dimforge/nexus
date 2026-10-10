@@ -142,6 +142,13 @@ pub struct GpuMultibodySet {
     pub(super) joint_constraints: Tensor<MultibodyJointConstraint>,
     /// Per-constraint columns of `M⁻¹` (length `ndofs` each, contiguous per multibody).
     pub(super) joint_constraint_columns: Tensor<f32>,
+    /// The same columns padded to whole quads (`max_ndofs.div_ceil(4)` per joint
+    /// slot), for the fused substep kernel. One quad when the set can never take
+    /// that path.
+    pub(super) joint_columns_padded: Tensor<glamx::Vec4>,
+    /// Two quads per joint slot: what the fused substep kernel's joint refresh
+    /// needs (`JointRefreshParams`), written by the joint build pass.
+    pub(super) joint_refresh_params: Tensor<glamx::Vec4>,
     /// Per-batch slab of DoF couplings (rapier's `MultibodyDofCoupling`),
     /// batch-major; each multibody's slice is
     /// `[first_coupling, first_coupling + num_couplings)`.
@@ -1069,6 +1076,14 @@ impl GpuMultibodySet {
         .unwrap();
         self.joint_constraint_columns =
             Tensor::vector(backend, vec![0.0f32; cons_col_cap as usize * nb], storage).unwrap();
+        self.joint_columns_padded =
+            padded_joint_columns(backend, self.max_ndofs, cons_cap, self.num_batches);
+        self.joint_refresh_params = Tensor::vector(
+            backend,
+            vec![glamx::Vec4::ZERO; 2 * cons_cap as usize * nb],
+            storage,
+        )
+        .unwrap();
         self.joint_constraints_per_batch = cons_cap;
         self.joint_constraint_columns_per_batch = cons_col_cap;
         self.max_joint_constraints = max_constraints;
@@ -1388,4 +1403,27 @@ pub(super) fn make_workspace_init() -> MultibodyLinkWorkspace {
     w.local_to_parent = Pose::default();
     w.local_to_world = Pose::default();
     w
+}
+
+/// Allocates [`GpuMultibodySet::joint_columns_padded`]: `max_ndofs` rounded
+/// up to whole quads per joint slot when the multibodies fit the fused substep
+/// kernel (at most 32 DOFs and 64 slots), a single quad otherwise.
+pub(super) fn padded_joint_columns(
+    backend: &GpuBackend,
+    max_ndofs: u32,
+    joint_slots_per_batch: u32,
+    num_batches: u32,
+) -> Tensor<glamx::Vec4> {
+    let len = if max_ndofs <= 32 && joint_slots_per_batch <= 64 {
+        let quads = max_ndofs.div_ceil(4) as usize;
+        (joint_slots_per_batch as usize * num_batches as usize * quads).max(1)
+    } else {
+        1
+    };
+    Tensor::vector(
+        backend,
+        vec![glamx::Vec4::ZERO; len],
+        BufferUsages::STORAGE | BufferUsages::COPY_DST,
+    )
+    .unwrap()
 }

@@ -57,5 +57,9 @@ mod lu_simd;
 mod crba;
 
 mod recursive_forces;
+#[cfg(feature = "dim3")]
+mod substeps_simd;
 pub use lu_simd::*;
 pub use recursive_forces::*;
+#[cfg(feature = "dim3")]
+pub use substeps_simd::*;

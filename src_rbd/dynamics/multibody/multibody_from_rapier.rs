@@ -657,6 +657,18 @@ impl GpuMultibodySet {
                 storage,
             )
             .unwrap(),
+            joint_refresh_params: Tensor::vector(
+                backend,
+                vec![glamx::Vec4::ZERO; (2 * cons_cap * num_batches) as usize],
+                storage,
+            )
+            .unwrap(),
+            joint_columns_padded: super::multibody_set::padded_joint_columns(
+                backend,
+                max_mb_ndofs,
+                cons_cap,
+                num_batches,
+            ),
             dof_couplings: Tensor::vector(backend, &all_couplings, storage).unwrap(),
             couplings_per_batch: couplings_cap,
             // The GPU buffer is indexed by global (batch-interleaved) body id;
