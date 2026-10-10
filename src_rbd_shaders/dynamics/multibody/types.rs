@@ -16,11 +16,6 @@ use crate::dynamics::joint::{GenericJoint, SPATIAL_DIM};
 /// Equivalent to `SPATIAL_DIM`.
 pub const MAX_JOINT_DOFS: usize = SPATIAL_DIM;
 
-/// Maximum number of simultaneously-active multibody contact points per
-/// multibody.
-/// TODO: make this configurable/auto-resizeable
-pub const MAX_MB_CONTACTS_PER_MB: u32 = 128;
-
 /// Number of constraint slots reserved per contact point — one normal +
 /// `DIM-1` friction tangents (Coulomb friction). Mirrors rapier's
 /// `ContactConstraintNormalPart` + `ContactConstraintTangentPart` layout.
@@ -31,16 +26,6 @@ pub const CONTACT_CONSTRAINTS_PER_POINT: u32 = 2;
 /// `ContactConstraintNormalPart` + `ContactConstraintTangentPart` layout.
 #[cfg(feature = "dim3")]
 pub const CONTACT_CONSTRAINTS_PER_POINT: u32 = 3;
-
-/// Total constraint slots reserved per multibody (= contact points × DIM).
-/// Per-multibody constraint bound used only by the (currently disabled)
-/// Delassus constraint-space solve path, whose per-multibody blocks and shared
-/// SoA arrays need a compile-time size. The live dof-space pipeline has no
-/// per-multibody cap: its flat constraint buffer is demand-sized, so
-/// re-enabling the Delassus path requires clamping the per-multibody counts to
-/// this bound again.
-pub const MAX_MB_CONTACT_CONSTRAINTS_PER_MB: u32 =
-    MAX_MB_CONTACTS_PER_MB * CONTACT_CONSTRAINTS_PER_POINT;
 
 /// Per-(multibody, batch) slot reservation honored by the segment scan when
 /// the flat constraint buffer overflows: every multibody is guaranteed up to

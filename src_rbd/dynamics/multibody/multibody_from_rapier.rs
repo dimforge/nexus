@@ -2,10 +2,9 @@
 
 use super::multibody_set::*;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDelayTickParams,
-    MbDofCoupling, MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint,
-    MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace,
-    RbdSimParams,
+    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MbDelayTickParams, MbDofCoupling,
+    MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::linalg::MAX_MB_DOFS;
 use khal::BufferUsages;
@@ -741,35 +740,6 @@ impl GpuMultibodySet {
                 storage,
             )
             .unwrap(),
-            // Per-multibody Delassus blocks for the constraint-space contact
-            // iteration: MAX_MB_CONTACT_CONSTRAINTS_PER_MB² floats each (147 KB
-            // in 3D), so only small total multibody counts get them; larger
-            // batched scenes keep the dof-space solve.
-            contact_delassus: {
-                // Sized by the capacity stride (the kernels index blocks by
-                // `batch · multibodies_batch_capacity + mb_idx`).
-                let total_mbs = mb_cap * num_batches;
-                // `MAX_DELASSUS_MULTIBODIES` is currently 0, which disables the
-                // path; the bound is kept so raising the constant re-enables it.
-                #[allow(clippy::absurd_extreme_comparisons)]
-                let use_delassus = global_max_mb > 0 && total_mbs <= MAX_DELASSUS_MULTIBODIES;
-                if use_delassus {
-                    let block = (MAX_MB_CONTACT_CONSTRAINTS_PER_MB
-                        * MAX_MB_CONTACT_CONSTRAINTS_PER_MB)
-                        as usize;
-                    Some(
-                        Tensor::vector_uninit(
-                            backend,
-                            (total_mbs as usize * block) as u32,
-                            storage,
-                        )
-                        .unwrap(),
-                    )
-                } else {
-                    None
-                }
-            },
-
             // Impulse-joint buffers are sized for "no MB-touching joints" by
             // default — `set_impulse_joints` resizes them at pipeline build
             // time when the host has actually counted the joints.
