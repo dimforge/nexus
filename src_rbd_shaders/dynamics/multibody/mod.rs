@@ -52,6 +52,7 @@ pub use ws_soa::*;
 mod joint_columns_simd;
 pub use joint_columns_simd::*;
 mod lu_simd;
+mod unroll;
 
 #[cfg(feature = "dim3")]
 mod crba;
