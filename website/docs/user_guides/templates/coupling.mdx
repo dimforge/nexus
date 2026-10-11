@@ -1,0 +1,143 @@
+---
+id: coupling
+title: Boundaries and rigid-body coupling
+sidebar_label: Boundaries and rigid-body coupling
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+The `RbdCoupling` argument of `state.insert_rigid_body` lets MPM particles interact with a
+[rigid-body collider](https://rapier.rs/docs/user_guides/rust/colliders/). This is typically used for a container
+holding sand, or a moving blade pushing an elastic object. Use `BoundaryCondition` to choose how the material
+moves wrt. the collider's surface.
+
+## Coupling modes
+
+There are three `RbdCoupling` modes:
+
+- <rust>`RbdCoupling::None`</rust><python>`RbdCoupling.NONE`</python> selects ordinary rigid-body dynamics, without
+  an MPM boundary.
+- <rust>`RbdCoupling::MpmOneWay(boundary)`</rust><python>`RbdCoupling.mpm_one_way(boundary)`</python> lets the body
+  affect particles without receiving their reaction. This is typically used for fixed walls or prescribed motion.
+- <rust>`RbdCoupling::MpmTwoWay(boundary)`</rust><python>`RbdCoupling.mpm_two_way(boundary)`</python> also transfers
+  particle impulses to the body.
+
+With <rust>`RbdCoupling::MpmTwoWay`</rust><python>`RbdCoupling.mpm_two_way`</python>, `pipeline.simulate` runs the
+rigid-body step, then MPM integrates the coupled body's pose and writes it back. These separate updates don't resolve
+all interactions simultaneously. Keep this limitation in mind when combining coupled bodies with
+[articulated mechanisms](https://rapier.rs/docs/user_guides/rust/joint_constraints/) or ordinary rigid-body contacts.
+
+## Boundary conditions
+
+<rust>Import `BoundaryCondition` from `nexus2d::mpm::solver` or `nexus3d::mpm::solver`.</rust>
+<python>Import `BoundaryCondition` from `nexus3d`.</python> Its constructors select the surface response:
+
+- <rust>`BoundaryCondition::stick()`</rust><python>`BoundaryCondition.stick()`</python> removes relative velocity
+  at the surface. The material follows the surface without sliding.
+- <rust>`BoundaryCondition::slip()`</rust><python>`BoundaryCondition.slip()`</python> removes the normal component
+  of relative velocity and preserves the tangential component.
+- <rust>`BoundaryCondition::separate(friction)`</rust><python>`BoundaryCondition.separate(friction)`</python>
+  prevents motion into the surface while allowing the material to move away. The `friction` argument opposes sliding.
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='boundaries' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='boundaries' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='boundaries' />
+```
+
+</python>
+
+The `BoundaryCondition` response is independent of
+[<rust>`ColliderBuilder::friction`</rust><python>`ColliderBuilder.friction`</python>](https://rapier.rs/docs/user_guides/rust/colliders/#friction) and
+[<rust>`ColliderBuilder::restitution`</rust><python>`ColliderBuilder.restitution`</python>](https://rapier.rs/docs/user_guides/rust/colliders/#restitution), which configure
+ordinary rigid-body contacts. Changing those coefficients won't change `BoundaryCondition`.
+
+## Creating a ground
+
+The following passes <rust>`BoundaryCondition::separate(0.5)`</rust><python>`BoundaryCondition.separate(0.5)`</python>
+to one-way coupling. It uses
+[<rust>`RigidBodyBuilder::fixed` and `ColliderBuilder::cuboid`</rust><python><rust>`RigidBodyBuilder::fixed`</rust><python>`RigidBodyBuilder.fixed`</python> and <rust>`ColliderBuilder::cuboid`</rust><python>`ColliderBuilder.cuboid`</python></python>](https://rapier.rs/docs/user_guides/rust/colliders/#creation-and-insertion)
+to describe the ground:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='coupling' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='coupling' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='coupling' />
+```
+
+</python>
+
+Call `state.insert_rigid_body` during scene construction, before `state.finalize`.
+Also call [`state.add_particles`](./particles.mdx#creation-and-insertion), so the scene contains the material to simulate.
+The `viewer.insert_shape` method can display the ground, but registering graphics alone doesn't create a boundary.
+
+## Compatible particle-in-cell
+
+Nexus uses **CPIC** (Compatible Particle-In-Cell) by default. This lets transfers account for boundaries separating
+particles from grid nodes. Call `state.set_mpm_use_cpic(enabled)` to change this setting. For a first simulation,
+it is recommended to keep <rust>`enabled = true`</rust><python>`enabled = True`</python>.
+
+## Environment and timestep
+
+The `state.finalize` method collects coupled boundaries from rigid-body environment `0`.
+Calling `state.add_environment` creates more rigid-body environments, without duplicating the MPM material or its
+boundaries. Insert an MPM boundary with `state.insert_rigid_body`, or with `state.insert_rigid_body_in(0, ...)`.
+
+The rigid-body and MPM solvers have independent timesteps. The MPM `SimulationParams.dt` must match the total
+rigid-body time advanced by `pipeline.simulate` if the results need to stay synchronized.
+<rust>For example, `RbdSimParams.dt = 1 / 120` with `state.set_rbd_steps_per_frame(2)` matches
+`SimulationParams.dt = 1 / 60`.</rust>
+<python>The default rigid-body timestep is `1 / 60`, so leave `state.set_rbd_steps_per_frame(1)` when using
+`SimulationParams(..., 1 / 60)`.</python>
+The `state.set_mpm_substeps` method subdivides that MPM time; it doesn't change the total `SimulationParams.dt`.
+
+Call `state.set_rbd_gravity` after `state.finalize`. For the material, supply `gravity` in
+<rust>`SimulationParams`</rust><python>`SimulationParams(gravity, dt)`</python>, or call `state.set_mpm_gravity`. Keep the two values consistent when gravity should affect both parts of the scene equally.
+
+:::info
+If particles pass through the ground, check its `RbdCoupling` value and environment index first. Then check `cell_width`,
+`SimulationParams.dt`, and `state.set_mpm_substeps` as described in
+[MPM timestep and gravity](./particles.mdx#timestep-and-gravity). A visible shape from `viewer.insert_shape` isn't
+evidence that `state.finalize` registered an MPM boundary.
+:::

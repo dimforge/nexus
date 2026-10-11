@@ -88,6 +88,24 @@ jobs:
         with:
           sweep-cache: true
 
+      - name: Compile user-guide examples
+        run: cargo check -p nexus-guide-2d -p nexus-guide-3d --all-targets
+
+      - name: Set up Node for the user guide
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Build and check the user guide
+        working-directory: website
+        run: |
+          npm ci
+          npm run docs:test
+          npm run typecheck
+          npm run build
+
       # `nexus_python3d` is excluded: its lib is named `nexus3d` (the Python
       # module name), which collides with the `nexus3d` crate's doc output. The
       # bindings are covered by the dedicated python job.
@@ -131,6 +149,9 @@ jobs:
       # bindings are covered by the dedicated python job.
       - name: Run Cargo Tests
         run: LIBGL_ALWAYS_SOFTWARE=1 cargo test --workspace --exclude nexus_python3d --verbose
+
+      - name: Run user-guide scenes on the CPU backend
+        run: cargo test -p nexus-guide-2d -p nexus-guide-3d --features cpu
 
   # Build the Python bindings (`nexus3d`) into a wheel and import-check it.
   python:
@@ -180,3 +201,6 @@ jobs:
           maturin build -m crates/nexus_python3d/Cargo.toml --out dist
           pip install --no-index --find-links dist dimforge-nexus3d
           python -c "import nexus3d; print('nexus3d import OK')"
+
+      - name: Check Python user-guide examples against the built wheel
+        run: python website/docs-examples/python/check.py

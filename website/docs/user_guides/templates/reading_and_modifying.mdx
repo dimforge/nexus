@@ -1,0 +1,196 @@
+---
+id: reading_and_modifying
+title: Reading and modifying rigid-bodies
+sidebar_label: Reading and modifying rigid-bodies
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+After `state.finalize`, the running rigid-body simulation is stored in compute buffers. The original
+[`RigidBody`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/) values describe the initial scene.
+This page explains how to retrieve results and modify `NexusState` without accidentally rebuilding that scene.
+MPM updates are covered separately by [particle chunk operations](./particles.mdx#chunks-and-emitters).
+
+## Reading positions
+
+<rust>Call `backend.slow_read_buffer` on `rbd.body_poses().buffer()` to read simulated poses. The following uses
+`state.rbd2gpu[0]` to map the body handle returned by `state.insert_rigid_body` to its buffer index.
+Import `khal::backend::Backend` to make `slow_read_buffer` available:</rust>
+<python>Call `state.read_multibody_links` for the links of a 3D multibody. This method needs NumPy
+(`python -m pip install numpy`). The following assumes that the scene contains the
+[pendulum](./joints.mdx#creating-a-multibody):</python>
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='readback' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='readback' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='readback' />
+```
+
+</python>
+
+<rust>The `gpu_id` returned through `state.rbd2gpu` already accounts for the interleaved environment layout.
+Use `poses[gpu_id]` directly. Retrieve `gpu_id` again after `state.finalize` rebuilds the scene, since a topology change
+can change the mapping.</rust>
+<python>The `positions`, `linvels`, and `angvels` arrays have three components per row. The `quats` rows contain
+`(w, x, y, z)`. Each `coords` row has six slots, of which only the joint's DOF count is meaningful; the
+[revolute coordinate](https://rapier.rs/docs/user_guides/rust/joints/#revolute-joint) is stored in slot `5`.
+The arrays are ordered by environment, then by link. `state.multibody_links_per_env()` returns the environment stride.
+The Python bindings don't currently provide an equivalent general-purpose pose readback for ordinary rigid-bodies.</python>
+
+:::info
+<rust>`backend.slow_read_buffer`</rust><python>`state.read_multibody_links`</python> can wait for previously submitted
+compute work and copy data to the CPU. Call it at the frequency your application needs. Reading every small physics
+substep can be expensive. For rendering alone, `viewer.sync` handles synchronization.
+:::
+
+If a position never changes, check that it came from the readback above, instead of calling
+[<rust>`RigidBody::translation`</rust><python>`RigidBody.translation`</python>](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#position) on the original scene description.
+Also check that the loop reaches `pipeline.simulate` before reading the result.
+
+## Changing the scene description
+
+The `state.insert_rigid_body` and `state.insert_impulse_joint` methods modify the authored scene and mark it for a
+rebuild. The next `state.finalize`, including the one called automatically by `pipeline.simulate`, rebuilds the
+rigid-body buffers from that description.
+
+:::warning
+Calling `state.finalize` after such edits can restore bodies to their authored positions. Use `state.insert_rigid_body`
+for initial construction, and the runtime APIs below when the current simulated state must be preserved.
+:::
+
+<rust>`state.rbd_world(env)` returns read-only access to the authored
+[`PhysicsWorld`](https://rapier.rs/docs/user_guides/rust/simulation_structures/).
+Calling `state.rbd_world_mut(env)` marks that world for rebuilding. The `state.rbd_world_mut_untracked(env)` method
+doesn't, but changes made through it won't reach the compute buffers on their own. It is intended for advanced code
+that explicitly uploads the result through a runtime API.</rust>
+
+## Inserting bodies while running
+
+For a single environment containing [primitive shapes](https://rapier.rs/docs/user_guides/rust/colliders/#shapes),
+call `state.reserve_rigid_bodies` before the first `state.finalize`.
+Then <rust>`state.add_rigid_body` or `state.add_rigid_bodies`</rust><python>`state.add_rigid_bodies`</python> can append
+bodies directly to the running buffers while the reserved space remains:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='insertion' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='insertion' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='insertion' />
+```
+
+</python>
+
+The `state.reserve_rigid_bodies(128)` call reserves 128 collider slots in total, including the ground.
+This direct insertion path requires a single environment and primitive, vertex-less
+[colliders](https://rapier.rs/docs/user_guides/rust/colliders/#shapes). It doesn't support mesh colliders, multibodies,
+or arbitrary changes to a batch.
+
+If `state.finalize` hasn't been called, or the reserved space cannot fit the complete insertion,
+<rust>`state.add_rigid_body` and `state.add_rigid_bodies`</rust><python>`state.add_rigid_bodies`</python> fall back to
+ordinary insertion and a subsequent rebuild. Reserve enough room upfront if retaining simulated positions matters.
+Also call `viewer.insert_shape` for each new body so the objects can be displayed.
+
+## Runtime controls
+
+Use `state.set_rbd_gravity` for gravity changes, and
+<rust>`state.control_multibody_motors`</rust><python>`state.set_multibody_motor_velocity`</python> for
+[multibody motor control](./joints.mdx#motor-control). These methods update the running simulation without rebuilding
+its rigid-body buffers. <rust>Call `state.set_rbd_sim_params` before the simulation starts, because it marks the scene for rebuilding.</rust>
+
+## Resetting an environment
+
+<rust>In 3D, `RbdState::snapshot` reads poses, velocities, and multibody state from environment `0` into an `RbdSnapshot`.
+Call `RbdState::reset_env_from_snapshot` to restore an environment with the same topology:
+
+```rust
+<load path='rust3d/src/lib.rs' marker='reset' />
+```
+
+Take the initial snapshot once and retain it for later resets. For large batches, `RbdState::publish_reset_templates` and
+`RbdState::reset_envs_from_templates` keep templates on the GPU and apply several resets together.
+The template and destination layouts must match.</rust>
+<python>`RbdSnapshot` and GPU reset-template APIs are not currently exposed by the Python bindings.
+Construct a fresh `NexusState`, insert its objects, then call `state.finalize` to restart from the authored scene.</python>
+
+An `RbdSnapshot` doesn't reconstruct collider or joint topology, and isn't a complete multiphysics serialization.
+
+## Determinism
+
+By default, two runs of the same scene can diverge slightly: GPU threads fill the contact and particle lists in a
+different order on every run. The deterministic mode, off by default, puts these lists in a fixed order so that two
+runs of the same scene give bit-identical results, at some performance cost:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='determinism' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='determinism' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='determinism' />
+```
+
+</python>
+
+It can be enabled before or after `state.finalize`, and covers both rigid bodies and MPM particles.
+The two runs must also have the same inputs: timestep, substeps, and insertions and removals at the same steps.
+The guarantee only holds on the same machine with the same build, unlike
+[Rapier's cross-platform determinism](https://rapier.rs/docs/user_guides/rust/determinism/).
+`viewer.sync` applies the viewer's own setting to the state it syncs, so enable it on the viewer instead when one is
+used: <rust>`NexusViewer::with_deterministic(true)`</rust><python>`viewer.set_deterministic(True)`</python>.

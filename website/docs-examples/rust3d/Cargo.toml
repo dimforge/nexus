@@ -1,0 +1,15 @@
+[package]
+name = "nexus-guide-3d"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+nexus3d = { path = "../../../crates/nexus3d", features = ["rbd", "mpm"] }
+nexus_viewer3d = { path = "../../../crates/nexus_viewer3d" }
+khal = { workspace = true }
+pollster = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+cpu = ["nexus3d/cpu"]

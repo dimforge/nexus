@@ -1,0 +1,282 @@
+---
+id: rigid_bodies
+title: Rigid-bodies and colliders
+sidebar_label: Rigid-bodies and colliders
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Nexus uses Rapier's [`RigidBodyBuilder`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion)
+and [`ColliderBuilder`](https://rapier.rs/docs/user_guides/rust/colliders/#creation-and-insertion) to describe the scene.
+Refer to those pages for the rigid-body and collider concepts. This page explains their insertion into `NexusState`,
+the settings transferred to Nexus, and the configuration of the Nexus rigid-body solver.
+
+## Creation and insertion
+
+Create a body and collider with [`RigidBodyBuilder` and `ColliderBuilder`](https://rapier.rs/docs/user_guides/rust/colliders/#creation-and-insertion),
+then call `state.insert_rigid_body(body, collider, coupling)`. The returned handle identifies the body in environment
+0. The following inserts a body into an existing `NexusState`:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='body' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='body' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='body' />
+```
+
+</python>
+
+The <rust>`RbdCoupling::None`</rust><python>`RbdCoupling.NONE`</python> argument selects ordinary rigid-body dynamics.
+The other `RbdCoupling` values are described in the [MPM coupling page](./coupling.mdx).
+Call `state.finalize` before the first `viewer.sync`, or let `pipeline.simulate` finalize the scene automatically.
+
+For the initial state, use the following Rapier APIs:
+
+- [<rust>`RigidBodyBuilder::dynamic` and `RigidBodyBuilder::fixed`</rust><python><rust>`RigidBodyBuilder::dynamic`</rust><python>`RigidBodyBuilder.dynamic`</python> and <rust>`RigidBodyBuilder::fixed`</rust><python>`RigidBodyBuilder.fixed`</python></python>](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#rigid-body-type)
+  select the body type.
+- [<rust>`RigidBodyBuilder::translation`</rust><python>`RigidBodyBuilder.translation`</python> and <rust>`RigidBodyBuilder::rotation`</rust><python>`RigidBodyBuilder.rotation`</python>](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#position)
+  set the initial position.
+- [<rust>`RigidBodyBuilder::linvel`</rust><python>`RigidBodyBuilder.linvel`</python> and <rust>`RigidBodyBuilder::angvel`</rust><python>`RigidBodyBuilder.angvel`</python>](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#velocity)
+  set the initial velocities.
+- [<rust>`ColliderBuilder::density`</rust><python>`ColliderBuilder.density`</python>, <rust>`ColliderBuilder::mass`</rust><python>`ColliderBuilder.mass`</python>, and <rust>`RigidBodyBuilder::additional_mass`</rust><python>`RigidBodyBuilder.additional_mass`</python>](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#mass-properties)
+  supply the mass properties used during `state.finalize`.
+
+These [builder methods](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion) configure the
+initial scene. To retrieve a simulated position,
+use [readback](./reading_and_modifying.mdx#reading-positions).
+
+## Several colliders on one body
+
+Call `state.insert_body` to insert a body without a collider, then call `state.insert_collider_in` for each
+[`Collider`](https://rapier.rs/docs/user_guides/rust/colliders/), using the same parent handle:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='colliders' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='colliders' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='colliders' />
+```
+
+</python>
+
+The first argument of `state.insert_collider_in` is the environment index. Passing `None` as the parent creates a parentless
+[`Collider`](https://rapier.rs/docs/user_guides/rust/colliders/#creation-and-insertion) in the fixed environment.
+The [<rust>`ColliderBuilder::translation`</rust><python>`ColliderBuilder.translation`</python>](https://rapier.rs/docs/user_guides/rust/colliders/#position) values above are local
+to the parent body. Pass the same local `Pose` to `viewer.insert_shape`, otherwise graphics and contacts won't match.
+
+Nexus uploads the [<rust>`ColliderBuilder::friction`</rust><python>`ColliderBuilder.friction`</python> and <rust>`ColliderBuilder::restitution`</rust><python>`ColliderBuilder.restitution`</python>](https://rapier.rs/docs/user_guides/rust/colliders/#friction)
+coefficients. See Rapier's [restitution](https://rapier.rs/docs/user_guides/rust/colliders/#restitution) section for
+`restitution` and its combine rule.
+<rust>`ColliderBuilder::friction_combine_rule` and `ColliderBuilder::restitution_combine_rule` also transfer their
+[`CoefficientCombineRule`](https://rapier.rs/docs/user_guides/rust/colliders/#friction) to the GPU.</rust>
+<python>The Python `ColliderBuilder` doesn't expose combine-rule setters; the default
+[`CoefficientCombineRule::Average`](https://rapier.rs/docs/user_guides/rust/colliders/#friction) applies.</python>
+
+## Supported shapes
+
+Start with [<rust>`ColliderBuilder::ball`, `ColliderBuilder::cuboid`, or `ColliderBuilder::capsule_y`</rust><python><rust>`ColliderBuilder::ball`</rust><python>`ColliderBuilder.ball`</python>, <rust>`ColliderBuilder::cuboid`</rust><python>`ColliderBuilder.cuboid`</python>, or <rust>`ColliderBuilder::capsule_y`</rust><python>`ColliderBuilder.capsule_y`</python></python>](https://rapier.rs/docs/user_guides/rust/colliders/#shapes).
+Their dimensions and constructors are described in the Rapier guide. Nexus also supports
+[<rust>`ColliderBuilder::convex_hull`</rust><python><rust>`ColliderBuilder::convex_hull`</rust><python>`ColliderBuilder.convex_hull`</python></python>](https://rapier.rs/docs/user_guides/rust/colliders/#convex-meshes),
+[<rust>`ColliderBuilder::trimesh_with_flags` in 3D and `ColliderBuilder::polyline` in 2D</rust><python><rust>`ColliderBuilder::trimesh_with_flags`</rust><python>`ColliderBuilder.trimesh`</python></python>](https://rapier.rs/docs/user_guides/rust/colliders/#triangle-meshes-and-polylines).
+
+<rust>For a 3D triangle mesh, pass [`TriMeshFlags::ORIENTED`](https://rapier.rs/docs/user_guides/rust/colliders/#triangle-meshes-and-polylines)
+to `ColliderBuilder::trimesh_with_flags`. Nexus requires the resulting pseudo-normals; a mesh without them is rejected.</rust>
+<python>`ColliderBuilder.trimesh` enables [`TriMeshFlags::ORIENTED`](https://rapier.rs/docs/user_guides/rust/colliders/#triangle-meshes-and-polylines)
+internally.</python> Supply consistently wound triangles so their normals point outward.
+
+:::warning
+The GPU conversion doesn't implement Rapier's [heightfields](https://rapier.rs/docs/user_guides/rust/colliders/#heightfields)
+or directly accept its [compound shapes](https://rapier.rs/docs/user_guides/rust/colliders/#compound-shapes).
+For a non-convex dynamic object, call `state.insert_collider_in` several times as shown above. For terrain, use
+<rust>`ColliderBuilder::trimesh_with_flags` in 3D or `ColliderBuilder::polyline` in 2D</rust><python><rust>`ColliderBuilder::trimesh_with_flags`</rust><python>`ColliderBuilder.trimesh`</python></python>.
+:::
+
+## Collision filtering
+
+Nexus transfers [<rust>`ColliderBuilder::collision_groups`</rust><python>`ColliderBuilder.collision_groups`</python> and `InteractionGroups`](https://rapier.rs/docs/user_guides/rust/colliders/#collision-groups-and-solver-groups)
+to the compute buffers. Refer to that section for the membership/filter test. The following creates a collider
+that belongs to the first group and accepts the second group:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='groups' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='groups' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='groups' />
+```
+
+</python>
+
+Use [<rust>`ColliderBuilder::collision_groups`</rust><python>`ColliderBuilder.collision_groups`</python>](https://rapier.rs/docs/user_guides/rust/colliders/#collision-groups-and-solver-groups)
+for supported filtering. Nexus's high-level pipeline doesn't provide Rapier's
+[<rust>`ColliderBuilder::solver_groups`</rust><python>`ColliderBuilder.solver_groups`</python>](https://rapier.rs/docs/user_guides/rust/colliders/#collision-groups-and-solver-groups),
+[sensor events](https://rapier.rs/docs/user_guides/rust/colliders/#active-events), or
+[physics hooks](https://rapier.rs/docs/user_guides/rust/colliders/#active-hooks).
+
+## Integration parameters
+
+<rust>`RbdSimParams`, imported from `nexus2d::rbd::dynamics` or `nexus3d::rbd::dynamics`, describes a rigid-body step.
+Call `state.set_rbd_sim_params(env, params)` before `state.finalize`:</rust>
+<python>`state.set_rbd_timestep(dt, substeps)` sets the rigid-body timestep and the number of TGS substeps of every
+environment, and `state.set_rbd_steps_per_frame` selects how many complete rigid-body steps `pipeline.simulate`
+executes. Call them before `state.finalize`:</python>
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='parameters' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='parameters' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='parameters' />
+```
+
+</python>
+
+<rust>Here, `params.dt` is `1 / 120` seconds and `state.set_rbd_steps_per_frame(2)` selects two steps, so one call to
+`pipeline.simulate` advances `1 / 60` seconds. The `params.num_solver_iterations` field controls the TGS substeps
+within each rigid-body step; its default is `4`. Increasing it can improve contacts and
+[joint constraints](https://rapier.rs/docs/user_guides/rust/joint_constraints/) at the expense of computations.
+Calling `state.set_rbd_sim_params` marks the scene for rebuilding, so configure it before starting.</rust>
+<python>Here, the timestep is `1 / 120` seconds and `state.set_rbd_steps_per_frame(2)` selects two steps, so one call to
+`pipeline.simulate` advances `1 / 60` seconds. The second argument of `state.set_rbd_timestep` is the number of TGS
+substeps within each rigid-body step; its default is `4`. Increasing it can improve contacts and
+[joint constraints](https://rapier.rs/docs/user_guides/rust/joint_constraints/) at the expense of computations.
+The default timestep is `1 / 60` seconds. `state.set_rbd_solver_params` changes the contact tolerances and solver
+options through keyword arguments, and `state.rbd_solver_params()` returns their current values.</python>
+
+<rust>`RbdSimParams` also exposes `length_unit`, `normalized_allowed_linear_error`, `normalized_prediction_distance`,
+and `normalized_max_corrective_velocity`. Keep their defaults at first: setting all tolerances to zero doesn't make
+contacts exact, and aggressive correction can cause jitter.</rust>
+All [batch environments](./batched_simulations.mdx) must use identical `RbdSimParams` values.
+
+After `state.finalize`, use
+<rust>`state.set_rbd_gravity(backend, [0.0, -9.81, 0.0])`</rust><python>`state.set_rbd_gravity(viewer, Vec3(0.0, -9.81, 0.0))`</python>
+to change gravity. The Rust setter takes a three-element array even in 2D, where its third component is ignored.
+Calling `state.set_rbd_gravity` before `state.finalize` has no effect because the rigid-body buffers don't exist yet.
+
+If a body doesn't fall, check its
+[<rust>`RigidBodyBuilder::dynamic` and `ColliderBuilder::density`</rust><python><rust>`RigidBodyBuilder::dynamic`</rust><python>`RigidBodyBuilder.dynamic`</python> and <rust>`ColliderBuilder::density`</rust><python>`ColliderBuilder.density`</python></python>](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#mass-properties)
+configuration, then the position of `state.set_rbd_gravity` in the initialization sequence.
+Use consistent units and object sizes, as discussed in
+[Rapier's common mistakes](https://rapier.rs/docs/user_guides/rust/common_mistakes/).
+If motion appears slow, also check how often the render loop calls `pipeline.simulate`: a fixed timestep doesn't
+adapt automatically to the rendering frame rate.
+
+## Friction model
+
+In 3D, the friction model selects how contacts resist sliding. The default Coulomb model solves friction at each
+contact point. The simplified model solves a single friction constraint at the center of each contact manifold, plus a
+twist constraint resisting rotation around the contact normal. It solves fewer constraints, which helps scenes with many
+resting contacts. Multibody contacts always use the Coulomb model:
+
+<rust>
+
+```rust
+<load path='rust3d/src/lib.rs' marker='friction_model' />
+```
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='friction_model' />
+```
+
+</python>
+
+The model applies to every environment. <rust>`state.set_rbd_friction_model` can also be called on a running
+simulation: body poses and velocities are kept, and only the contact warmstarts restart.</rust><python>Call
+`state.set_rbd_solver_params` before `state.finalize`.</python>
+
+## Other Rapier settings
+
+Nexus uses its own `NexusPipeline`, and doesn't run Rapier's
+[`PhysicsPipeline`](https://rapier.rs/docs/user_guides/rust/simulation_structures/).
+In particular, Rapier's [sleeping](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#sleeping),
+[CCD](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#continuous-collision-detection),
+[dominance](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#dominance),
+[damping](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#damping),
+[`gravity_scale`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#gravity), and
+[`RigidBody::add_force` and `RigidBody::apply_impulse`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#forces-and-impulses)
+are not transferred to the ordinary GPU rigid-body solver.
+The presence of a method on [`RigidBodyBuilder`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion)
+is not a guarantee that Nexus implements it.
+
+Keep the same distinction for [kinematic bodies](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#rigid-body-type):
+Nexus doesn't expose the per-frame [`RigidBody::set_next_kinematic_position`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#position)
+workflow. Start with <rust>`RigidBodyBuilder::dynamic` and `RigidBodyBuilder::fixed`</rust><python><rust>`RigidBodyBuilder::dynamic`</rust><python>`RigidBodyBuilder.dynamic`</python>
+and <rust>`RigidBodyBuilder::fixed`</rust><python>`RigidBodyBuilder.fixed`</python></python> for the scenes shown here.

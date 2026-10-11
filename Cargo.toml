@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "website/docs-examples/rust2d",
+    "website/docs-examples/rust3d",
     "crates/nexus2d",
     "crates/nexus3d",
     "crates/nexus_viewer2d",

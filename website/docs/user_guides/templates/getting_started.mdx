@@ -1,0 +1,149 @@
+---
+id: getting_started
+title: Getting started
+sidebar_label: Getting started
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+**Nexus** is a physics engine for simulating rigid-bodies and deformable materials with compute shaders.
+It is available in <rust>2D and 3D, through the `nexus2d` and `nexus3d` crates</rust><python>3D, through the
+`nexus3d` module</python>. This page shows how to set up a simple simulation with a ball falling on a fixed ground.
+The guide describes the APIs in the 0.6 source tree; an older installed release may expose different methods.
+The following pages separate [rigid-body dynamics](./rigid_bodies.mdx) from
+[MPM particles and materials](./particles.mdx), with [simulation state and viewer](./simulation_structures.mdx)
+covering the common workflow.
+
+<rust>
+
+## Setting up Nexus with Cargo
+
+Nexus relies on the official Rust package manager Cargo for dependency resolution and compilation.
+The `rbd` feature enables rigid-body dynamics, and the `mpm` feature enables the Material Point Method.
+Keep in mind that these two features are not enabled by default.
+
+Nexus uses Rust-GPU to compile its compute shaders. Before building your project, install the shader compiler
+and the toolchain it needs:
+
+```bash
+cargo install cargo-gpu --version 0.10.0
+cargo gpu install --auto-install-rust-toolchain
+```
+
+Then create a new project and add the dependencies corresponding to the dimension you want to simulate.
+`NexusViewer` is optional for Nexus itself, but is used by the example below.
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```bash
+cargo new example-using-nexus
+cd example-using-nexus
+cargo add nexus2d@0.6 --features rbd,mpm
+cargo add nexus_viewer2d@0.6 pollster@1 anyhow@1
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```bash
+cargo new example-using-nexus
+cd example-using-nexus
+cargo add nexus3d@0.6 --features rbd,mpm
+cargo add nexus_viewer3d@0.6 pollster@1 anyhow@1
+```
+
+</TabItem>
+</Tabs>
+
+:::info
+The `nexus2d::rapier` and `nexus3d::rapier` modules re-export the version of Rapier used by Nexus.
+Using this re-export avoids mixing different versions of
+[`RigidBodyBuilder`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion) and
+[`ColliderBuilder`](https://rapier.rs/docs/user_guides/rust/colliders/#creation-and-insertion). Their concepts and
+builder settings are documented in the Rapier user-guide. Nexus uses its own `NexusPipeline`, so not every Rapier
+setting is implemented by Nexus.
+:::
+
+</rust>
+<python>
+
+## Installing Nexus with pip
+
+The Python package is named **dimforge-nexus3d**, whereas the module imported by your code is named **nexus3d**:
+
+```bash
+python -m pip install dimforge-nexus3d
+```
+
+The plain `nexus3d` package on PyPI is an unrelated project. Make sure to install `dimforge-nexus3d`.
+The bindings target CPython 3.9 or newer. If a wheel is not available for your platform, build the bindings from
+the Nexus repository after installing Cargo and the shader compiler:
+
+```bash
+cargo install cargo-gpu --version 0.10.0
+cargo gpu install --auto-install-rust-toolchain
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install maturin
+maturin develop --release -m crates/nexus_python3d/Cargo.toml
+```
+
+The activation command above is for a Unix shell. On Windows, activate `.venv` with the script in its `Scripts` directory.
+
+:::note
+Only the 3D engine is exposed to Python. The Python bindings do not expose every low-level Rust API.
+This guide indicates these differences where they matter.
+:::
+
+</python>
+
+## Basic simulation example
+
+Here is a complete <rust>`src/main.rs`</rust><python>`main.py`</python> file. The
+[`RigidBodyBuilder`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion) and
+[`ColliderBuilder`](https://rapier.rs/docs/user_guides/rust/colliders/#creation-and-insertion) describe the scene. The `NexusState` contains that scene, and the `NexusPipeline` advances it.
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/examples/getting_started2.rs' marker='basic_sim' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/examples/getting_started3.rs' marker='basic_sim' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+
+<python>
+
+```python
+<load path='python/getting_started.py' marker='basic_sim' />
+```
+
+</python>
+
+
+Run the example with <rust>`cargo run --release`</rust><python>`python main.py`</python>.
+The `NexusViewer` opens a window, and `viewer.with_running()` starts the simulation immediately.
+The window's controls change the value returned by `viewer.simulating()`, which determines whether the loop calls `pipeline.simulate`.
+
+:::info
+Call `viewer.init_backend()` before `state.finalize` or `pipeline.simulate`. The three operations initialize the backend,
+upload the scene, and advance physics respectively. See [simulation state and viewer](./simulation_structures.mdx).
+:::
+
+<rust>The example uses `pollster::block_on` to drive asynchronous work in a native executable. A browser application
+needs an asynchronous browser entry point instead. The repository's WebAssembly demos show this setup.</rust>
+<python>Run `NexusViewer` on the main thread. A normal Python script is the recommended starting point.</python>

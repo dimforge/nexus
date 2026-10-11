@@ -1,0 +1,111 @@
+---
+id: batched_simulations
+title: Batched simulations
+sidebar_label: Batched simulations
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Some applications need to simulate many independent scenes at the same time. This is typically used for evaluating
+several robot controllers or running many copies of a training environment. A `NexusState` groups these rigid-body
+scenes into a **batch**, so `NexusPipeline` can process them together.
+
+## Creating environments
+
+A new `NexusState` already contains environment `0`. Each call to `state.add_environment` creates one additional
+environment and returns its index. Call `state.insert_rigid_body_in` with this index:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='batches' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='batches' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='batches' />
+```
+
+</python>
+
+Objects in different environments never collide. The
+[<rust>`RigidBodyBuilder::translation`</rust><python>`RigidBodyBuilder.translation`</python>](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#position) values above only
+separate the balls for visualization; identical positions in separate environments would work too.
+
+The [`RigidBodyHandle`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion) returned by
+`state.insert_rigid_body_in` belongs to that environment. Keep the environment index with each handle, and pass the same index to
+`state.insert_collider_in`, `state.insert_impulse_joint_in`, or `state.insert_multibody_joint_in` when referring to it.
+
+## Matching topology
+
+All environments passed to `state.finalize` must have matching structure:
+
+- The same counts of [`RigidBody` and `Collider`](https://rapier.rs/docs/user_guides/rust/simulation_structures/) values.
+- The same counts of [impulse joints and multibodies](https://rapier.rs/docs/user_guides/rust/joint_constraints/).
+- Compatible [joint topology](https://rapier.rs/docs/user_guides/rust/joint_constraints/#multibodies), constructed in the same order.
+- Identical `RbdSimParams` values, including `num_solver_iterations`.
+
+Initial poses, velocities, and shapes may differ. It is recommended to call the same scene-building function for
+every environment, changing only the initial conditions that you want to vary. Populate every environment before calling
+`state.finalize`, so an intermediate environment doesn't remain empty.
+
+:::warning
+Calling `state.add_environment` without populating the new environment like the others makes `state.finalize` fail.
+The batch layout doesn't automatically add missing objects. Check each environment when finalization reports
+incompatible counts or parameters.
+:::
+
+Batching applies to the rigid-body solver. Calling `state.add_environment` doesn't duplicate the MPM state;
+see [MPM coupling and environments](./coupling.mdx#environment-and-timestep) for that limitation.
+
+## Rendering a batch
+
+Use <rust>`viewer.insert_shape_in(env, handle, &shape, local_pose)`</rust><python>`viewer.insert_shape_in(env, handle,
+shape, local_pose)`</python> to register graphics for a body in a particular environment. Calling `viewer.insert_shape` instead targets
+environment `0`. The `local_pose` uses the same frame as the
+[collider's local position](https://rapier.rs/docs/user_guides/rust/colliders/#position).
+
+The same `viewer.sync` call synchronizes all environments. Rendering a large batch can still take time even if the
+physics scenes are small, so measure `pipeline.simulate` separately from `viewer.sync` and `viewer.render_frame`
+when evaluating simulation throughput.
+
+## Memory usage
+
+Call `state.set_rbd_collisions_capacity` before `state.finalize` to set the collision-pair capacity **per environment**.
+The example uses 128 because each environment contains only one body. Workspaces scale with the environment count:
+a capacity appropriate for one large scene may waste memory for thousands of small scenes.
+
+A scene with many contacts needs a larger `state.set_rbd_collisions_capacity` value. `NexusPipeline` can grow collision
+buffers after overflow, but it cannot restore contacts omitted during that step.
+<rust>`NexusCapacities::rbd_resize_policy` configures this recovery policy when constructing `NexusState`.</rust>
+Choose sufficient capacity for the expected workload before increasing the number of environments.
+
+## Resetting episodes
+
+<rust>For repeated episode resets in 3D, `RbdState::snapshot` and `RbdState::reset_env_from_snapshot` restore a matching
+environment without rebuilding the whole scene. For large batches, `RbdState::publish_reset_templates` and
+`RbdState::reset_envs_from_templates` keep reset templates on the GPU. See the
+[reset example](./reading_and_modifying.mdx#resetting-an-environment).</rust>
+<python>The current Python bindings don't expose `RbdSnapshot` or GPU reset templates. Construct and populate a fresh
+`NexusState`, then call `state.finalize` to restart the batch from its authored scene.</python>
+
+Ordinary `state.insert_rigid_body_in` calls change the authored scene. Calling them after an episode has started can
+restore all bodies to their initial positions on the next `state.finalize`. See
+[changing the scene description](./reading_and_modifying.mdx#changing-the-scene-description) before modifying a
+running batch.

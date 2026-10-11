@@ -1,0 +1,151 @@
+---
+id: joints
+title: Joints and multibodies
+sidebar_label: Joints and multibodies
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Nexus accepts Rapier's [joint builders](https://rapier.rs/docs/user_guides/rust/joints/) for articulated mechanisms.
+Refer to that guide for the joint types, local anchors, limits, and Degrees Of Freedom (DOF).
+Nexus provides `state.insert_impulse_joint` in 2D and 3D, and `state.insert_multibody_joint` for its **3D**
+reduced-coordinates solver. The difference between the two approaches is described in
+[Rapier's joint constraints](https://rapier.rs/docs/user_guides/rust/joint_constraints/).
+
+## Creating an impulse joint
+
+Call `state.insert_impulse_joint(body1, body2, joint)` with two existing
+[`RigidBodyHandle`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion) values from the same
+environment. The following uses
+[<rust>`RevoluteJointBuilder::new`</rust><python><rust>`RevoluteJointBuilder::new`</rust><python>`RevoluteJointBuilder.new`</python></python>](https://rapier.rs/docs/user_guides/rust/joints/#revolute-joint):
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='joint' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='joint' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='joint' />
+```
+
+</python>
+
+The [<rust>`RevoluteJointBuilder::local_anchor1`</rust><python>`RevoluteJointBuilder.local_anchor1`</python> and <rust>`RevoluteJointBuilder::local_anchor2`</rust><python>`RevoluteJointBuilder.local_anchor2`</python>](https://rapier.rs/docs/user_guides/rust/joints/#basic-concepts)
+arguments are local to `body1` and `body2` respectively.
+[<rust>`RevoluteJointBuilder::limits([-1.0, 1.0])`</rust><python>`RevoluteJointBuilder.limits(-1.0, 1.0)`</python>](https://rapier.rs/docs/user_guides/rust/joints/#revolute-joint)
+configures the limits, and [<rust>`RevoluteJointBuilder::motor_velocity`</rust><python>`RevoluteJointBuilder.motor_velocity`</python> and <rust>`RevoluteJointBuilder::motor_max_force`</rust><python>`RevoluteJointBuilder.motor_max_force`</python>](https://rapier.rs/docs/user_guides/rust/joints/#joint-motors)
+configure the initial motor. See those sections for the units and motor behavior.
+
+<rust>In 2D, `RevoluteJointBuilder::new()` doesn't take an axis.</rust>
+<rust>In 3D, `RevoluteJointBuilder::new(Vec3::Z)`</rust><python>`RevoluteJointBuilder.new(Vec3.Z)`</python> selects the
+[local rotation axis](https://rapier.rs/docs/user_guides/rust/joints/#revolute-joint).
+The joint builder only sets the initial target. Use the runtime APIs below for continuous motor control.
+
+If an [impulse joint drifts](https://rapier.rs/docs/user_guides/rust/joint_constraints/#constraints-based-approach),
+<rust>increase `RbdSimParams::num_solver_iterations` before `state.finalize`, or consider `state.insert_multibody_joint`
+for a 3D tree.</rust><python>consider `state.insert_multibody_joint` for a 3D tree; changing
+`RbdSimParams::num_solver_iterations` requires the Rust API.</python>
+For an object whose parts never move wrt. each other, `state.insert_collider_in` can attach several
+[colliders](https://rapier.rs/docs/user_guides/rust/colliders/#creation-and-insertion) to one body without adding joints.
+
+## Creating a multibody
+
+Call `state.insert_multibody_joint` to add a [reduced-coordinate joint](https://rapier.rs/docs/user_guides/rust/joint_constraints/#reduced-coordinates-approach).
+The following 3D pendulum uses a fixed base and a moving link. The base doesn't need a collider:
+
+<rust>
+
+```rust
+<load path='rust3d/src/lib.rs' marker='multibody' />
+```
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='multibody' />
+```
+
+</python>
+
+The `state.insert_multibody_joint` return value is `None` if the joint would create an invalid chain, e.g., a cycle.
+Always check that insertion succeeded before using the returned handle. A [multibody](https://rapier.rs/docs/user_guides/rust/joint_constraints/#multibodies)
+must have a tree structure. `state.insert_impulse_joint` can add a remaining loop-closing constraint, but that
+constraint is still solved iteratively and can exhibit drift.
+
+## Motor control
+
+Call `state.finalize` before sending runtime motor targets.
+<rust>`state.control_multibody_motors` gives a callback access to each environment's authored
+[multibody joints](https://rapier.rs/docs/user_guides/rust/joint_constraints/#multibodies), then uploads the changed
+motor settings without rebuilding the scene. The following uses `joint_handle` from the previous example:</rust>
+<python>`state.set_multibody_motor_velocity` takes an environment index, a GPU link index, and `JointAxis`.
+The GPU link index is not a [`RigidBodyHandle`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion).
+In the pendulum above, `base` is link `0` and `link` is link `1`:</python>
+
+<rust>
+
+```rust
+<load path='rust3d/src/lib.rs' marker='motors' />
+```
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='motors' />
+```
+
+</python>
+
+The [<rust>`JointAxis::AngX`</rust><python>`JointAxis.AngX`</python>](https://rapier.rs/docs/user_guides/rust/joints/#joint-motors)
+value selects the free joint coordinate. Its geometric rotation axis still comes from
+[<rust>`RevoluteJointBuilder::new`</rust><python><rust>`RevoluteJointBuilder::new`</rust><python>`RevoluteJointBuilder.new`</python></python>](https://rapier.rs/docs/user_guides/rust/joints/#revolute-joint),
+so `AngX` doesn't mean the world x axis here.
+<rust>In a batch, select the appropriate joint handle for the callback's environment. The handle in this example
+belongs to environment 0.</rust>
+
+## Reading joint state
+
+Call `state.read_multibody_links` to retrieve generalized coordinates, poses, and velocities.
+<rust>The returned vector is ordered by environment, then by GPU traversal order.</rust>
+<python>The returned NumPy arrays use the same order. See the
+[readback example](./reading_and_modifying.mdx#reading-positions) for the array layout.</python>
+Parent links precede their children. This isn't the integer order of
+[`RigidBodyHandle`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/#creation-and-insertion) values.
+Link velocities are meaningful after the first `pipeline.simulate` call.
+
+## Loading robots
+
+The repository contains complete [URDF](https://github.com/dimforge/nexus/blob/main/crates/examples3d/rbd_urdf3.rs)
+and [MJCF](https://github.com/dimforge/nexus/blob/main/crates/examples3d/rbd_mujoco_menagerie3.rs) examples.
+<rust>The loaders populate the [`PhysicsWorld`](https://rapier.rs/docs/user_guides/rust/simulation_structures/)
+returned by `state.rbd_world_mut(env)`. Register graphics with `viewer.insert_visual_shape`, then call `state.finalize`.
+For continuous actuation, call `state.control_multibody_motors`; calling `state.rbd_world_mut` every frame would
+mark the scene for rebuilding.</rust>
+<python>`state.insert_urdf(path, options)` returns render shapes for `viewer.insert_visual_shape`.
+The `state.insert_mjcf(viewer, scene_path)` method registers graphics itself. After `state.finalize`,
+`state.apply_actuator_controls(viewer, ctrl)` applies a control vector in `state.actuator_names()` order. The
+[Python examples](https://github.com/dimforge/nexus/tree/main/crates/nexus_python3d/examples) show the complete sequence.</python>
+
+Keep `state.set_rbd_gravity` consistent with the robot model's up axis.
+<python>For a Z-up scene, call `viewer.set_up_axis(Vec3.Z)` and set `state.set_rbd_gravity` to
+`Vec3(0.0, 0.0, -9.81)` after `state.finalize`.</python> Changing the camera doesn't change gravity.
