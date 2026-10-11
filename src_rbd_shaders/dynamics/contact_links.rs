@@ -20,6 +20,7 @@ use super::constraint::{ContactLink, ContactRecycleOffsets, ContactRecycleState}
 
 /// Initializes the link of every contact. Manifolds touching a multibody link belong to the
 /// multibody contact solver: their link stays inactive, like gap and inert slots.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_init_contact_links(
@@ -62,6 +63,7 @@ pub fn gpu_init_contact_links(
 
 /// Matches every active link with the previous frame's, decides whether its contacts are
 /// recycled, and records the recycling state of its contacts.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_match_contact_links(
@@ -164,6 +166,7 @@ fn find_previous_constraint(
 
 /// Seeds the coloring with the colors of the matched previous constraints. Runs after the
 /// topo-gc reset, before the coloring iterations.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_seed_colors_from_warmstart(

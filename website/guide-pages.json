@@ -1,0 +1,25 @@
+[
+  {
+    "label": "Getting started",
+    "pages": [
+      "getting_started",
+      "simulation_structures"
+    ]
+  },
+  {
+    "label": "Rigid-body dynamics",
+    "pages": [
+      "rigid_bodies",
+      "joints",
+      "batched_simulations",
+      "reading_and_modifying"
+    ]
+  },
+  {
+    "label": "Material Point Method (MPM)",
+    "pages": [
+      "particles",
+      "coupling"
+    ]
+  }
+]

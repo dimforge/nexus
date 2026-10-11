@@ -19,3 +19,12 @@ static/demos
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Generated from the shared guide templates and checked examples.
+/docs/user_guides/rust/
+/docs/user_guides/python/
+/docs/user_guides/all/
+__pycache__/
+
+# Previously published demo build, served at /demos-previous/ (unlinked).
+static/demos-previous

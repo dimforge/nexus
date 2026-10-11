@@ -9,18 +9,17 @@ use khal_std::glamx::UVec3;
 use khal_std::index::MaybeIndexUnchecked;
 use khal_std::iter::StepRng;
 use khal_std::macros::{spirv, spirv_bindgen};
-use khal_std::sync::control_barrier;
 
 use crate::dynamics::ConstraintSoftness;
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
+use crate::utils::linalg::{MatSlice, VSlice};
 use crate::{DIM, MAX_FLT};
 
 use super::types::{
     MB_JOINT_KIND_COUPLING, MB_JOINT_KIND_FRICTION, MB_JOINT_KIND_LIMIT,
     MB_JOINT_KIND_LIMIT_INACTIVE, MB_JOINT_KIND_MOTOR, MbDofCoupling, MultibodyInfo,
-    MultibodyJointConstraint, MultibodyLinkStatic,
+    MultibodyJointConstraint,
 };
 use super::ws_soa::{WsAddr, ws_coord};
 
@@ -41,7 +40,7 @@ fn motor_delay_stride(batch_ids: &BatchIndices) -> usize {
 /// writes. An all-zero delay buffer (the default) leaves `target` untouched:
 /// the first step's `tick` is 1, already past `k = 0`.
 #[inline]
-fn delayed_motor_target(
+pub(super) fn delayed_motor_target(
     motor_delay_state: &[f32],
     batch_ids: &BatchIndices,
     batch_id: u32,
@@ -99,17 +98,118 @@ fn lu_solve_unit(
         }
         dst[dst_offset + i as usize] = v;
     }
-    lu_solve_in_place(buf_m, m, buf_pivots, piv, dst, VSlice::dense(dst_offset));
+    crate::utils::linalg::lu_solve_in_place(
+        buf_m,
+        m,
+        buf_pivots,
+        piv,
+        dst,
+        VSlice::dense(dst_offset),
+    );
+}
+
+/// What the per-substep refresh of a joint slot needs, so that it can skip
+/// the link data: `[target, erp_inv_dt, target_vel, limit_min]` and
+/// `[limit_max, meta, 0, 0]`, `meta` being the bits of
+/// `kind | dof_id << 8 | has_limits << 16`. Limit slots use the motor kind's
+/// limit entries and record `MB_JOINT_KIND_LIMIT` whether active or not.
+pub type JointRefreshParams = [Vec4; 2];
+
+#[inline(always)]
+fn refresh_meta(kind: u32, dof_id: u32, has_limits: bool) -> f32 {
+    f32::from_bits(kind | (dof_id << 8) | ((has_limits as u32) << 16))
+}
+
+#[inline(always)]
+fn motor_refresh_params(
+    dof_id: u32,
+    motor: &crate::dynamics::joint::JointMotor,
+    dt: f32,
+    target: f32,
+    has_limits: bool,
+    limit_min: f32,
+    limit_max: f32,
+) -> JointRefreshParams {
+    let (erp_inv_dt, _, _, _, _) = motor_params(motor, dt);
+    [
+        Vec4::new(target, erp_inv_dt, motor.target_vel, limit_min),
+        Vec4::new(
+            limit_max,
+            refresh_meta(MB_JOINT_KIND_MOTOR, dof_id, has_limits),
+            0.0,
+            0.0,
+        ),
+    ]
+}
+
+#[inline(always)]
+fn limit_refresh_params(dof_id: u32, limit_min: f32, limit_max: f32) -> JointRefreshParams {
+    [
+        Vec4::new(0.0, 0.0, 0.0, limit_min),
+        Vec4::new(
+            limit_max,
+            refresh_meta(MB_JOINT_KIND_LIMIT, dof_id, true),
+            0.0,
+            0.0,
+        ),
+    ]
+}
+
+#[inline(always)]
+fn kind_refresh_params(kind: u32, dof_id: u32) -> JointRefreshParams {
+    [
+        Vec4::ZERO,
+        Vec4::new(0.0, refresh_meta(kind, dof_id, false), 0.0, 0.0),
+    ]
+}
+
+#[inline(always)]
+fn write_refresh_params(refresh_params: &mut [Vec4], slot: usize, params: JointRefreshParams) {
+    refresh_params.write(2 * slot, params[0]);
+    refresh_params.write(2 * slot + 1, params[1]);
+}
+
+/// The motor row's `rhs_wo_bias` at coordinate `curr_pos` (the arithmetic of
+/// `build_motor_constraint`, which also uses it).
+#[inline(always)]
+pub(super) fn motor_rhs_wo_bias(
+    curr_pos: f32,
+    target_pos: f32,
+    erp_inv_dt: f32,
+    target_vel: f32,
+    inv_dt: f32,
+    has_limits: bool,
+    limit_min: f32,
+    limit_max: f32,
+) -> f32 {
+    let mut rhs_wo_bias = 0.0f32;
+    if erp_inv_dt != 0.0 {
+        rhs_wo_bias += (curr_pos - target_pos) * erp_inv_dt;
+    }
+    let mut target_vel = target_vel;
+    if has_limits {
+        let lo = (limit_min - curr_pos) * inv_dt;
+        let hi = (limit_max - curr_pos) * inv_dt;
+        if target_vel < lo {
+            target_vel = lo;
+        }
+        if target_vel > hi {
+            target_vel = hi;
+        }
+    }
+    rhs_wo_bias += -target_vel;
+    rhs_wo_bias
 }
 
 /// Serially writes the metadata of every active limit/motor constraint slot.
 #[inline]
 #[allow(clippy::too_many_arguments)]
 fn emit_joint_constraints(
-    links_static: &[MultibodyLinkStatic],
+    links_static: &[glamx::UVec4],
     links_workspace: &[Vec4],
     dof_couplings: &[MbDofCoupling],
     joint_constraints: &mut [MultibodyJointConstraint],
+    refresh_params: &mut [Vec4],
     dof_state: &[f32],
     mb: &MultibodyInfo,
     cons_base: usize,
@@ -123,7 +223,7 @@ fn emit_joint_constraints(
     let num_links = mb.num_links;
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
@@ -131,21 +231,21 @@ fn emit_joint_constraints(
 
     let mut slot = 0u32;
     for k in 0..num_links {
-        let stat = &stat_slice[k as usize];
-        let locked = stat.data.locked_axes;
-        let limit_axes = stat.data.limit_axes & !locked;
-        let motor_axes = stat.data.motor_axes & !locked;
+        let stat = stat_slice.at(k as usize);
+        let locked = stat.locked_axes();
+        let limit_axes = stat.limit_axes() & !locked;
+        let motor_axes = stat.motor_axes() & !locked;
         if limit_axes == 0 && motor_axes == 0 {
             continue;
         }
-        if stat.kinematic != 0 {
+        if stat.kinematic() != 0 {
             continue;
         }
 
         // Walk free axes in DOF order, mirroring `MultibodyJoint::velocity_constraints`.
         // `curr_free_dof` tracks the position within this joint's slice of the
         // multibody's generalized-velocity vector; the absolute index is
-        // `stat.assembly_id + curr_free_dof`.
+        // `stat.assembly_id() + curr_free_dof`.
         let mut curr_free_dof = 0u32;
 
         // Linear DOFs first.
@@ -153,13 +253,20 @@ fn emit_joint_constraints(
             if (locked & (1 << axis)) != 0 {
                 continue;
             }
-            let abs_dof = stat.assembly_id + curr_free_dof;
+            let abs_dof = stat.assembly_id() + curr_free_dof;
             let curr_pos = ws_coord(links_workspace, wa, k, axis);
 
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
-                let limit_min = stat.data.limits.read(axis as usize).min;
-                let limit_max = stat.data.limits.read(axis as usize).max;
+                let limit_min = stat.limit(axis as usize).min;
+                let limit_max = stat.limit(axis as usize).max;
+                let target = delayed_motor_target(
+                    motor_delay_state,
+                    batch_ids,
+                    batch_id,
+                    mb.first_link + k,
+                    stat.motor(axis as usize).target_pos,
+                );
                 let cons = build_motor_constraint(
                     abs_dof,
                     k,
@@ -167,20 +274,27 @@ fn emit_joint_constraints(
                     curr_pos,
                     inv_dt,
                     dt,
-                    stat.data.motors.at(axis as usize),
-                    delayed_motor_target(
-                        motor_delay_state,
-                        batch_ids,
-                        batch_id,
-                        mb.first_link + k,
-                        stat.data.motors.read(axis as usize).target_pos,
-                    ),
+                    &stat.motor(axis as usize),
+                    target,
                     has_limits,
                     limit_min,
                     limit_max,
                 );
                 if slot < mb.max_constraints {
                     joint_constraints.write(cons_base + slot as usize, cons);
+                    write_refresh_params(
+                        refresh_params,
+                        cons_base + slot as usize,
+                        motor_refresh_params(
+                            abs_dof,
+                            &stat.motor(axis as usize),
+                            dt,
+                            target,
+                            has_limits,
+                            limit_min,
+                            limit_max,
+                        ),
+                    );
                     slot += 1;
                 }
             }
@@ -190,15 +304,21 @@ fn emit_joint_constraints(
                     k,
                     axis,
                     curr_pos,
-                    [
-                        stat.data.limits.read(axis as usize).min,
-                        stat.data.limits.read(axis as usize).max,
-                    ],
+                    [stat.limit(axis as usize).min, stat.limit(axis as usize).max],
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
                 if slot < mb.max_constraints {
                     joint_constraints.write(cons_base + slot as usize, cons);
+                    write_refresh_params(
+                        refresh_params,
+                        cons_base + slot as usize,
+                        limit_refresh_params(
+                            abs_dof,
+                            stat.limit(axis as usize).min,
+                            stat.limit(axis as usize).max,
+                        ),
+                    );
                     slot += 1;
                 }
             }
@@ -210,7 +330,7 @@ fn emit_joint_constraints(
             if (locked & (1 << axis)) != 0 {
                 continue;
             }
-            let abs_dof = stat.assembly_id + curr_free_dof;
+            let abs_dof = stat.assembly_id() + curr_free_dof;
             let curr_pos = ws_coord(links_workspace, wa, k, axis);
 
             if (limit_axes & (1 << axis)) != 0 {
@@ -219,22 +339,35 @@ fn emit_joint_constraints(
                     k,
                     axis,
                     curr_pos,
-                    [
-                        stat.data.limits.read(axis as usize).min,
-                        stat.data.limits.read(axis as usize).max,
-                    ],
+                    [stat.limit(axis as usize).min, stat.limit(axis as usize).max],
                     joint_erp_inv_dt,
                     joint_cfm_coeff,
                 );
                 if slot < mb.max_constraints {
                     joint_constraints.write(cons_base + slot as usize, cons);
+                    write_refresh_params(
+                        refresh_params,
+                        cons_base + slot as usize,
+                        limit_refresh_params(
+                            abs_dof,
+                            stat.limit(axis as usize).min,
+                            stat.limit(axis as usize).max,
+                        ),
+                    );
                     slot += 1;
                 }
             }
             if (motor_axes & (1 << axis)) != 0 {
                 let has_limits = (limit_axes & (1 << axis)) != 0;
-                let limit_min = stat.data.limits.read(axis as usize).min;
-                let limit_max = stat.data.limits.read(axis as usize).max;
+                let limit_min = stat.limit(axis as usize).min;
+                let limit_max = stat.limit(axis as usize).max;
+                let target = delayed_motor_target(
+                    motor_delay_state,
+                    batch_ids,
+                    batch_id,
+                    mb.first_link + k,
+                    stat.motor(axis as usize).target_pos,
+                );
                 let cons = build_motor_constraint(
                     abs_dof,
                     k,
@@ -242,20 +375,27 @@ fn emit_joint_constraints(
                     curr_pos,
                     inv_dt,
                     dt,
-                    stat.data.motors.at(axis as usize),
-                    delayed_motor_target(
-                        motor_delay_state,
-                        batch_ids,
-                        batch_id,
-                        mb.first_link + k,
-                        stat.data.motors.read(axis as usize).target_pos,
-                    ),
+                    &stat.motor(axis as usize),
+                    target,
                     has_limits,
                     limit_min,
                     limit_max,
                 );
                 if slot < mb.max_constraints {
                     joint_constraints.write(cons_base + slot as usize, cons);
+                    write_refresh_params(
+                        refresh_params,
+                        cons_base + slot as usize,
+                        motor_refresh_params(
+                            abs_dof,
+                            &stat.motor(axis as usize),
+                            dt,
+                            target,
+                            has_limits,
+                            limit_min,
+                            limit_max,
+                        ),
+                    );
                     slot += 1;
                 }
             }
@@ -283,6 +423,11 @@ fn emit_joint_constraints(
         let cons = build_coupling_constraint(&coupling, q1, q2, joint_erp_inv_dt);
         if slot < mb.max_constraints {
             joint_constraints.write(cons_base + slot as usize, cons);
+            write_refresh_params(
+                refresh_params,
+                cons_base + slot as usize,
+                kind_refresh_params(MB_JOINT_KIND_COUPLING, cons.dof_id),
+            );
             slot += 1;
         }
     }
@@ -306,6 +451,11 @@ fn emit_joint_constraints(
         if fl > 0.0 && kin_mask_slice.read(d as usize) == 0.0 && slot < mb.max_constraints {
             let cons = build_friction_constraint(d, fl, dt, joint_cfm_coeff);
             joint_constraints.write(cons_base + slot as usize, cons);
+            write_refresh_params(
+                refresh_params,
+                cons_base + slot as usize,
+                kind_refresh_params(MB_JOINT_KIND_FRICTION, d),
+            );
             slot += 1;
         }
     }
@@ -356,7 +506,7 @@ fn inv(x: f32) -> f32 {
 /// Initialize a single limit constraint slot.
 #[inline]
 #[allow(clippy::too_many_arguments)]
-fn build_limit_constraint(
+pub(super) fn build_limit_constraint(
     dof_id: u32,
     link_id: u32,
     axis: u32,
@@ -481,7 +631,7 @@ fn build_friction_constraint(
 /// Initialize a single motor constraint slot..
 #[inline]
 #[allow(clippy::too_many_arguments)]
-fn build_motor_constraint(
+pub(super) fn build_motor_constraint(
     dof_id: u32,
     link_id: u32,
     axis: u32,
@@ -497,24 +647,16 @@ fn build_motor_constraint(
     limit_max: f32,
 ) -> MultibodyJointConstraint {
     let (erp_inv_dt, cfm_coeff, cfm_gain, _, max_impulse) = motor_params(motor, dt);
-
-    let mut rhs_wo_bias = 0.0f32;
-    if erp_inv_dt != 0.0 {
-        rhs_wo_bias += (curr_pos - target_pos) * erp_inv_dt;
-    }
-
-    let mut target_vel = motor.target_vel;
-    if has_limits {
-        let lo = (limit_min - curr_pos) * inv_dt;
-        let hi = (limit_max - curr_pos) * inv_dt;
-        if target_vel < lo {
-            target_vel = lo;
-        }
-        if target_vel > hi {
-            target_vel = hi;
-        }
-    }
-    rhs_wo_bias += -target_vel;
+    let rhs_wo_bias = motor_rhs_wo_bias(
+        curr_pos,
+        target_pos,
+        erp_inv_dt,
+        motor.target_vel,
+        inv_dt,
+        has_limits,
+        limit_min,
+        limit_max,
+    );
 
     MultibodyJointConstraint {
         dof_id,
@@ -545,20 +687,19 @@ fn build_motor_constraint(
 /// Must run after `gpu_mb_lu_decompose` — the LU factors of `M` are used to compute
 /// the per-constraint M⁻¹ column and effective inverse mass.
 ///
-/// One 64-lane workgroup per (multibody, batch), in two stages:
-///   1. lane-parallel: zero all constraint slots;
-///   2. lane 0: the serial link walk emitting constraint metadata (cheap).
+/// One thread owns a multibody: clears its slots and walks its links to emit
+/// constraint metadata. Adjacent threads process independent environments.
 ///
 /// The M⁻¹-column back-solve is a separate dispatch
 /// ([`gpu_mb_finalize_joint_constraints`]), so each pass fits 8 storage buffers.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_joint_constraints(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     joint_constraints: &mut [MultibodyJointConstraint],
@@ -571,14 +712,23 @@ pub fn gpu_mb_init_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] dof_state: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 8)] batch_ids: &BatchIndices,
+    // Two quads per joint slot, see `JointRefreshParams`.
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 9)] refresh_params: &mut [Vec4],
 ) {
-    const LANES: u32 = 64;
+    const LANES: u32 = 1;
 
-    // One workgroup per (multibody, batch): grid `[mbs · LANES, batches, 1]`.
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    // Flatten (batch, multibody) into individual threads.
     let num_mb = batch_ids.multibodies_len;
+    if num_mb == 0 {
+        return;
+    }
+    let flat = workgroup_id.x * 64 + local_id.x;
+    let batch_id = flat / num_mb;
+    let mb_idx = flat % num_mb;
+    let lane = 0;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let in_range = mb_idx < num_mb;
     #[cfg(not(feature = "web-compat"))]
     if !in_range {
@@ -600,21 +750,16 @@ pub fn gpu_mb_init_joint_constraints(
     // Stage 1: lane-parallel slot reset.
     if active {
         for s in StepRng::new(lane..mb.max_constraints, LANES) {
-            let mut cz: MultibodyJointConstraint = joint_constraints.read(cons_base + s as usize);
+            let cz = joint_constraints.at_mut(cons_base + s as usize);
             cz.kind = 0;
             cz.impulse = 0.0;
-            joint_constraints.write(cons_base + s as usize, cz);
+            write_refresh_params(
+                refresh_params,
+                cons_base + s as usize,
+                kind_refresh_params(0, 0),
+            );
         }
     }
-
-    control_barrier::<
-        { khal_std::memory::Scope::Workgroup as u32 },
-        { khal_std::memory::Scope::QueueFamily as u32 },
-        {
-            khal_std::memory::Semantics::UNIFORM_MEMORY.bits()
-                | khal_std::memory::Semantics::ACQUIRE_RELEASE.bits()
-        },
-    >();
 
     // Stage 2: serial metadata emission on lane 0.
     if active && lane == 0 {
@@ -623,6 +768,7 @@ pub fn gpu_mb_init_joint_constraints(
             links_workspace,
             dof_couplings,
             joint_constraints,
+            refresh_params,
             dof_state,
             &mb,
             cons_base,
@@ -643,7 +789,10 @@ pub fn gpu_mb_init_joint_constraints(
 /// the 8-storage-buffer WebGPU limit. Must run after it, and after
 /// `gpu_mb_lu_decompose`, whose LU factors of `M` it consumes.
 ///
-/// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
+/// Large batches use eight lanes per multibody at up to 32 DOFs; other
+/// configurations keep one 64-lane group per multibody.
+/// Lanes stride independent constraint slots.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_joint_constraints(
@@ -658,11 +807,27 @@ pub fn gpu_mb_finalize_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] lu_pivots: &[u32],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
+        8
+    } else {
+        64
+    };
 
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 8 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 8 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let num_mb = batch_ids.multibodies_len;
     let in_range = mb_idx < num_mb;
     #[cfg(not(feature = "web-compat"))]
@@ -691,7 +856,7 @@ pub fn gpu_mb_finalize_joint_constraints(
     );
 
     if active {
-        for s in StepRng::new(lane..mb.max_constraints, LANES) {
+        for s in StepRng::new(lane..mb.max_constraints, lanes) {
             let mut cons = joint_constraints.read(cons_base + s as usize);
             if cons.kind == 0 {
                 continue;
@@ -721,15 +886,17 @@ pub fn gpu_mb_finalize_joint_constraints(
 /// Per-substep refresh of the joint limit / motor slots, the cheap alternative
 /// to a full rebuild.
 ///
-/// One 64-lane workgroup per (multibody, batch); lanes stride the slots.
+/// Large batches use eight lanes per multibody at up to 32 DOFs; other
+/// configurations keep one 64-lane group per multibody.
+/// Lanes stride independent constraint slots.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_refresh_joint_constraints(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &[Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     joint_constraints: &mut [MultibodyJointConstraint],
@@ -738,10 +905,26 @@ pub fn gpu_mb_refresh_joint_constraints(
     #[spirv(uniform, descriptor_set = 0, binding = 5)] softness: &ConstraintSoftness,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
+        8
+    } else {
+        64
+    };
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 8 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 8 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     if mb_idx >= batch_ids.multibodies_len {
         return;
     }
@@ -752,14 +935,14 @@ pub fn gpu_mb_refresh_joint_constraints(
     }
     let cons_base = batch_ids.mb_joint_constraints_start(batch_id) + mb.first_constraint as usize;
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
 
     let dt = softness.dt;
     let inv_dt = if dt != 0.0 { 1.0 / dt } else { 0.0 };
 
-    for s in StepRng::new(lane..mb.max_constraints, LANES) {
+    for s in StepRng::new(lane..mb.max_constraints, lanes) {
         let old = joint_constraints.read(cons_base + s as usize);
         // Friction rows are per-step constants except for the accumulated
         // impulse, which must restart from zero so the `±frictionloss·dt`
@@ -779,17 +962,17 @@ pub fn gpu_mb_refresh_joint_constraints(
         }
         let link_id = old._kind_extra & 0xffff;
         let axis = old._kind_extra >> 16;
-        let stat = &stat_slice[link_id as usize];
+        let stat = stat_slice.at(link_id as usize);
         let curr_pos = ws_coord(links_workspace, wa, link_id, axis);
-        let limit_min = stat.data.limits.read(axis as usize).min;
-        let limit_max = stat.data.limits.read(axis as usize).max;
+        let limit_min = stat.limit(axis as usize).min;
+        let limit_max = stat.limit(axis as usize).max;
 
         // Rebuild the per-substep fields with the same formulas the full
         // emission uses, then graft back the per-step constants (the
         // column-derived `inv_lhs` and the folded `cfm_gain`).
         let mut fresh = if old.kind == MB_JOINT_KIND_MOTOR {
-            let locked = stat.data.locked_axes;
-            let has_limits = (stat.data.limit_axes & !locked & (1 << axis)) != 0;
+            let locked = stat.locked_axes();
+            let has_limits = (stat.limit_axes() & !locked & (1 << axis)) != 0;
             build_motor_constraint(
                 old.dof_id,
                 link_id,
@@ -797,13 +980,13 @@ pub fn gpu_mb_refresh_joint_constraints(
                 curr_pos,
                 inv_dt,
                 dt,
-                stat.data.motors.at(axis as usize),
+                &stat.motor(axis as usize),
                 delayed_motor_target(
                     motor_delay_state,
                     batch_ids,
                     batch_id,
                     mb.first_link + link_id,
-                    stat.data.motors.read(axis as usize).target_pos,
+                    stat.motor(axis as usize).target_pos,
                 ),
                 has_limits,
                 limit_min,

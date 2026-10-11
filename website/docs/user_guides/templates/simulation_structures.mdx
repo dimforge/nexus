@@ -1,0 +1,149 @@
+---
+id: simulation_structures
+title: Simulation state and viewer
+sidebar_label: Simulation state and viewer
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+The `NexusState`, `NexusPipeline`, and `NexusViewer` are the three structures used by the
+[basic simulation example](./getting_started.mdx#basic-simulation-example). The `NexusState` contains the scene,
+`NexusPipeline` advances the simulation, and `NexusViewer` displays its result. Keep these structures alive between
+frames, so their buffers and compute pipelines can be reused.
+
+## Simulation state
+
+The `NexusState` stores the scene description and the compute buffers used by the simulation.
+For rigid-body scenes, [`RigidBody`, `Collider`, and joint builders](https://rapier.rs/docs/user_guides/rust/simulation_structures/)
+describe the initial objects on the CPU. Calling `state.finalize` converts this description into compute buffers.
+For MPM, `state.add_particles` uploads the [`Particle`](./particles.mdx) values. The physics modules are initialized
+lazily, so a `NexusState` without particles doesn't need to allocate an MPM grid.
+
+:::warning
+The [`RigidBody`](https://rapier.rs/docs/user_guides/rust/rigid_bodies/) values used to construct the scene are not
+a live copy of the running simulation. Changing or reading them after `pipeline.simulate` doesn't automatically
+change or read the simulated bodies. Use the APIs described in
+[reading and modifying rigid-bodies](./reading_and_modifying.mdx).
+:::
+
+## Finalization and stepping
+
+Call `viewer.init_backend` before `state.finalize`. The `pipeline.simulate` method then finalizes pending changes and
+runs the solvers. The first call is more expensive because the compute pipelines are created lazily.
+It is possible to pay this cost upfront with `pipeline.preload_pipelines`.
+<rust>The `NexusPipelineMask` argument selects the physics modules to preload.</rust>
+<python>`pipeline.preload_pipelines(viewer)` preloads both physics modules.</python>
+
+The following continues the rigid-body scene from the getting started example,
+using <rust>an initialized `GpuBackend`</rust><python>a viewer initialized with `viewer.init_backend()`</python>:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='lifecycle' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='lifecycle' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='lifecycle' />
+```
+
+</python>
+
+The `state.set_rbd_gravity` call comes after `state.finalize`, because it updates the allocated rigid-body buffers.
+See [rigid-body integration parameters](./rigid_bodies.mdx#integration-parameters) for the rigid-body timestep, and
+[MPM parameters](./particles.mdx#timestep-and-gravity) for `SimulationParams` and `state.set_mpm_substeps`.
+
+<rust>`NexusPipeline::simulate` takes a `&GpuBackend`, so it can also be used without `NexusViewer`.
+The `await` expressions let initialization, uploads, and readbacks complete when required.</rust>
+<python>Methods that need a backend receive the viewer. These Python calls wait for the corresponding asynchronous
+Rust operations internally.</python>
+
+## Registering shapes
+
+Calling `state.insert_rigid_body` doesn't register graphics. Call `viewer.insert_shape` with the returned body handle,
+the [`collider.shared_shape()`](https://rapier.rs/docs/user_guides/rust/colliders/#shapes), and its local `Pose`, as in the
+[getting started example](./getting_started.mdx#basic-simulation-example).
+<rust>Clone `collider.shared_shape()` before moving the collider into `state.insert_rigid_body`.</rust>
+
+The `local_pose` argument of `viewer.insert_shape` is relative to the rigid-body, like a
+[collider's position](https://rapier.rs/docs/user_guides/rust/colliders/#position). For a centered shape, pass
+<rust>`Pose::IDENTITY`</rust><python>`Pose.IDENTITY`</python>. Passing the body's world-space `Pose` would apply its
+translation twice. Use `viewer.insert_shape_in` with an environment index for a [batch](./batched_simulations.mdx).
+Several calls to `viewer.insert_shape` can register several shapes for the same body.
+
+## The simulation loop
+
+The loop in the getting started example uses three operations:
+
+1. `viewer.render_frame` handles the window and its controls.
+2. If `viewer.simulating()` returns <rust>`true`</rust><python>`True`</python>, `pipeline.simulate` advances the simulation.
+3. `viewer.sync` updates the graphics from the simulation state.
+
+Call `viewer.sync` even if `viewer.simulating()` returns <rust>`false`</rust><python>`False`</python>, so the graphics reflect initialization and edits.
+The `viewer.with_running` constructor option starts the simulation immediately.
+<rust>`viewer.render_frame` and `viewer.sync` are asynchronous.</rust>
+<python>Run `NexusViewer` on the main thread. Its methods block until the corresponding Rust operation completes.</python>
+
+In 3D, <rust>`viewer.scene3d_mut().add_directional_light`</rust><python>`viewer.add_directional_light`</python>
+adds lighting. <python>`viewer.set_camera(eye, target)` points the camera towards the objects.</python>
+For the complete render loop, start from the [compiling example](./getting_started.mdx#basic-simulation-example).
+
+## Backend selection
+
+The default `NexusViewer` backend uses WebGPU. Select a different backend before calling `viewer.init_backend`.
+<rust>The viewer crates provide the `metal`, `cuda`, `cpu`, and `cpu-parallel` Cargo features.
+Use `viewer.with_cpu()` for CPU physics, or `viewer.with_backend(BackendType::Metal)` and
+`viewer.with_backend(BackendType::Cuda)` for the corresponding native GPU backend after enabling its feature.</rust>
+<python>`viewer.with_backend(name)` selects a backend by name: `"webgpu"` (the default), `"cpu"`, and `"metal"` or
+`"cuda"` for builds compiled with that feature. `nexus3d.available_backends()` lists the names supported by the
+installed build, and `viewer.backend_name()` returns the selected one. The macOS wheels include Metal support.
+When building the bindings yourself, enable the backend's feature, for example:
+
+```bash
+maturin develop --release -m crates/nexus_python3d/Cargo.toml --features metal
+```
+</python>
+
+The CPU backend executes physics kernels on the CPU. A `NexusViewer` still needs a graphics device for rendering.
+<rust>`NexusViewer::new_headless_with_size` creates an offscreen viewer.</rust>
+<python>`NexusViewer(width=640, height=480, headless=True)` creates an offscreen viewer, and `viewer.snap_rgb()` returns
+an RGB image as a NumPy array.</python> An offscreen `NexusViewer` avoids opening an OS window, but still needs a
+working rendering backend.
+
+## Checking the simulation loop
+
+If the simulation doesn't start, check that `viewer.init_backend` was called, that the scene contains objects, and that
+`viewer.simulating()` allows the loop to reach `pipeline.simulate`. Call `state.finalize` before `viewer.sync` when
+displaying the initial state without advancing it.
+
+Use <rust>`cargo run --release`</rust><python>`maturin develop --release` for a source build</python> when evaluating
+performance. Measure several calls to `pipeline.simulate` after initialization, and reuse the same pipeline.
+Calls to `viewer.sync`, `viewer.render_frame`, and CPU readbacks contribute to frame time too. A tiny scene may not
+contain enough work to compensate for compute dispatch overhead.
+
+The repository's demo browser can be started with:
+
+```bash
+cargo run --release --bin all_examples3
+cargo run --release --bin all_examples2
+```
+
+The [online demos](/demos) use these applications with the `wasm32-unknown-unknown` target. They need WebGPU for
+compute and rendering.

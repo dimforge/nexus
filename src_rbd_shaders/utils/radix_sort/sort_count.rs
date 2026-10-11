@@ -15,6 +15,7 @@ use super::sorting::{BIN_COUNT, BLOCK_SIZE, ELEMENTS_PER_THREAD, SortUniforms, W
 /// Radix sort count (histogram) kernel.
 ///
 /// Computes per-workgroup histograms for the current 4-bit digit.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_sort_count(

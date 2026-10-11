@@ -15,6 +15,7 @@ pub const WORKGROUP_SIZE: usize = 256;
 /// Performs exclusive prefix sum on a segment of the data array.
 ///
 /// Each workgroup processes `WORKGROUP_SIZE` elements.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_prefix_sum_sweep(
@@ -112,6 +113,7 @@ pub fn gpu_prefix_sum_sweep(
 ///
 /// Run after [`gpu_prefix_sum_sweep`] to fold each block's cumulative offset
 /// into its elements.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_add_data_grp(

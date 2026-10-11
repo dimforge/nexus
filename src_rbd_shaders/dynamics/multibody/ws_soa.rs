@@ -111,13 +111,14 @@ impl WsAddr {
     }
 
     /// Flat index of quad `quad` (a `WS_*` field offset + quad index) of
-    /// link `k` (relative to `base`). The workspace is interleaved at
-    /// per-link-record granularity: link `L` of batch `b` owns the dense
-    /// `WS_QUADS` quads at `(L * num_batches + b) * WS_QUADS`.
+    /// link `k` (relative to `base`). The workspace is interleaved at quad
+    /// granularity: quad `q` of link `L` of batch `b` is at
+    /// `(L * WS_QUADS + q) * num_batches + b`, so neighbouring environments
+    /// read neighbouring quads.
     #[inline]
     pub fn at(&self, k: u32, quad: u32) -> usize {
-        ((self.base + k as usize) * self.stride as usize + self.shift as usize) * WS_QUADS as usize
-            + quad as usize
+        ((self.base + k as usize) * WS_QUADS as usize + quad as usize) * self.stride as usize
+            + self.shift as usize
     }
 }
 
@@ -385,12 +386,21 @@ pub fn ws_world_inertia(
     k: u32,
     lmp: &crate::dynamics::body::LocalMassProperties,
 ) -> glamx::Mat3 {
+    world_inertia(ws_rot(buf, a, k, WS_LTW), lmp)
+}
+
+/// World-space inertia of a link whose local-to-world rotation is `rot`.
+#[cfg(feature = "dim3")]
+#[inline]
+pub fn world_inertia(
+    rot: crate::Rotation,
+    lmp: &crate::dynamics::body::LocalMassProperties,
+) -> glamx::Mat3 {
     use crate::rotation_to_matrix;
     let ipi = lmp.inv_principal_inertia;
     let px = if ipi.x != 0.0 { 1.0 / ipi.x } else { 0.0 };
     let py = if ipi.y != 0.0 { 1.0 / ipi.y } else { 0.0 };
     let pz = if ipi.z != 0.0 { 1.0 / ipi.z } else { 0.0 };
-    let rot = ws_rot(buf, a, k, WS_LTW);
     let r = rotation_to_matrix(rot * lmp.inertia_ref_frame);
     // M = r · diag(px, py, pz) (column-scale); I = M · rᵀ.
     let m = glamx::Mat3::from_cols(r.x_axis * px, r.y_axis * py, r.z_axis * pz);

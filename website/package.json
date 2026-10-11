@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "start": "docusaurus start",
+    "start": "node scripts/start-with-guides.mjs",
     "build": "docusaurus build",
     "build:demos": "./scripts/build-demos.sh",
     "build:demo": "./scripts/build-demos.sh",
@@ -15,7 +15,14 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "prebuild": "npm run docs:generate",
+    "docs:generate": "node scripts/generate-user-guides.mjs",
+    "docs:test": "node --test scripts/user-guides.test.mjs",
+    "docs:check:rust": "cargo check --manifest-path ../Cargo.toml -p nexus-guide-2d -p nexus-guide-3d --all-targets",
+    "docs:check:python": "python3 docs-examples/python/check.py",
+    "docs:check": "npm run docs:test && npm run docs:check:rust && npm run docs:check:python",
+    "docs:test:cpu": "cargo test --release --manifest-path ../Cargo.toml -p nexus-guide-2d -p nexus-guide-3d --features cpu"
   },
   "dependencies": {
     "@docusaurus/core": "3.9.2",

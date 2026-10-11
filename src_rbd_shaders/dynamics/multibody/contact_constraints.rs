@@ -28,13 +28,12 @@ use crate::dynamics::body::{Velocity, WorldMassProperties};
 use crate::dynamics::joint::SPATIAL_DIM;
 use crate::queries::IndexedManifold;
 use crate::utils::BatchIndices;
-use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, VSlice, lu_solve_in_place};
+use crate::utils::linalg::{MAX_MB_DOFS, MatSlice, VSlice};
 use crate::{ANG_DIM, AngVector, DIM, Pose, Vector, gcross, gdot};
 
 use super::types::{
     CONTACT_CONSTRAINTS_PER_POINT, MB_CONS_SLOT_RESERVE, MB_CONTACT_KIND_NORMAL,
     MB_CONTACT_KIND_TANGENT, MbContactIndexEntry, MultibodyContactConstraint, MultibodyInfo,
-    MultibodyLinkStatic,
 };
 
 /// Workgroup width of the flat contact dispatches below (must match the
@@ -216,6 +215,7 @@ fn mb_contact_owner(
 /// (interleaved `mb * num_batches + batch`) and must be zero on entry (the
 /// offsets scan re-zeroes them after consuming them). Grid:
 /// `contacts_indirect`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_count_contact_constraints(
@@ -244,70 +244,84 @@ pub fn gpu_mb_count_contact_constraints(
     }
 }
 
-/// Turns the per-(multibody, batch) predictions into dynamic segments:
-/// contact-constraint segments (`MultibodyInfo::contact_constraint_start/
-/// count`, exclusive prefix cumulatively clamped to the buffer capacity so
-/// the emission never overruns) and contact-index segments
-/// (`contact_index_start/len`, unclamped: the index buffer is sized like the
-/// contacts buffer and each contact owns at most one entry). Also publishes
-/// the total slot demand for the host's auto-resize readback, and re-zeroes
-/// `mb_cons_counts` for the next frame (`mb_index_counts` stays: the scatter
-/// pass counts it down as its write cursors). Serial in one thread (the
-/// multibody count per scene is small).
+/// Turns per-multibody predictions into contact-slot and contact-index segments.
+/// One workgroup scans contiguous chunks in parallel, then scans the chunk
+/// totals in shared memory. The reserved slots and the extra-budget prefix use
+/// the same multibody order as the serial allocator, including under overflow.
+/// No extra device buffers or dispatches are needed.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
-#[spirv(compute(threads(1)))]
+#[spirv(compute(threads(256)))]
 pub fn gpu_mb_cons_offsets_scan(
+    #[spirv(local_invocation_id)] local_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     multibody_info: &mut [MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] mb_cons_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] mb_index_counts: &mut [u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_cons_demand: &mut [u32],
     #[spirv(uniform, descriptor_set = 0, binding = 4)] batch_ids: &BatchIndices,
+    #[spirv(workgroup)] sums: &mut [UVec3; 256],
 ) {
-    // The interleaved `multibody_info` layout makes the active multibodies of
-    // every batch the contiguous prefix `[0, multibodies_len * num_batches)`.
+    // Active infos form a contiguous prefix despite the batch interleave.
     let total_infos = batch_ids.multibodies_len * batch_ids.num_batches;
     let capacity = batch_ids.mb_contact_constraints_capacity;
+    let lane = local_id.x;
+    let chunk = total_infos.div_ceil(256);
+    let begin = lane * chunk;
+    let end = (begin + chunk).min(total_infos);
 
-    let mut demand = 0u32;
-    let mut reserved_total = 0u32;
-    for i in 0..total_infos {
+    // x: reserved slots, y: extra slots, z: contact-index entries.
+    let mut sum = UVec3::ZERO;
+    for i in begin..end {
         let count = atomic_load_u32(mb_cons_counts.at_mut(i as usize));
-        demand += count;
-        reserved_total += count.min(MB_CONS_SLOT_RESERVE);
+        let reserve = count.min(MB_CONS_SLOT_RESERVE);
+        let indices = atomic_load_u32(mb_index_counts.at_mut(i as usize));
+        sum += UVec3::new(reserve, count - reserve, indices);
     }
-    // NOTE: not `saturating_sub`, which rust-gpu fails to compile.
+    sums.write(lane as usize, sum);
+    for shift in 0..8u32 {
+        workgroup_memory_barrier_with_group_sync();
+        if lane >= (1 << shift) {
+            sum += sums.read((lane - (1 << shift)) as usize);
+        }
+        workgroup_memory_barrier_with_group_sync();
+        sums.write(lane as usize, sum);
+    }
+    workgroup_memory_barrier_with_group_sync();
+    let total = sums.read(255);
+    let mut prefix = if lane == 0 {
+        UVec3::ZERO
+    } else {
+        sums.read((lane - 1) as usize)
+    };
+    // Avoid saturating_sub: rust-gpu does not compile it on this target.
     #[allow(clippy::implicit_saturating_sub)]
-    let mut extra_budget = if capacity > reserved_total {
-        capacity - reserved_total
+    let extra_budget = if capacity > total.x {
+        capacity - total.x
     } else {
         0
     };
 
-    let mut acc = 0u32;
-    let mut index_acc = 0u32;
-    for i in 0..total_infos {
+    for i in begin..end {
         let mut mb = multibody_info.read(i as usize);
         let count = atomic_load_u32(mb_cons_counts.at_mut(i as usize));
         let reserve = count.min(MB_CONS_SLOT_RESERVE);
-        let extra = (count - reserve).min(extra_budget);
-        extra_budget -= extra;
-        let start = acc.min(capacity);
-        let avail = (reserve + extra).min(capacity - start);
+        let extra = count - reserve;
+        let start = (prefix.x + prefix.y.min(extra_budget)).min(capacity);
+        let extra_left = extra_budget - prefix.y.min(extra_budget);
+        let avail = (reserve + extra.min(extra_left)).min(capacity - start);
         mb.contact_constraint_start = start;
         mb.contact_constraint_count = avail;
-        acc = start + avail;
-
-        mb.contact_index_start = index_acc;
+        mb.contact_index_start = prefix.z;
         mb.contact_index_len = atomic_load_u32(mb_index_counts.at_mut(i as usize));
-        index_acc += mb.contact_index_len;
-
+        prefix += UVec3::new(reserve, extra, mb.contact_index_len);
         multibody_info.write(i as usize, mb);
-        // Zeroed for the next frame's count pass. `mb_index_counts` is left as
-        // is: the scatter counts it back down to zero.
+        // The index scatter consumes and clears mb_index_counts separately.
         mb_cons_counts.write(i as usize, 0);
     }
-    mb_cons_demand.write(0, demand);
+    if lane == 0 {
+        mb_cons_demand.write(0, total.x + total.y);
+    }
 }
 
 /// Builds the contact→multibody index: one flat dispatch over the contacts,
@@ -317,6 +331,7 @@ pub fn gpu_mb_cons_offsets_scan(
 /// atomic race; the emission's warmstart matching is key-based, so the order
 /// only affects the (already nondeterministic) impulse iteration order.
 /// Grid: `contacts_indirect`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_scatter_contact_index(
@@ -360,6 +375,7 @@ pub fn gpu_mb_scatter_contact_index(
 /// "previous frame" bounds the warmstart transfer matches against. Runs at
 /// step start, before the new layout is computed. One thread per (multibody,
 /// batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_save_prev_cons_bounds(
@@ -390,6 +406,7 @@ pub fn gpu_mb_save_prev_cons_bounds(
 /// contacts (each side a different multibody) are not handled — such contacts
 /// never enter the index.
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_contact_constraints(
@@ -414,9 +431,16 @@ pub fn gpu_mb_init_contact_constraints(
     // below is kept for all-locked (zero-dof) multibodies. Padding slots past
     // `multibodies_len` are never read (every consumer guards on it).
     let num_mb = batch_ids.multibodies_len;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    if num_mb == 0 {
+        return;
+    }
+    let flat = workgroup_id.x * 64 + local_id.x;
+    let batch_id = flat / num_mb;
+    let mb_idx = flat % num_mb;
+    let lane = 0;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     if mb_idx >= num_mb {
         return;
     }
@@ -817,7 +841,9 @@ pub fn gpu_mb_init_contact_constraints(
 /// bounds are saved separately by `gpu_mb_save_prev_cons_bounds`). Called once
 /// per visible frame from `init_step`, before the new layout is computed.
 ///
-/// One thread per slot.
+/// One thread per slot. Only the slots of the previous frame's segments are
+/// copied: they all lie below its total demand (see `gpu_mb_cons_offsets_scan`).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_snapshot_contact_warmstart(
@@ -827,9 +853,13 @@ pub fn gpu_mb_snapshot_contact_warmstart(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     old_contact_constraints: &mut [MultibodyContactConstraint],
     #[spirv(uniform, descriptor_set = 0, binding = 2)] batch_ids: &BatchIndices,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] mb_cons_demand: &[u32],
 ) {
     let i = invocation_id.x;
-    if i < batch_ids.mb_contact_constraints_capacity {
+    let used = mb_cons_demand
+        .read(0)
+        .min(batch_ids.mb_contact_constraints_capacity);
+    if i < used {
         old_contact_constraints.write(i as usize, contact_constraints.read(i as usize));
     }
 }
@@ -839,7 +869,8 @@ pub fn gpu_mb_snapshot_contact_warmstart(
 /// solver velocities. Applies the FULL accumulated impulse (no `rhs` term, no
 /// clamping).
 ///
-/// One 64-lane workgroup per (multibody, batch).
+/// One lane per DOF; large batches pack two small multibodies per workgroup.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_warmstart_contact_constraints(
@@ -853,9 +884,26 @@ pub fn gpu_mb_warmstart_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] solver_vels: &mut [Velocity],
     #[spirv(uniform, descriptor_set = 0, binding = 5)] batch_ids: &BatchIndices,
 ) {
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
+        32
+    } else {
+        64
+    };
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 32 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 32 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let num_mb = batch_ids.multibodies_len;
     if mb_idx >= num_mb {
         return;
@@ -917,6 +965,7 @@ pub fn gpu_mb_warmstart_contact_constraints(
 /// Pass 2: for each emitted constraint, build its multibody-side `Jᵀ` row,
 /// LU back-solve `M · column = Jᵀ` and set `inv_lhs = 1 / (Jᵀ · column +
 /// free_body_inv_r)`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_contact_constraints(
@@ -928,15 +977,30 @@ pub fn gpu_mb_finalize_contact_constraints(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     contact_constraints: &mut [MultibodyContactConstraint],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] contact_jac_cols: &mut [f32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] body_jacobians: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 7)] batch_ids: &BatchIndices,
 ) {
-    const LANES: u32 = 64;
-    let batch_id = workgroup_id.y;
-    let mb_idx = workgroup_id.x;
-    let lane = local_id.x;
+    let lanes = if batch_ids.mb_max_ndofs <= 32 && batch_ids.num_batches >= 1024 {
+        8
+    } else {
+        64
+    };
+    let flat = workgroup_id.x * 64 / lanes + local_id.x / lanes;
+    let batch_id = if lanes == 8 {
+        flat / batch_ids.multibodies_len
+    } else {
+        workgroup_id.y
+    };
+    let mb_idx = if lanes == 8 {
+        flat % batch_ids.multibodies_len
+    } else {
+        workgroup_id.x
+    };
+    let lane = local_id.x % lanes;
+    if batch_id >= batch_ids.num_batches {
+        return;
+    }
     let num_mb = batch_ids.multibodies_len;
     if mb_idx >= num_mb {
         return;
@@ -964,10 +1028,10 @@ pub fn gpu_mb_finalize_contact_constraints(
     );
     let count = mb.contact_constraint_count;
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
 
-    for s in StepRng::new(lane..count, LANES) {
+    for s in StepRng::new(lane..count, lanes) {
         let jac_offset = jc_base + (s as usize) * 2 * dofs_stride;
         let col_offset = jac_offset + dofs_stride;
         let mut cons = contact_constraints.read(cons_base + s as usize);
@@ -1006,8 +1070,8 @@ pub fn gpu_mb_finalize_contact_constraints(
             let v = contact_jac_cols.read(jac_offset + i as usize);
             contact_jac_cols.write(col_offset + i as usize, v);
         }
-        // 3) Solve M · column = J^T  (in place).
-        lu_solve_in_place(
+        // 3) Solve M · column = J^T (in place).
+        crate::utils::linalg::lu_solve_in_place(
             mass_matrices,
             m,
             lu_pivots,
@@ -1045,6 +1109,7 @@ pub fn gpu_mb_finalize_contact_constraints(
 /// basis. Runs once per frame, right after the first build.
 ///
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_transfer_contact_warmstart(
@@ -1159,6 +1224,7 @@ pub fn gpu_mb_transfer_contact_warmstart(
 /// right after the first `finalize`.
 ///
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_seed_contact_restitution(
@@ -1231,6 +1297,7 @@ pub fn gpu_mb_seed_contact_restitution(
 /// solve with `rhs = restitution_seed` and no CFM.
 ///
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_apply_contact_restitution(

@@ -16,11 +16,6 @@ use crate::dynamics::joint::{GenericJoint, SPATIAL_DIM};
 /// Equivalent to `SPATIAL_DIM`.
 pub const MAX_JOINT_DOFS: usize = SPATIAL_DIM;
 
-/// Maximum number of simultaneously-active multibody contact points per
-/// multibody.
-/// TODO: make this configurable/auto-resizeable
-pub const MAX_MB_CONTACTS_PER_MB: u32 = 128;
-
 /// Number of constraint slots reserved per contact point — one normal +
 /// `DIM-1` friction tangents (Coulomb friction). Mirrors rapier's
 /// `ContactConstraintNormalPart` + `ContactConstraintTangentPart` layout.
@@ -31,16 +26,6 @@ pub const CONTACT_CONSTRAINTS_PER_POINT: u32 = 2;
 /// `ContactConstraintNormalPart` + `ContactConstraintTangentPart` layout.
 #[cfg(feature = "dim3")]
 pub const CONTACT_CONSTRAINTS_PER_POINT: u32 = 3;
-
-/// Total constraint slots reserved per multibody (= contact points × DIM).
-/// Per-multibody constraint bound used only by the (currently disabled)
-/// Delassus constraint-space solve path, whose per-multibody blocks and shared
-/// SoA arrays need a compile-time size. The live dof-space pipeline has no
-/// per-multibody cap: its flat constraint buffer is demand-sized, so
-/// re-enabling the Delassus path requires clamping the per-multibody counts to
-/// this bound again.
-pub const MAX_MB_CONTACT_CONSTRAINTS_PER_MB: u32 =
-    MAX_MB_CONTACTS_PER_MB * CONTACT_CONSTRAINTS_PER_POINT;
 
 /// Per-(multibody, batch) slot reservation honored by the segment scan when
 /// the flat constraint buffer overflows: every multibody is guaranteed up to
@@ -103,10 +88,10 @@ pub struct MultibodyLinkStatic {
     /// 1 if this joint's generalized velocities are user-controlled (ignored by the
     /// LU solve). 0 otherwise.
     pub kinematic: u32,
-    /// Pad to 16-byte alignment before `data` in 3D (Pose3 starts with a Quat).
-    /// In 2D, Pose2 only needs 4-byte alignment so no extra padding is required.
+    /// Generalized coordinates belonging to this link or its ancestors.
+    /// Uses the former 8-byte alignment padding in 3D (at most 64 DOFs).
     #[cfg(feature = "dim3")]
-    pub _pad0: [u32; 2],
+    pub ancestor_dofs: [u32; 2],
     /// Joint configuration — reused directly from the impulse-joint infrastructure.
     pub data: GenericJoint,
     /// Per-link mass properties in body-local coordinates. `GenericJoint` ends

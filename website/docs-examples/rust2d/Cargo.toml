@@ -1,0 +1,15 @@
+[package]
+name = "nexus-guide-2d"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+nexus2d = { path = "../../../crates/nexus2d", features = ["rbd", "mpm"] }
+nexus_viewer2d = { path = "../../../crates/nexus_viewer2d" }
+khal = { workspace = true }
+pollster = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+cpu = ["nexus2d/cpu"]

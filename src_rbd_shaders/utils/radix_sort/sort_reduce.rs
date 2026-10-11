@@ -15,6 +15,7 @@ use crate::{udiv, umod};
 /// Radix sort reduce kernel.
 ///
 /// Reduces per-workgroup histogram counts to compute partial sums.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_sort_reduce(

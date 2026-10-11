@@ -9,6 +9,11 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::manual_range_contains)]
 #![allow(clippy::module_inception)]
+// Without `entry-points`, the helpers only the kernels use are dead code.
+#![cfg_attr(
+    all(target_arch = "spirv", not(feature = "entry-points")),
+    allow(dead_code, unused_imports)
+)]
 
 use core::ops::{Deref, DerefMut};
 use glamx::*;

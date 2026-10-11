@@ -563,13 +563,13 @@ fn performance_ui(
 }
 
 impl UiState {
-    /// Order in which demos appear in the picker: grouped by kind (Rbd, Mpm, Stress),
+    /// Order in which demos appear in the picker: grouped by kind (Rbd, Stress, Mpm),
     /// preserving each group's listing order. Prev/Next walks this sequence so it
     /// matches the visible list rather than the raw (lexicographically-sorted)
     /// `demos` index order.
     fn demo_display_order(&self) -> Vec<usize> {
         let mut order = Vec::with_capacity(self.demos.len());
-        for kind in [DemoKind::Rbd, DemoKind::Mpm, DemoKind::Stress] {
+        for kind in [DemoKind::Rbd, DemoKind::Stress, DemoKind::Mpm] {
             for (i, (_, k)) in self.demos.iter().enumerate() {
                 if *k == kind {
                     order.push(i);
@@ -618,8 +618,8 @@ fn demo_navigation(ui: &mut egui::Ui, state: &mut UiState) {
 
 fn examples_section(ui: &mut egui::Ui, state: &mut UiState) {
     demo_group(ui, state, DemoKind::Rbd, "Rigid Bodies");
+    demo_group(ui, state, DemoKind::Stress, "Rigid-bodies - stress tests");
     demo_group(ui, state, DemoKind::Mpm, "MPM");
-    demo_group(ui, state, DemoKind::Stress, "Stress tests");
 }
 
 fn demo_group(ui: &mut egui::Ui, state: &mut UiState, kind: DemoKind, label: &str) {

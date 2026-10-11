@@ -14,7 +14,8 @@ use khal_std::index::MaybeIndexUnchecked;
 use khal_std::macros::{spirv, spirv_bindgen};
 use khal_std::sync::workgroup_memory_barrier_with_group_sync;
 
-use super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::link_static_soa::LinkStatics;
+use super::types::MultibodyInfo;
 use super::ws_soa::{
     WS_JOINT_ROT, WS_JOINT_VEL, WS_LTP, WS_LTW, WS_RB_VELS, WS_SHIFT02, WS_SHIFT23, WS_WORLD_COM,
     WsAddr, ws_coords, ws_pose, ws_rot, ws_set_pose, ws_set_vec, ws_set_vel, ws_vec, ws_vel,
@@ -61,14 +62,14 @@ fn packed_decode(wg_id: UVec3, lid: UVec3, batch_ids: &BatchIndices) -> (u32, u3
 /// Fused FK + body-jacobians + velocity propagation + CRBA mass matrix.
 /// Coriolis blocks run only when implicit coriolis is enabled (non-zero
 /// `mass_matrix_acc_section_offset`).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen(force_cpu_coroutines)]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_compute_dynamics_pre(
     #[spirv(workgroup_id)] wg_id: UVec3,
     #[spirv(local_invocation_id)] lid: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] poses: &mut [Pose],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_jacobians: &mut [f32],
@@ -77,6 +78,69 @@ pub fn gpu_mb_compute_dynamics_pre(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_state: &[f32],
     #[spirv(uniform, descriptor_set = 0, binding = 8)] dt_uniform: &f32,
     #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+) {
+    dynamics_pre::<false>(
+        wg_id,
+        lid,
+        multibody_info,
+        links_static,
+        links_workspace,
+        poses,
+        body_jacobians,
+        mass_matrices,
+        coriolis_packed,
+        dof_state,
+        dt_uniform,
+        batch_ids,
+    );
+}
+
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
+#[spirv_bindgen(force_cpu_coroutines)]
+#[spirv(compute(threads(64, 1, 1)))]
+pub fn gpu_mb_compute_dynamics_parallel(
+    #[spirv(workgroup_id)] wg_id: UVec3,
+    #[spirv(local_invocation_id)] lid: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] multibody_info: &[MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] links_static: &[glamx::UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] links_workspace: &mut [Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] poses: &mut [Pose],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] body_jacobians: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] mass_matrices: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] coriolis_packed: &mut [f32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] dof_state: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 8)] dt_uniform: &f32,
+    #[spirv(uniform, descriptor_set = 0, binding = 9)] batch_ids: &BatchIndices,
+) {
+    dynamics_pre::<true>(
+        wg_id,
+        lid,
+        multibody_info,
+        links_static,
+        links_workspace,
+        poses,
+        body_jacobians,
+        mass_matrices,
+        coriolis_packed,
+        dof_state,
+        dt_uniform,
+        batch_ids,
+    );
+}
+
+fn dynamics_pre<const KINEMATICS_READY: bool>(
+    wg_id: UVec3,
+    lid: UVec3,
+    multibody_info: &[MultibodyInfo],
+    links_static: &[glamx::UVec4],
+    links_workspace: &mut [Vec4],
+    poses: &mut [Pose],
+    body_jacobians: &mut [f32],
+    mass_matrices: &mut [f32],
+    coriolis_packed: &mut [f32],
+    dof_state: &[f32],
+    dt_uniform: &f32,
+    batch_ids: &BatchIndices,
 ) {
     let (t, lane, batch_id, mb_idx, active_slot) = packed_decode(wg_id, lid, batch_ids);
 
@@ -109,7 +173,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     let vel_base = mb.first_dof as usize;
 
     let stat_slice = batch_ids
-        .ib(batch_id, links_static)
+        .ls(batch_id, links_static)
         .offset(mb.first_link as usize);
     let wa = WsAddr::new(mb.first_link as usize, batch_ids.num_batches, batch_id);
     let mut poses_slice = batch_ids.ib_mut(batch_id, poses);
@@ -132,7 +196,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     let vel_slice = batch_ids.ib(batch_id, dof_state).offset(vel_base);
 
     // 1) Forward Kinematics (single-threaded)
-    if active_slot && num_links > 0 && lane == 0 {
+    if !KINEMATICS_READY && active_slot && num_links > 0 && lane == 0 {
         forward_kinematics(
             &mb,
             &stat_slice,
@@ -145,6 +209,19 @@ pub fn gpu_mb_compute_dynamics_pre(
     sync_slots(t);
 
     // 2) Update body jacobians
+    #[cfg(feature = "dim3")]
+    update_body_jacobians_direct(
+        lane,
+        t,
+        jac0,
+        ndofs,
+        num_links,
+        &stat_slice,
+        links_workspace,
+        wa,
+        body_jacobians,
+    );
+    #[cfg(feature = "dim2")]
     update_body_jacobians(
         lane,
         t,
@@ -159,7 +236,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     );
 
     // 3) Propagate velocities (single-threaded)
-    if active_slot && num_links > 0 && lane == 0 {
+    if !KINEMATICS_READY && active_slot && num_links > 0 && lane == 0 {
         propagate_velocities(num_links, &stat_slice, &vel_slice, links_workspace, wa);
     }
     sync_slots(t);
@@ -185,9 +262,16 @@ pub fn gpu_mb_compute_dynamics_pre(
     } else {
         plain_mass
     };
-    fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
-    if split {
-        fill_par(mass_matrices, plain_mass, 0.0, lane, t);
+    #[cfg(feature = "dim3")]
+    let use_crba = !split && t > 1;
+    #[cfg(feature = "dim2")]
+    let use_crba = false;
+    // The composite-inertia assembly writes every entry itself.
+    if !use_crba {
+        fill_par(mass_matrices, acc_augmented_mass, 0.0, lane, t);
+        if split {
+            fill_par(mass_matrices, plain_mass, 0.0, lane, t);
+        }
     }
 
     let i_coriolis_dt_view = MatSlice::dense(icdt0, SPATIAL_DIM as u32, ndofs);
@@ -195,141 +279,280 @@ pub fn gpu_mb_compute_dynamics_pre(
     let i_coriolis_dt_w = i_coriolis_dt_view.fixed_rows(DIM, ANG_DIM);
 
     sync_slots(t);
+    #[cfg(feature = "dim3")]
+    if use_crba {
+        super::crba::mass_column(
+            lane,
+            ndofs,
+            num_links,
+            &stat_slice,
+            links_workspace,
+            wa,
+            body_jacobians,
+            jac0,
+            mass_matrices,
+            plain_mass,
+        );
+    }
+    if !use_crba {
+        for k in 0..batch_ids.mb_max_links {
+            let loop_is_active = k < num_links;
+            let mut inv_mass_x = 0.0;
+            let mut mass = 0.0;
 
-    for k in 0..batch_ids.mb_max_links {
-        let loop_is_active = k < num_links;
-        let mut inv_mass_x = 0.0;
-        let mut mass = 0.0;
+            if loop_is_active {
+                let lmp = stat_slice.at(k as usize).local_mprops();
 
-        if loop_is_active {
-            let lmp = stat_slice[k as usize].local_mprops;
+                inv_mass_x = lmp.inv_mass.x;
 
-            inv_mass_x = lmp.inv_mass.x;
-
-            if split && inv_mass_x == 0.0 {
-                let coriolis_block = MatSlice::dense(
-                    cor_v0 + (k as usize) * (DIM as usize) * (ndofs as usize),
-                    DIM,
-                    ndofs,
-                );
-                fill_par(coriolis_packed, coriolis_block, 0.0, lane, t);
-                fill_par(
-                    coriolis_packed,
-                    MatSlice::dense(
-                        cor_w0 + (k as usize) * (DIM as usize) * (ndofs as usize),
+                if split && inv_mass_x == 0.0 {
+                    let coriolis_block = MatSlice::dense(
+                        cor_v0 + (k as usize) * (DIM as usize) * (ndofs as usize),
                         DIM,
                         ndofs,
-                    ),
-                    0.0,
+                    );
+                    fill_par(coriolis_packed, coriolis_block, 0.0, lane, t);
+                    fill_par(
+                        coriolis_packed,
+                        MatSlice::dense(
+                            cor_w0 + (k as usize) * (DIM as usize) * (ndofs as usize),
+                            DIM,
+                            ndofs,
+                        ),
+                        0.0,
+                        lane,
+                        t,
+                    );
+                }
+            }
+            // Uniform barrier so subsequent parent-coriolis reads see consistent
+            // state — WebGPU forbids a barrier inside divergent control flow.
+            sync_slots(t);
+
+            let loop_is_active = k < num_links && inv_mass_x != 0.0;
+            let coriolis_v_i = MatSlice::dense(
+                cor_v0 + (k as usize) * (DIM as usize) * (ndofs as usize),
+                DIM,
+                ndofs,
+            );
+            let coriolis_w_i = MatSlice::dense(
+                cor_w0 + (k as usize) * (DIM as usize) * (ndofs as usize),
+                ANG_DIM,
+                ndofs,
+            );
+            let body_jacobian = MatSlice::dense(
+                jac0 + (k as usize) * SPATIAL_DIM * (ndofs as usize),
+                SPATIAL_DIM as u32,
+                ndofs,
+            );
+            let rb_j_w = body_jacobian.fixed_rows(DIM, ANG_DIM);
+            let mut rb_inertia = Default::default();
+
+            if loop_is_active {
+                let lmp = stat_slice.at(k as usize).local_mprops();
+                mass = 1.0 / inv_mass_x;
+                rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
+
+                let quad_target = if split {
+                    plain_mass
+                } else {
+                    acc_augmented_mass
+                };
+                quadform_spatial_par(
+                    mass_matrices,
+                    quad_target,
+                    1.0,
+                    mass,
+                    rb_inertia,
+                    body_jacobians,
+                    body_jacobian,
+                    1.0,
                     lane,
                     t,
                 );
+
+                if split && k != 0 {
+                    let parent_id = stat_slice.at(k as usize).parent_link_id();
+                    let parent_j = MatSlice::dense(
+                        jac0 + (parent_id as usize) * SPATIAL_DIM * (ndofs as usize),
+                        SPATIAL_DIM as u32,
+                        ndofs,
+                    );
+                    let parent_j_w = parent_j.fixed_rows(DIM, ANG_DIM);
+                    let parent_coriolis_v = MatSlice::dense(
+                        cor_v0 + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
+                        DIM,
+                        ndofs,
+                    );
+                    let parent_coriolis_w = MatSlice::dense(
+                        cor_w0 + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
+                        ANG_DIM,
+                        ndofs,
+                    );
+                    let parent_w = ws_vel_ang(links_workspace, wa, parent_id, WS_RB_VELS);
+                    let ws_shift02 = ws_vec(links_workspace, wa, k, WS_SHIFT02);
+                    let ws_joint_vel = ws_vel(links_workspace, wa, k, WS_JOINT_VEL);
+
+                    copy_from_par(coriolis_packed, coriolis_v_i, parent_coriolis_v, lane, t);
+                    copy_from_par(coriolis_packed, coriolis_w_i, parent_coriolis_w, lane, t);
+
+                    gemm_skew_tr_lhs_par(
+                        coriolis_packed,
+                        coriolis_v_i,
+                        1.0,
+                        ws_shift02,
+                        parent_coriolis_w,
+                        1.0,
+                        lane,
+                        t,
+                    );
+
+                    let ws_rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
+                    let dvel = crate::gcross_av(ws_rb_ang, ws_shift02) + ws_joint_vel.linear * 2.0;
+                    gemm_skew_tr_lhs_cross_buf_par(
+                        coriolis_packed,
+                        coriolis_v_i,
+                        1.0,
+                        dvel,
+                        body_jacobians,
+                        parent_j_w,
+                        1.0,
+                        lane,
+                        t,
+                    );
+
+                    gemm_skew_tr_lhs_cross_buf_par(
+                        coriolis_packed,
+                        coriolis_v_i,
+                        1.0,
+                        ws_joint_vel.linear,
+                        body_jacobians,
+                        parent_j_w,
+                        1.0,
+                        lane,
+                        t,
+                    );
+
+                    gemm_omega_skew_tr_cross_buf_par(
+                        coriolis_packed,
+                        coriolis_v_i,
+                        1.0,
+                        parent_w,
+                        ws_shift02,
+                        body_jacobians,
+                        parent_j_w,
+                        1.0,
+                        lane,
+                        t,
+                    );
+
+                    #[cfg(feature = "dim3")]
+                    {
+                        gemm_skew_lhs_cross_buf_par(
+                            coriolis_packed,
+                            coriolis_w_i,
+                            -1.0,
+                            ws_joint_vel.angular,
+                            body_jacobians,
+                            parent_j_w,
+                            1.0,
+                            lane,
+                            t,
+                        );
+                    }
+                }
             }
-        }
-        // Uniform barrier so subsequent parent-coriolis reads see consistent
-        // state — WebGPU forbids a barrier inside divergent control flow.
-        sync_slots(t);
 
-        let loop_is_active = k < num_links && inv_mass_x != 0.0;
-        let coriolis_v_i = MatSlice::dense(
-            cor_v0 + (k as usize) * (DIM as usize) * (ndofs as usize),
-            DIM,
-            ndofs,
-        );
-        let coriolis_w_i = MatSlice::dense(
-            cor_w0 + (k as usize) * (DIM as usize) * (ndofs as usize),
-            ANG_DIM,
-            ndofs,
-        );
-        let body_jacobian = MatSlice::dense(
-            jac0 + (k as usize) * SPATIAL_DIM * (ndofs as usize),
-            SPATIAL_DIM as u32,
-            ndofs,
-        );
-        let rb_j_w = body_jacobian.fixed_rows(DIM, ANG_DIM);
-        let mut rb_inertia = Default::default();
+            sync_slots(t);
 
-        if loop_is_active {
-            let lmp = stat_slice[k as usize].local_mprops;
-            mass = 1.0 / inv_mass_x;
-            rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
+            if loop_is_active && split {
+                if k != 0 {
+                    let stat = stat_slice.get(k as usize);
+                    let parent_id = stat.parent_link_id;
 
-            let quad_target = if split {
-                plain_mass
-            } else {
-                acc_augmented_mass
-            };
-            quadform_spatial_par(
-                mass_matrices,
-                quad_target,
-                1.0,
-                mass,
-                rb_inertia,
-                body_jacobians,
-                body_jacobian,
-                1.0,
-                lane,
-                t,
-            );
+                    if stat.kinematic == 0 {
+                        let transform_rot = ws_rot(links_workspace, wa, parent_id, WS_LTW)
+                            * stat.data.local_frame_a.rotation;
+                        let coriolis_v_part = coriolis_v_i.columns(stat.assembly_id, stat.ndofs);
+                        let coriolis_w_part = coriolis_w_i.columns(stat.assembly_id, stat.ndofs);
 
-            if split && k != 0 {
-                let stat = stat_slice[k as usize];
-                let parent_id = stat.parent_link_id;
-                let parent_j = MatSlice::dense(
-                    jac0 + (parent_id as usize) * SPATIAL_DIM * (ndofs as usize),
-                    SPATIAL_DIM as u32,
-                    ndofs,
-                );
-                let parent_j_w = parent_j.fixed_rows(DIM, ANG_DIM);
-                let parent_coriolis_v = MatSlice::dense(
-                    cor_v0 + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
-                    DIM,
-                    ndofs,
-                );
-                let parent_coriolis_w = MatSlice::dense(
-                    cor_w0 + (parent_id as usize) * (DIM as usize) * (ndofs as usize),
-                    ANG_DIM,
-                    ndofs,
-                );
-                let parent_w = ws_vel_ang(links_workspace, wa, parent_id, WS_RB_VELS);
-                let ws_shift02 = ws_vec(links_workspace, wa, k, WS_SHIFT02);
-                let ws_joint_vel = ws_vel(links_workspace, wa, k, WS_JOINT_VEL);
+                        #[cfg(feature = "dim3")]
+                        {
+                            let parent_w_skew = crate::utils::linalg::skew(ws_vel_ang(
+                                links_workspace,
+                                wa,
+                                parent_id,
+                                WS_RB_VELS,
+                            ));
+                            let c = lane;
+                            if c < stat.ndofs {
+                                let (jv, jw) = stat.joint_jacobian_column(transform_rot, c);
+                                let pv = parent_w_skew * jv;
+                                let pw = parent_w_skew * jw;
+                                let iv0 = coriolis_v_part.idx(0, c);
+                                let iv1 = coriolis_v_part.idx(1, c);
+                                let iv2 = coriolis_v_part.idx(2, c);
+                                coriolis_packed.write(iv0, coriolis_packed.read(iv0) + 2.0 * pv.x);
+                                coriolis_packed.write(iv1, coriolis_packed.read(iv1) + 2.0 * pv.y);
+                                coriolis_packed.write(iv2, coriolis_packed.read(iv2) + 2.0 * pv.z);
+                                let iw0 = coriolis_w_part.idx(0, c);
+                                let iw1 = coriolis_w_part.idx(1, c);
+                                let iw2 = coriolis_w_part.idx(2, c);
+                                coriolis_packed.write(iw0, coriolis_packed.read(iw0) + pw.x);
+                                coriolis_packed.write(iw1, coriolis_packed.read(iw1) + pw.y);
+                                coriolis_packed.write(iw2, coriolis_packed.read(iw2) + pw.z);
+                            }
+                        }
+                        #[cfg(feature = "dim2")]
+                        {
+                            let parent_w = ws_vel_ang(links_workspace, wa, parent_id, WS_RB_VELS);
+                            let c = lane;
+                            if c < stat.ndofs {
+                                let (jv, _) = stat.joint_jacobian_column(transform_rot, c);
+                                let iv0 = coriolis_v_part.idx(0, c);
+                                let iv1 = coriolis_v_part.idx(1, c);
+                                coriolis_packed.write(
+                                    iv0,
+                                    coriolis_packed.read(iv0) + 2.0 * (-parent_w * jv.y),
+                                );
+                                coriolis_packed.write(
+                                    iv1,
+                                    coriolis_packed.read(iv1) + 2.0 * (parent_w * jv.x),
+                                );
+                            }
+                            let _ = coriolis_w_part;
+                        }
+                    }
+                } else {
+                    fill_par(coriolis_packed, coriolis_v_i, 0.0, lane, t);
+                    fill_par(coriolis_packed, coriolis_w_i, 0.0, lane, t);
+                }
+            }
 
-                copy_from_par(coriolis_packed, coriolis_v_i, parent_coriolis_v, lane, t);
-                copy_from_par(coriolis_packed, coriolis_w_i, parent_coriolis_w, lane, t);
+            sync_slots(t);
 
+            if loop_is_active && split {
+                let ws_shift23 = ws_vec(links_workspace, wa, k, WS_SHIFT23);
+                let ws_rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
                 gemm_skew_tr_lhs_par(
                     coriolis_packed,
                     coriolis_v_i,
                     1.0,
-                    ws_shift02,
-                    parent_coriolis_w,
+                    ws_shift23,
+                    coriolis_w_i,
                     1.0,
                     lane,
                     t,
                 );
 
-                let ws_rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
-                let dvel = crate::gcross_av(ws_rb_ang, ws_shift02) + ws_joint_vel.linear * 2.0;
+                let dvel_23 = crate::gcross_av(ws_rb_ang, ws_shift23);
                 gemm_skew_tr_lhs_cross_buf_par(
                     coriolis_packed,
                     coriolis_v_i,
                     1.0,
-                    dvel,
+                    dvel_23,
                     body_jacobians,
-                    parent_j_w,
-                    1.0,
-                    lane,
-                    t,
-                );
-
-                gemm_skew_tr_lhs_cross_buf_par(
-                    coriolis_packed,
-                    coriolis_v_i,
-                    1.0,
-                    ws_joint_vel.linear,
-                    body_jacobians,
-                    parent_j_w,
+                    rb_j_w,
                     1.0,
                     lane,
                     t,
@@ -339,173 +562,8 @@ pub fn gpu_mb_compute_dynamics_pre(
                     coriolis_packed,
                     coriolis_v_i,
                     1.0,
-                    parent_w,
-                    ws_shift02,
-                    body_jacobians,
-                    parent_j_w,
-                    1.0,
-                    lane,
-                    t,
-                );
-
-                #[cfg(feature = "dim3")]
-                {
-                    gemm_skew_lhs_cross_buf_par(
-                        coriolis_packed,
-                        coriolis_w_i,
-                        -1.0,
-                        ws_joint_vel.angular,
-                        body_jacobians,
-                        parent_j_w,
-                        1.0,
-                        lane,
-                        t,
-                    );
-                }
-            }
-        }
-
-        sync_slots(t);
-
-        if loop_is_active && split {
-            if k != 0 {
-                let stat = stat_slice[k as usize];
-                let parent_id = stat.parent_link_id;
-
-                if stat.kinematic == 0 {
-                    let transform_rot = ws_rot(links_workspace, wa, parent_id, WS_LTW)
-                        * stat.data.local_frame_a.rotation;
-                    let coriolis_v_part = coriolis_v_i.columns(stat.assembly_id, stat.ndofs);
-                    let coriolis_w_part = coriolis_w_i.columns(stat.assembly_id, stat.ndofs);
-
-                    #[cfg(feature = "dim3")]
-                    {
-                        let parent_w_skew = crate::utils::linalg::skew(ws_vel_ang(
-                            links_workspace,
-                            wa,
-                            parent_id,
-                            WS_RB_VELS,
-                        ));
-                        let c = lane;
-                        if c < stat.ndofs {
-                            let (jv, jw) = stat.joint_jacobian_column(transform_rot, c);
-                            let pv = parent_w_skew * jv;
-                            let pw = parent_w_skew * jw;
-                            let iv0 = coriolis_v_part.idx(0, c);
-                            let iv1 = coriolis_v_part.idx(1, c);
-                            let iv2 = coriolis_v_part.idx(2, c);
-                            coriolis_packed.write(iv0, coriolis_packed.read(iv0) + 2.0 * pv.x);
-                            coriolis_packed.write(iv1, coriolis_packed.read(iv1) + 2.0 * pv.y);
-                            coriolis_packed.write(iv2, coriolis_packed.read(iv2) + 2.0 * pv.z);
-                            let iw0 = coriolis_w_part.idx(0, c);
-                            let iw1 = coriolis_w_part.idx(1, c);
-                            let iw2 = coriolis_w_part.idx(2, c);
-                            coriolis_packed.write(iw0, coriolis_packed.read(iw0) + pw.x);
-                            coriolis_packed.write(iw1, coriolis_packed.read(iw1) + pw.y);
-                            coriolis_packed.write(iw2, coriolis_packed.read(iw2) + pw.z);
-                        }
-                    }
-                    #[cfg(feature = "dim2")]
-                    {
-                        let parent_w = ws_vel_ang(links_workspace, wa, parent_id, WS_RB_VELS);
-                        let c = lane;
-                        if c < stat.ndofs {
-                            let (jv, _) = stat.joint_jacobian_column(transform_rot, c);
-                            let iv0 = coriolis_v_part.idx(0, c);
-                            let iv1 = coriolis_v_part.idx(1, c);
-                            coriolis_packed
-                                .write(iv0, coriolis_packed.read(iv0) + 2.0 * (-parent_w * jv.y));
-                            coriolis_packed
-                                .write(iv1, coriolis_packed.read(iv1) + 2.0 * (parent_w * jv.x));
-                        }
-                        let _ = coriolis_w_part;
-                    }
-                }
-            } else {
-                fill_par(coriolis_packed, coriolis_v_i, 0.0, lane, t);
-                fill_par(coriolis_packed, coriolis_w_i, 0.0, lane, t);
-            }
-        }
-
-        sync_slots(t);
-
-        if loop_is_active && split {
-            let ws_shift23 = ws_vec(links_workspace, wa, k, WS_SHIFT23);
-            let ws_rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
-            gemm_skew_tr_lhs_par(
-                coriolis_packed,
-                coriolis_v_i,
-                1.0,
-                ws_shift23,
-                coriolis_w_i,
-                1.0,
-                lane,
-                t,
-            );
-
-            let dvel_23 = crate::gcross_av(ws_rb_ang, ws_shift23);
-            gemm_skew_tr_lhs_cross_buf_par(
-                coriolis_packed,
-                coriolis_v_i,
-                1.0,
-                dvel_23,
-                body_jacobians,
-                rb_j_w,
-                1.0,
-                lane,
-                t,
-            );
-
-            gemm_omega_skew_tr_cross_buf_par(
-                coriolis_packed,
-                coriolis_v_i,
-                1.0,
-                ws_rb_ang,
-                ws_shift23,
-                body_jacobians,
-                rb_j_w,
-                1.0,
-                lane,
-                t,
-            );
-        }
-
-        sync_slots(t);
-
-        if loop_is_active && split {
-            // i_coriolis_dt assembly: dt · (mass·coriolis_v, I·coriolis_w).
-            {
-                let scale = mass * dt;
-                let c = lane;
-                if c < ndofs {
-                    for r in 0..DIM {
-                        let v = coriolis_packed.read(coriolis_v_i.idx(r, c));
-                        coriolis_packed.write(i_coriolis_dt_v.idx(r, c), scale * v);
-                    }
-                }
-            }
-            gemm_inertia_lhs_par(
-                coriolis_packed,
-                i_coriolis_dt_w,
-                dt,
-                rb_inertia,
-                coriolis_w_i,
-                0.0,
-                lane,
-                t,
-            );
-
-            #[cfg(feature = "dim3")]
-            {
-                let angvel = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
-                let w_skew = crate::utils::linalg::skew(angvel);
-                let i_omega_skew = crate::utils::linalg::skew(rb_inertia * angvel);
-                let gyro_mat = w_skew * rb_inertia - i_omega_skew;
-                gemm_inertia_lhs_cross_buf_par(
-                    coriolis_packed,
-                    i_coriolis_dt_w,
-                    dt,
-                    gyro_mat,
+                    ws_rb_ang,
+                    ws_shift23,
                     body_jacobians,
                     rb_j_w,
                     1.0,
@@ -513,29 +571,75 @@ pub fn gpu_mb_compute_dynamics_pre(
                     t,
                 );
             }
+
+            sync_slots(t);
+
+            if loop_is_active && split {
+                // i_coriolis_dt assembly: dt · (mass·coriolis_v, I·coriolis_w).
+                {
+                    let scale = mass * dt;
+                    let c = lane;
+                    if c < ndofs {
+                        for r in 0..DIM {
+                            let v = coriolis_packed.read(coriolis_v_i.idx(r, c));
+                            coriolis_packed.write(i_coriolis_dt_v.idx(r, c), scale * v);
+                        }
+                    }
+                }
+                gemm_inertia_lhs_par(
+                    coriolis_packed,
+                    i_coriolis_dt_w,
+                    dt,
+                    rb_inertia,
+                    coriolis_w_i,
+                    0.0,
+                    lane,
+                    t,
+                );
+
+                #[cfg(feature = "dim3")]
+                {
+                    let angvel = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
+                    let w_skew = crate::utils::linalg::skew(angvel);
+                    let i_omega_skew = crate::utils::linalg::skew(rb_inertia * angvel);
+                    let gyro_mat = w_skew * rb_inertia - i_omega_skew;
+                    gemm_inertia_lhs_cross_buf_par(
+                        coriolis_packed,
+                        i_coriolis_dt_w,
+                        dt,
+                        gyro_mat,
+                        body_jacobians,
+                        rb_j_w,
+                        1.0,
+                        lane,
+                        t,
+                    );
+                }
+            }
+
+            sync_slots(t);
+
+            if loop_is_active && split {
+                gemm_tr_par(
+                    mass_matrices,
+                    acc_augmented_mass,
+                    1.0,
+                    body_jacobians,
+                    body_jacobian,
+                    coriolis_packed,
+                    i_coriolis_dt_view,
+                    1.0,
+                    lane,
+                    t,
+                );
+            }
+
+            sync_slots(t);
         }
 
-        sync_slots(t);
-
-        if loop_is_active && split {
-            gemm_tr_par(
-                mass_matrices,
-                acc_augmented_mass,
-                1.0,
-                body_jacobians,
-                body_jacobian,
-                coriolis_packed,
-                i_coriolis_dt_view,
-                1.0,
-                lane,
-                t,
-            );
-        }
-
-        sync_slots(t);
+        // Diagonal: M[i, i] += damping[i]·dt + armature[i] + stiffness[i]·dt²
     }
-
-    // Diagonal: M[i, i] += damping[i]·dt + armature[i] + stiffness[i]·dt²
+    sync_slots(t);
     let d = lane;
     if d < ndofs {
         let diag = damping_slice[d as usize] * dt
@@ -623,14 +727,14 @@ fn jacobian_mul_coordinates(
 // sequentially on a single thread.
 fn forward_kinematics(
     mb: &MultibodyInfo,
-    stat_slice: &ISlice<MultibodyLinkStatic>,
+    stat_slice: &LinkStatics,
     poses_slice: &mut ISliceMut<Pose>,
     ws: &mut [Vec4],
     wa: WsAddr,
     num_links: u32,
 ) {
     // Root pose.
-    let root_config = stat_slice[0];
+    let root_config = stat_slice.get(0);
     let root_pose = if mb.root_is_dynamic == 0 {
         poses_slice[root_config.rb_id as usize]
     } else {
@@ -652,14 +756,14 @@ fn forward_kinematics(
 
     for k in 1..num_links {
         let k_usize = k as usize;
-        let stat = &stat_slice[k_usize];
+        let stat = &stat_slice.get(k_usize);
         let parent_to_world = ws_pose(ws, wa, stat.parent_link_id, WS_LTW);
         let jr = ws_rot(ws, wa, k, WS_JOINT_ROT);
         let coords = ws_coords(ws, wa, k);
         let local_to_parent = stat.body_to_parent(jr, &coords);
         let local_to_world = parent_to_world * local_to_parent;
 
-        let parent_lmp = stat_slice[stat.parent_link_id as usize].local_mprops;
+        let parent_lmp = stat_slice.at(stat.parent_link_id as usize).local_mprops();
         let lmp = stat.local_mprops;
         let world_com = local_to_world * lmp.com;
         let parent_com_world = parent_to_world * parent_lmp.com;
@@ -676,6 +780,111 @@ fn forward_kinematics(
     }
 }
 
+/// Columns are independent once FK is complete: shift each ancestor joint twist
+/// directly to the descendant COM instead of copying parent matrices per link.
+#[cfg(feature = "dim3")]
+fn update_body_jacobians_direct(
+    lane: u32,
+    lanes: u32,
+    jac0: usize,
+    ndofs: u32,
+    num_links: u32,
+    stat: &LinkStatics,
+    ws: &[Vec4],
+    wa: WsAddr,
+    jac: &mut [f32],
+) {
+    for dof in (lane..ndofs).step_by(lanes as usize) {
+        let owner = dof_owner(stat, num_links, dof);
+        let link = stat.get(owner as usize);
+        let parent_rot = if owner == 0 {
+            Pose::default().rotation
+        } else {
+            ws_pose(ws, wa, link.parent_link_id, WS_LTW).rotation
+        };
+        let (v, w) = link.joint_jacobian_column(
+            parent_rot * link.data.local_frame_a.rotation,
+            dof - link.assembly_id,
+        );
+        let anchor = ws_vec(ws, wa, owner, WS_WORLD_COM) - ws_vec(ws, wa, owner, WS_SHIFT23);
+        // Links in pairs, both loaded before either is written (the loads'
+        // latency overlaps).
+        for pair in 0..num_links.div_ceil(2) {
+            let k0 = 2 * pair;
+            let k1 = k0 + 1;
+            let has1 = k1 < num_links;
+            let k1r = if has1 { k1 } else { k0 };
+            let bits0 = stat.at(k0 as usize).ancestor_dofs((dof / 32) as usize);
+            let bits1 = stat.at(k1r as usize).ancestor_dofs((dof / 32) as usize);
+            let com0 = ws_vec(ws, wa, k0, WS_WORLD_COM);
+            let com1 = ws_vec(ws, wa, k1r, WS_WORLD_COM);
+            write_jacobian_column(jac, jac0, ndofs, k0, dof, bits0, com0, anchor, v, w);
+            if has1 {
+                write_jacobian_column(jac, jac0, ndofs, k1, dof, bits1, com1, anchor, v, w);
+            }
+        }
+    }
+}
+
+/// Link of the multibody owning `dof` (links in pairs, see
+/// `update_body_jacobians_direct`).
+#[cfg(feature = "dim3")]
+#[inline(always)]
+pub(super) fn dof_owner(stat: &LinkStatics, num_links: u32, dof: u32) -> u32 {
+    let mut owner = 0;
+    for pair in 0..num_links.div_ceil(2) {
+        let k0 = 2 * pair;
+        let k1 = k0 + 1;
+        let has1 = k1 < num_links;
+        let l0 = stat.at(k0 as usize);
+        let l1 = stat.at(if has1 { k1 } else { k0 } as usize);
+        let (a0, n0) = (l0.assembly_id(), l0.ndofs());
+        let (a1, n1) = (l1.assembly_id(), l1.ndofs());
+        if dof >= a0 && dof < a0 + n0 {
+            owner = k0;
+        }
+        if has1 && dof >= a1 && dof < a1 + n1 {
+            owner = k1;
+        }
+    }
+    owner
+}
+
+/// Column `dof` of link `k`'s body jacobian: the twist `(v, w)` of `dof`
+/// about `anchor`, moved to the link's COM, or zero when `dof` is not one of
+/// the link's ancestors.
+#[cfg(feature = "dim3")]
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn write_jacobian_column(
+    jac: &mut [f32],
+    jac0: usize,
+    ndofs: u32,
+    k: u32,
+    dof: u32,
+    ancestor_bits: u32,
+    com: Vector,
+    anchor: Vector,
+    v: Vector,
+    w: Vector,
+) {
+    let active = ancestor_bits & (1 << (dof % 32)) != 0;
+    let lin = if active {
+        v + w.cross(com - anchor)
+    } else {
+        Vector::ZERO
+    };
+    let ang = if active { w } else { Vector::ZERO };
+    let out = MatSlice::dense(jac0 + k as usize * 6 * ndofs as usize, 6, ndofs);
+    jac.write(out.idx(0, dof), lin.x);
+    jac.write(out.idx(1, dof), lin.y);
+    jac.write(out.idx(2, dof), lin.z);
+    jac.write(out.idx(3, dof), ang.x);
+    jac.write(out.idx(4, dof), ang.y);
+    jac.write(out.idx(5, dof), ang.z);
+}
+
+#[cfg(feature = "dim2")]
 fn update_body_jacobians(
     lane: u32,
     // Lanes owned by this multibody's slot (`BatchIndices::mb_pack_lanes`).
@@ -685,7 +894,7 @@ fn update_body_jacobians(
     ndofs: u32,
     num_links: u32,
     max_links: u32,
-    stat_slice: &ISlice<MultibodyLinkStatic>,
+    stat_slice: &LinkStatics,
     ws: &[Vec4],
     wa: WsAddr,
     body_jacobians: &mut [f32],
@@ -703,7 +912,7 @@ fn update_body_jacobians(
         );
 
         if k < num_links {
-            let link_infos = &stat_slice[k as usize];
+            let link_infos = &stat_slice.get(k as usize);
 
             if k != 0 {
                 let parent_j = MatSlice::dense(
@@ -734,7 +943,7 @@ fn update_body_jacobians(
         sync_slots(lanes);
 
         if k < num_links {
-            let link_infos = &stat_slice[k as usize];
+            let link_infos = &stat_slice.get(k as usize);
             let link_j_part = link_j.columns(link_infos.assembly_id, link_infos.ndofs);
             link_infos.joint_jacobian_accumulate_par(
                 parent_to_world.rotation * link_infos.data.local_frame_a.rotation,
@@ -767,14 +976,14 @@ fn update_body_jacobians(
 
 fn propagate_velocities(
     num_links: u32,
-    stat_slice: &ISlice<MultibodyLinkStatic>,
+    stat_slice: &LinkStatics,
     vel_slice: &ISlice<f32>,
     ws: &mut [Vec4],
     wa: WsAddr,
 ) {
     for k in 0..num_links {
         let k_usize = k as usize;
-        let stat = stat_slice[k_usize];
+        let stat = stat_slice.get(k_usize);
 
         let (jv_local_lin, jv_local_ang) =
             jacobian_mul_coordinates(stat.data.locked_axes, stat.assembly_id, vel_slice);
@@ -790,7 +999,7 @@ fn propagate_velocities(
             let parent_rb_lin = parent_rb.linear;
             let parent_rb_ang = parent_rb.angular;
 
-            let parent_lmp = stat_slice[parent_id as usize].local_mprops;
+            let parent_lmp = stat_slice.at(parent_id as usize).local_mprops();
             let transform_rot = parent_to_world_rot * stat.data.local_frame_a.rotation;
 
             #[cfg(feature = "dim3")]
@@ -818,4 +1027,45 @@ fn propagate_velocities(
         ws_set_vel(ws, wa, k, WS_JOINT_VEL, joint_velocity);
         ws_set_vel(ws, wa, k, WS_RB_VELS, rb_vels);
     }
+}
+
+/// Keep serial tree traversals densely packed across independent multibodies.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_mb_kinematics_serial(
+    #[spirv(global_invocation_id)] id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] infos: &[MultibodyInfo],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] statics: &[glamx::UVec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] workspace: &mut [Vec4],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] poses: &mut [Pose],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] dofs: &[f32],
+    #[spirv(uniform, descriptor_set = 0, binding = 5)] batches: &BatchIndices,
+) {
+    if id.x >= batches.num_batches * batches.multibodies_len {
+        return;
+    }
+    let batch = id.x / batches.multibodies_len;
+    let index = id.x % batches.multibodies_len;
+    let mb = batches.ib(batch, infos).read(index as usize);
+    if mb.num_links == 0 {
+        return;
+    }
+    let stat = batches.ls(batch, statics).offset(mb.first_link as usize);
+    let wa = WsAddr::new(mb.first_link as usize, batches.num_batches, batch);
+    forward_kinematics(
+        &mb,
+        &stat,
+        &mut batches.ib_mut(batch, poses),
+        workspace,
+        wa,
+        mb.num_links,
+    );
+    propagate_velocities(
+        mb.num_links,
+        &stat,
+        &batches.ib(batch, dofs).offset(mb.first_dof as usize),
+        workspace,
+        wa,
+    );
 }

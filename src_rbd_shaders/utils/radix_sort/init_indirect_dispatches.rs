@@ -8,6 +8,7 @@ use khal_std::macros::{spirv, spirv_bindgen};
 use super::sorting::{BIN_COUNT, BLOCK_SIZE, div_ceil};
 
 /// GPU kernel to initialize indirect dispatch arguments for radix sort.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_init_sort_dispatch(

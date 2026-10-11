@@ -1,0 +1,65 @@
+.selector {
+  position: sticky;
+  top: var(--ifm-navbar-height);
+  z-index: calc(var(--ifm-z-index-fixed) - 1);
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+  background: var(--ifm-background-surface-color);
+  border-bottom: 2px solid var(--ifm-toc-border-color);
+  transition: top var(--ifm-transition-fast) ease;
+}
+
+:global(html:has(nav.navbar[class*='navbarHidden'])) .selector {
+  top: 0;
+}
+
+.languages {
+  display: flex;
+  justify-content: center;
+}
+
+.language {
+  padding: 0.2rem 0.8rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  color: var(--ifm-font-color-base);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.language + .language {
+  margin-left: -1px;
+}
+
+.language:first-child {
+  border-radius: var(--ifm-global-radius) 0 0 var(--ifm-global-radius);
+}
+
+.language:last-child {
+  border-radius: 0 var(--ifm-global-radius) var(--ifm-global-radius) 0;
+}
+
+.language:hover {
+  position: relative;
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+
+.language:focus-visible {
+  position: relative;
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
+.selected,
+.selected:hover {
+  position: relative;
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-font-color-base-inverse);
+}
+
+.missing {
+  color: var(--ifm-color-emphasis-500);
+  cursor: not-allowed;
+}

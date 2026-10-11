@@ -201,9 +201,11 @@ pub async fn main() {
     } else {
         NexusViewer::new(demos.clone()).await
     };
+    // The testbed runs every demo with the twist friction model by default.
     viewer = viewer
         .with_selected_demo(selected)
-        .with_wait_for_render(true);
+        .with_wait_for_render(true)
+        .with_rbd_friction_model(nexus3d::rbd::dynamics::FrictionModel::Simplified);
     if opts.cpu {
         viewer = viewer.with_cpu();
     }
@@ -261,7 +263,12 @@ pub async fn main() {
         }
 
         let sel = viewer.selected_demo();
+        let demo_backend = viewer.backend().clone();
         dispatch(&demos[sel].0, &mut viewer, &mut pipeline).await;
+        // The demo's state is dropped: let its backend release that memory. CUDA frees
+        // asynchronously and only hands the memory back on a synchronization, which never
+        // comes once the UI switched to another backend.
+        let _ = khal::backend::Backend::synchronize(&demo_backend);
         if viewer.quitting() {
             break;
         }

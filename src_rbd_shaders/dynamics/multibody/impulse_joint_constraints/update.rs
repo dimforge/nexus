@@ -6,11 +6,12 @@ use khal_std::index::MaybeIndexUnchecked;
 
 use crate::dynamics::body::WorldMassProperties;
 use crate::dynamics::joint::{ANG_AXES_MASK, LIN_AXES_MASK, SPATIAL_DIM};
+use crate::utils::BodyIx;
 use crate::utils::linalg::{MatSlice, VSlice, lu_solve_in_place};
-use crate::utils::{BodyIx, ISlice};
 use crate::{DIM, Pose};
 
-use super::super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::super::link_static_soa::LinkStatics;
+use super::super::types::MultibodyInfo;
 use super::super::utils::zero_kinematic_dofs;
 use super::super::ws_soa::{WS_LTW, WS_WORLD_COM, WsAddr, ws_pose, ws_vec};
 use super::helper::*;
@@ -29,7 +30,7 @@ pub(super) fn solve_mb_wj(
     mb: &MultibodyInfo,
     mass_matrices: &[f32],
     lu_pivots: &[u32],
-    links_static: &[MultibodyLinkStatic],
+    links_static: &[glamx::UVec4],
     // Interleaved dynamics-buffer view (`stride = num_batches`, `shift =
     // batch_id`).
     il: VSlice,
@@ -62,12 +63,7 @@ pub(super) fn solve_mb_wj(
     );
 
     // Kinematic dofs are user-driven: the impulse must not move them.
-    let stat_slice = ISlice {
-        buf: links_static,
-        base: mb.first_link as usize,
-        stride: il.stride,
-        shift: il.shift,
-    };
+    let stat_slice = LinkStatics::new(links_static, mb.first_link as usize, il.stride, il.shift);
     zero_kinematic_dofs(jacobians, wj_base, &stat_slice, mb.num_links);
 }
 

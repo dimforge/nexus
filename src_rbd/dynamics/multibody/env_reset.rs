@@ -15,9 +15,10 @@
 use super::multibody_set::GpuMultibodySet;
 use crate::math::Vector;
 use crate::shaders::dynamics::{
-    EnvResetRecord, GpuMbEnvReset, GpuMbEnvResetBatch, GpuMbEnvResetBatchDofs, MULTIBODY_ROOT,
-    MbEnvResetBatchParams, MbEnvResetParams, MultibodyLinkStatic, MultibodyLinkWorkspace, WS_QUADS,
-    ws_soa_from_structs, ws_soa_to_structs,
+    EnvResetRecord, GpuMbEnvReset, GpuMbEnvResetBatch, GpuMbEnvResetBatchDofs, LS_QUADS,
+    MULTIBODY_ROOT, MbEnvResetBatchParams, MbEnvResetParams, MultibodyLinkStatic,
+    MultibodyLinkWorkspace, WS_QUADS, ls_soa_from_structs, ls_soa_to_structs, ws_soa_from_structs,
+    ws_soa_to_structs,
 };
 use glamx::Vec4;
 use khal::BufferUsages;
@@ -114,7 +115,8 @@ struct EnvResetBatchShader {
 pub(super) struct EnvResetBundle {
     shader: EnvResetShader,
     staging_ws: Tensor<Vec4>,
-    staging_links: Tensor<MultibodyLinkStatic>,
+    /// Dense per-link quads of one env (`link * LS_QUADS + q`).
+    staging_links: Tensor<glamx::UVec4>,
     staging_dofs: Tensor<f32>,
     params: Tensor<MbEnvResetParams>,
 }
@@ -133,7 +135,7 @@ impl EnvResetBundle {
             .unwrap(),
             staging_links: Tensor::vector(
                 backend,
-                vec![<MultibodyLinkStatic as bytemuck::Zeroable>::zeroed(); lpb.max(1) as usize],
+                vec![glamx::UVec4::ZERO; (lpb * LS_QUADS).max(1) as usize],
                 storage,
             )
             .unwrap(),
@@ -157,7 +159,8 @@ impl EnvResetBundle {
 /// GPU-resident reset templates plus the batch-reset shader.
 pub(super) struct ResetTemplatesMb {
     ws: Tensor<Vec4>,
-    links: Tensor<MultibodyLinkStatic>,
+    /// Dense per-template link quads (`(t * lpb + link) * LS_QUADS + q`).
+    links: Tensor<glamx::UVec4>,
     flags: Tensor<u32>,
     shader: EnvResetBatchShader,
     /// Host copies, used to keep the `links_static` mirror in step.
@@ -178,12 +181,12 @@ impl GpuMultibodySet {
             .slow_read_buffer(self.links_workspace.buffer(), &mut ws_soa)
             .await
             .unwrap();
-        let mut ls_all: Vec<MultibodyLinkStatic> =
-            bytemuck::zeroed_vec(self.links_static.len() as usize);
+        let mut ls_soa: Vec<glamx::UVec4> = bytemuck::zeroed_vec(self.links_static.len() as usize);
         backend
-            .slow_read_buffer(self.links_static.buffer(), &mut ls_all)
+            .slow_read_buffer(self.links_static.buffer(), &mut ls_soa)
             .await
             .unwrap();
+        let ls_all = ls_soa_to_structs(&ls_soa, nb);
         let mut ds_all: Vec<f32> = bytemuck::zeroed_vec(self.dof_state.len() as usize);
         backend
             .slow_read_buffer(self.dof_state.buffer(), &mut ds_all)
@@ -237,7 +240,11 @@ impl GpuMultibodySet {
             .write_buffer(bundle.staging_ws.buffer_mut(), 0, &ws)
             .unwrap();
         backend
-            .write_buffer(bundle.staging_links.buffer_mut(), 0, &snap.links_static)
+            .write_buffer(
+                bundle.staging_links.buffer_mut(),
+                0,
+                &ls_soa_from_structs(&snap.links_static, 1),
+            )
             .unwrap();
         if !snap.dof_vels.is_empty() {
             backend
@@ -320,7 +327,7 @@ impl GpuMultibodySet {
 
         self.reset_templates = Some(ResetTemplatesMb {
             ws: Tensor::vector(backend, &ws, storage).unwrap(),
-            links: Tensor::vector(backend, &links, storage).unwrap(),
+            links: Tensor::vector(backend, ls_soa_from_structs(&links, 1), storage).unwrap(),
             flags: Tensor::vector(backend, &flags, storage).unwrap(),
             shader: EnvResetBatchShader::from_backend(backend).unwrap(),
             mirror_links,

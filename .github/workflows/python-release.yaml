@@ -57,6 +57,22 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      # The rust-gpu shader builds need more than the runner's 16 GB of RAM; the
+      # manylinux container shares the host's swap.
+      - name: Add swap space (Linux)
+        if: matrix.platform.os == 'linux'
+        run: |
+          sudo swapoff -a
+          sudo rm -f /mnt/swapfile
+          # Up to 32 GB, keeping at least half of the free disk space for the build.
+          avail=$(df --output=avail -BG /mnt | tail -1 | tr -dc 0-9)
+          size=$(( avail / 2 < 32 ? avail / 2 : 32 ))
+          sudo fallocate -l ${size}G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       # On macOS/Windows the wheel is built directly on the runner, so cargo-gpu
       # must be installed here. On Linux the build runs inside the manylinux
       # container, which is set up by `before-script-linux` below instead.

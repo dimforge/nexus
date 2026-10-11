@@ -28,7 +28,14 @@ const config: Config = {
     [
       'classic',
       {
-        docs: false,
+        docs: {
+          sidebarPath: './sidebars.ts',
+          exclude: ['**/templates/**'],
+          editUrl: ({docPath}) => {
+            const templatePath = docPath.replace(/user_guides\/(rust|python|all)\//, 'user_guides/templates/');
+            return `https://github.com/dimforge/nexus/edit/main/website/docs/${templatePath}`;
+          },
+        },
         blog: false,
         theme: {
           customCss: './src/css/custom.css',
@@ -49,6 +56,16 @@ const config: Config = {
         src: 'img/nexus-logo-small.png',
       },
       items: [
+        {
+          type: 'dropdown',
+          label: 'User Guide',
+          position: 'left',
+          items: [
+            {label: 'Rust (2D and 3D)', to: '/docs/user_guides/rust/getting_started'},
+            {label: 'Python (3D)', to: '/docs/user_guides/python/getting_started'},
+            {label: 'All languages', to: '/docs/user_guides/all/getting_started'},
+          ],
+        },
         {
           to: '/demos',
           label: 'Demos',
@@ -84,6 +101,8 @@ const config: Config = {
         {
           title: 'Resources',
           items: [
+            {label: 'User Guide (Rust)', to: '/docs/user_guides/rust/getting_started'},
+            {label: 'User Guide (Python)', to: '/docs/user_guides/python/getting_started'},
             {
               label: 'API Documentation (3D)',
               href: 'https://docs.rs/nexus3d',
@@ -134,7 +153,7 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
-      additionalLanguages: ['rust', 'toml', 'bash'],
+      additionalLanguages: ['rust', 'python', 'toml', 'bash'],
     },
   } satisfies Preset.ThemeConfig,
 };

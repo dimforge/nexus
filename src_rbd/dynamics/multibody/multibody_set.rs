@@ -19,12 +19,6 @@ use vortx::tensor::Tensor;
 /// `gpu_mb_lu_solve`.
 pub(super) const MB_LU_LANES: u32 = 64;
 
-/// Maximum total multibody count (capacity × batches) for which the
-/// constraint-space (Delassus) contact solve is enabled: each multibody's
-/// Delassus block costs `MAX_MB_CONTACT_CONSTRAINTS_PER_MB²` floats (~147 KB
-/// in 3D), so huge batched scenes would run out of memory.
-pub(super) const MAX_DELASSUS_MULTIBODIES: u32 = 0; // 128;
-
 use crate::shaders::dynamics::{GenericJoint, JointLimits, JointMotor};
 
 /// The motor-target scatter entry point, loaded once per backend.
@@ -112,7 +106,8 @@ pub struct GpuMultibodySet {
     /// step by `gpu_mb_compute_solve_bounds`.
     pub(super) max_contact_constraints: Tensor<u32>,
     /// Per-batch static link data.
-    pub(super) links_static: Tensor<MultibodyLinkStatic>,
+    /// Quad-interleaved link records (see `link_static_soa` in the shaders).
+    pub(super) links_static: Tensor<glamx::UVec4>,
     /// CPU-side mirror of [`Self::links_static`] used to support runtime
     /// mutations like motor changes without round-tripping through a GPU read.
     pub(super) links_static_mirror: Vec<MultibodyLinkStatic>,
@@ -141,6 +136,13 @@ pub struct GpuMultibodySet {
     pub(super) joint_constraints: Tensor<MultibodyJointConstraint>,
     /// Per-constraint columns of `M⁻¹` (length `ndofs` each, contiguous per multibody).
     pub(super) joint_constraint_columns: Tensor<f32>,
+    /// The same columns padded to whole quads (`max_ndofs.div_ceil(4)` per joint
+    /// slot), for the fused substep kernel. One quad when the set can never take
+    /// that path.
+    pub(super) joint_columns_padded: Tensor<glamx::Vec4>,
+    /// Two quads per joint slot: what the fused substep kernel's joint refresh
+    /// needs (`JointRefreshParams`), written by the joint build pass.
+    pub(super) joint_refresh_params: Tensor<glamx::Vec4>,
     /// Per-batch slab of DoF couplings (rapier's `MultibodyDofCoupling`),
     /// batch-major; each multibody's slice is
     /// `[first_coupling, first_coupling + num_couplings)`.
@@ -190,10 +192,6 @@ pub struct GpuMultibodySet {
     /// owns `2 * dofs_per_batch` dense floats, its `Jᵀ` row followed by its
     /// `M⁻¹·Jᵀ` column (same pairing as the impulse-joint jacobians arena).
     pub(super) contact_jac_cols: Tensor<f32>,
-    /// Per-multibody Delassus blocks (`MAX_MB_CONTACT_CONSTRAINTS_PER_MB²`
-    /// floats each) only allocated when the total multibody count is at most
-    /// [`MAX_DELASSUS_MULTIBODIES`].
-    pub(super) contact_delassus: Option<Tensor<f32>>,
 
     /// Batch-interleaved impulse-joint builder descriptors (joint slot `i` of
     /// batch `b` at `i * num_batches + b`; unused slots padded with a
@@ -291,7 +289,9 @@ impl GpuMultibodySet {
     /// (`compute_dynamics_pre`, `gravity_and_lu`).
     pub(crate) fn pack_lanes(&self) -> u32 {
         let total_mb = self.num_active_multibodies * self.num_batches;
-        if self.max_ndofs <= 8 && total_mb >= 1024 {
+        // Every cooperative lane owns one matrix column. The scalar LU tile
+        // has room for one DOF per body, not eight.
+        if self.max_ndofs <= 1 && total_mb >= 1024 {
             1
         } else {
             self.max_ndofs.next_power_of_two().clamp(8, MB_LU_LANES)
@@ -453,12 +453,28 @@ impl GpuMultibodySet {
         entry.data.motors[axis] = motor;
         entry.data.motors[axis].impulse = impulse;
         entry.data.motor_axes |= 1u32 << axis;
-        let snapshot = *entry;
-        backend.write_buffer(
-            self.links_static.buffer_mut(),
-            global_idx as u64,
-            std::slice::from_ref(&snapshot),
-        )
+        self.upload_link_static(backend, global_idx)
+    }
+
+    /// Uploads the mirror's record `global_idx` (`link · num_batches + batch`)
+    /// into the quad-interleaved GPU buffer, one quad at a time.
+    fn upload_link_static(
+        &mut self,
+        backend: &GpuBackend,
+        global_idx: usize,
+    ) -> Result<(), GpuBackendError> {
+        use crate::shaders::dynamics::{ls_quad_index, ls_record_quads};
+        let nb = self.num_batches as usize;
+        let (link, batch) = (global_idx / nb, global_idx % nb);
+        let quads = ls_record_quads(&self.links_static_mirror[global_idx]);
+        for (q, quad) in quads.iter().enumerate() {
+            backend.write_buffer(
+                self.links_static.buffer_mut(),
+                ls_quad_index(link, q, self.num_batches, batch as u32) as u64,
+                std::slice::from_ref(quad),
+            )?;
+        }
+        Ok(())
     }
 
     /// The motor currently configured on `axis` of multibody link `link_id`,
@@ -506,12 +522,7 @@ impl GpuMultibodySet {
         touched.sort_unstable();
         touched.dedup();
         for global_idx in touched {
-            let snapshot = self.links_static_mirror[global_idx];
-            backend.write_buffer(
-                self.links_static.buffer_mut(),
-                global_idx as u64,
-                std::slice::from_ref(&snapshot),
-            )?;
+            self.upload_link_static(backend, global_idx)?;
         }
         Ok(())
     }
@@ -542,12 +553,7 @@ impl GpuMultibodySet {
         };
         entry.data.motors[axis_id].target_vel = target_vel;
         entry.data.motor_axes |= 1u32 << axis_id;
-        let snapshot = *entry;
-        backend.write_buffer(
-            self.links_static.buffer_mut(),
-            global_idx as u64,
-            std::slice::from_ref(&snapshot),
-        )
+        self.upload_link_static(backend, global_idx)
     }
 
     /// Scatters per-(actuated joint, env) motor target positions into
@@ -637,10 +643,11 @@ impl GpuMultibodySet {
     }
 
     /// Per-batch static link data (joint definitions, motors, limits, mass
-    /// properties), batch-interleaved like [`Self::links_workspace`]. Exposed
-    /// for diagnostics; use [`Self::set_motor`] / [`Self::set_motors`] to
-    /// mutate motors so the CPU mirror stays in sync.
-    pub fn links_static(&self) -> &Tensor<MultibodyLinkStatic> {
+    /// properties), quad-interleaved across batches like
+    /// [`Self::links_workspace`] (see `ls_soa_to_structs`). Exposed for
+    /// diagnostics; use [`Self::set_motor`] / [`Self::set_motors`] to mutate
+    /// motors so the CPU mirror stays in sync.
+    pub fn links_static(&self) -> &Tensor<glamx::UVec4> {
         &self.links_static
     }
 
@@ -699,7 +706,14 @@ impl GpuMultibodySet {
                 offset += 1;
             }
         }
-        backend.write_buffer(self.links_static.buffer_mut(), 0, &self.links_static_mirror)
+        backend.write_buffer(
+            self.links_static.buffer_mut(),
+            0,
+            &crate::shaders::dynamics::ls_soa_from_structs(
+                &self.links_static_mirror,
+                self.num_batches,
+            ),
+        )
     }
 
     /// Number of multibody-touching impulse joints in any batch.
@@ -820,8 +834,8 @@ impl GpuMultibodySet {
             ws_set_pose, ws_set_rot, ws_set_vec, ws_set_vel,
         };
 
-        // A link's quads are dense in the SoA buffer, so the record is built
-        // in a scratch one-link, one-batch view and uploaded as a prefix.
+        // The record is built in a scratch one-link, one-batch view; the live
+        // buffer interleaves batches per quad, so each quad is uploaded alone.
         let mut quads = vec![glamx::Vec4::ZERO; WS_QUADS as usize];
         let local = WsAddr::new(0, 1, 0);
         let zero_vel = Velocity {
@@ -844,11 +858,14 @@ impl GpuMultibodySet {
         ws_set_vec(&mut quads, local, 0, WS_WORLD_COM, world_com);
 
         let a = WsAddr::new(0, self.num_batches, batch_id);
-        backend.write_buffer(
-            self.links_workspace.buffer_mut(),
-            a.at(k, 0) as u64,
-            &quads[..WS_EXT_FORCE as usize],
-        )
+        for (q, quad) in quads[..WS_EXT_FORCE as usize].iter().enumerate() {
+            backend.write_buffer(
+                self.links_workspace.buffer_mut(),
+                a.at(k, q as u32) as u64,
+                std::slice::from_ref(quad),
+            )?;
+        }
+        Ok(())
     }
 
     /// Zeroes the generalized velocities of the per-batch DoFs
@@ -1049,6 +1066,14 @@ impl GpuMultibodySet {
         .unwrap();
         self.joint_constraint_columns =
             Tensor::vector(backend, vec![0.0f32; cons_col_cap as usize * nb], storage).unwrap();
+        self.joint_columns_padded =
+            padded_joint_columns(backend, self.max_ndofs, cons_cap, self.num_batches);
+        self.joint_refresh_params = Tensor::vector(
+            backend,
+            vec![glamx::Vec4::ZERO; 2 * cons_cap as usize * nb],
+            storage,
+        )
+        .unwrap();
         self.joint_constraints_per_batch = cons_cap;
         self.joint_constraint_columns_per_batch = cons_col_cap;
         self.max_joint_constraints = max_constraints;
@@ -1368,4 +1393,27 @@ pub(super) fn make_workspace_init() -> MultibodyLinkWorkspace {
     w.local_to_parent = Pose::default();
     w.local_to_world = Pose::default();
     w
+}
+
+/// Allocates [`GpuMultibodySet::joint_columns_padded`]: `max_ndofs` rounded
+/// up to whole quads per joint slot when the multibodies fit the fused substep
+/// kernel (at most 32 DOFs and 64 slots), a single quad otherwise.
+pub(super) fn padded_joint_columns(
+    backend: &GpuBackend,
+    max_ndofs: u32,
+    joint_slots_per_batch: u32,
+    num_batches: u32,
+) -> Tensor<glamx::Vec4> {
+    let len = if max_ndofs <= 32 && joint_slots_per_batch <= 64 {
+        let quads = max_ndofs.div_ceil(4) as usize;
+        (joint_slots_per_batch as usize * num_batches as usize * quads).max(1)
+    } else {
+        1
+    };
+    Tensor::vector(
+        backend,
+        vec![glamx::Vec4::ZERO; len],
+        BufferUsages::STORAGE | BufferUsages::COPY_DST,
+    )
+    .unwrap()
 }

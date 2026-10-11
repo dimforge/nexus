@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "website/docs-examples/rust2d",
+    "website/docs-examples/rust3d",
     "crates/nexus2d",
     "crates/nexus3d",
     "crates/nexus_viewer2d",
@@ -69,9 +71,10 @@ vortx-shaders = { version = "0.5", default-features = false }
 unroll = "0.1"
 crunchy = "0.2.4"
 
-# Shader crates
-nexus_rbd_shaders2d = { version = "0.6.0", path = "crates/nexus_rbd_shaders2d" }
-nexus_rbd_shaders3d = { version = "0.6.0", path = "crates/nexus_rbd_shaders3d" }
+# Shader crates. The rbd shaders' default `entry-points` feature is left to each
+# member: the MPM shaders only need their types, not their kernels.
+nexus_rbd_shaders2d = { version = "0.6.0", path = "crates/nexus_rbd_shaders2d", default-features = false }
+nexus_rbd_shaders3d = { version = "0.6.0", path = "crates/nexus_rbd_shaders3d", default-features = false }
 nexus_mpm_shaders2d = { version = "0.6.0", path = "crates/nexus_mpm_shaders2d" }
 nexus_mpm_shaders3d = { version = "0.6.0", path = "crates/nexus_mpm_shaders3d" }
 

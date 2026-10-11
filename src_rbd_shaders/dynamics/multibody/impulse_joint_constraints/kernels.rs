@@ -15,7 +15,7 @@ use crate::utils::BatchIndices;
 use crate::utils::linalg::VSlice;
 
 use super::super::lu::LANES;
-use super::super::types::{MultibodyInfo, MultibodyLinkStatic};
+use super::super::types::MultibodyInfo;
 
 use super::jacobians::*;
 use super::types::*;
@@ -26,6 +26,7 @@ use super::update::*;
 /// Run once per substep. Mirrors rapier's
 /// `JointGenericExternalConstraintBuilder::update`: rebuilds all `J / W·J`
 /// rows + biases from current poses / mass matrix.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_update_impulse_joint_constraints(
@@ -94,6 +95,7 @@ pub fn gpu_mb_update_impulse_joint_constraints(
 /// each active constraint, back-solve the multibody side(s)' `M⁻¹·Jᵀ` columns
 /// and compute `inv_lhs`. Must run after `update` and before
 /// `gpu_mb_solve_impulse_joint_constraints` each substep.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_impulse_joint_constraints(
@@ -106,8 +108,7 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)] multibody_info: &[MultibodyInfo],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 1)] mass_matrices: &[f32],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 2)] lu_pivots: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)]
-    links_static: &[MultibodyLinkStatic],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 3)] links_static: &[glamx::UVec4],
     #[spirv(uniform, descriptor_set = 0, binding = 3)] batch_ids: &BatchIndices,
 ) {
     let num_threads = num_workgroups.x * 64;
@@ -172,6 +173,7 @@ pub fn gpu_mb_finalize_impulse_joint_constraints(
 /// one color no two joints share a multibody or a free body, so the color's
 /// joints run race-free in parallel. The host dispatches one color at a time,
 /// giving an exact sequential Gauss–Seidel iteration in color-sorted order.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_solve_impulse_joint_constraints(
@@ -326,6 +328,7 @@ pub fn gpu_mb_solve_impulse_joint_constraints(
 
 /// Strip the positional bias from each active constraint's `rhs` for the
 /// stabilization iteration — mirrors `gpu_mb_remove_joint_constraint_bias`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_remove_impulse_joint_constraint_bias(

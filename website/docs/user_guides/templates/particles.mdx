@@ -1,0 +1,183 @@
+---
+id: particles
+title: Particles and materials
+sidebar_label: Particles and materials
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Nexus provides the **Material Point Method (MPM)** for materials that deform, like elastic objects, sand, snow, or fluids.
+The `Particle` values carry the material state, and an auxiliary grid computes their interaction.
+The `ParticleModel` determines the material's response to deformation.
+
+Unlike [rigid-bodies with ball colliders](https://rapier.rs/docs/user_guides/rust/colliders/#shapes), MPM particles
+interact through the grid. A particle's radius determines its initial volume and visualization size.
+
+## Creation and insertion
+
+<rust>Import `Particle`, `ParticleModel`, and `SimulationParams` from `nexus2d::mpm::solver` or `nexus3d::mpm::solver`.</rust>
+<python>Import `Particle`, `ParticleModel`, and `SimulationParams` from `nexus3d`.</python>
+Construct <rust>`Particle::new(position, radius, density, model)`</rust><python>`Particle(position, radius, density, model)`</python>,
+then call `state.add_particles` to upload a group of particles. Its return value identifies a **chunk**.
+
+The following adds a block of elastic material to an existing simulation, using
+<rust>an initialized backend</rust><python>a viewer initialized with `viewer.init_backend()`</python>:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='particles' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='particles' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='particles' />
+```
+
+</python>
+
+Here, `cell_width` is the grid cell width, the particle spacing is `cell_width / 2`, and the particle radius is `cell_width / 4`.
+This gives two particles per cell along each axis, which is a useful starting point for regular blocks.
+The initial volume is the particle diameter raised to the dimension, and mass is this volume multiplied by density.
+
+Call `state.set_mpm_params` before `state.add_particles`. Calling `state.set_mpm_params` again after upload resets
+the grid, so it is preferable to choose the cell width at setup. `pipeline.simulate` advances the uploaded material,
+and `viewer.sync` updates its graphics. The [simulation loop](./simulation_structures.mdx#the-simulation-loop) is the
+same as for the getting started example.
+
+## Material models
+
+The `young_modulus` argument controls stiffness. Increasing it makes deformation more difficult, but also requires
+smaller substeps for stability. The `poisson_ratio` argument controls lateral deformation during compression or
+stretching. The following shows <rust>`ParticleModel::elastic` and `ParticleModel::sand`</rust><python>`ParticleModel.elastic`
+and `ParticleModel.sand`</python>:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='materials' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='materials' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='materials' />
+```
+
+</python>
+
+An elastic material tends to recover its initial shape. Sand also has a plastic response, so a pile can
+retain a new shape. <rust>`ParticleModel::elastic_neo_hookean` and `ParticleModel::sand_neo_hookean`</rust>
+<python>`ParticleModel.elastic_neo_hookean` and `ParticleModel.sand_neo_hookean`</python> use Neo-Hookean elasticity.
+
+<rust>The Rust API also provides `ParticleModel::snow`, `ParticleModel::cohesive_sand`, and
+`ParticleModel::water_for_depth(density, gravity, depth, max_compression)`. The latter chooses a bulk modulus from
+the expected water `depth` and tolerated `max_compression`. The
+[MPM examples](https://github.com/dimforge/nexus/tree/main/crates/examples3d) contain complete scenes using these models.</rust>
+<python>The Python `ParticleModel` exposes the elastic and sand constructors above. The Rust `ParticleModel::snow`,
+`ParticleModel::cohesive_sand`, and `ParticleModel::water_for_depth` constructors are not exposed by these bindings.</python>
+
+## Initial state
+
+Before `state.add_particles`, set <rust>`particle.dynamics.velocity`</rust><python>`particle.velocity`</python> for an
+initial velocity. Use <rust>`particle.dynamics.set_damping` and `particle.dynamics.set_fixed`</rust><python>`particle.set_damping`
+and `particle.set_fixed`</python> to configure damping or hold particles in place. This is typically used to attach
+part of an elastic object to a fixed support.
+
+Keep in mind that modifying the original particle after `state.add_particles` doesn't modify its uploaded copy.
+For an emitter, create new `Particle` values and call `state.extend_chunk` as shown below.
+
+## Timestep and gravity
+
+The `params.dt` value in `SimulationParams` is the total MPM time advanced by one `pipeline.simulate` call.
+The `state.set_mpm_substeps` method divides this time into substeps; its default is `20`, and counts smaller than
+one are clamped to one. With `params.dt = 1 / 60` and `state.set_mpm_substeps(20)`, each substep advances `1 / 1200`
+seconds. Increasing `state.set_mpm_substeps` improves stability at the expense of computations.
+
+The `params.gravity` value defines initial MPM gravity. After `state.set_mpm_params`, call `state.set_mpm_gravity`
+to change it without resetting the grid. It is separate from `state.set_rbd_gravity`; setting one doesn't change the
+other. See [coupling](./coupling.mdx#environment-and-timestep) when both solvers interact.
+
+:::warning
+Reducing `cell_width` or increasing `young_modulus` can require shorter substeps. If particles gain large velocities
+or disappear, increase `state.set_mpm_substeps`, reduce `params.dt`, or reduce the `ParticleModel` constructor's
+`young_modulus`. Increasing the number of particles alone doesn't fix an unstable timestep.
+:::
+
+Also check that `radius` and `density` passed to <rust>`Particle::new`</rust><python>`Particle`</python> are positive,
+and that the initial particle positions don't lie inside an unintended boundary.
+<rust>For large materials, `NexusCapacities::mpm_grid_size` and `NexusCapacities::mpm_particles` configure the initial
+sparse-grid and particle capacities passed to `NexusState::new`.</rust>
+
+## Chunks and emitters
+
+The handle returned by `state.add_particles` identifies the uploaded group. Call `state.extend_chunk` to append
+particles, and `state.remove_chunk` to remove the group. Given `chunk` from the creation example:
+
+<rust>
+
+<Tabs groupId="dim" defaultValue="2D">
+<TabItem value="2D" label="Example 2D">
+
+```rust
+<load path='rust2d/src/lib.rs' marker='chunks' />
+```
+
+</TabItem>
+<TabItem value="3D" label="Example 3D">
+
+```rust
+<load path='rust3d/src/lib.rs' marker='chunks' />
+```
+
+</TabItem>
+</Tabs>
+
+</rust>
+<python>
+
+```python
+<load path='python/guide.py' marker='chunks' />
+```
+
+</python>
+
+Removing particles can move other particles inside the compute buffers. Use the chunk handle for chunk operations;
+a raw particle buffer index is not a persistent identifier. Don't reuse the handle after `state.remove_chunk`.
+
+## Boundaries
+
+The <rust>`RbdCoupling::None`</rust><python>`RbdCoupling.NONE`</python> value leaves particles unaffected by a
+[rigid-body collider](https://rapier.rs/docs/user_guides/rust/colliders/). To hold the material above a ground, supply
+<rust>`RbdCoupling::MpmOneWay`</rust><python>`RbdCoupling.mpm_one_way`</python> to `state.insert_rigid_body`.
+The [MPM coupling page](./coupling.mdx) shows the full setup and `BoundaryCondition` choices.

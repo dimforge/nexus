@@ -277,6 +277,9 @@ pub struct NexusViewer {
     /// Frame to save as an image, and where (see [`Self::with_snapshot`]).
     #[cfg(not(target_arch = "wasm32"))]
     snapshot: Option<(u32, std::path::PathBuf)>,
+    /// Friction model forced on every newly loaded scene (see [`Self::with_rbd_friction_model`]).
+    #[cfg(feature = "dim3")]
+    rbd_friction_model: Option<nexus::rbd::dynamics::FrictionModel>,
     /// Number of frames rendered so far.
     frames_rendered: u32,
     /// Lazily-created path tracer for [`Self::raytrace_frame`]. Kept across
@@ -426,6 +429,8 @@ impl NexusViewer {
             draw_ui: true,
             #[cfg(not(target_arch = "wasm32"))]
             snapshot: None,
+            #[cfg(feature = "dim3")]
+            rbd_friction_model: None,
             frames_rendered: 0,
             #[cfg(feature = "dim3")]
             raytracer: None,
@@ -500,6 +505,14 @@ impl NexusViewer {
     /// Starts with the deterministic mode enabled (see [`NexusState::set_deterministic`]).
     pub fn with_deterministic(mut self, enabled: bool) -> Self {
         self.ui.sim_settings.deterministic = enabled;
+        self
+    }
+
+    /// Runs every newly loaded scene with the friction model `model` instead of the one it
+    /// was built with. The UI can still change it afterwards.
+    #[cfg(feature = "dim3")]
+    pub fn with_rbd_friction_model(mut self, model: nexus::rbd::dynamics::FrictionModel) -> Self {
+        self.rbd_friction_model = Some(model);
         self
     }
 
@@ -1424,6 +1437,9 @@ impl NexusViewer {
             self.ui.sim_settings.rbd_substeps = state.rbd_substeps();
             #[cfg(feature = "dim3")]
             {
+                if let Some(model) = self.rbd_friction_model {
+                    state.set_rbd_friction_model(model);
+                }
                 self.ui.sim_settings.rbd_friction_model = state
                     .rbd_sim_params(0)
                     .map(|params| params.friction_model)

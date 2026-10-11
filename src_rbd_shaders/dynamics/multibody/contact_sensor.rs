@@ -24,6 +24,7 @@ pub const MAX_CONTACT_SENSORS: u32 = 4;
 /// multibody in every batch. The output is interleaved like the other per-mb
 /// buffers: `contact_sensor_out[batch_ids.mbi(batch, mb_idx) *
 /// MAX_CONTACT_SENSORS + slot]`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_mb_sense_contact_impulses(

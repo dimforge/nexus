@@ -2,10 +2,9 @@
 
 use super::multibody_set::*;
 use crate::shaders::dynamics::{
-    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MAX_MB_CONTACT_CONSTRAINTS_PER_MB, MbDelayTickParams,
-    MbDofCoupling, MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint,
-    MultibodyInfo, MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace,
-    RbdSimParams,
+    ConstraintSoftness, MAX_AXIS_CONSTRAINTS, MbDelayTickParams, MbDofCoupling,
+    MbImpulseJointBuilder, MbImpulseJointConstraint, MultibodyContactConstraint, MultibodyInfo,
+    MultibodyJointConstraint, MultibodyLinkStatic, MultibodyLinkWorkspace, RbdSimParams,
 };
 use crate::shaders::utils::linalg::MAX_MB_DOFS;
 use khal::BufferUsages;
@@ -75,7 +74,7 @@ impl GpuMultibodySet {
 
         for (set, body_ids, bodies) in environments {
             let mut infos = Vec::new();
-            let mut statics = Vec::new();
+            let mut statics: Vec<MultibodyLinkStatic> = Vec::new();
             let mut workspaces = Vec::new();
             let mut dof_vels = Vec::new();
             let mut dof_damping = Vec::new();
@@ -247,6 +246,14 @@ impl GpuMultibodySet {
                         mp
                     };
 
+                    let mut ancestor_dofs = if parent_id == u32::MAX {
+                        [0u32; 2]
+                    } else {
+                        statics[mb_statics_start + parent_id as usize].ancestor_dofs
+                    };
+                    for dof in assembly_counter..assembly_counter + link_ndofs {
+                        ancestor_dofs[(dof / 32) as usize] |= 1 << (dof % 32);
+                    }
                     let stat = MultibodyLinkStatic {
                         rb_id,
                         parent_link_id: parent_id,
@@ -254,7 +261,7 @@ impl GpuMultibodySet {
                         assembly_id: assembly_counter,
                         ndofs: link_ndofs,
                         kinematic: if link.joint().kinematic { 1 } else { 0 },
-                        _pad0: [0; 2],
+                        ancestor_dofs,
                         data,
                         local_mprops: mp,
                     };
@@ -563,8 +570,12 @@ impl GpuMultibodySet {
                 BufferUsages::STORAGE | BufferUsages::UNIFORM,
             )
             .unwrap(),
-            links_static: Tensor::vector(backend, &all_statics, storage | BufferUsages::COPY_SRC)
-                .unwrap(),
+            links_static: Tensor::vector(
+                backend,
+                crate::shaders::dynamics::ls_soa_from_structs(&all_statics, num_batches),
+                storage | BufferUsages::COPY_SRC,
+            )
+            .unwrap(),
             links_static_mirror: all_statics.clone(),
             info_mirror,
             // COPY_SRC so hosts can read joint/link state back (observation
@@ -595,6 +606,7 @@ impl GpuMultibodySet {
                 buf.extend_from_slice(&all_dof_friction);
                 buf.resize(7 * n, 0.0);
                 debug_assert_eq!(buf.len(), 7 * n);
+                // Environment snapshots read the velocity section back.
                 Tensor::vector(backend, &buf, storage | BufferUsages::COPY_SRC).unwrap()
             },
             gen_forces: Tensor::vector(
@@ -644,6 +656,18 @@ impl GpuMultibodySet {
                 storage,
             )
             .unwrap(),
+            joint_refresh_params: Tensor::vector(
+                backend,
+                vec![glamx::Vec4::ZERO; (2 * cons_cap * num_batches) as usize],
+                storage,
+            )
+            .unwrap(),
+            joint_columns_padded: super::multibody_set::padded_joint_columns(
+                backend,
+                max_mb_ndofs,
+                cons_cap,
+                num_batches,
+            ),
             dof_couplings: Tensor::vector(backend, &all_couplings, storage).unwrap(),
             couplings_per_batch: couplings_cap,
             // The GPU buffer is indexed by global (batch-interleaved) body id;
@@ -716,35 +740,6 @@ impl GpuMultibodySet {
                 storage,
             )
             .unwrap(),
-            // Per-multibody Delassus blocks for the constraint-space contact
-            // iteration: MAX_MB_CONTACT_CONSTRAINTS_PER_MB² floats each (147 KB
-            // in 3D), so only small total multibody counts get them; larger
-            // batched scenes keep the dof-space solve.
-            contact_delassus: {
-                // Sized by the capacity stride (the kernels index blocks by
-                // `batch · multibodies_batch_capacity + mb_idx`).
-                let total_mbs = mb_cap * num_batches;
-                // `MAX_DELASSUS_MULTIBODIES` is currently 0, which disables the
-                // path; the bound is kept so raising the constant re-enables it.
-                #[allow(clippy::absurd_extreme_comparisons)]
-                let use_delassus = global_max_mb > 0 && total_mbs <= MAX_DELASSUS_MULTIBODIES;
-                if use_delassus {
-                    let block = (MAX_MB_CONTACT_CONSTRAINTS_PER_MB
-                        * MAX_MB_CONTACT_CONSTRAINTS_PER_MB)
-                        as usize;
-                    Some(
-                        Tensor::vector_uninit(
-                            backend,
-                            (total_mbs as usize * block) as u32,
-                            storage,
-                        )
-                        .unwrap(),
-                    )
-                } else {
-                    None
-                }
-            },
-
             // Impulse-joint buffers are sized for "no MB-touching joints" by
             // default — `set_impulse_joints` resizes them at pipeline build
             // time when the host has actually counted the joints.

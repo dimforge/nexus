@@ -45,6 +45,18 @@ jobs:
         with:
           components: clippy
 
+      # The rust-gpu shader builds need more than the runner's 16 GB of RAM (about 18 GB
+      # for `nexus_mpm_shaders3d` alone); without swap the runner gets killed mid-build.
+      - name: Add swap space
+        run: |
+          sudo swapoff -a
+          sudo rm -f /mnt/swapfile
+          sudo fallocate -l 32G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends build-essential curl wget file libssl-dev
 
@@ -74,6 +86,18 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      # The rust-gpu shader builds need more than the runner's 16 GB of RAM (about 18 GB
+      # for `nexus_mpm_shaders3d` alone); without swap the runner gets killed mid-build.
+      - name: Add swap space
+        run: |
+          sudo swapoff -a
+          sudo rm -f /mnt/swapfile
+          sudo fallocate -l 32G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends build-essential curl wget file libssl-dev
 
@@ -87,6 +111,24 @@ jobs:
         uses: Leafwing-Studios/cargo-cache@v2
         with:
           sweep-cache: true
+
+      - name: Compile user-guide examples
+        run: cargo check -p nexus-guide-2d -p nexus-guide-3d --all-targets
+
+      - name: Set up Node for the user guide
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Build and check the user guide
+        working-directory: website
+        run: |
+          npm ci
+          npm run docs:test
+          npm run typecheck
+          npm run build
 
       # `nexus_python3d` is excluded: its lib is named `nexus3d` (the Python
       # module name), which collides with the `nexus3d` crate's doc output. The
@@ -107,6 +149,18 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      # The rust-gpu shader builds need more than the runner's 16 GB of RAM (about 18 GB
+      # for `nexus_mpm_shaders3d` alone); without swap the runner gets killed mid-build.
+      - name: Add swap space
+        run: |
+          sudo swapoff -a
+          sudo rm -f /mnt/swapfile
+          sudo fallocate -l 32G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
 
       - name: Install dependencies
         run: |
@@ -132,6 +186,9 @@ jobs:
       - name: Run Cargo Tests
         run: LIBGL_ALWAYS_SOFTWARE=1 cargo test --workspace --exclude nexus_python3d --verbose
 
+      - name: Run user-guide scenes on the CPU backend
+        run: cargo test -p nexus-guide-2d -p nexus-guide-3d --features cpu
+
   # Build the Python bindings (`nexus3d`) into a wheel and import-check it.
   python:
     name: Python bindings
@@ -150,6 +207,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      # The rust-gpu shader builds need more than the runner's 16 GB of RAM (about 18 GB
+      # for `nexus_mpm_shaders3d` alone); without swap the runner gets killed mid-build.
+      - name: Add swap space
+        run: |
+          sudo swapoff -a
+          sudo rm -f /mnt/swapfile
+          sudo fallocate -l 32G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
 
       - name: Install system dependencies
         run: |
@@ -180,3 +249,6 @@ jobs:
           maturin build -m crates/nexus_python3d/Cargo.toml --out dist
           pip install --no-index --find-links dist dimforge-nexus3d
           python -c "import nexus3d; print('nexus3d import OK')"
+
+      - name: Check Python user-guide examples against the built wheel
+        run: python website/docs-examples/python/check.py

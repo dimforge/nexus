@@ -13,8 +13,12 @@ mod rbd_state_from_rapier;
 mod rbd_step;
 #[cfg(all(test, feature = "dim3"))]
 mod test_batched_stacks;
+#[cfg(all(test, any(feature = "metal", feature = "webgpu")))]
+mod test_multibody_layout;
 #[cfg(all(test, feature = "dim2"))]
 mod test_polyline_warmstart;
+#[cfg(all(test, any(feature = "metal", feature = "webgpu")))]
+mod test_small_multibody_solver;
 
 #[cfg(feature = "dim3")]
 pub use rbd_state::RbdSnapshot;
@@ -35,5 +39,13 @@ mod test_twist_friction;
 #[cfg(test)]
 mod test_color_buckets;
 
+#[cfg(all(test, feature = "dim3", feature = "metal"))]
+mod test_multibody_dynamics;
 #[cfg(test)]
 mod test_web_preparation;
+
+#[cfg(all(test, feature = "dim3", any(feature = "metal", feature = "webgpu")))]
+mod test_broad_phase_packing;
+
+#[cfg(all(test, feature = "metal"))]
+mod test_multibody_factor;

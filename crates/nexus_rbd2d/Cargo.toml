@@ -35,7 +35,7 @@ cuda = ["khal/cuda", "khal-builder/cuda", "nexus_rbd_shaders2d/cuda"]
 cuda-oxide = ["cuda", "khal-builder/cuda-oxide"]
 
 [dependencies]
-nexus_rbd_shaders2d = { workspace = true }
+nexus_rbd_shaders2d = { workspace = true, features = ["default"] }
 glamx = { workspace = true }
 include_dir = { workspace = true }
 khal = { workspace = true }
@@ -57,4 +57,4 @@ rand = { workspace = true }
 
 [build-dependencies]
 khal-builder = {workspace = true}
-nexus_rbd_shaders2d = { workspace = true }
+nexus_rbd_shaders2d = { workspace = true, features = ["default"] }

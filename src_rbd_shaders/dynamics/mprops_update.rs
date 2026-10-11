@@ -15,6 +15,7 @@ use crate::utils::BatchIndices;
 const WORKGROUP_SIZE: u32 = 64;
 
 /// Updates world-space mass properties for all rigid bodies.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_update_mprops(
@@ -44,6 +45,7 @@ pub fn gpu_update_mprops(
 /// Run after each integration substep (and after multibody forward-kinematics)
 /// so the broad-phase, narrow-phase and contact-to-constraint pipeline see
 /// up-to-date collider world poses.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_sync_collider_poses(

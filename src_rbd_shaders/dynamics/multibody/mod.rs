@@ -23,9 +23,13 @@ mod impulse_joint_constraints;
 mod integrate;
 mod jacobian;
 mod joint_constraints;
+mod link_static_soa;
+pub use link_static_soa::*;
 mod lu;
 mod scatter_motor;
 mod solve_constraints;
+mod solve_simd;
+pub use solve_simd::*;
 mod types;
 mod utils;
 mod ws_soa;
@@ -44,3 +48,19 @@ pub use solve_constraints::*;
 pub use types::*;
 pub use utils::*;
 pub use ws_soa::*;
+
+mod joint_columns_simd;
+pub use joint_columns_simd::*;
+mod lu_simd;
+mod unroll;
+
+#[cfg(feature = "dim3")]
+mod crba;
+
+mod recursive_forces;
+#[cfg(feature = "dim3")]
+mod substeps_simd;
+pub use lu_simd::*;
+pub use recursive_forces::*;
+#[cfg(feature = "dim3")]
+pub use substeps_simd::*;

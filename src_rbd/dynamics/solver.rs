@@ -480,6 +480,23 @@ impl GpuSolver {
             BIAS_MODE_BIAS as usize
         };
 
+        // Everything after the first substep's constraint build runs in one
+        // multibody dispatch when there is no rigid-body work to interleave.
+        #[cfg(feature = "dim3")]
+        let fuse_substeps = skip_rb
+            && joints_empty
+            && mb_solver
+                .zip(mb_state.as_deref())
+                .is_some_and(|(solver, state)| {
+                    !state.is_empty()
+                        && solver.can_fuse_substeps(
+                            state,
+                            num_substeps,
+                            args.num_internal_pgs_iterations.max(1),
+                            args.color_uniforms.len(),
+                        )
+                });
+
         for substep_id in 0..num_substeps {
             let is_last_substep = substep_id == num_substeps - 1;
             // Only consumed by the dim3-only multibody phases.
@@ -529,8 +546,17 @@ impl GpuSolver {
                         state,
                         &mut mb_args,
                         substep_id == 0,
+                        fuse_substeps,
                     )?;
                 }
+            }
+
+            // The fused kernel runs the rest of this substep and all later
+            // ones; nothing on the rigid-body side remains to interleave.
+            #[cfg(feature = "dim3")]
+            if fuse_substeps {
+                mb_phase!("[RBD] slv/mb-substeps", substeps_fused, num_substeps);
+                break;
             }
             if !skip_rb || !joints_empty {
                 let mut pass =
@@ -627,15 +653,35 @@ impl GpuSolver {
              * squeezed between a multibody link and a rigid body sees both
              * sides converge at the same rate.
              */
-            for iteration in 0..args.num_internal_pgs_iterations.max(1) {
+            #[cfg(feature = "dim3")]
+            let fuse_iterations = skip_rb
+                && joints_empty
+                && mb_solver
+                    .zip(mb_state.as_deref())
+                    .is_some_and(|(solver, state)| {
+                        solver.can_fuse_iterations(
+                            state,
+                            args.num_internal_pgs_iterations.max(1),
+                            args.color_uniforms.len(),
+                        )
+                    });
+            #[cfg(not(feature = "dim3"))]
+            let fuse_iterations = false;
+            let iterations = if fuse_iterations {
+                1
+            } else {
+                args.num_internal_pgs_iterations.max(1)
+            };
+            for iteration in 0..iterations {
                 let first_iteration = iteration == 0;
                 // Only consumed by the dim3-only multibody phase.
                 #[cfg(not(feature = "dim3"))]
                 let _ = first_iteration;
                 mb_phase!(
                     "[RBD] slv/mb-solve-bias",
-                    substep_solve_with_bias,
-                    first_iteration
+                    substep_solve_with_bias_fused,
+                    first_iteration,
+                    fuse_iterations
                 );
                 if !skip_rb || !joints_empty {
                     let mut pass =
