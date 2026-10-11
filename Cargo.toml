@@ -21,7 +21,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -73,21 +73,21 @@ crunchy = "0.2.4"
 
 # Shader crates. The rbd shaders' default `entry-points` feature is left to each
 # member: the MPM shaders only need their types, not their kernels.
-nexus_rbd_shaders2d = { version = "0.6.0", path = "crates/nexus_rbd_shaders2d", default-features = false }
-nexus_rbd_shaders3d = { version = "0.6.0", path = "crates/nexus_rbd_shaders3d", default-features = false }
-nexus_mpm_shaders2d = { version = "0.6.0", path = "crates/nexus_mpm_shaders2d" }
-nexus_mpm_shaders3d = { version = "0.6.0", path = "crates/nexus_mpm_shaders3d" }
+nexus_rbd_shaders2d = { version = "0.7.0", path = "crates/nexus_rbd_shaders2d", default-features = false }
+nexus_rbd_shaders3d = { version = "0.7.0", path = "crates/nexus_rbd_shaders3d", default-features = false }
+nexus_mpm_shaders2d = { version = "0.7.0", path = "crates/nexus_mpm_shaders2d" }
+nexus_mpm_shaders3d = { version = "0.7.0", path = "crates/nexus_mpm_shaders3d" }
 
 # Internal crates. rbd is pulled both with defaults and with default-features
 # off (mpm wants just the dim feature), so it mirrors the rapier/parry pattern.
-nexus2d = { version = "0.6.0", path = "crates/nexus2d" }
-nexus3d = { version = "0.6.0", path = "crates/nexus3d" }
-nexus_rbd2d = { version = "0.6.0", path = "crates/nexus_rbd2d", default-features = false }
-nexus_rbd3d = { version = "0.6.0", path = "crates/nexus_rbd3d", default-features = false }
-nexus_mpm2d = { version = "0.6.0", path = "crates/nexus_mpm2d" }
-nexus_mpm3d = { version = "0.6.0", path = "crates/nexus_mpm3d" }
-nexus_viewer2d = { version = "0.6.0", path = "crates/nexus_viewer2d" }
-nexus_viewer3d = { version = "0.6.0", path = "crates/nexus_viewer3d" }
+nexus2d = { version = "0.7.0", path = "crates/nexus2d" }
+nexus3d = { version = "0.7.0", path = "crates/nexus3d" }
+nexus_rbd2d = { version = "0.7.0", path = "crates/nexus_rbd2d", default-features = false }
+nexus_rbd3d = { version = "0.7.0", path = "crates/nexus_rbd3d", default-features = false }
+nexus_mpm2d = { version = "0.7.0", path = "crates/nexus_mpm2d" }
+nexus_mpm3d = { version = "0.7.0", path = "crates/nexus_mpm3d" }
+nexus_viewer2d = { version = "0.7.0", path = "crates/nexus_viewer2d" }
+nexus_viewer3d = { version = "0.7.0", path = "crates/nexus_viewer3d" }
 
 [workspace.lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [

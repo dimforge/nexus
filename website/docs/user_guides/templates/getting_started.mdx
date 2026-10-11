@@ -10,7 +10,7 @@ import TabItem from '@theme/TabItem';
 **Nexus** is a physics engine for simulating rigid-bodies and deformable materials with compute shaders.
 It is available in <rust>2D and 3D, through the `nexus2d` and `nexus3d` crates</rust><python>3D, through the
 `nexus3d` module</python>. This page shows how to set up a simple simulation with a ball falling on a fixed ground.
-The guide describes the APIs in the 0.6 source tree; an older installed release may expose different methods.
+The guide describes the APIs in the 0.7 source tree; an older installed release may expose different methods.
 The following pages separate [rigid-body dynamics](./rigid_bodies.mdx) from
 [MPM particles and materials](./particles.mdx), with [simulation state and viewer](./simulation_structures.mdx)
 covering the common workflow.
@@ -40,8 +40,8 @@ Then create a new project and add the dependencies corresponding to the dimensio
 ```bash
 cargo new example-using-nexus
 cd example-using-nexus
-cargo add nexus2d@0.6 --features rbd,mpm
-cargo add nexus_viewer2d@0.6 pollster@1 anyhow@1
+cargo add nexus2d@0.7 --features rbd,mpm
+cargo add nexus_viewer2d@0.7 pollster@1 anyhow@1
 ```
 
 </TabItem>
@@ -50,8 +50,8 @@ cargo add nexus_viewer2d@0.6 pollster@1 anyhow@1
 ```bash
 cargo new example-using-nexus
 cd example-using-nexus
-cargo add nexus3d@0.6 --features rbd,mpm
-cargo add nexus_viewer3d@0.6 pollster@1 anyhow@1
+cargo add nexus3d@0.7 --features rbd,mpm
+cargo add nexus_viewer3d@0.7 pollster@1 anyhow@1
 ```
 
 </TabItem>

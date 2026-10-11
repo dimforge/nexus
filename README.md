@@ -49,7 +49,7 @@ Multibody contacts always use Coulomb, as in Rapier; 2D is unchanged.
 Pass these parameters to `RbdState::from_rapier` (identically for every environment),
 or call `NexusState::set_rbd_friction_model` before `finalize`. A live `RbdState`
 can switch all environments with `set_friction_model(&backend, model)`.
-Switching clears incompatible friction warmstarts and preserves normal warmstarts.
+Switching keeps the body poses and velocities but resets every contact warmstart.
 
 ## Prerequisites
 

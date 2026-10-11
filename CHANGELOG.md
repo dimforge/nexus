@@ -1,23 +1,125 @@
-## Unreleased
+## v0.7.0 (11 October 2026)
+
+The Python package `dimforge-nexus3d` is released as 0.3.0 alongside the crates.
+
+### Breaking changes
+
+- ⚠ `RbdSimParams` gains `normalized_contact_recycle_distance` and, in 3D, `friction_model`; its
+  `_padding*` fields are gone (2D keeps `_padding0`). Struct literals need `..Default::default()`.
+- ⚠ `RbdState::rigid_contact_constraints` returns `&ContactConstraints` (contact links, constraint
+  indices and the friction model's tiles) instead of `&Tensor<TwoBodyConstraint>`. Read contact
+  impulses with the new `RbdState::read_rigid_contact_impulses`.
+- ⚠ `GpuMultibodySet::links_static` returns `&Tensor<UVec4>`: static link records are interleaved
+  across environments per 16-byte quad, quad `q` of link `l` of env `e` at
+  `(l * LS_QUADS + q) * num_batches + e`. Decode it with `ls_soa_to_structs`. The
+  `links_workspace` buffer keeps its type but uses the same per-quad interleaving
+  (`ws_soa_to_structs` still decodes it).
+- ⚠ Renamed `RbdPipeline::fused_color_sweeps` and `RbdGraphKey::fused_color_sweeps` to
+  `fused_color_dispatches`, and `mb_sweep_indirect` to `mb_dispatch_indirect`.
+- ⚠ Removed `WarmstartArgs`, `GpuWarmstart::transfer_warmstart_impulses` and
+  `GpuColoring::dispatch_topo_gc`. `SolverArgs`, `ColoringArgs` and `ColorBucketsArgs` changed.
+- ⚠ The rbd shader crates only compile their kernels with the new `entry-points` feature (on by
+  default): crates depending on them with `default-features = false` must enable it to get the
+  kernels.
+- Shader crates: `TwoBodyConstraint` has a compact layout (its builder, infos, element and
+  normal/tangent part types are removed), the multibody Delassus kernels and
+  `MAX_MB_CONTACTS_PER_MB`/`MAX_MB_CONTACT_CONSTRAINTS_PER_MB` are removed,
+  `MultibodyLinkStatic::_pad0` is now `ancestor_dofs` (3D), `IndexedManifold`'s padding is
+  `recycle_extent`, `LbvhNode` has a new layout, and many kernel signatures changed.
+- Viewer: `DemoKind` gains `Stress`, `SimSettings` gains `rbd_substeps` and (3D)
+  `rbd_friction_model`, and `UiState` gains `wait_for_render`. Sensor rendering
+  (`render_sensor_rgb`/`depth`/`segmentation`) is not available on wasm32.
 
 ### Added
 
-- Python: `NexusViewer.set_deterministic` / `deterministic` (applied to the state by `sync`),
-  and `NexusState.set_deterministic`, `deterministic` and `steps` for states stepped without a
-  viewer sync.
-- Python: `NexusViewer.with_backend(name)` selects `"webgpu"`, `"cpu"`, `"metal"` or `"cuda"`,
-  raising `ValueError` for a backend the wheel was built without; `NexusViewer.backend_name()`
-  and `nexus3d.available_backends()` report the selection and what the wheel supports.
-- Python wheels: the macOS wheel is built with the `metal` feature (native Metal, alongside
-  WebGPU), and Linux aarch64 wheels are published.
+- Rapier's simplified friction model (3D): `FrictionModel::Simplified` solves one sliding
+  friction constraint at the manifold center plus one twist constraint, instead of friction at
+  every point (`FrictionModel::Coulomb`, the default). Multibody contacts always use Coulomb. Set
+  with `RbdSimParams::friction_model`, `NexusState::set_rbd_friction_model` or
+  `RbdState::set_friction_model`; switching keeps the bodies but resets the contact warmstarts.
+- Contact recycling: a pair whose relative pose drifted less than
+  `RbdSimParams::normalized_contact_recycle_distance` (times `length_unit`) since its contacts
+  were computed keeps them instead of running the narrow phase again. Also
+  `RbdSimParams::contact_recycle_distance` and `RbdState::set_contact_recycle_distance`.
+- `NexusState::set_rbd_substeps`/`rbd_substeps` and `RbdState::set_timestep` change the substep
+  count of a running simulation without resetting it.
+- `RbdState::read_rigid_contact_impulses` returns the last step's contact impulses as
+  `ContactImpulseSnapshot`s.
+- `NEXUS_NO_FUSED_SUBSTEPS` disables the fused multibody substep kernel (see below).
+- Static link layout helpers: `LinkStatics`, `LinkStaticRef`, `ls_soa_from_structs`,
+  `ls_soa_to_structs`, `LS_QUADS` and `LS_WORDS`.
+- Viewer: substeps slider, 3D friction-model selector, "Wait for render before stepping"
+  checkbox, and `NexusViewer::with_wait_for_render`, `with_rbd_friction_model` (3D) and
+  `with_snapshot` (saves a frame and quits, native only).
+- Demos: `--headless` and `--snapshot <frame> <path>` flags, and a "Rigid-bodies - stress tests"
+  group. 3D: brick rings (28k, 110k), brick walls (27k), pyramids (500k), ragdolls on cloth (24k),
+  box piles (4k, 32k), jointed drop (34k), box columns (100k). 2D: pyramids (1.3k, 5k, 20k), box
+  rain (1k, 5k, 90k), joint lattices (4k, 100k, 262k), wrecking balls (4k, 40k).
+- A user guide on nexus.dimforge.com, for Rust (2D and 3D) and Python, whose code snippets are
+  compiled and run by CI.
+- Python: `set_rbd_solver_params(friction_model="coulomb" | "simplified")` (an unknown name raises
+  `ValueError`), a `"friction_model"` key in `rbd_solver_params()`, and a `twist_impulse` key in
+  `debug_rigid_contact_impulses()`.
+- Python (already in 0.2.1): `NexusViewer.set_deterministic`/`deterministic` (applied to the
+  state by `sync`), and `NexusState.set_deterministic(viewer, enabled)`, `deterministic` and
+  `steps` for states stepped without a viewer sync.
+- Python (already in 0.2.1): `NexusViewer.with_backend(name)` selects `"webgpu"` (the default),
+  `"cpu"`, `"metal"` or `"cuda"`, raising `ValueError` for a backend the wheel was built without;
+  `NexusViewer.backend_name()` and `nexus3d.available_backends()` report the selection and what
+  the wheel supports.
+- Python wheels (already in 0.2.1): the macOS wheel is built with the `metal` feature (native
+  Metal, alongside WebGPU), and Linux aarch64 wheels are published.
 
 ### Fixed
 
+- Contacts against a fixed body were not warmstarted when the fixed body came second in the pair.
+- The graph coloring could give a constraint a color already used by a neighbor, so coloring
+  never converged and the color budget kept growing.
+- Multibodies with up to 8 DOFs had wrong dynamics with 1024 or more multibodies: joint damping,
+  armature, stiffness, kinematic DOFs and implicit Coriolis terms were ignored on all DOFs but
+  the first.
+- WebGPU: large batched scenes failed validation once the collision-pair buffers exceeded the
+  storage binding size limit. The pair capacity is now capped by that limit.
 - WebGPU: reading multibody state back no longer panics with a wgpu validation error. The
   multibody DoF state, static link data and (once joint friction is set) multibody info buffers
   lacked `COPY_SRC`, so `NexusState::multibody_joint_velocities` (Python: `robot_qvel`),
   `RbdState::snapshot` and `GpuMultibodySet::debug_cons_layout` failed. Native Metal ignores
   buffer usages, which hid the bug.
+- `RbdState::rigid_contact_constraints` and Python's `debug_rigid_contact_impulses` returned the
+  contacts of the step before last.
+- States built with `reserve_rigid_bodies` ignored the scene's timestep and substep count.
+- Large scenes ran their first steps on the slow single-workgroup solver path.
+- `nexus_viewer3d` did not build for wasm32.
+- The topological graph coloring did not build with cuda-oxide.
+- The demos now release the GPU memory of a demo when switching to the next one on CUDA.
+
+### Modified
+
+- Contact recycling is on by default (`0.05` times `length_unit`; `0` disables it), so results
+  differ from v0.6. Trimesh and polyline sub-shape contacts and multibody contacts are never
+  recycled. It stays active in deterministic mode, which remains reproducible.
+- Dynamic rigid bodies with more than 32 contact constraints are split into one sub-body per
+  contact, solved independently then averaged. Heavy bodies resting on many others converge
+  differently and no longer inflate the number of solver colors. Multibody links are not split.
+- Adaptive resize policies, including the default `Grow`, now also shrink the solver color budget
+  once the coloring converges, and large dense scenes (4096 colliders or more) start with 32
+  colors (64 from 65536 colliders). Deterministic mode keeps a fixed budget.
+- Native Metal runs small multibodies (up to 32 DOFs) with dedicated SIMD-group kernels. With one
+  such multibody per environment, explicit Coriolis terms, no substep refresh, at most 32 links
+  and no rigid-body contacts or impulse joints, the whole substep loop runs in a single dispatch.
+  Results can differ from the other backends by floating-point rounding.
+- `NexusViewer::sync` also applies the viewer's substep count and (3D) friction model to the
+  state after the scene's first sync. `NexusState::add_environment` copies environment 0's
+  friction model.
+- The 3D demos run with the simplified friction model, and the demos wait for rendering before
+  stepping so the GPU timings exclude it.
+- Performance: the LBVH is refit in parallel chunks and traversed without a stack, contact
+  constraints are compact, color-ordered tiles solved by specialized kernels, the coloring sizes
+  its dispatches from the previous step, and multibody batches use per-quad interleaved layouts,
+  right-sized workgroups and fused kernels, which mostly speeds up many environments with one
+  robot each.
+- The rbd kernels are no longer compiled into the MPM shaders, which cuts their build time and
+  memory and shrinks the binaries.
 
 ## v0.6.0 (4 October 2026)
 
