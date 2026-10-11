@@ -185,9 +185,11 @@ These are the only deliberate deviations; everything else matches the Rust names
   viewer internally.
 - **`viewer.add_directional_light(dir)`** is a shortcut for
   `viewer.scene3d_mut().add_directional_light(dir)`.
-- **Backend selection** uses `viewer.with_cpu()` / `viewer.with_metal()` /
-  `viewer.with_cuda()` (the `with_metal`/`with_cuda` methods exist only when the
-  crate is built with that feature).
+- **Backend selection** uses `viewer.with_backend(name)` with `"webgpu"` (the
+  default), `"cpu"`, `"metal"` or `"cuda"`; `nexus3d.available_backends()` lists
+  the names the installed wheel supports (the macOS wheels include Metal).
+  `viewer.with_cpu()` / `with_metal()` / `with_cuda()` remain as shortcuts, the
+  last two only in builds with that feature.
 
 ### Threading
 
