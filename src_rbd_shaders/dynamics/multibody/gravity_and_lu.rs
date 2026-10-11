@@ -57,8 +57,9 @@ pub(super) fn apply_spring_forces(
     dt: f32,
 ) {
     for k in 0..num_links {
-        let stat = stat_slice.get(k as usize);
-        let locked = stat.data.locked_axes;
+        let stat = stat_slice.at(k as usize);
+        let locked = stat.locked_axes();
+        let aid = stat.assembly_id();
         let mut curr_free = 0u32;
         // Free axes in `0..SPATIAL_DIM` order = linear DOFs then angular
         // DOFs, matching the generalized-coordinate layout.
@@ -66,7 +67,7 @@ pub(super) fn apply_spring_forces(
             if (locked & (1 << axis)) != 0 {
                 continue;
             }
-            let dof = (stat.assembly_id + curr_free) as usize;
+            let dof = (aid + curr_free) as usize;
             let k_s = stiffness_slice[dof];
             if k_s != 0.0 {
                 let q = ws_coord(links_workspace, wa, k, axis);
@@ -187,8 +188,7 @@ pub fn gpu_mb_gravity_and_lu(
             };
 
             if k != 0 {
-                let stat = stat_slice.get(k as usize);
-                let pid = stat.parent_link_id;
+                let pid = stat_slice.at(k as usize).parent_link_id();
                 let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
                 let parent_acc_lin = parent_acc.linear;
                 let parent_acc_ang = parent_acc.angular;
@@ -234,7 +234,7 @@ pub fn gpu_mb_gravity_and_lu(
         if active {
             #[cfg(feature = "dim3")]
             let rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
-            let lmp = stat_slice.get(k as usize).local_mprops;
+            let lmp = stat_slice.at(k as usize).local_mprops();
             let inv_mass_x = lmp.inv_mass.x;
             if inv_mass_x != 0.0 {
                 let mass = 1.0 / inv_mass_x;
@@ -509,8 +509,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
             };
 
             if k != 0 {
-                let stat = stat_slice.get(k as usize);
-                let pid = stat.parent_link_id;
+                let pid = stat_slice.at(k as usize).parent_link_id();
                 let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
                 let parent_acc_lin = parent_acc.linear;
                 let parent_acc_ang = parent_acc.angular;
@@ -556,7 +555,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
         if active {
             #[cfg(feature = "dim3")]
             let rb_ang = ws_vel_ang(links_workspace, wa, k, WS_RB_VELS);
-            let lmp = stat_slice.get(k as usize).local_mprops;
+            let lmp = stat_slice.at(k as usize).local_mprops();
             let inv_mass_x = lmp.inv_mass.x;
             if inv_mass_x != 0.0 {
                 let mass = 1.0 / inv_mass_x;
@@ -825,8 +824,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
         };
 
         if k != 0 {
-            let stat = stat_slice.get(k as usize);
-            let pid = stat.parent_link_id;
+            let pid = stat_slice.at(k as usize).parent_link_id();
             let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
             let parent_acc_lin = parent_acc.linear;
             let parent_acc_ang = parent_acc.angular;
@@ -862,7 +860,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
             Velocity::new(acc_lin, acc_ang),
         );
 
-        let lmp = stat_slice.get(k as usize).local_mprops;
+        let lmp = stat_slice.at(k as usize).local_mprops();
         let inv_mass_x = lmp.inv_mass.x;
         if inv_mass_x != 0.0 {
             let mass = 1.0 / inv_mass_x;

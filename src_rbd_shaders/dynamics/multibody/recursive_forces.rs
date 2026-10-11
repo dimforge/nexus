@@ -145,8 +145,7 @@ pub fn gpu_mb_recursive_forces(
         };
 
         if k != 0 {
-            let stat = stat_slice.get(k as usize);
-            let pid = stat.parent_link_id;
+            let pid = stat_slice.at(k as usize).parent_link_id();
             let parent_acc = ws_vel(links_workspace, wa, pid, WS_KIN_ACC);
             let parent_acc_lin = parent_acc.linear;
             let parent_acc_ang = parent_acc.angular;
@@ -182,7 +181,7 @@ pub fn gpu_mb_recursive_forces(
             Velocity::new(acc_lin, acc_ang),
         );
 
-        let lmp = stat_slice.get(k as usize).local_mprops;
+        let lmp = stat_slice.at(k as usize).local_mprops();
         let inv_mass_x = lmp.inv_mass.x;
         if inv_mass_x != 0.0 {
             let mass = 1.0 / inv_mass_x;
@@ -208,14 +207,15 @@ pub fn gpu_mb_recursive_forces(
 
     for reverse in 0..num_links {
         let k = num_links - 1 - reverse;
-        let stat = stat_slice.get(k as usize);
+        let stat = stat_slice.at(k as usize);
+        let (aid, ndofs_k, parent) = (stat.assembly_id(), stat.ndofs(), stat.parent_link_id());
         let force = read_wrench(scratch, lin0, ang0, k);
         let jac = MatSlice::dense(
             jac0 + k as usize * SPATIAL_DIM * ndofs as usize,
             SPATIAL_DIM as u32,
             ndofs,
         );
-        for dof in stat.assembly_id..stat.assembly_id + stat.ndofs {
+        for dof in aid..aid + ndofs_k {
             #[cfg(feature = "dim3")]
             let jlin = Vec3::new(
                 body_jacobians.read(jac.idx(0, dof)),
@@ -241,7 +241,6 @@ pub fn gpu_mb_recursive_forces(
             );
         }
         if k > 0 {
-            let parent = stat.parent_link_id;
             let old = read_wrench(scratch, lin0, ang0, parent);
             let r = ws_vec(links_workspace, wa, k, super::ws_soa::WS_WORLD_COM)
                 - ws_vec(links_workspace, wa, parent, super::ws_soa::WS_WORLD_COM);

@@ -14,10 +14,11 @@ use super::types::{MAX_JOINT_DOFS, MultibodyLinkStatic};
 #[inline]
 pub fn zero_kinematic_dofs(dst: &mut [f32], base: usize, stat_slice: &LinkStatics, num_links: u32) {
     for k in 0..num_links {
-        let stat = stat_slice.get(k as usize);
-        if stat.kinematic != 0 {
-            for d in 0..stat.ndofs {
-                dst.write(base + (stat.assembly_id + d) as usize, 0.0);
+        let stat = stat_slice.at(k as usize);
+        let (kinematic, ndofs, aid) = (stat.kinematic(), stat.ndofs(), stat.assembly_id());
+        if kinematic != 0 {
+            for d in 0..ndofs {
+                dst.write(base + (aid + d) as usize, 0.0);
             }
         }
     }

@@ -299,7 +299,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
             let mut mass = 0.0;
 
             if loop_is_active {
-                let lmp = stat_slice.get(k as usize).local_mprops;
+                let lmp = stat_slice.at(k as usize).local_mprops();
 
                 inv_mass_x = lmp.inv_mass.x;
 
@@ -347,7 +347,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
             let mut rb_inertia = Default::default();
 
             if loop_is_active {
-                let lmp = stat_slice.get(k as usize).local_mprops;
+                let lmp = stat_slice.at(k as usize).local_mprops();
                 mass = 1.0 / inv_mass_x;
                 rb_inertia = ws_world_inertia(links_workspace, wa, k, &lmp);
 
@@ -370,8 +370,7 @@ fn dynamics_pre<const KINEMATICS_READY: bool>(
                 );
 
                 if split && k != 0 {
-                    let stat = stat_slice.get(k as usize);
-                    let parent_id = stat.parent_link_id;
+                    let parent_id = stat_slice.at(k as usize).parent_link_id();
                     let parent_j = MatSlice::dense(
                         jac0 + (parent_id as usize) * SPATIAL_DIM * (ndofs as usize),
                         SPATIAL_DIM as u32,
@@ -762,7 +761,7 @@ fn forward_kinematics(
         let local_to_parent = stat.body_to_parent(jr, &coords);
         let local_to_world = parent_to_world * local_to_parent;
 
-        let parent_lmp = stat_slice.get(stat.parent_link_id as usize).local_mprops;
+        let parent_lmp = stat_slice.at(stat.parent_link_id as usize).local_mprops();
         let lmp = stat.local_mprops;
         let world_com = local_to_world * lmp.com;
         let parent_com_world = parent_to_world * parent_lmp.com;
@@ -998,7 +997,7 @@ fn propagate_velocities(
             let parent_rb_lin = parent_rb.linear;
             let parent_rb_ang = parent_rb.angular;
 
-            let parent_lmp = stat_slice.get(parent_id as usize).local_mprops;
+            let parent_lmp = stat_slice.at(parent_id as usize).local_mprops();
             let transform_rot = parent_to_world_rot * stat.data.local_frame_a.rotation;
 
             #[cfg(feature = "dim3")]

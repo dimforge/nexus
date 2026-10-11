@@ -97,9 +97,9 @@ pub fn gpu_mb_integrate(
     // in place through `&mut ws_slice[k]` so SPIR-V emits field-targeted stores
     // instead of a whole `MultibodyLinkWorkspace` round-trip (~240 B in 3D).
     for k in 0..num_links {
-        let stat = stat_slice.get(k as usize);
-        let locked = stat.data.locked_axes;
-        let aid = stat.assembly_id as usize;
+        let stat = stat_slice.at(k as usize);
+        let locked = stat.locked_axes();
+        let aid = stat.assembly_id() as usize;
 
         // Free linear DOFs first, in axis order.
         let mut curr_free = 0u32;

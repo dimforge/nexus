@@ -35,14 +35,15 @@ pub fn ls_word_position(w: usize) -> (usize, usize) {
     (w / 4, w % 4)
 }
 
+/// Lane `lane` of `q`, without branches: a `match` costs a four-way switch per
+/// word until the linker folds it, which bloats every record read.
 #[inline(always)]
 fn quad_lane(q: UVec4, lane: usize) -> u32 {
-    match lane {
-        0 => q.x,
-        1 => q.y,
-        2 => q.z,
-        _ => q.w,
-    }
+    let odd = 0u32.wrapping_sub(lane as u32 & 1);
+    let high = 0u32.wrapping_sub((lane as u32 >> 1) & 1);
+    let lo = q.x ^ ((q.x ^ q.y) & odd);
+    let hi = q.z ^ ((q.z ^ q.w) & odd);
+    lo ^ ((lo ^ hi) & high)
 }
 
 /// Interleaved view of one batch's link records (see the module docs).
@@ -77,18 +78,23 @@ impl<'a> LinkStatics<'a> {
     /// Word `w` of link `k`'s record.
     #[inline(always)]
     pub fn word(&self, k: usize, w: usize) -> u32 {
-        let (q, lane) = ls_word_position(w);
-        quad_lane(
-            self.buf
-                .read(ls_quad_index(self.base + k, q, self.stride, self.shift)),
-            lane,
-        )
+        let first = (self.base + k) * LS_QUADS as usize;
+        let (stride, shift) = (self.stride as usize, self.shift as usize);
+        quad_lane(self.buf.read((first + w / 4) * stride + shift), w % 4)
     }
 
     /// Link `k`'s record.
     #[inline(always)]
     pub fn get(&self, k: usize) -> MultibodyLinkStatic {
-        MultibodyLinkStatic::from_words(|w| self.word(k, w), 0)
+        // Flat per-word code (no helper chain): it is inlined for each of the
+        // record's words at every call site, and the shader linker's memory
+        // grows with it.
+        let first = (self.base + k) * LS_QUADS as usize;
+        let (buf, stride, shift) = (self.buf, self.stride as usize, self.shift as usize);
+        MultibodyLinkStatic::from_words(
+            move |w| quad_lane(buf.read((first + w / 4) * stride + shift), w % 4),
+            0,
+        )
     }
 }
 
@@ -112,6 +118,24 @@ impl LinkStaticRef<'_> {
     #[inline(always)]
     fn word(&self, w: usize) -> u32 {
         self.statics.word(self.k, w)
+    }
+
+    #[inline(always)]
+    pub fn rb_id(&self) -> u32 {
+        self.word(offset_of!(MultibodyLinkStatic, rb_id) / 4)
+    }
+
+    #[inline(always)]
+    pub fn parent_link_id(&self) -> u32 {
+        self.word(offset_of!(MultibodyLinkStatic, parent_link_id) / 4)
+    }
+
+    #[inline(always)]
+    pub fn local_mprops(&self) -> LocalMassProperties {
+        LocalMassProperties::from_words(
+            |w| self.word(w),
+            offset_of!(MultibodyLinkStatic, local_mprops) / 4,
+        )
     }
 
     #[inline(always)]
