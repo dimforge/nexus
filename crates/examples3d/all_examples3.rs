@@ -201,9 +201,11 @@ pub async fn main() {
     } else {
         NexusViewer::new(demos.clone()).await
     };
+    // The testbed runs every demo with the twist friction model by default.
     viewer = viewer
         .with_selected_demo(selected)
-        .with_wait_for_render(true);
+        .with_wait_for_render(true)
+        .with_rbd_friction_model(nexus3d::rbd::dynamics::FrictionModel::Simplified);
     if opts.cpu {
         viewer = viewer.with_cpu();
     }
