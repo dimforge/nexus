@@ -22,8 +22,11 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [features]
-default = ["dim2"]
+default = ["dim2", "entry-points"]
 dim2 = []
+# Compiles the kernels into the SPIR-V. Shader crates that only use this crate's
+# types and functions disable it so that the kernels are not linked into theirs.
+entry-points = []
 unsafe_remove_boundchecks = [
     "vortx-shaders/unsafe_remove_boundchecks",
     "khal-std/unsafe_remove_boundchecks",

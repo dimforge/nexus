@@ -82,6 +82,7 @@ pub(super) fn apply_spring_forces(
 }
 
 /// Fused gravity / Coriolis-force assembly + LU factor + LU solve.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_gravity_and_lu(
@@ -736,6 +737,7 @@ fn gravity_and_lu_packed_impl<const T: u32, const MATN: usize, const SLOTS: usiz
 }
 
 /// Serial version of the fused gravity + LU kernel.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_gravity_and_lu_t1(
@@ -971,6 +973,7 @@ pub fn gpu_mb_gravity_and_lu_t1(
 macro_rules! gravity_and_lu_packed_entry {
     ($(#[$doc:meta])* $name:ident, $t:literal, $matn:literal, $slots:literal) => {
         $(#[$doc])*
+        #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
         #[spirv_bindgen]
         #[spirv(compute(threads(64, 1, 1)))]
         pub fn $name(

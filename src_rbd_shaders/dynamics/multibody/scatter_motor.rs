@@ -46,6 +46,7 @@ pub struct MbDelayTickParams {
 /// One thread per (actuated joint `x`, env `y`). Writes `target_pos` into the
 /// matching motor and sets its `motor_axes` bit, like `set_motor` does on the
 /// host, but without touching the CPU mirror.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_scatter_motor_targets(
@@ -98,6 +99,7 @@ pub fn gpu_scatter_motor_targets(
 ///
 /// Dispatch `[num_actuated, num_envs, 1]` threads; lane `j == 0` also writes the
 /// two scalar lanes.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_delay_state_update(
@@ -130,6 +132,7 @@ pub fn gpu_mb_delay_state_update(
 /// Dispatched once per physics step, before the joint constraints are built, so
 /// the tick is stable across all of that step's substeps regardless of the
 /// constraint-refresh cadence. Dispatch `[num_envs, 1, 1]` threads.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_delay_tick(

@@ -14,6 +14,7 @@ use super::sorting::{BIN_COUNT, BLOCK_SIZE, ELEMENTS_PER_THREAD, WG, div_ceil};
 /// Radix sort scan kernel.
 ///
 /// Computes exclusive prefix sums of reduced histogram counts.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_sort_scan(

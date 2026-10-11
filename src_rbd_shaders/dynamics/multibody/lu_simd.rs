@@ -149,6 +149,7 @@ pub(super) fn factor_solve(
     each_reg!(store);
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(32)))]
 pub fn gpu_mb_factor_solve_simd(

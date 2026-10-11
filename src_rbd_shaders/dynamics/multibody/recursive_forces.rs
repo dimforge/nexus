@@ -51,6 +51,7 @@ fn write_wrench(buf: &mut [f32], lin0: usize, ang0: usize, k: u32, f: Velocity) 
     }
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_recursive_forces(

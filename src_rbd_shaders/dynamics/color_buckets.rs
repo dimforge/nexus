@@ -40,6 +40,7 @@ fn bucket_color(color: u32, len: u32, stride: u32) -> u32 {
 
 /// Zeroes the `(color, batch)` bucket counts (flat 1-D grid over the whole
 /// bucket buffer).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_color_buckets_reset(
@@ -54,6 +55,7 @@ pub fn gpu_color_buckets_reset(
 
 /// Counts how many constraints fall in each `(color, batch)` bucket, and marks every sorted
 /// link as inactive before the scatter fills them.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_color_buckets_count(
@@ -121,6 +123,7 @@ pub fn gpu_color_buckets_count(
 /// Scatters each constraint link into its `(color, batch)` bucket. The bucket
 /// buffer holds the scanned exclusive starts, used as cursors; after this pass
 /// every entry is its bucket's exclusive end.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_color_buckets_scatter(
@@ -207,6 +210,7 @@ pub struct ColorStats {
 /// Sizes the colored dispatches from the color buckets: their grid only needs to cover the
 /// largest color (the solve kernels stride over their bucket), not every contact. Also records the
 /// highest color in use, read back to adapt the color budget. One workgroup.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_color_dispatch_grid(

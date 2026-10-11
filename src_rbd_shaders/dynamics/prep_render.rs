@@ -69,6 +69,7 @@ pub struct RbdInstanceDesc {
 /// GPU kernel: write per-instance render data straight into the renderer's
 /// instance buffers. Dispatched with one thread per instance.
 #[cfg(feature = "dim3")]
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_rbd_prep_render(
@@ -121,6 +122,7 @@ pub fn gpu_rbd_prep_render(
 /// GPU kernel: write per-instance render data straight into the renderer's
 /// instance buffers (2D). Dispatched with one thread per instance.
 #[cfg(feature = "dim2")]
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_rbd_prep_render(

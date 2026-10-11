@@ -161,6 +161,7 @@ pub struct JointConstraintElement {
 }
 
 /// Initializes joint constraint builders and constraints.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_init_joint_constraints(
@@ -217,6 +218,7 @@ pub fn gpu_init_joint_constraints(
 }
 
 /// Updates joint constraints for a new substep.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_update_joint_constraints(
@@ -254,6 +256,7 @@ pub fn gpu_update_joint_constraints(
 }
 
 /// Solves joint constraints.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solve_joint_constraints(

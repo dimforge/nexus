@@ -18,6 +18,7 @@ use glamx::UVec2;
 use rapier::geometry::InteractionGroups;
 
 /// Computes every active collider's world AABB.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_bf_compute_aabbs(
@@ -47,6 +48,7 @@ pub fn gpu_bf_compute_aabbs(
 
 /// Tests every collider pair of every batch and appends the intersecting,
 /// unfiltered ones to `collision_pairs`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_bf_find_pairs(
@@ -117,6 +119,7 @@ pub fn gpu_bf_find_pairs(
     }
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_bf_find_pairs_serial(

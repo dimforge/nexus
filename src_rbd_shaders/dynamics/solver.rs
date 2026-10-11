@@ -20,6 +20,7 @@ const WORKGROUP_SIZE: u32 = 64;
 
 /// Counts, per body, how many constraints touch it (the adjacency lists of mass splitting,
 /// graph coloring and the warmstart gather).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solver_count_constraints(
@@ -72,6 +73,7 @@ fn touches_multibody(im: &IndexedManifold, body_is_multibody: &Slice<'_, u32>) -
     body_is_multibody[im.bodies.x as usize] != 0 || body_is_multibody[im.bodies.y as usize] != 0
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solver_sort_constraints(
@@ -114,6 +116,7 @@ pub fn gpu_solver_sort_constraints(
 }
 
 /// Cleans up solver state and initializes solver velocities.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solver_cleanup(
@@ -152,6 +155,7 @@ pub fn gpu_solver_cleanup(
 }
 
 /// Initializes solver velocity increments (gravity, external forces).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_init_solver_vels_inc(
@@ -184,6 +188,7 @@ pub fn gpu_init_solver_vels_inc(
 }
 
 /// Applies solver velocity increments to solver velocities.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_apply_solver_vels_inc(
@@ -204,6 +209,7 @@ pub fn gpu_apply_solver_vels_inc(
 }
 
 /// Integrates velocity to update poses.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_integrate_linearized(
@@ -258,6 +264,7 @@ pub fn gpu_integrate_linearized(
 ///
 /// `solver_body_pose = body_pose.prepend_translation(local_com)`. Mirrors
 /// rapier's `SolverBodies::copy_from`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_init_solver_bodies(
@@ -288,6 +295,7 @@ pub fn gpu_init_solver_bodies(
 ///
 /// `body_pose = solver_body_pose.prepend_translation(-local_com)`. Mirrors
 /// rapier's `velocity_solver::writeback_bodies`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_solver_finalize(

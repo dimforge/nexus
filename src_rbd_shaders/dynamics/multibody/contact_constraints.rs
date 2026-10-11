@@ -215,6 +215,7 @@ fn mb_contact_owner(
 /// (interleaved `mb * num_batches + batch`) and must be zero on entry (the
 /// offsets scan re-zeroes them after consuming them). Grid:
 /// `contacts_indirect`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_count_contact_constraints(
@@ -248,6 +249,7 @@ pub fn gpu_mb_count_contact_constraints(
 /// totals in shared memory. The reserved slots and the extra-budget prefix use
 /// the same multibody order as the serial allocator, including under overflow.
 /// No extra device buffers or dispatches are needed.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_mb_cons_offsets_scan(
@@ -329,6 +331,7 @@ pub fn gpu_mb_cons_offsets_scan(
 /// atomic race; the emission's warmstart matching is key-based, so the order
 /// only affects the (already nondeterministic) impulse iteration order.
 /// Grid: `contacts_indirect`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_scatter_contact_index(
@@ -372,6 +375,7 @@ pub fn gpu_mb_scatter_contact_index(
 /// "previous frame" bounds the warmstart transfer matches against. Runs at
 /// step start, before the new layout is computed. One thread per (multibody,
 /// batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_save_prev_cons_bounds(
@@ -402,6 +406,7 @@ pub fn gpu_mb_save_prev_cons_bounds(
 /// contacts (each side a different multibody) are not handled — such contacts
 /// never enter the index.
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_contact_constraints(
@@ -838,6 +843,7 @@ pub fn gpu_mb_init_contact_constraints(
 ///
 /// One thread per slot. Only the slots of the previous frame's segments are
 /// copied: they all lie below its total demand (see `gpu_mb_cons_offsets_scan`).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_snapshot_contact_warmstart(
@@ -864,6 +870,7 @@ pub fn gpu_mb_snapshot_contact_warmstart(
 /// clamping).
 ///
 /// One lane per DOF; large batches pack two small multibodies per workgroup.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_warmstart_contact_constraints(
@@ -958,6 +965,7 @@ pub fn gpu_mb_warmstart_contact_constraints(
 /// Pass 2: for each emitted constraint, build its multibody-side `Jᵀ` row,
 /// LU back-solve `M · column = Jᵀ` and set `inv_lhs = 1 / (Jᵀ · column +
 /// free_body_inv_r)`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_contact_constraints(
@@ -1101,6 +1109,7 @@ pub fn gpu_mb_finalize_contact_constraints(
 /// basis. Runs once per frame, right after the first build.
 ///
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_transfer_contact_warmstart(
@@ -1215,6 +1224,7 @@ pub fn gpu_mb_transfer_contact_warmstart(
 /// right after the first `finalize`.
 ///
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_seed_contact_restitution(
@@ -1287,6 +1297,7 @@ pub fn gpu_mb_seed_contact_restitution(
 /// solve with `rhs = restitution_seed` and no CFM.
 ///
 /// One 64-lane workgroup per (multibody, batch).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_apply_contact_restitution(

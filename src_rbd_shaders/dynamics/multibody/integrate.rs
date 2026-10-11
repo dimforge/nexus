@@ -28,6 +28,7 @@ use super::ws_soa::{WS_JOINT_ROT, WsAddr, ws_coord, ws_set_coord, ws_set_rot};
 /// Split out from the position-update half so that joint-limit / motor
 /// constraints can run in between (rapier's order: velocity update → constraint
 /// solver → position update).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_integrate_velocities(
@@ -61,6 +62,7 @@ pub fn gpu_mb_integrate_velocities(
     }
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_integrate(

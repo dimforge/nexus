@@ -503,6 +503,7 @@ fn refresh_slot(
 /// warmstart. Requires one multibody per environment with at most 32 DOFs, 32
 /// links and 64 joint slots, and a 32-wide subgroup; the host checks all of
 /// this.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(32)))]
 pub fn gpu_mb_substeps_packed(

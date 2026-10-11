@@ -19,6 +19,7 @@ use super::sorting::SortUniforms;
 /// `config.shift` is repurposed to carry `num_batches` (shift is unused by this kernel).
 /// `num_keys_arr[batch_id]` gives the number of active keys in each batch.
 /// Elements beyond the active count get sentinel keys (0xFFFFFFFF).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_init_sort_batched(

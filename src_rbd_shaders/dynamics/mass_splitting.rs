@@ -82,6 +82,7 @@ fn constraint_range(counts: &Slice<u32>, body: u32) -> (u32, u32) {
 ///
 /// Runs after the per-body constraint lists are built (`body_constraint_counts` holds each
 /// body's cumulative end). `hub_first_slot` and the hub counters must have been reset.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_hub_assign(
@@ -127,6 +128,7 @@ pub fn gpu_hub_assign(
 ///
 /// One workgroup per hub, striding over its adjacency entries. Ordinary bodies
 /// never enter this pass; no per-contact binary search of body ranges is needed.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_hub_split_constraints(
@@ -170,6 +172,7 @@ pub fn gpu_hub_split_constraints(
 }
 
 /// Sizes hub-only dispatches after assignment, including the zero-hub case.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_hub_dispatch(
@@ -184,6 +187,7 @@ pub fn gpu_hub_dispatch(
 }
 
 /// Copies each hub's velocity into its sub-body slots.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_hub_scatter(
@@ -202,6 +206,7 @@ pub fn gpu_hub_scatter(
 }
 
 /// Averages the sub-body velocities back into their hub. One workgroup per hub.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_hub_average(

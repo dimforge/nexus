@@ -19,6 +19,7 @@ use super::sorting::{
 /// Scatters keys and values to their sorted positions using computed prefix sums.
 /// When `config.has_aux != 0`, also scatters an auxiliary buffer (used for batch_ids
 /// in flattened batched sort).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_sort_scatter(

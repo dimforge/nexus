@@ -51,6 +51,7 @@ pub struct ContactPlan {
 }
 
 /// Resets the (single, global) PFM work-list counter.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_reset_narrow_phase(
@@ -75,6 +76,7 @@ pub fn gpu_reset_narrow_phase(
 /// NOTE: the counter loads must be atomic or they occasionally read stale
 /// data (breaks Windows+Nvidia+wgpu, see
 /// <https://github.com/gfx-rs/wgpu/issues/9221>).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_contact_plan(
@@ -118,6 +120,7 @@ pub fn gpu_contact_plan(
 /// Copies each PFM entry's originating pair index into the flat sort-key
 /// buffer consumed by the radix sort that groups the entries per pair (only
 /// dispatched when contact reduction is enabled).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_pfm_sort_keys(
@@ -136,6 +139,7 @@ pub fn gpu_pfm_sort_keys(
 
 /// Keys of the first pass of the deterministic PFM sort: the sub-shape of each entry.
 /// The reduction merges the entries of a pair in order, so this order must be fixed.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_pfm_sub_shape_sort_keys(
@@ -153,6 +157,7 @@ pub fn gpu_pfm_sub_shape_sort_keys(
 }
 
 /// Keys of the second pass of the deterministic PFM sort: the pair index of each entry.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_pfm_pair_sort_keys_permuted(
@@ -228,6 +233,7 @@ fn pool_dedup(cand: &mut [ContactPoint; 8], num: &mut usize, pt: ContactPoint, d
 /// one manifold and never enter the PFM list, so they need no reduction.
 /// Grid: `pfm_indirect`.
 #[cfg(feature = "dim3")]
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_reduce_contacts(
@@ -361,6 +367,7 @@ pub fn gpu_reduce_contacts(
 ///
 /// The complex cases (generic convex via PFM, trimesh, polyline) are deferred
 /// to `gpu_narrow_phase_shape_shape_deferred`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_narrow_phase_shape_shape(
@@ -475,6 +482,7 @@ pub fn gpu_narrow_phase_shape_shape(
 /// `gpu_narrow_phase_pfm_pfm`. Ball / cuboid pairs were already resolved by
 /// `gpu_narrow_phase_shape_shape`; this pass skips them via the same shape-type
 /// predicate. See that kernel for why the work is split.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_narrow_phase_shape_shape_deferred(
@@ -855,6 +863,7 @@ pub struct NarrowPhasePfmPair {
 /// identity permutation normally, or the pair-sorted permutation when contact
 /// reduction is enabled (so each pair's manifolds land in one contiguous run
 /// of slots for `gpu_reduce_contacts`).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))] // TODO PERF: pfm_pfm is very divergent. Use a smaller workgroup size?
 pub fn gpu_narrow_phase_pfm_pfm(

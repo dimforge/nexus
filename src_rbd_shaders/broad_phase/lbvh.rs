@@ -70,6 +70,7 @@ fn max_extent(aabb: &Aabb) -> f32 {
 pub const NO_ESCAPE: u32 = u32::MAX;
 
 /// Resets the (single, global) collision pairs counter.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_reset_collision_pairs(
@@ -87,6 +88,7 @@ pub fn gpu_lbvh_reset_collision_pairs(
 ///
 /// NOTE: the load must be atomic or it occasionally reads stale data (breaks
 /// Windows+Nvidia+wgpu, see <https://github.com/gfx-rs/wgpu/issues/9221>).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_flat_list_dispatch(
@@ -109,6 +111,7 @@ pub const DOMAIN_WORKGROUPS: u32 = 64;
 
 /// Min/max reduction of the collider positions, first pass: each of the batch's workgroups
 /// reduces a share of them into `partials`, merged by [`gpu_lbvh_domain_merge`].
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(128)))]
 pub fn gpu_lbvh_compute_domain(
@@ -174,6 +177,7 @@ pub fn gpu_lbvh_compute_domain(
 
 /// Min/max reduction of the collider positions, second pass: one workgroup per batch merges
 /// the partial domains of [`gpu_lbvh_compute_domain`].
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_domain_merge(
@@ -216,6 +220,7 @@ pub fn gpu_lbvh_domain_merge(
 }
 
 /// Computes Morton codes for all colliders.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_compute_morton(
@@ -246,6 +251,7 @@ pub fn gpu_lbvh_compute_morton(
 ///
 /// This only computes the tree topology (children and parent pointers).
 /// This doesn't update the bounding boxes. Call `refit` for updating bounding boxes!
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_build(
@@ -351,6 +357,7 @@ pub fn gpu_lbvh_build(
 
 /// Computes the escape index of every node: the right sibling of its first ancestor (itself
 /// included) that is a left child.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_escapes(
@@ -384,6 +391,7 @@ pub fn gpu_lbvh_escapes(
 }
 
 /// Computes leaf AABBs from shapes.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_refit_leaves(
@@ -489,6 +497,7 @@ fn refit_node(tree: &mut SliceMut<LbvhNode>, node: u32) {
 /// arrival counter only needs workgroup barriers. A lane stops at a node whose parent's leaves
 /// cross the chunk boundary, and appends it to the batch's frontier list, which
 /// [`gpu_lbvh_refit_frontier`] finishes.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_lbvh_refit_chunks(
@@ -565,6 +574,7 @@ pub fn gpu_lbvh_refit_chunks(
 /// Reduce the actual frontier sizes to a uniform loop bound for the web refit.
 /// A storage load indexed by `workgroup_id` does not pass WGSL uniformity analysis;
 /// a separate uniform buffer does, without iterating over every possible leaf.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_lbvh_refit_plan(
@@ -585,6 +595,7 @@ pub fn gpu_lbvh_refit_plan(
 
 /// Second phase of the bottom-up refit: one workgroup per batch refits the nodes spanning
 /// several chunks, starting from the frontier left by [`gpu_lbvh_refit_chunks`].
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(256)))]
 pub fn gpu_lbvh_refit_frontier(
@@ -668,6 +679,7 @@ const PAIRS_PER_THREAD: usize = 8;
 ///
 /// Each workgroup gathers its pairs in workgroup memory and reserves their range of the pair
 /// buffer with one atomic, so a workgroup's pairs (of nearby leaves) stay contiguous.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_lbvh_find_collision_pairs(

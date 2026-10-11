@@ -35,7 +35,9 @@ cuda = []
 cuda-oxide = ["cuda", "khal-std/cuda-oxide", "vortx-shaders/cuda-oxide", "nexus_rbd_shaders3d/cuda-oxide"]
 
 [dependencies]
-nexus_rbd_shaders3d = { workspace = true }
+# Without `entry-points`: linking the rbd kernels into the MPM shaders would
+# double their compile time and memory for kernels that are never loaded.
+nexus_rbd_shaders3d = { workspace = true, features = ["dim3"] }
 vortx-shaders = { workspace = true }
 khal-std = { workspace = true }
 unroll = { workspace = true }

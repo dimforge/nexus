@@ -62,6 +62,7 @@ fn packed_decode(wg_id: UVec3, lid: UVec3, batch_ids: &BatchIndices) -> (u32, u3
 /// Fused FK + body-jacobians + velocity propagation + CRBA mass matrix.
 /// Coriolis blocks run only when implicit coriolis is enabled (non-zero
 /// `mass_matrix_acc_section_offset`).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen(force_cpu_coroutines)]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_compute_dynamics_pre(
@@ -94,6 +95,7 @@ pub fn gpu_mb_compute_dynamics_pre(
     );
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen(force_cpu_coroutines)]
 #[spirv(compute(threads(64, 1, 1)))]
 pub fn gpu_mb_compute_dynamics_parallel(
@@ -1028,6 +1030,7 @@ fn propagate_velocities(
 }
 
 /// Keep serial tree traversals densely packed across independent multibodies.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_kinematics_serial(

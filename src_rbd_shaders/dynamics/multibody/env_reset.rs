@@ -81,6 +81,7 @@ pub struct EnvResetBodiesParams {
 /// velocity section of `dof_state` is written; the sections after it are
 /// static configuration (damping, armature, springs), not per-episode state.
 /// The generalized coordinates live in the workspace quads copied above.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_env_reset(
@@ -139,6 +140,7 @@ pub fn gpu_mb_env_reset(
 /// `link_flags` is constant per robot: bit 0 = a valid link of a free-root
 /// multibody (translate `WS_LTW`), bit 1 = that link is the root (translate
 /// `WS_LTP` and coords c0..c2).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_env_reset_batch(
@@ -193,6 +195,7 @@ pub fn gpu_mb_env_reset_batch(
 /// world position lives in the workspace coords quad the other pass handles).
 ///
 /// Dispatch `[max(lpb, dpb), num_resets, 1]` threads.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_env_reset_batch_dofs(
@@ -240,6 +243,7 @@ pub fn gpu_mb_env_reset_batch_dofs(
 /// put).
 ///
 /// Dispatch `[max(bodies_per_env, vels_per_env), num_resets, 1]` threads.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_env_reset_bodies(

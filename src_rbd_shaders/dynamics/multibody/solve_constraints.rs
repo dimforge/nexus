@@ -39,6 +39,7 @@ pub(super) fn cap_friction(t0: f32, t1: f32, limit: f32) -> (f32, f32) {
 /// The output value is written into a uniform that will be passed to the other kernels
 /// and used when `web-compat` is enabled. (Since it’s a uniform it can be used in conditions
 /// without breaking uniform control flow.)
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_compute_solve_bounds(
@@ -80,6 +81,7 @@ macro_rules! solve_constraints_entry {
         ///
         /// Dispatch: one workgroup per (multibody, batch). The host selects the
         /// smallest supported width that covers every DOF.
+        #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
         #[spirv_bindgen]
         #[spirv(compute(threads($lanes)))]
         pub fn $name(

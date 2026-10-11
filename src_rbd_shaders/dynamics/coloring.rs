@@ -80,6 +80,7 @@ fn nth_free_color(mask: (u32, u32), n: u32) -> u32 {
  */
 
 /// Initializes Luby algorithm state.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_reset_luby(
@@ -107,6 +108,7 @@ pub fn gpu_reset_luby(
 }
 
 /// Performs one iteration of Luby's graph coloring algorithm.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_step_graph_coloring_luby(
@@ -216,6 +218,7 @@ pub fn gpu_step_graph_coloring_luby(
  */
 
 /// Initializes Topo-GC algorithm state.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_reset_topo_gc(
@@ -250,6 +253,7 @@ pub fn gpu_reset_topo_gc(
 
 /// Resets the convergence flag for Topo-GC, and sizes this iteration's dispatches: none once
 /// the coloring has converged (the flag stayed non-zero through the previous iteration).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_reset_completion_flag_topo_gc(
@@ -275,6 +279,7 @@ pub fn gpu_reset_completion_flag_topo_gc(
 ///
 /// Colors seeded from the previous frame are marked colored, so the first step may color
 /// nothing and leave the flag set, which would skip the validation of the seeds.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(1)))]
 pub fn gpu_clear_completion_flag_topo_gc(
@@ -292,6 +297,7 @@ pub fn gpu_clear_completion_flag_topo_gc(
 /// Performs one iteration of Topo-GC coloring.
 ///
 /// Generates up to 63 colors (color 0 = uncolored).
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_step_graph_coloring_topo_gc(
@@ -425,6 +431,7 @@ pub fn gpu_step_graph_coloring_topo_gc(
 }
 
 /// Fixes conflicts in Topo-GC coloring.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_fix_conflicts_topo_gc(

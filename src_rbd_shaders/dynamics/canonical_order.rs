@@ -27,6 +27,7 @@ pub const CONTACT_KEY_IDENTITY: u32 = 4;
 
 /// Builds the `(key, value)` buffers of one pass of the contact sort.
 /// Empty slots (`len == 0`) get the largest key so they go last.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_contact_sort_keys(
@@ -73,6 +74,7 @@ pub fn gpu_contact_sort_keys(
 
 /// Writes the contacts in the order given by `order`. The caller then swaps `src` and `dst`.
 /// Empty slots are written as blank manifolds.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_permute_contacts(
@@ -99,6 +101,7 @@ pub fn gpu_permute_contacts(
 
 /// Sorts the constraint list of each body by constraint index (the lists are filled with
 /// atomics). One workgroup per body, looping if there are more than 65535 bodies.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_stabilize_body_constraint_ids(
@@ -142,6 +145,7 @@ pub fn gpu_stabilize_body_constraint_ids(
 
 /// Sorts each multibody contact-index segment by contact slot (they are filled with atomics).
 /// One workgroup per `(multibody, batch)`.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_stabilize_mb_contact_index(

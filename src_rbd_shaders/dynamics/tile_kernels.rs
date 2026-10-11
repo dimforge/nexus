@@ -66,6 +66,7 @@ model_kernel! {
     /// Builds every constraint in color order, gives it the impulses of its previous-frame
     /// constraint (or that constraint's contacts when they are recycled), and caches its warmstart
     /// for the first substep. Runs after the links are sorted by color.
+    #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
     #[spirv_bindgen]
     #[spirv(compute(threads(64)))]
     pub fn gpu_prepare_constraints(
@@ -155,6 +156,7 @@ fn transfer_contact_impulses(old: &TwoBodyConstraint, new: &mut TwoBodyConstrain
 model_kernel! {
     /// Scales the accumulated impulses of every constraint by the warmstart coefficient and caches
     /// their warmstart (only dispatched when that coefficient isn't 1).
+    #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
     #[spirv_bindgen]
     #[spirv(compute(threads(64)))]
     pub fn gpu_scale_constraint_impulses(
@@ -181,6 +183,7 @@ model_kernel! {
 macro_rules! tile_solver_kernel {
     ($name:ident, $mode:ident, $mode_value:expr, $cache:expr, $tail:expr) => {
         model_kernel! {
+            #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
             #[spirv_bindgen]
             #[spirv(compute(threads(64)))]
             pub fn $name(
@@ -298,6 +301,7 @@ tile_solver_kernel!(
 macro_rules! fused_tile_solver_kernel {
     ($name:ident, $cache:expr) => {
         model_kernel! {
+            #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
             #[spirv_bindgen]
             #[spirv(compute(threads(64)))]
             pub fn $name(
@@ -377,6 +381,7 @@ fn apply_warmstart(tiles: &[ContactTile], solver_vels: &mut [Velocity], index: u
 model_kernel! {
     /// Applies the warmstart of one color's constraints to their bodies (scatter-style, for scenes
     /// with multibodies, whose warmstart can't be gathered per body).
+    #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
     #[spirv_bindgen]
     #[spirv(compute(threads(64)))]
     pub fn gpu_warmstart_constraints(
@@ -397,6 +402,7 @@ model_kernel! {
 
 model_kernel! {
     /// [`gpu_warmstart_constraints`] for every color, with one 64-lane workgroup per batch.
+    #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
     #[spirv_bindgen]
     #[spirv(compute(threads(64)))]
     pub fn gpu_warmstart_constraints_fused(
@@ -429,6 +435,7 @@ model_kernel! {
 model_kernel! {
     /// Sums the cached warmstart of each body's constraints, in its adjacency-list order (split
     /// bodies are warmstarted through their sub-bodies).
+    #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
     #[spirv_bindgen]
     #[spirv(compute(threads(64)))]
     pub fn gpu_gather_warmstart_velocities(
@@ -463,6 +470,7 @@ model_kernel! {
 model_kernel! {
     /// Applies the warmstart of each split body's constraint to its sub-body (the body's own
     /// warmstart gather skips them).
+    #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
     #[spirv_bindgen]
     #[spirv(compute(threads(64)))]
     pub fn gpu_hub_warmstart_constraints(

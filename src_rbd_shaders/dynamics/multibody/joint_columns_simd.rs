@@ -98,6 +98,7 @@ fn inv(x: f32) -> f32 {
 /// Same results as `gpu_mb_finalize_joint_constraints` (bit-identical for
 /// single-DOF rows; coupling rows combine two `M⁻¹` columns), for up to 32 DOFs.
 /// One 32-lane workgroup per multibody.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(32)))]
 pub fn gpu_mb_finalize_joint_simd(

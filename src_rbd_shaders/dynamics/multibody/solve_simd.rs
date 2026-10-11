@@ -527,6 +527,7 @@ fn solve_packed8<const MODE: u32>(
     });
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(32)))]
 pub fn gpu_mb_solve_constraints_packed(
@@ -593,6 +594,7 @@ pub fn gpu_mb_solve_constraints_packed(
     }
 }
 
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(32)))]
 pub fn gpu_mb_solve_constraints_packed_bias(

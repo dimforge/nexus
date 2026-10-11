@@ -692,6 +692,7 @@ pub(super) fn build_motor_constraint(
 ///
 /// The M⁻¹-column back-solve is a separate dispatch
 /// ([`gpu_mb_finalize_joint_constraints`]), so each pass fits 8 storage buffers.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_init_joint_constraints(
@@ -791,6 +792,7 @@ pub fn gpu_mb_init_joint_constraints(
 /// Large batches use eight lanes per multibody at up to 32 DOFs; other
 /// configurations keep one 64-lane group per multibody.
 /// Lanes stride independent constraint slots.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_finalize_joint_constraints(
@@ -887,6 +889,7 @@ pub fn gpu_mb_finalize_joint_constraints(
 /// Large batches use eight lanes per multibody at up to 32 DOFs; other
 /// configurations keep one 64-lane group per multibody.
 /// Lanes stride independent constraint slots.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
 #[spirv_bindgen]
 #[spirv(compute(threads(64)))]
 pub fn gpu_mb_refresh_joint_constraints(
