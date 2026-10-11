@@ -174,13 +174,15 @@ impl RbdCapacities {
 /// The most collision pairs whose buffers `backend` can bind. Each pair owns a pair and a PFM
 /// entry, and two contact slots (whose largest buffer is the contact tiles). WebGPU caps the size
 /// of a buffer binding; capacities past this would fail validation.
+// Without `webgpu`, every backend returns early: the rest is unreachable and unused.
+#[cfg_attr(not(feature = "webgpu"), allow(unreachable_code, unused_variables))]
 pub(crate) fn max_collision_pairs(backend: &GpuBackend) -> u32 {
     use crate::shaders::dynamics::contact_tiles::TILE_LEN;
     use crate::shaders::dynamics::coulomb_tiles::CoulombTile;
     use crate::shaders::queries::IndexedManifold;
     use std::mem::size_of;
 
-    let max_binding = match backend {
+    let max_binding: u64 = match backend {
         #[cfg(feature = "webgpu")]
         GpuBackend::WebGpu(webgpu) => webgpu.device().limits().max_storage_buffer_binding_size,
         _ => return u32::MAX,
