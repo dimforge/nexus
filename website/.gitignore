@@ -25,3 +25,6 @@ yarn-error.log*
 /docs/user_guides/python/
 /docs/user_guides/all/
 __pycache__/
+
+# Previously published demo build, served at /demos-previous/ (unlinked).
+static/demos-previous
