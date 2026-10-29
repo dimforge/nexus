@@ -1,0 +1,37 @@
+{
+  "id": "0010-body-lifecycle",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d"
+  ],
+  "kinds": [
+    "port",
+    "refactor",
+    "tooling",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port five body lifecycle entry points beside the Rust solver module and validate repeated no-contact steps using the same integration macro and live Rust entry-point sequence.",
+  "regressions": [
+    "42 additional cases: zero/one/multiple batches, 63/64/65 bodies, spare capacity, static and partially locked masses, offset COMs, gravity on/off, velocity clamps, repeated frames/substeps",
+    "Copied fields, counters, pose padding resets, preserved velocity padding, and inactive/sentinel storage compare bitwise",
+    "Invalid layout/dimensions/parameters, non-finite outputs, modified inputs and truncated returned buffers are rejected",
+    "Handoff round trips exercise the body-specific comparator as well as original Coulomb buffers"
+  ],
+  "differences": [
+    "Production Rust physics and existing operation contracts/tolerances are unchanged. Gravity uses the whole-vector inverse-mass test, including its existing treatment of partially locked axes.",
+    "Cleanup uses a full-capacity launch instead of a smaller grid-stride launch; every slot has one writer and hub counter reset has one writer.",
+    "No-contact composition fuses independent per-body stages. It validates ordered stage arithmetic and repeated state, not inter-body synchronization, contact simulation, world inertia updates or production backend integration.",
+    "Pose conversion follows glamx 0.3.1 prepend_translation, including resetting explicit pose padding; no arithmetic change resolves or hides the retained zero-distance contact discrepancy.",
+    "CPU/Metal execution and Ascend source lowering remain separate; Ascend execution is unavailable."
+  ]
+}

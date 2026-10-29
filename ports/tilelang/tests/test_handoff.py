@@ -11,10 +11,13 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import handoff
-from replay import BUFFERS, HERE
+from replay import HERE
 
 
 class HandoffTests(unittest.TestCase):
+    operation = "solve"
+    fixture_index = -1
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -26,17 +29,28 @@ class HandoffTests(unittest.TestCase):
         self.output = self.root / "comparison.json"
         fixtures = (
             Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+            / ("" if self.operation == "solve" else self.operation)
             / "c/fixtures"
         )
-        case = json.loads((fixtures / "suite.json").read_text())["cases"][-1]
-        directory = f"cases/solve/{case['name']}"
+        layout = fixtures / "layout.json"
+        if self.operation != "solve":
+            fixtures = fixtures / self.operation
+        case = json.loads((fixtures / "suite.json").read_text())["cases"][
+            self.fixture_index
+        ]
+        directory = f"cases/{self.operation}/{case['name']}"
         dest = self.bundle / directory
         dest.mkdir(parents=True)
         self.actual = self.returned / directory
         self.actual.mkdir(parents=True)
-        contract = json.loads((HERE / "contract.json").read_text())
+        contract_path = HERE / (
+            "contract.json"
+            if self.operation == "solve"
+            else f"contracts/{self.operation}.json"
+        )
+        contract = json.loads(contract_path.read_text())
         files = {}
-        for name in BUFFERS:
+        for name in contract["inputs"]:
             shutil.copyfile(
                 fixtures / case["name"] / f"{name}.bin", dest / f"{name}.bin"
             )
@@ -50,8 +64,8 @@ class HandoffTests(unittest.TestCase):
             shutil.copyfile(expected, self.actual / f"{name}.actual.bin")
         (dest / "bindings.json").write_text("{}")
         (dest / "kernel.ascend").write_text("// test fixture; not executed")
-        shutil.copyfile(fixtures / "layout.json", self.bundle / "layout.json")
-        shutil.copyfile(HERE / "contract.json", self.bundle / "contract.json")
+        shutil.copyfile(layout, self.bundle / "layout.json")
+        shutil.copyfile(contract_path, self.bundle / "contract.json")
         for file in self.bundle.rglob("*"):
             if file.is_file():
                 files[file.relative_to(self.bundle).as_posix()] = handoff.digest(file)
@@ -148,6 +162,11 @@ class HandoffTests(unittest.TestCase):
         with patch.object(handoff.shutil, "which", return_value=None):
             self.assertTrue(handoff.probe(self.output))
         self.assertEqual(json.loads(self.output.read_text())["status"], "unavailable")
+
+
+class BodyHandoffTests(HandoffTests):
+    operation = "free_step"
+    fixture_index = 4
 
 
 if __name__ == "__main__":

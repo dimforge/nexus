@@ -431,10 +431,21 @@
       "implementation": "ports/tilelang/shaders/dynamics/solver.py",
       "coverage": "partial",
       "operations": [
-        "rbd.body.integrate_linearized3d"
+        "rbd.body.integrate_linearized3d",
+        "rbd.body.cleanup3d",
+        "rbd.body.init_bodies3d",
+        "rbd.body.init_increments3d",
+        "rbd.body.apply_increments3d",
+        "rbd.body.finalize3d",
+        "rbd.body.free_step3d"
       ],
       "symbols": [
-        "gpu_integrate_linearized"
+        "gpu_integrate_linearized",
+        "gpu_solver_cleanup",
+        "gpu_init_solver_bodies",
+        "gpu_init_solver_vels_inc",
+        "gpu_apply_solver_vels_inc",
+        "gpu_solver_finalize"
       ],
       "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
     },
@@ -905,9 +916,15 @@
       "description": "Free-body force accumulation, mass properties and pose/velocity lifecycle",
       "coverage": "partial",
       "operations": [
-        "rbd.body.integrate_linearized3d"
+        "rbd.body.integrate_linearized3d",
+        "rbd.body.cleanup3d",
+        "rbd.body.init_bodies3d",
+        "rbd.body.init_increments3d",
+        "rbd.body.apply_increments3d",
+        "rbd.body.finalize3d",
+        "rbd.body.free_step3d"
       ],
-      "remaining": "Partial: clamped COM-centered integration only."
+      "remaining": "Partial: body velocity/pose lifecycle and repeated no-contact steps; force/torque accumulation, world inertia updates and production runtime integration remain unported."
     },
     {
       "id": "rbd.contact.coulomb",

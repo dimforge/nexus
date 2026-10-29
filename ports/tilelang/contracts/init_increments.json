@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "feature": "rbd.body.init_increments3d",
+  "scope": "Initialize gravity increments with the Rust whole-vector static-body predicate",
+  "inputs": [
+    "Velocities",
+    "SolverVelocities",
+    "Increments",
+    "Poses",
+    "SolverPoses",
+    "LocalMass",
+    "WorldMass",
+    "Params",
+    "Counts",
+    "FirstSlot",
+    "HubCounts"
+  ],
+  "outputs": [
+    "Increments"
+  ],
+  "comparison": "body_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Same f32 limits as existing body integration; copied fields, counters, padding and inactive storage compare bitwise.",
+  "preconditions": [
+    "Finite fields and unit source rotations",
+    "Rust-derived ABI; disjoint input and output allocations",
+    "Counts specialize BatchIndices exactly; slot capacity >= active body count",
+    "Positive dt, nonnegative velocity caps; no inter-body dependencies for free_step"
+  ],
+  "outside_scope": [
+    "Contact or joint constraints",
+    "Collision detection",
+    "World inertia updates",
+    "External force/torque accumulation",
+    "Multibody dynamics",
+    "Production scene runtime integration",
+    "2D",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-c0-s1-i3-g1",
+    "n1-b1-c3-s1-i3-g1",
+    "n63-b1-c65-s4-i3-g1",
+    "n64-b1-c64-s2-i3-g0",
+    "n65-b1-c70-s4-i3-g1",
+    "n33-b3-c35-s3-i3-g1",
+    "n129-b0-c131-s1-i3-g1"
+  ],
+  "parameters": [
+    "dt",
+    "max_linear_velocity",
+    "max_angular_velocity",
+    "gravity_x",
+    "gravity_y",
+    "gravity_z"
+  ]
+}

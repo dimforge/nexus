@@ -239,6 +239,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     import numpy as np
     from replay import check_outputs
     from primitives import check_outputs as check_integer_outputs
+    from body_validation import check_outputs as check_body_outputs
 
     result = {
         "schema": 1,
@@ -290,6 +291,8 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                 compare = (
                     check_integer_outputs
                     if contract.get("comparison") == "exact_u32"
+                    else check_body_outputs
+                    if contract.get("comparison") == "body_fields"
                     else check_outputs
                 )
                 before = {

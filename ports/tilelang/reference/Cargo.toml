@@ -26,3 +26,7 @@ path = "src/operations.rs"
 [[bin]]
 name = "primitives"
 path = "src/primitives.rs"
+
+[[bin]]
+name = "bodies"
+path = "src/bodies.rs"

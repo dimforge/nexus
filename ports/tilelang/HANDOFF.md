@@ -24,9 +24,20 @@ and case. Every file has a SHA-256 receipt in `manifest.json`. Input buffers and
 Rust expected outputs are little-endian raw words; `layouts/` gives the actual
 Rust strides/offsets. `bindings.json` records generated argument order, launch
 sizes, and sequential iteration count. Unbound storage buffers must still be
-preserved; empty kernels may have no arguments. Integer sorting has three `uint32` buffers and exact comparison; solver operations
-have four buffers and operation-specific floating-point masks. The six-float `Params` replay ABI
-is distinct from the full production `RbdSimParams` struct.
+preserved; empty kernels may have no arguments. Each contract lists its own buffers
+and comparison mode. Integer sorting uses exact comparisons. Contact/integration
+fixtures use four buffers; the body lifecycle fixtures use eleven, including
+separate body/solver state, mass properties and cleanup counters. Copied fields,
+integer counters, padding and inactive words compare exactly; computed float
+fields use the contract tolerances.
+
+The six-float `Params` replay ABI is distinct from `RbdSimParams`. Body lifecycle
+contracts name its fields: dt, linear/angular speed caps, and gravity xyz. The
+corresponding full Rust uniforms are included for reproduction. Batch counts and
+capacities are compile-time specializations recorded in each case. `free_step`
+fuses independent per-body operations and substeps into one kernel; dispatch it
+for the listed frame count. This composition is valid only without contacts,
+joints, hubs or other cross-body dependencies. It is not the production schedule.
 
 ## Device session stages
 

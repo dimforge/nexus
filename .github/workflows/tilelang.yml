@@ -51,11 +51,7 @@ jobs:
       - name: Require reconciled source and fresh CPU execution evidence
         run: >-
           python ports/tilelang/parity.py check --require c
-          --evidence ports/tilelang/results/c/report.json
-          --evidence ports/tilelang/results/effective_mass/c/report.json
-          --evidence ports/tilelang/results/warmstart/c/report.json
-          --evidence ports/tilelang/results/integrate/c/report.json
-          --evidence ports/tilelang/results/stabilize/c/report.json
+          --evidence-dir ports/tilelang/results
       - uses: actions/upload-artifact@v4
         if: always()
         with:

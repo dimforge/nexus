@@ -1,14 +1,16 @@
 # TileLang rigid-body parity pilot
 
-This is an experimental port of four isolated 3D solver operations: effective
-mass calculation, warmstarting, Coulomb solving, and clamped pose integration.
-They use the existing Rust buffer layouts and live Rust reference functions.
-A fifth operation ports deterministic per-body constraint-ID sorting, exercising
-indexed reads, variable-length loops and unique scatter with exact integer parity.
-The contact operations require one prepared, conflict-free color. This is not
-yet selectable as a full Nexus simulation backend. Complete contact preparation,
-collision detection, production coloring, joints, twist friction, 2D, and Ascend
-execution remain unimplemented.
+This experimental port has eleven operation contracts: effective mass calculation,
+warmstarting, Coulomb solving, clamped integration, deterministic constraint-ID
+sorting, five body lifecycle entry points, and a composed no-contact body step.
+The body stages cover cleanup, COM pose initialization, gravity increments,
+increment application and final writeback. They use Rust buffer layouts and live
+Rust reference functions. The composed step reuses those ports for repeated frames
+and substeps; it does not yet connect to Nexus's production simulation backend.
+
+Contact operations still require one prepared, conflict-free color. Complete
+contact preparation, collision detection, production coloring, joints, twist
+friction, 2D, and Ascend execution remain unimplemented.
 
 Rust remains the behavioral reference. `parity.json` maps stable operation IDs
 to reference symbols, implementations, contracts, and per-target evidence. Each
@@ -24,7 +26,7 @@ and their module boundaries wherever practical:
 | Rust file under `src_rbd_shaders/dynamics` | TileLang file under `ports/tilelang/shaders/dynamics` | Implemented subset |
 | --- | --- | --- |
 | `body.rs` | `body.py` | `Velocity::integrate_linearized` |
-| `solver.rs` | `solver.py` | `gpu_integrate_linearized` |
+| `solver.rs` | `solver.py` | cleanup, COM pose initialization, gravity/increment application, integration, finalization |
 | `constraint.rs` | `constraint.py` | `compute_effective_masses` |
 | `solver_utils.rs` | `solver_utils.py` | `solve_points`, `warmstart_constraint` |
 | `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation |
@@ -51,11 +53,7 @@ ports/tilelang/.venv/bin/python -m pip install -r ports/tilelang/requirements.tx
 ports/tilelang/.venv/bin/python ports/tilelang/replay.py --operation all --target c
 ports/tilelang/.venv/bin/python -m unittest discover -s ports/tilelang/tests -v
 python3 ports/tilelang/parity.py check --require c \
-  --evidence ports/tilelang/results/c/report.json \
-  --evidence ports/tilelang/results/effective_mass/c/report.json \
-  --evidence ports/tilelang/results/warmstart/c/report.json \
-  --evidence ports/tilelang/results/integrate/c/report.json \
-  --evidence ports/tilelang/results/stabilize/c/report.json
+  --evidence-dir ports/tilelang/results
 ```
 
 On Linux, install the pinned CPU-only PyTorch wheel before the requirements to
@@ -89,7 +87,20 @@ The default `results/` directory is ignored by Git.
 
 ## What is tested
 
-There are 38 required cases across five operations. Six integer sorting cases
+There are 80 required cases across eleven contracts. The six body lifecycle
+contracts have 42 cases, including empty/zero-batch launches, 63/64/65 boundaries,
+multiple batches, capacity beyond active bodies, static and partially locked
+masses, nonzero local COMs, zero gravity, and up to 32 frames of four substeps.
+`body_replay.py` calls the actual Rust entry points in order; computed fields use
+the existing float tolerances, while copied values, counters, padding and inactive
+storage compare exactly. `free_step` fuses the per-body sequence because it has no
+cross-body dependencies; it is a validation composition, not a contact schedule.
+The cleanup port preserves Rust's full-capacity range, including unused slots.
+Gravity deliberately follows Rust's vector-wide static test rather than masking
+individual mass axes. World inertia updates and external force/torque accumulation
+remain unported.
+
+The original five contracts retain their 38 cases. Six integer sorting cases
 cover empty/skewed rows, duplicates, high unsigned IDs, workgroup boundaries and
 a 513-entry row. Inputs and trailing sentinels remain bitwise unchanged.
 `primitives.py` compares the exact Rust entry-point results without floating-point

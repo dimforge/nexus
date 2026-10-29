@@ -97,6 +97,89 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/stabilize.json",
       "test_command": "python ports/tilelang/primitives.py --target c"
+    },
+    {
+      "id": "rbd.body.cleanup3d",
+      "operation": "cleanup",
+      "runner": "body_replay.py",
+      "coverage": "Reset constraint/hub counters and initialize solver velocities over the full slot capacity",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_cleanup"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_solver_cleanup",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/cleanup.json",
+      "test_command": "python ports/tilelang/body_replay.py --operation cleanup --target c"
+    },
+    {
+      "id": "rbd.body.init_bodies3d",
+      "operation": "init_bodies",
+      "runner": "body_replay.py",
+      "coverage": "Convert body-origin poses to COM-centered solver poses",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_init_solver_bodies"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_init_solver_bodies",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/init_bodies.json",
+      "test_command": "python ports/tilelang/body_replay.py --operation init_bodies --target c"
+    },
+    {
+      "id": "rbd.body.init_increments3d",
+      "operation": "init_increments",
+      "runner": "body_replay.py",
+      "coverage": "Initialize gravity increments with the Rust whole-vector static-body predicate",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_init_solver_vels_inc"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_init_solver_vels_inc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/init_increments.json",
+      "test_command": "python ports/tilelang/body_replay.py --operation init_increments --target c"
+    },
+    {
+      "id": "rbd.body.apply_increments3d",
+      "operation": "apply_increments",
+      "runner": "body_replay.py",
+      "coverage": "Apply linear and angular velocity increments",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_apply_solver_vels_inc"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_apply_solver_vels_inc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/apply_increments.json",
+      "test_command": "python ports/tilelang/body_replay.py --operation apply_increments --target c"
+    },
+    {
+      "id": "rbd.body.finalize3d",
+      "operation": "finalize",
+      "runner": "body_replay.py",
+      "coverage": "Copy back solver velocities and convert COM-centered poses to body-origin poses",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_finalize"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_solver_finalize",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/finalize.json",
+      "test_command": "python ports/tilelang/body_replay.py --operation finalize --target c"
+    },
+    {
+      "id": "rbd.body.free_step3d",
+      "operation": "free_step",
+      "runner": "body_replay.py",
+      "coverage": "Repeated no-contact body steps composed from the mirrored entry points; per-body fusion is valid only without inter-body dependencies",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_cleanup",
+        "src_rbd_shaders/dynamics/solver.rs::gpu_init_solver_bodies",
+        "src_rbd_shaders/dynamics/solver.rs::gpu_init_solver_vels_inc",
+        "src_rbd_shaders/dynamics/solver.rs::gpu_apply_solver_vels_inc",
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_finalize",
+        "src_rbd_shaders/dynamics/solver.rs::gpu_integrate_linearized"
+      ],
+      "implementation": "ports/tilelang/body_kernels.py::make_kernel",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/free_step.json",
+      "test_command": "python ports/tilelang/body_replay.py --operation free_step --target c"
     }
   ],
   "targets": [
