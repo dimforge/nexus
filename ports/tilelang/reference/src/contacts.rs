@@ -1,7 +1,7 @@
 //! Live Rust preparation entry-point oracle, including cached impulse matching.
 #[allow(dead_code)]
 #[path = "main.rs"]
-mod pilot;
+pub(crate) mod pilot;
 use nexus_rbd_shaders3d::{
     Pose,
     broad_phase::ContactPlan,
@@ -21,7 +21,7 @@ use std::{
     path::Path,
 };
 
-fn layout() -> Value {
+pub(crate) fn layout() -> Value {
     let mut l = pilot::layout();
     macro_rules! fields {
         ($ty:ty, $($field:ident),+ $(,)?) => { json!({$(stringify!($field):offset_of!($ty,$field)/4),+}) };

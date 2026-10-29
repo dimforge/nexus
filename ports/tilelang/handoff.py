@@ -242,6 +242,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from body_validation import check_outputs as check_body_outputs
     from pose_replay import check_outputs as check_pose_outputs
     from contact_replay import check_outputs as check_contact_outputs
+    from link_replay import check_outputs as check_link_outputs
 
     result = {
         "schema": 1,
@@ -296,6 +297,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "body_fields": check_body_outputs,
                     "pose_fields": check_pose_outputs,
                     "contact_fields": check_contact_outputs,
+                    "link_fields": check_link_outputs,
                 }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)

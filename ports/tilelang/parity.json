@@ -226,6 +226,63 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/prepare.json",
       "test_command": "python ports/tilelang/contact_replay.py --target c"
+    },
+    {
+      "id": "rbd.contact.init_links3d",
+      "operation": "init_links",
+      "runner": "link_replay.py",
+      "coverage": "Initialize native links and exclude multibody-owned contacts",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/contact_links.rs::gpu_init_contact_links"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/contact_links.py::gpu_init_contact_links",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/init_links.json",
+      "test_command": "python ports/tilelang/link_replay.py --operation init_links --target c"
+    },
+    {
+      "id": "rbd.contact.match_links3d",
+      "operation": "match_links",
+      "runner": "link_replay.py",
+      "coverage": "Match previous body/collider/subshape identities, decide recycling and update state halves",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/contact_links.rs::gpu_match_contact_links",
+        "src_rbd_shaders/dynamics/contact_links.rs::find_previous_constraint",
+        "src_rbd_shaders/dynamics/contact_links.rs::can_recycle",
+        "src_rbd_shaders/dynamics/contact_links.rs::rot_cos"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/contact_links.py::gpu_match_contact_links",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/match_links.json",
+      "test_command": "python ports/tilelang/link_replay.py --operation match_links --target c"
+    },
+    {
+      "id": "rbd.scheduling.seed_colors3d",
+      "operation": "seed_colors",
+      "runner": "link_replay.py",
+      "coverage": "Seed valid previous colors for active matched links",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/contact_links.rs::gpu_seed_colors_from_warmstart"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/contact_links.py::gpu_seed_colors_from_warmstart",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/seed_colors.json",
+      "test_command": "python ports/tilelang/link_replay.py --operation seed_colors --target c"
+    },
+    {
+      "id": "rbd.contact.persistence3d",
+      "operation": "contact_persistence",
+      "runner": "link_replay.py",
+      "coverage": "Compose init, match and seed per contact against immutable previous-frame topology and states",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/contact_links.rs::gpu_init_contact_links",
+        "src_rbd_shaders/dynamics/contact_links.rs::gpu_match_contact_links",
+        "src_rbd_shaders/dynamics/contact_links.rs::gpu_seed_colors_from_warmstart"
+      ],
+      "implementation": "ports/tilelang/link_kernels.py::make_kernel",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/contact_persistence.json",
+      "test_command": "python ports/tilelang/link_replay.py --operation contact_persistence --target c"
     }
   ],
   "targets": [

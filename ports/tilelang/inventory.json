@@ -107,10 +107,22 @@
     {
       "reference": "src_rbd_shaders/dynamics/contact_links.rs",
       "implementation": "ports/tilelang/shaders/dynamics/contact_links.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.contact.init_links3d",
+        "rbd.contact.match_links3d",
+        "rbd.scheduling.seed_colors3d",
+        "rbd.contact.persistence3d"
+      ],
+      "symbols": [
+        "gpu_init_contact_links",
+        "gpu_match_contact_links",
+        "gpu_seed_colors_from_warmstart",
+        "find_previous_constraint",
+        "can_recycle",
+        "rot_cos"
+      ],
+      "remaining": "All 3D functions are ported; 2D is explicitly deferred. Production adjacency construction and frame scheduling are tracked separately."
     },
     {
       "reference": "src_rbd_shaders/dynamics/contact_tiles.rs",
@@ -1003,16 +1015,24 @@
     {
       "id": "rbd.contact.persistence",
       "description": "Contact matching, recycling and impulse transfer",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.init_links3d",
+        "rbd.contact.match_links3d",
+        "rbd.scheduling.seed_colors3d",
+        "rbd.contact.persistence3d",
+        "rbd.contact.coulomb.prepare3d"
+      ],
+      "remaining": "Matching, geometry reuse and impulse transfer are ported; production frame lifecycle and changing-scene validation remain pending."
     },
     {
       "id": "rbd.scheduling.colors",
       "description": "Coloring, buckets and production color dispatch",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.scheduling.seed_colors3d"
+      ],
+      "remaining": "Previous-frame color seeding only; conflict resolution, bucket construction and production dispatch remain unported."
     },
     {
       "id": "rbd.scheduling.hubs",

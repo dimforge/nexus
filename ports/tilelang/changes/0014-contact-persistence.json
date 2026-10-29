@@ -1,0 +1,45 @@
+{
+  "id": "0014-contact-persistence",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d"
+  ],
+  "kinds": [
+    "port",
+    "test",
+    "tooling"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Complete the 3D contact_links module: initialization, previous-frame matching, recycle eligibility and previous color seeding, plus a per-contact validation composition.",
+  "regressions": [
+    "All three entry functions and their composition at 0/1/31/32/33/63/64/65/129 contacts",
+    "Shorter nonempty adjacency lists, static/empty lists, duplicate identities and changed collider/subshape identifiers",
+    "Translation and rotation drift, inclusive distance boundary, independent collider rotation cutoff, disabled recycling, quaternion sign equivalence",
+    "Exact state copying including padding, disjoint state halves in either order, inactive stale body IDs, high-bit multibody flags and color range 0/1/63/64/u32::MAX",
+    "Missing previous matches preserve the unsigned sentinel guard before address conversion; this prevents a compiler-removed signed comparison and out-of-range lookup",
+    "Malformed sizes, layouts, adjacency indices/counts, poses and aliased state halves fail validation; handoff comparison uses the same exact-output policy"
+  ],
+  "differences": [
+    "No Rust production changes or existing tolerance changes. Exported decisions/identities/copied words and the single f32 recycle-distance product compare bitwise.",
+    "The composed test fuses only independent per-contact work with immutable old topology and disjoint state halves; actual production frame scheduling and adjacency building remain pending.",
+    "Address/search temporaries use bounded signed indices, while native buffers retain u32 identities and sentinel bits. Multibody exclusion compares each unsigned flag to zero and combines the booleans, avoiding TileLang unsigned scalar interval analysis and signed-cast misoptimization. High-bit flags and invalid high-bit color IDs remain covered; unsigned sentinel comparisons precede address casts.",
+    "The IEEE f32 constant 1 is written as its exact u32 bits because the C backend emits an invalid address-of-literal for a constant reinterpret.",
+    "The first-match search skips later comparisons after a hit but still advances the loop; this preserves selection/order, while performance remains unmeasured."
+  ]
+}

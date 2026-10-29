@@ -182,5 +182,11 @@ class ContactHandoffTests(HandoffTests):
     mutable_buffer = "Tiles"
 
 
+class LinkHandoffTests(HandoffTests):
+    operation = "contact_persistence"
+    fixture_index = 8
+    mutable_buffer = "States"
+
+
 if __name__ == "__main__":
     unittest.main()

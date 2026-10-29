@@ -1,9 +1,10 @@
 # TileLang rigid-body parity pilot
 
-This experimental port has fourteen operation contracts: effective mass calculation,
+This experimental port has eighteen operation contracts: effective mass calculation,
 warmstarting, Coulomb solving, clamped integration, deterministic constraint-ID
 sorting, five body lifecycle entry points, world mass-property updates, collider
-pose propagation, contact preparation, and a composed no-contact body step.
+pose propagation, contact preparation, contact-link initialization/matching/color seeding, and
+composed no-contact body and contact-persistence steps.
 The body stages cover cleanup, COM pose initialization, gravity increments,
 increment application and final writeback. They use Rust buffer layouts and live
 Rust reference functions. The composed step reuses those ports for repeated frames
@@ -12,7 +13,8 @@ and substeps; it does not yet connect to Nexus's production simulation backend.
 Contact preparation now builds Coulomb tiles from sorted links and manifolds,
 transfers nearest cached impulses, reuses recycled anchors, and writes tagged
 warmstart deltas. Solving and direct warmstart still require a conflict-free color.
-Collision detection, link/recycle eligibility, production coloring and warmstart
+Contact-link matching and recycle eligibility are also ported. Collision
+detection, production coloring and warmstart
 gather, joints, twist friction and Ascend execution remain unimplemented. Articulated multibodies, MPM
 and 2D are deferred by the user. See `COMPLETION.md` for the agreed completion scope.
 
@@ -36,6 +38,7 @@ and their module boundaries wherever practical:
 | `solver_utils.rs` | `solver_utils.py` | solve/warmstart, manifold headers/points, recycled points |
 | `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation and tagged warmstart cache |
 | `tile_kernels.rs` | `tile_kernels.py` | prepared-color adapters, preparation and nearest impulse transfer |
+| `contact_links.rs` | `contact_links.py` | complete 3D link initialization, matching, recycling decisions and color seeding |
 | `canonical_order.rs` | `canonical_order.py` | `gpu_stabilize_body_constraint_ids` |
 
 A counterpart file does not imply the whole Rust module is ported. Launch-target
@@ -92,7 +95,7 @@ The default `results/` directory is ignored by Git.
 
 ## What is tested
 
-There are 115 required cases across fourteen contracts. The eight body/collider
+There are 151 required cases across eighteen contracts. The eight body/collider
 contracts added after the original pilot have 56 cases, including empty/zero-batch launches, 63/64/65 boundaries,
 multiple batches, capacity beyond active bodies, static and partially locked
 masses, nonzero local COMs, zero gravity, and up to 32 frames of four substeps.
@@ -115,6 +118,16 @@ normal impulses, recycled geometry, IDs and cache tags remain bitwise exact.
 Computed fields use the original contact tolerances. The source of fresh point
 restitution is the manifold; recycled point restitution comes from the link,
 matching the Rust reference. Preparation does not itself decide recycle eligibility.
+
+Contact-link persistence adds 36 cases across initialization, matching, color
+seeding and their per-contact composition. Tests cover shorter nonempty adjacency
+lists, static/empty lists, first matches among duplicate identities, stale gap
+indices, disjoint state halves in either order, translation/rotation reuse limits,
+quaternion sign equivalence, multibody exclusion and invalid previous colors.
+All output words compare exactly: decisions and identities are integers, states
+are copied, and refreshed drift limits use a single f32 product. The composite
+fixture fuses only independent per-contact work against immutable old topology;
+it is not yet the production frame lifecycle or graph-color conflict pass.
 
 The original five contracts retain their 38 cases. Six integer sorting cases
 cover empty/skewed rows, duplicates, high unsigned IDs, workgroup boundaries and

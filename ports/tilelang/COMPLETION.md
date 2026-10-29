@@ -13,8 +13,9 @@ the complete backend ready because all currently registered kernel cases pass.
 
 Remaining implementation sequence:
 
-1. Finish the body/collider state path (world mass properties and collider pose
-   propagation), then complete contact preparation/persistence and warmstarting.
+1. Body/collider state, Coulomb preparation and contact-link persistence stages
+   are ported in isolation. Finish cached warmstart gathering/scaling and connect
+   persistence to changing scene topology and production frame stepping.
 2. Implement actual color schedules, shared static bodies, hubs and the contact
    solver variants. Wire native generated kernels into Rust simulation stepping;
    the existing reference collision path may be retained only for an explicitly
