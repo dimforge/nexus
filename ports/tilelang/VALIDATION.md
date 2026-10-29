@@ -136,3 +136,35 @@ expected-output binary across all 38 operation cases is byte-for-byte unchanged.
 No solver arithmetic or tolerance changed, and neither failing suite was replaced.
 The numerical policy remains unresolved and release-blocking. CPU/Metal development
 checks pass; both the release gate and required Ascend execution gate fail as expected.
+
+## Body lifecycle and repeated no-contact steps
+
+Five more Rust entry points are mirrored in `dynamics/solver.py`: cleanup, solver
+pose initialization, gravity increment initialization/application and finalization.
+A separate composition contract reuses these and the existing clamped integrator
+for no-contact steps. All 80 cases across eleven contracts pass on generated C++
+and native Rust/khal Metal; all 80 lower to Ascend source. The 42 new cases include
+zero batches, empty launches, multiple batches, extra capacity, partially locked
+mass axes, static bodies with nonzero COM, zero gravity, velocity caps and up to
+32 frames with four substeps. The largest absolute body-field difference from the
+live Rust CPU oracle is `1.3113021850585938e-6` on both tested backends. Tolerances
+remain `atol=2e-6`, `rtol=2e-5`. Copied fields, cleanup counters, padding and inactive
+storage are checked bitwise. All 238 recorded original input/oracle binary files
+from the earlier five contracts remain unchanged.
+
+All 60 Python regressions and three native contract tests pass, along with Rust
+fmt, strict Clippy, and Python Ruff F checks. Body handoff round trips exercise
+the operation-specific comparator and reject missing, corrupt or oversized output.
+Review also corrected launch metadata for standalone stages: 63 active bodies
+with 65 slots use one group, while cleanup and the composition use two. The
+previous extra groups were guarded and did not affect output correctness.
+
+The composition fuses independent per-body operations; it does not validate
+cross-body synchronization, contact scenes, or production pipeline integration.
+World inertia updates and external force/torque accumulation remain unported.
+This milestone's references are Rust CPU entry points, not additional production
+Rust GPU comparisons. The retained contact numerical diagnostics are historical
+and remain release-blocking; no numerical policy was changed. The development
+CPU/Metal parity gate passes, while release and required-Ascend-execution gates
+still reject the port as intended. Ascend vendor compilation, execution and
+performance are unvalidated.

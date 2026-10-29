@@ -1,109 +1,202 @@
 {
   "change": {
-    "path": "ports/tilelang/changes/0009-numerical-isolation.json",
-    "sha256": "d31e1c0cc83fcf382bca1e1aaca319bb26fd722b996e7cdacab41484099bb94e"
+    "path": "ports/tilelang/changes/0011-body-dispatch-geometry.json",
+    "sha256": "8af0c60725231e437fd6c0ece34bf905c21c1d7ff79d531e8d8ea8619d51b960"
   },
   "evidence": {
     "ascend": {
       "path": "ports/tilelang/evidence/ascend.json",
-      "sha256": "9460259d7ba95631c89ea6de7f8698f94a3ddde5a9e03299c511c7152729f1d9"
+      "sha256": "5397ad9145ce4d523ce62f2753a66f5ef05cc93be7e6fff669d8fb42451fc979"
     },
     "c": {
       "path": "ports/tilelang/evidence/c.json",
-      "sha256": "82c7c4d276641f22b9713bf3c994c426e07110fb7ad2eb9f3c9bcb9c6d32ab98"
+      "sha256": "43797c83a98465ea1f0a48202e46734dd0f9b830bb18eaabffa352c344c00ed5"
     },
     "metal": {
       "path": "ports/tilelang/evidence/metal.json",
-      "sha256": "3ee89cd802219844e74c3d75089603b9ec24eb9b9518b631f7ff9ca6399cd239"
+      "sha256": "ac37f324817a41432c78ba08857348309d314e740c944355e82cbf0592343e89"
     }
   },
   "feature_evidence": {
+    "rbd.body.apply_increments3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.body.apply_increments3d.ascend.json",
+        "sha256": "cc3bd5a6fe11e2adef13c45120031de89fe51720a2f9ba551d26013a83acc520"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.body.apply_increments3d.c.json",
+        "sha256": "33cf7fe2d4d98c65b49cade1c70d6f4c3a16de13f05fbf25e000893ac6f5366f"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.body.apply_increments3d.metal.json",
+        "sha256": "933183eef580ce7ff4207e08f52c941e07836a404d38eb9e14ec8ea5f48e4821"
+      }
+    },
+    "rbd.body.cleanup3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.body.cleanup3d.ascend.json",
+        "sha256": "f2e07520eab63d65cd8bac5c9dbc88dd9ebe1c88c546bc1b7b2c19b5556a0e93"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.body.cleanup3d.c.json",
+        "sha256": "330c9a20deb91c30d2ddd1173c1069a0ee2299d1da49ed25707607da55bd45d8"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.body.cleanup3d.metal.json",
+        "sha256": "054abcfd72676962e8f63399dfac5e74748fb83f959b6eafea99bdd62560d30e"
+      }
+    },
+    "rbd.body.finalize3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.body.finalize3d.ascend.json",
+        "sha256": "41251f81b7b7f688f4abc3d9ac0fa68eb891b4e24cb184de2f368feae2147c00"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.body.finalize3d.c.json",
+        "sha256": "31665faf1a541cfd7c09b3a56ee68126f660032e4e74b5bdf6668741cf7833ad"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.body.finalize3d.metal.json",
+        "sha256": "46d19de15807cea8c06742bfa27dcd288ce6dc3cb7aff7c79e5cafb7d7732d89"
+      }
+    },
+    "rbd.body.free_step3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.body.free_step3d.ascend.json",
+        "sha256": "d2f0709d0573e46941e221e50f700df35a9cbf6ec514f14fb8ea76a0655deadb"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.body.free_step3d.c.json",
+        "sha256": "b887a13d73bc874f415dc2e4df865cfb6f7b6a507d4b59c1d65148f33ce237ca"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.body.free_step3d.metal.json",
+        "sha256": "a54c4a3f384660dd4110d353908f39bd87536e5fe248c54d00150f2c66189d35"
+      }
+    },
+    "rbd.body.init_bodies3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.body.init_bodies3d.ascend.json",
+        "sha256": "5c879f688d70c49818a487c7bcde7828d8a2ba29708b0151f7d93cf8248658da"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.body.init_bodies3d.c.json",
+        "sha256": "3650b50db8480b87ca126eedf0e58b7b47cb0851779c9e100575a1675ad7a2e7"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.body.init_bodies3d.metal.json",
+        "sha256": "feb8eab03778382ca620161ead4c5b8fe12b837869cdd35d67e22b99c32aee33"
+      }
+    },
+    "rbd.body.init_increments3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.body.init_increments3d.ascend.json",
+        "sha256": "599903651a57d48175ea596ea8fcd534280f52a8e9d9f897251c5bc5a193b26f"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.body.init_increments3d.c.json",
+        "sha256": "b4ad19fbf5f76260f3a321284231ddc8c5af15fd841aa8bed2a15224cd0d98d9"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.body.init_increments3d.metal.json",
+        "sha256": "7dd9d83b017b4d1a1c18b8c8430a9ba8a6c4d1d6e8b30f6633db6e65490c8f19"
+      }
+    },
     "rbd.body.integrate_linearized3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.ascend.json",
-        "sha256": "b116db699bf234b7a760e0125139f9dea3eb042c7dd12f6391e78f8e9b8532ce"
+        "sha256": "ef765ed7da9581e7c23381a8a5d46da88ce617f62cd00b415db9151b65f95ec2"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.c.json",
-        "sha256": "ebfa41e616c7818842d1f4311e10f224696b74c7be5b08bbc1b59ed9419b9f0b"
+        "sha256": "ef564b0bdcdcdbc8086ae5e8ac6a8e8d03a655086216759a70d7daea91b0c06d"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.metal.json",
-        "sha256": "a5f8d257e47db265fe88f0c1e993aa48bf91cb398a3e569de18a04001694f66f"
+        "sha256": "7b292796cb25a4bee7ae825b9b386129f8b4e1d2fbba3d8c282d14ee2813718c"
       }
     },
     "rbd.contact.coulomb.effective_mass3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.ascend.json",
-        "sha256": "5ece6cb058449ad2623ed411bee8b3943abfc0b16c4d5dfec704e90a1dc9a827"
+        "sha256": "5fcd7528ab07e43950202c5643f4dd1a28e3bc8be65985cf24df1a7982faabf6"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.c.json",
-        "sha256": "48388c54efb9c2265edc569932cd72f6283af5b48433a8652aa1c941b842825b"
+        "sha256": "e6eed46b38a0545ef2ae3e2bac88edbefd2ebdd74c5b538014b6bbd7fc529e0d"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.metal.json",
-        "sha256": "a6ff18c682a10cc60716ccbc00692629235b7f8f61891b5cdec4f73616d11aa8"
+        "sha256": "fce5e887ec9f1c11957f4797e5961826e4607f66e3048eb8b3303786f3e4cc0a"
       }
     },
     "rbd.contact.coulomb.solve3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/ascend.json",
-        "sha256": "9460259d7ba95631c89ea6de7f8698f94a3ddde5a9e03299c511c7152729f1d9"
+        "sha256": "5397ad9145ce4d523ce62f2753a66f5ef05cc93be7e6fff669d8fb42451fc979"
       },
       "c": {
         "path": "ports/tilelang/evidence/c.json",
-        "sha256": "82c7c4d276641f22b9713bf3c994c426e07110fb7ad2eb9f3c9bcb9c6d32ab98"
+        "sha256": "43797c83a98465ea1f0a48202e46734dd0f9b830bb18eaabffa352c344c00ed5"
       },
       "metal": {
         "path": "ports/tilelang/evidence/metal.json",
-        "sha256": "3ee89cd802219844e74c3d75089603b9ec24eb9b9518b631f7ff9ca6399cd239"
+        "sha256": "ac37f324817a41432c78ba08857348309d314e740c944355e82cbf0592343e89"
       }
     },
     "rbd.contact.coulomb.warmstart3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.ascend.json",
-        "sha256": "bcc26d6a6782aadeca4646519509fc71d3595c7f4847e8113c2a12a99911c8a7"
+        "sha256": "222654bd7bac855f8f842170df8f9e6db19fdd31ef615fc2abf0bc7dff41dade"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.c.json",
-        "sha256": "e39ad3665a1ee2f27bbeeb9eae5b1a4066fb1a6b00c2630edeeb5c4edad16f91"
+        "sha256": "cdea89c7c8c408f07464e9df0be94bf0c5997db7f733b18be1b6b23eeec4d264"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.metal.json",
-        "sha256": "13348d7ce8dea5a508e39e1ed7e8752be649fc455f716756a09b353f2470d2bf"
+        "sha256": "43e8d953ed2a7fc408a54648dc2fb80f8bfe535337e6298d9a744fd19be400b6"
       }
     },
     "rbd.scheduling.stabilize_body_constraint_ids": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.stabilize_body_constraint_ids.ascend.json",
-        "sha256": "3f3d6d412f1283d0dd8e4cb8ebe8b46bcbdbaab4b92b92e40ea750d4bc13cd2a"
+        "sha256": "4ce6b0b1acd24ed7f9ef3599cc02f6595c875c4724f9ff9ee9e40ea86559ba13"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.stabilize_body_constraint_ids.c.json",
-        "sha256": "8e0630e3ee5f2f647b85fa6c77fd8eaa409a5bde8e47ccbeba69c0831c8c9831"
+        "sha256": "fc51aaa9f67c0996dc332e22d59df79b59df4c1c187db2532f67820d124a454d"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.stabilize_body_constraint_ids.metal.json",
-        "sha256": "6ec7a3b9ed76b5cbd97d9ba2ca5eec81615570aad3327b8715e50d0fe114fc07"
+        "sha256": "f265af6784f707c143187a66c1d82950eb63540beede2be2824dd8a3d6a20ba2"
       }
     }
   },
   "inputs": {
     "implementation": {
-      ".github/workflows/tilelang.yml": "3bc9e486d2930edccccc94d309d936b9411b00e2c1ac6fb762f4aa3e613b775d",
+      ".github/workflows/tilelang.yml": "7c245c098c62f96adf68749d5937ed170eb812c0808e70a2064ed9c7e35b5593",
       "AGENTS.md": "5fb95e93ac8a5360463e47d0db9afc08f2c7ad13f1e302053a6b5e26947fa677",
       "ports/tilelang/AGENTS.md": "03dadb5b3e9af4582c0854f9ee15936ec669dd0c9607602ad39d426169b95358",
-      "ports/tilelang/HANDOFF.md": "2964ed0d9b63d7731ad1ed2aa88a774a55a04afdad4e754bfca285870ceb1e45",
+      "ports/tilelang/HANDOFF.md": "f9f10532e6b2e469ad7493c73b5261091da10aa6a8ca6205a2e82edbcbd113c1",
+      "ports/tilelang/body_kernels.py": "b8b9ac42236cb8d3ccc3b48771f759a383ffcebf4eefc63425b8b644ffa26c34",
+      "ports/tilelang/body_replay.py": "3455959c4d3b46c4caa981e2ebc1a497e1120c78f3e1828caa300b8098cba81a",
+      "ports/tilelang/body_validation.py": "aafe3359d9b2751e7e23473a47e4e19a3b9ce8a65fb08c43747c07c95cc4ed24",
       "ports/tilelang/compiler.lock.json": "328632f9962f548b5597970c76b126139f8295bbecf504a47066288ccc195cfe",
       "ports/tilelang/compiler.py": "67beeed0b138e7c77f3171060cc3f572066df5ab10e6a5ef3c955d229a728ea6",
       "ports/tilelang/contract.json": "fb0d8703d98f687fc806100eaad819dd386eacc14185a15f0b088937a980de23",
+      "ports/tilelang/contracts/apply_increments.json": "c92a7e5d6be9148e457844502fbc15ce56d4497e25eebb9a56a70560bb5ffd76",
+      "ports/tilelang/contracts/cleanup.json": "eb6c769756c16b270af58aa6826c5a6e05a9aa80343b85e88e87faa14019bdf7",
       "ports/tilelang/contracts/effective_mass.json": "fb80c9138d02c1d99a63acf35c17d249fae4ce0f5ce8a5a6cab28461f3db6971",
+      "ports/tilelang/contracts/finalize.json": "3f09c7f585302b4d6c012fa5908fce7ec580934b102d21f949e5adb568232ef4",
+      "ports/tilelang/contracts/free_step.json": "f318cf931fee2d8bed3153bce962befac595fc473c539e678560424607505c30",
+      "ports/tilelang/contracts/init_bodies.json": "de6ecefe84c1f8b6109ef7418c83dcf05dcb4088548b410f0963d1bd8f1dcaad",
+      "ports/tilelang/contracts/init_increments.json": "0ff963b98a43f23d4f895525d19792a0a2c24d65d24d54b9e065bea17cfeac50",
       "ports/tilelang/contracts/integrate.json": "f92d44634b5f93f146d45f864e020fd5b9b2c8d5b050f94c735c2a0f1d567b0f",
       "ports/tilelang/contracts/stabilize.json": "0de028da2dc381f2011a35767b90ef51c74386d5af7f627853964d0615547a14",
       "ports/tilelang/contracts/warmstart.json": "384861217604cd84e74e8a421112054f2f32a95f92eadf866659ab066240afeb",
-      "ports/tilelang/handoff.py": "0920788d13a29793a7f14406c182f3980f539f2f8da96e6744171911ed1e83ff",
-      "ports/tilelang/inventory.json": "5e7334eaff1dd99ef8caa208bae24504ce9f707eb315d85c7bea19459d5e3bda",
+      "ports/tilelang/handoff.py": "4b0542b487804065e1829de98fc18610b18681620ccef2d638e4797f31017519",
+      "ports/tilelang/inventory.json": "2b488ca7cf249655d52712187a22988259e03f23babe11bdb8164c95134a49fe",
       "ports/tilelang/inventory.py": "d036a86212533db798bc0a7b0d59da3774fc9bb304e36e8caa10913e47b88400",
       "ports/tilelang/kernel_support.py": "c35ab6b77ab828cf99997f7f689ce33e5cfe9c8130eb9eb25066a38ae92e58fc",
       "ports/tilelang/kernels.py": "02172893f5f1601d42cd7cd9b7dbb786dcc9d1842227524ae0c053c194eb6ce5",
@@ -115,13 +208,14 @@
       "ports/tilelang/native/src/lib.rs": "ff48e10d11ddfd75005197d21ad0901b164c1046bfa231eb549416461c145ef7",
       "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
       "ports/tilelang/numerics.py": "62f232aca9eded465ee47f00ad74483dd8835c8d0282f95bf896665a25d35f66",
-      "ports/tilelang/parity.json": "f185ba8cafcbb995c10d152f74c6c5dfed4d7df6ad5ff37658a55c7d489bb53f",
+      "ports/tilelang/parity.json": "4bee991d28e6e46ddae225fc8d261cfd011eb030e048fa380b00e00461f31023",
       "ports/tilelang/parity.py": "f3825afaf0fdd0db86dfa367589562a38b16ddbf112d1953b6647eab8f42671b",
       "ports/tilelang/primitive_kernels.py": "63edee78b75f8cfb4aef8ad320ad7a329cee9772fb79a4a9f4e1340dd857dac1",
       "ports/tilelang/primitives.py": "a3bdb2504294448f145f74361733069d36f496a3a3b2ed6a8a241f9c311d17f5",
       "ports/tilelang/reference/Cargo.lock": "f30132799c20433c709af9df85a357dc328d5f973cfed3289c97e6139dde615b",
-      "ports/tilelang/reference/Cargo.toml": "8fe3078601251da310c566213b0469b426f85fbe0c7cfdd483d2daae61dd3f3e",
+      "ports/tilelang/reference/Cargo.toml": "b9e35c5f888dc58a82ec2eaeffe708fcff4b6b54d7d1ba00b9cebca1f5ed6ff5",
       "ports/tilelang/reference/rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33",
+      "ports/tilelang/reference/src/bodies.rs": "7af3a6d60fedd29ca965272e9f12be75baf3da233247f46a7370134e4bd69c51",
       "ports/tilelang/reference/src/main.rs": "59e71030dff875e576724e9424befb59c28f2de3788abd8d84c5eb753b784b3b",
       "ports/tilelang/reference/src/operations.rs": "f4285e9b49ac3e03f2c31b4d266df6107790ff1f62cd1d33dd82d1d10c42a15f",
       "ports/tilelang/reference/src/primitives.rs": "4b5af489d1ec9408490427982c77d93dced5d2fb118ae62050a74e9dae7249eb",
@@ -134,10 +228,11 @@
       "ports/tilelang/shaders/dynamics/canonical_order.py": "9fbb3fd6a12af2e26fee2960b49b617d90507442678842c03f014b29636ea774",
       "ports/tilelang/shaders/dynamics/constraint.py": "e70e7ac9dbe82fbcbac7b2737313b310cf5fcb55cda8fd9c63b439b5707c6ba8",
       "ports/tilelang/shaders/dynamics/coulomb_tiles.py": "a19cd2d6dad2cd96b1e0fe5da083bcbe418487a6db38526a0d465d45181de0b9",
-      "ports/tilelang/shaders/dynamics/solver.py": "ade7d5903dbf4d4a13a020d305df1319e4e0895c382e6050be36562913379156",
+      "ports/tilelang/shaders/dynamics/solver.py": "22a8d9c4b4fc36eaaafe9ca7aec7d388c4412af080e19d0972f9f4779c91a222",
       "ports/tilelang/shaders/dynamics/solver_utils.py": "82468301dd6728c33fb2cc177ec7971e3b39342d8efee8b79cb52d75f3437df9",
       "ports/tilelang/shaders/dynamics/tile_kernels.py": "a3d374572a8f28acb643ca5e738fd08611d96e412adce335ddce9df4a9a0e479",
-      "ports/tilelang/tests/test_handoff.py": "12f3e0a2bdcca04be74c86c22f452aa2821c4db25b72f12470ff80d6029013d7",
+      "ports/tilelang/tests/test_bodies.py": "465f5ca622b89a433bfbf110cf1c89b0cd87332bdf74d59583cdd9c1f1290a39",
+      "ports/tilelang/tests/test_handoff.py": "b3f29972717166475b33294cd2a5b67483f1f14b37108daa2ad973d6bdd36421",
       "ports/tilelang/tests/test_inventory.py": "9e1ce6bee76c8c76f36f4a9a514f74380324f54ceae26a78a31d01135ab603f9",
       "ports/tilelang/tests/test_parity.py": "95cca57a6f3c1007019aeda8867445f66b25c7ddb68e83bc0749316d7ed41d18",
       "ports/tilelang/tests/test_primitives.py": "ebe5e90301f462ce563fc0ec7fb24b6bd73f61af997bd73b83ad2df19afec6ee",
