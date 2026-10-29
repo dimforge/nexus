@@ -99,10 +99,29 @@
     {
       "reference": "src_rbd_shaders/dynamics/coloring.rs",
       "implementation": "ports/tilelang/shaders/dynamics/coloring.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.scheduling.luby_reset3d",
+        "rbd.scheduling.luby_step3d",
+        "rbd.scheduling.topo_reset3d",
+        "rbd.scheduling.topo_clear3d",
+        "rbd.scheduling.topo_completion3d",
+        "rbd.scheduling.topo_step3d",
+        "rbd.scheduling.topo_fix3d"
+      ],
+      "symbols": [
+        "hash",
+        "first_free_color",
+        "nth_free_color",
+        "gpu_reset_luby",
+        "gpu_step_graph_coloring_luby",
+        "gpu_reset_topo_gc",
+        "gpu_clear_completion_flag_topo_gc",
+        "gpu_reset_completion_flag_topo_gc",
+        "gpu_step_graph_coloring_topo_gc",
+        "gpu_fix_conflicts_topo_gc"
+      ],
+      "remaining": "Coloring entry points are ported for bounded palettes; full convergence scheduling, palette exhaustion and production integration remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/constraint.rs",
@@ -987,6 +1006,14 @@
       "operations": [],
       "symbols": [],
       "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/coloring_luby.rs",
+      "implementation": "ports/tilelang/shaders/tests/coloring_luby.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "Shared Rust reference regression included by the CPU oracle; no physics shader to port."
     }
   ],
   "capabilities": [
@@ -1090,9 +1117,16 @@
         "rbd.scheduling.bucket_count3d",
         "rbd.scheduling.bucket_scatter3d",
         "rbd.scheduling.bucket_dispatch3d",
-        "rbd.scheduling.bucket_build3d"
+        "rbd.scheduling.bucket_build3d",
+        "rbd.scheduling.luby_reset3d",
+        "rbd.scheduling.luby_step3d",
+        "rbd.scheduling.topo_reset3d",
+        "rbd.scheduling.topo_clear3d",
+        "rbd.scheduling.topo_completion3d",
+        "rbd.scheduling.topo_step3d",
+        "rbd.scheduling.topo_fix3d"
       ],
-      "remaining": "Adjacency, previous-frame seeding, color buckets and dispatch sizing are ported; conflict-resolution coloring and production scheduling remain."
+      "remaining": "Adjacency, seeding, coloring entry points, buckets and dispatch sizing are ported; full convergence scheduling, palette exhaustion and production integration remain."
     },
     {
       "id": "rbd.scheduling.hubs",

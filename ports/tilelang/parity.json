@@ -543,6 +543,100 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/bucket_build.json",
       "test_command": "python ports/tilelang/bucket_replay.py --operation bucket_build --target c"
+    },
+    {
+      "id": "rbd.scheduling.luby_reset3d",
+      "operation": "luby_reset",
+      "runner": "coloring_replay.py",
+      "coverage": "Initialize Luby colors and wrapping random priorities",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_reset_luby",
+        "src_rbd_shaders/dynamics/coloring.rs::hash"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_reset_luby",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/luby_reset.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation luby_reset --target c"
+    },
+    {
+      "id": "rbd.scheduling.luby_step3d",
+      "operation": "luby_step",
+      "runner": "coloring_replay.py",
+      "coverage": "Choose independent local-priority winners for one Luby color",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_step_graph_coloring_luby"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_step_graph_coloring_luby",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/luby_step.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation luby_step --target c"
+    },
+    {
+      "id": "rbd.scheduling.topo_reset3d",
+      "operation": "topo_reset",
+      "runner": "coloring_replay.py",
+      "coverage": "Reset Topo colors, flags and pending choices",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_reset_topo_gc"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_reset_topo_gc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/topo_reset.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation topo_reset --target c"
+    },
+    {
+      "id": "rbd.scheduling.topo_clear3d",
+      "operation": "topo_clear",
+      "runner": "coloring_replay.py",
+      "coverage": "Open the first Topo iteration including seeded-color validation",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_clear_completion_flag_topo_gc"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_clear_completion_flag_topo_gc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/topo_clear.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation topo_clear --target c"
+    },
+    {
+      "id": "rbd.scheduling.topo_completion3d",
+      "operation": "topo_completion",
+      "runner": "coloring_replay.py",
+      "coverage": "Publish converged or active Topo dispatch dimensions",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_reset_completion_flag_topo_gc"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_reset_completion_flag_topo_gc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/topo_completion.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation topo_completion --target c"
+    },
+    {
+      "id": "rbd.scheduling.topo_step3d",
+      "operation": "topo_step",
+      "runner": "coloring_replay.py",
+      "coverage": "Pick first-free or ranked deterministic Topo colors",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_step_graph_coloring_topo_gc",
+        "src_rbd_shaders/dynamics/coloring.rs::first_free_color",
+        "src_rbd_shaders/dynamics/coloring.rs::nth_free_color"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_step_graph_coloring_topo_gc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/topo_step.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation topo_step --target c"
+    },
+    {
+      "id": "rbd.scheduling.topo_fix3d",
+      "operation": "topo_fix",
+      "runner": "coloring_replay.py",
+      "coverage": "Prune lower-index conflicts and commit deterministic picks",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_fix_conflicts_topo_gc"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_fix_conflicts_topo_gc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/topo_fix.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation topo_fix --target c"
     }
   ],
   "targets": [

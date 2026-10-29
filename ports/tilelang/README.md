@@ -522,3 +522,11 @@ Color bucket construction now composes reset, count, prefix scan, link scatter a
 solver dispatch sizing. Generic global atomics preserve bucket membership while
 the Rust single-batch histogram optimization remains deferred. Statistics exclude
 the unsolved bucket; inverse indices identify every copied contact link.
+
+Luby and Topo coloring entry points now have 198 phase fixtures, including dynamic
+body zero, shared groups, split hubs, stale inactive slots and colors in both mask
+words. Deterministic fields are exact; nondeterministic picks require a legal
+first-free observation witness. Luby priorities are independently checked against
+immutable round inputs. Rust fixes and port changes are recorded separately in
+changes 0021 and 0022. Full bounded scheduling and palette exhaustion are the next
+implementation step; isolated primitive parity is not complete coloring coverage.

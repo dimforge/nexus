@@ -267,3 +267,8 @@ class GraphHandoffTests(HandoffTests):
 class BucketHandoffTests(HandoffTests):
     operation = "bucket_build"
     mutable_buffer = "Buckets"
+
+
+class ColoringHandoffTests(HandoffTests):
+    operation = "topo_step"
+    mutable_buffer = "Pending"

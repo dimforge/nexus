@@ -463,3 +463,15 @@ all pass and match regular CPU bytes. The source/evidence gate passes.
 Full graph-coloring control, production solver iterations, collision detection,
 joints and full-scene physical validation remain in progress. Ascend CANN builds,
 NPU execution and hardware synchronization remain unvalidated.
+
+### Coloring primitives (change 0022)
+
+All 198 new phase cases passed on generated CPU C++ and native Metal; all 198
+lowered with the pinned Ascend source compiler. Seven new Python contract tests
+passed, including exhaustive observation checks of the nondeterministic witness
+algorithm. The initial C++ run hit local disk exhaustion; removing only this task's
+reproducible duplicate/incremental caches allowed the complete rerun to pass.
+Full-source reconciliation remains pending the bounded-coloring correctness fixes:
+separate Rust reproductions show an overflowing shift on a 65-contact clique and
+conflicting retained seed colors after the two-round iteration budget. These are
+implementation work, not accepted numerical deviations or certified runtime behavior.

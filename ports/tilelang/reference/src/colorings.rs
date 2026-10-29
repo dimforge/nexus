@@ -54,6 +54,8 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
         };
         link.solver_body_a = if link.len == 0 {
             u32::MAX
+        } else if mode == "body-zero" {
+            0
         } else if mode == "split" || mode == "clique" {
             1
         } else {
@@ -75,7 +77,7 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
         if link.len != 0 {
             for b in [link.solver_body_a, link.solver_body_b] {
                 let g = body_group[b as usize];
-                if g != 0 {
+                if g != 0 || mode == "body-zero" {
                     rows[g as usize].push(i as u32);
                 }
             }
@@ -278,7 +280,7 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
     write_all!(true);
     let l = layout();
     let sizes = json!({"Counts":counts.len(),"Ids":ids.len(),"Links":storage*l["link_words"].as_u64().unwrap() as usize,"Colors":storage,"Rands":storage,"Colored":storage,"Pending":storage,"NumColors":2,"BodyGroup":bodies,"Plan":l["plan_words"],"BatchIds":l["batch_words"],"ContactsIndirect":9,"ColoringIndirect":9,"CurrentColor":2});
-    json!({"name":name,"kind":op,"count":n,"storage":storage,"bodies":bodies,"active_ids":active_ids,"groups":groups,"threads":threads,"mode":mode,"deterministic":deterministic,"iterations":1,"buffer_words":sizes})
+    json!({"name":name,"kind":op,"count":n,"storage":storage,"bodies":bodies,"active_ids":active_ids,"groups":groups,"threads":threads,"mode":mode,"static_groups":if mode=="body-zero" {vec![]}else{vec![0u32]},"deterministic":deterministic,"iterations":1,"buffer_words":sizes})
 }
 fn main() {
     let path = std::env::args().nth(1).expect("Expected output directory");
@@ -309,6 +311,7 @@ fn main() {
                 (65, "chain"),
                 (129, "chain"),
                 (33, "grouped"),
+                (33, "body-zero"),
                 (65, "split"),
                 (4, "clique"),
                 (33, "converged"),
