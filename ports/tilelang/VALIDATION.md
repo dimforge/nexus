@@ -196,3 +196,34 @@ construction/persistence, complete scheduling, collisions, joints, native scene
 integration and scene stability validation remain unfinished. The contact
 rounding/branch sensitivity is still under investigation; this batch does not
 clear it or claim Ascend device qualification.
+
+## Coulomb contact preparation
+
+`tile_kernels.py::gpu_prepare_constraints` now mirrors the complete 3D Coulomb
+preparation entry point: current headers and mass scales, fresh manifold points,
+nearest old-point impulse transfer, recycled anchors with refreshed restitution
+and effective masses, and cached velocity deltas tagged with body IDs. Fresh
+point restitution comes from the manifold and recycled restitution from the link,
+matching the reference. Warmstart arithmetic is shared with the existing direct
+warmstart operation and was revalidated for both uses.
+
+The 21 added cases cover reordered points, nearest matches and strict ties,
+rotated friction bases, no/empty old manifolds, threshold-adjacent anchors,
+recycled point-count changes, both signs and zero in tangent construction, shared
+readonly body inputs, split velocity slots, zero masses, inactive gaps, empty
+launches and tile/workgroup boundaries. Copied impulses/distances/geometry and
+integer tags are exact; only computed floats use the unchanged tolerances.
+The empty launch specializes to a no-op before TileLang index analysis, which
+otherwise fails on unreachable nested gather/matching loops.
+
+All 115 cases across fourteen operations pass on generated C++ and native Rust
+Metal; all 115 lower to Ascend source. The largest new-operation absolute error
+is `5.960464477539063e-8` on both executed backends. All 88 Python regressions,
+three native tests, Rust formatting/strict Clippy and Ruff F checks pass. The
+handoff comparator exercises the new typed contract and rejects altered inputs,
+copied fields, tags, padding, trailing storage and nonfinite outputs.
+
+This implements preparation from existing links/manifolds, not collision
+creation, recycle eligibility, warmstart gather or the complete scene schedule.
+The full-port goal and the existing numerical-policy investigation continue.
+Ascend vendor compilation, device execution and performance remain unvalidated.
