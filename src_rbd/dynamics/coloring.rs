@@ -11,9 +11,9 @@ use crate::pipeline::RunStats;
 use crate::shaders::broad_phase::ContactPlan;
 use crate::shaders::dynamics::{
     ColorStats, ContactLink, GpuClearCompletionFlagTopoGc, GpuColorBucketsCount,
-    GpuColorBucketsReset, GpuColorBucketsScatter, GpuColorDispatchGrid, GpuFixConflictsTopoGc,
-    GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc, GpuStepGraphColoringLuby,
-    GpuStepGraphColoringTopoGc,
+    GpuColorBucketsReset, GpuColorBucketsScatter, GpuColorDispatchGrid, GpuFinalizeTopoGc,
+    GpuFixConflictsTopoGc, GpuResetCompletionFlagTopoGc, GpuResetLuby, GpuResetTopoGc,
+    GpuStepGraphColoringLuby, GpuStepGraphColoringTopoGc,
 };
 use crate::utils::{GpuPrefixSum, PrefixSumWorkspace};
 use khal::Shader;
@@ -38,6 +38,8 @@ pub struct GpuColoring {
     step_graph_coloring_topo_gc_kernel: GpuStepGraphColoringTopoGc,
     /// Detects and fixes conflicts in TOPO-GC coloring.
     fix_conflicts_topo_gc_kernel: GpuFixConflictsTopoGc,
+    /// Clears unresolved colors after the bounded conflict-pruning rounds.
+    finalize_topo_gc_kernel: GpuFinalizeTopoGc,
     reset_completion_flag_topo_gc: GpuResetCompletionFlagTopoGc,
     clear_completion_flag_topo_gc: GpuClearCompletionFlagTopoGc,
     /// Sizes the colored dispatches from the color buckets.
@@ -393,6 +395,13 @@ impl GpuColoring {
             self.dispatch_step_topo_gc(pass, &mut args)?;
             self.dispatch_fix_conflicts_topo_gc(pass, &mut args)?;
         }
+        self.finalize_topo_gc_kernel.call(
+            pass,
+            args.contacts_len_indirect,
+            args.constraints_colors,
+            args.colored,
+            args.contact_plan,
+        )?;
 
         Ok(())
     }

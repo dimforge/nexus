@@ -1014,6 +1014,14 @@
       "operations": [],
       "symbols": [],
       "remaining": "Shared Rust reference regression included by the CPU oracle; no physics shader to port."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/coloring_bounds.rs",
+      "implementation": "ports/tilelang/shaders/tests/coloring_bounds.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "Shared Rust bounded coloring regression included by the CPU oracle."
     }
   ],
   "capabilities": [

@@ -3,6 +3,8 @@
 #[path = "contacts.rs"]
 mod contacts;
 use contacts::pilot;
+#[cfg(test)]
+use nexus_rbd_shaders3d::dynamics::gpu_finalize_topo_gc;
 use nexus_rbd_shaders3d::{
     broad_phase::ContactPlan,
     dynamics::{
@@ -329,3 +331,7 @@ fn main() {
 #[cfg(test)]
 #[path = "../../../../src_rbd_shaders/tests/coloring_luby.rs"]
 mod luby_regressions;
+
+#[cfg(test)]
+#[path = "../../../../src_rbd_shaders/tests/coloring_bounds.rs"]
+mod bounds_regressions;

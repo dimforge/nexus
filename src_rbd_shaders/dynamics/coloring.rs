@@ -422,8 +422,12 @@ pub fn gpu_step_graph_coloring_topo_gc(
                 // `colored` is not written here since the rank loops read it.
                 // The fix pass sets it, based on `pending_colors[i]`.
             } else {
-                constraints_colors[i] = first_free_color((color_mask_lo, color_mask_hi));
-                colored[i] = 1;
+                let pick = first_free_color((color_mask_lo, color_mask_hi));
+                // A full mask returns 64, which is a sentinel, not a usable color.
+                // Keep this contact uncolored instead of exposing an out-of-range
+                // shift to another invocation scanning its neighbors.
+                constraints_colors[i] = if pick < 64 { pick } else { 0 };
+                colored[i] = u32::from(pick < 64);
             }
             // We are not finished coloring. 0 indicates the algorithm must continue.
             *num_colors = 0;
@@ -579,6 +583,29 @@ pub fn gpu_fix_conflicts_topo_gc(
                 constraints_colors[i] = pending_i;
                 colored[i] = 1;
             }
+        }
+    }
+}
+
+/// Publishes a safe bounded coloring after the last conflict-pruning pass.
+///
+/// Losing contacts may still carry old nonzero colors. Bucket construction only
+/// reads the colors, so clear unresolved contacts in a separate dispatch, after
+/// all conflict readers have finished. Color zero selects the unsolved bucket.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
+#[spirv_bindgen]
+#[spirv(compute(threads(64)))]
+pub fn gpu_finalize_topo_gc(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] colored: &[u32],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
+) {
+    let num_threads = num_workgroups.x * WORKGROUP_SIZE;
+    for i in StepRng::new(invocation_id.x..contact_plan.bound, num_threads) {
+        if colored.read(i as usize) != 1 {
+            constraints_colors.write(i as usize, 0);
         }
     }
 }
