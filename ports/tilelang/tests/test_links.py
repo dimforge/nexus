@@ -51,6 +51,31 @@ class LinkTests(unittest.TestCase):
     def links(self):
         return self.actual["Links"].reshape(-1, self.layout["link_words"])
 
+    def test_device_plan_and_padded_launch_are_checked(self):
+        self.load()
+        self.assertGreater(self.case["launch_capacity"], self.case["count"])
+        self.assertEqual(
+            self.before["Plan"][self.layout["plan"]["bound"]], self.case["count"]
+        )
+        np.testing.assert_array_equal(self.actual["Plan"], self.before["Plan"])
+        for index in (0, -1):
+            self.load()
+            self.actual["Plan"][index] ^= np.uint32(1)
+            with self.subTest(guard=index), self.assertRaises(AssertionError):
+                self.check()
+        self.load()
+        self.before["Plan"][self.layout["plan"]["bound"]] += 1
+        with self.assertRaisesRegex(ValueError, "plan"):
+            validate_case(self.layout, self.case, self.before)
+        for capacity in (-1, True, 2**31):
+            self.load()
+            self.case["launch_capacity"] = capacity
+            with (
+                self.subTest(capacity=capacity),
+                self.assertRaisesRegex(ValueError, "capacity"),
+            ):
+                validate_case(self.layout, self.case, self.before)
+
     def test_all_entry_points_and_composition(self):
         for op in OPERATIONS:
             self.load(op)

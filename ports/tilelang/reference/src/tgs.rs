@@ -287,6 +287,17 @@ fn fixture(
     w!("Buckets.bin", &buckets);
     w!("Links.bin", &links);
     w!("Contacts.bin", &contacts);
+    w!(
+        "Plan.bin",
+        &[
+            plan,
+            ContactPlan {
+                bound: 0xdeadbeef,
+                pfm_base: 0xabcdef12,
+                pfm_len: 0x12345678
+            }
+        ]
+    );
     w!("States.bin", &states);
     w!("OldTiles.bin", &old);
     for c in 0..=2u32 {
@@ -456,6 +467,7 @@ fn fixture(
         "Color2",
         "Mode",
         "Params",
+        "Plan",
     ]
     .into_iter()
     .map(|name| {

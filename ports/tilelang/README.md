@@ -568,3 +568,9 @@ inertia are both zero. Static endpoints may therefore share a color without
 concurrent writes to the same velocity slot. The color contracts reject both
 write/write and read/write aliasing and preserve static velocity bits exactly;
 regressions include negative zero and workgroup tails through 129 constraints.
+
+Contact preparation and link dispatch consume the native `ContactPlan` directly
+from device storage. Their launch adapters support padded capacity and guard
+every invocation with the live device bound before loading contact or body data.
+This matches the native Rust uniform and allows collision generation to feed
+these stages without a host contact-count readback.

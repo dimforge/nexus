@@ -9,7 +9,8 @@ from shaders.dynamics.contact_links import (
 
 
 def make_kernel(layout, case, target):
-    n = case["count"]
+    n = case.get("launch_capacity", case["count"])
+    case = dict(case, count=n)
     init = gpu_init_contact_links(layout, case)
     match = gpu_match_contact_links(layout, case)
     seed = gpu_seed_colors_from_warmstart(layout, case)
@@ -32,25 +33,27 @@ def make_kernel(layout, case, target):
         OldColors,
         Colors,
         Colored,
+        Plan,
         i,
     ):
-        if do_init:
-            init(Contacts, Links, BodyIsMultibody, i)
-        if do_match:
-            match(
-                Contacts,
-                Links,
-                OldCounts,
-                OldIds,
-                OldLinks,
-                OldIndices,
-                States,
-                ColliderPoses,
-                Params,
-                i,
-            )
-        if do_seed:
-            seed(Links, OldColors, Colors, Colored, i)
+        if i < Plan[layout["plan"]["bound"]]:
+            if do_init:
+                init(Contacts, Links, BodyIsMultibody, i)
+            if do_match:
+                match(
+                    Contacts,
+                    Links,
+                    OldCounts,
+                    OldIds,
+                    OldLinks,
+                    OldIndices,
+                    States,
+                    ColliderPoses,
+                    Params,
+                    i,
+                )
+            if do_seed:
+                seed(Links, OldColors, Colors, Colored, i)
 
     if n == 0:
 
@@ -69,6 +72,7 @@ def make_kernel(layout, case, target):
             OldColors,
             Colors,
             Colored,
+            Plan,
             i,
         ):
             T.evaluate(0)
@@ -104,6 +108,7 @@ def make_kernel(layout, case, target):
             OldColors: T.Tensor((n10,), "uint32"),
             Colors: T.Tensor((n11,), "uint32"),
             Colored: T.Tensor((n12,), "uint32"),
+            Plan: T.Tensor((2 * layout["plan_words"],), "uint32"),
         ):
             with T.Kernel(1):
                 for i in T.serial(max(n, 1)):
@@ -121,6 +126,7 @@ def make_kernel(layout, case, target):
                         OldColors,
                         Colors,
                         Colored,
+                        Plan,
                         i,
                     )
     elif target == "ascend":
@@ -141,6 +147,7 @@ def make_kernel(layout, case, target):
             OldColors: A.Tensor((n10,), "uint32"),
             Colors: A.Tensor((n11,), "uint32"),
             Colored: A.Tensor((n12,), "uint32"),
+            Plan: A.Tensor((2 * layout["plan_words"],), "uint32"),
         ):
             with A.Kernel(max((n + 63) // 64, 1)) as block:
                 with A.SimtVF(threads=64):
@@ -158,6 +165,7 @@ def make_kernel(layout, case, target):
                         OldColors,
                         Colors,
                         Colored,
+                        Plan,
                         block * 64 + A.get_thread_binding(),
                     )
     elif target in ("metal", "cuda"):
@@ -177,6 +185,7 @@ def make_kernel(layout, case, target):
             OldColors: T.Tensor((n10,), "uint32"),
             Colors: T.Tensor((n11,), "uint32"),
             Colored: T.Tensor((n12,), "uint32"),
+            Plan: T.Tensor((2 * layout["plan_words"],), "uint32"),
         ):
             with T.Kernel(max((n + 63) // 64, 1), threads=64) as block:
                 one(
@@ -193,6 +202,7 @@ def make_kernel(layout, case, target):
                     OldColors,
                     Colors,
                     Colored,
+                    Plan,
                     block * 64 + T.get_thread_binding(),
                 )
     else:

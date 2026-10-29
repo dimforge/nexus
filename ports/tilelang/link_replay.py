@@ -17,6 +17,7 @@ BUFFERS = (
     "OldColors",
     "Colors",
     "Colored",
+    "Plan",
 )
 OPERATIONS = ("init_links", "match_links", "seed_colors", "contact_persistence")
 OUTPUTS = {
@@ -101,7 +102,11 @@ def validate_case(layout, case, arrays):
         or case["new_base"] + case["storage"] <= case["old_base"]
     ):
         raise ValueError("Old and new recycling states overlap")
+    launch = case.get("launch_capacity", case["count"])
+    if type(launch) is not int or not case["count"] <= launch <= case["storage"]:
+        raise ValueError("Invalid contact launch capacity")
     sizes = {
+        "Plan": 2 * layout["plan_words"],
         "Contacts": case["storage"] * layout["contact_words"],
         "Links": case["storage"] * layout["link_words"],
         "BodyIsMultibody": case["bodies"],
@@ -121,6 +126,9 @@ def validate_case(layout, case, arrays):
         for k, a in arrays.items()
     ):
         raise ValueError("Invalid link buffer sizes")
+    if arrays["Plan"][layout["plan"]["bound"]] != case["count"]:
+        raise ValueError("Device contact plan differs from the declared live count")
+
     l, c, m, s = (layout[k] for k in ("link", "contact", "manifold", "state"))
     contacts = arrays["Contacts"].reshape(-1, layout["contact_words"])
     links = arrays["Links"].reshape(-1, layout["link_words"])
@@ -280,7 +288,7 @@ def main():
         validate_case=validate_case,
         check_outputs=check_outputs,
         launch=lambda case: (
-            max((case["count"] + 63) // 64, 1),
+            max((case.get("launch_capacity", case["count"]) + 63) // 64, 1),
             64,
             case["iterations"],
         ),

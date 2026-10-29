@@ -26,6 +26,8 @@ pub(crate) fn layout() -> Value {
     macro_rules! fields {
         ($ty:ty, $($field:ident),+ $(,)?) => { json!({$(stringify!($field):offset_of!($ty,$field)/4),+}) };
     }
+    l["plan_words"] = json!(size_of::<ContactPlan>() / 4);
+    l["plan"] = fields!(ContactPlan, bound, pfm_base, pfm_len);
     l["link_words"] = json!(size_of::<ContactLink>() / 4);
     l["link"] = fields!(
         ContactLink,
@@ -279,6 +281,18 @@ fn fixture(root: &Path, n: usize, mode: &str) -> Value {
     pilot::write_buffer(&dir, "States.bin", &states);
     pilot::write_buffer(&dir, "OldTiles.bin", &old);
     pilot::write_buffer(&dir, "Tiles.bin", &tiles);
+    pilot::write_buffer(
+        &dir,
+        "Plan.bin",
+        &[
+            plan,
+            ContactPlan {
+                bound: 0xdeadbeef,
+                pfm_base: 0xabcdef12,
+                pfm_len: 0x12345678,
+            },
+        ],
+    );
     pilot::write_buffer(&dir, "ContactPlan.bin", &[plan]);
     pilot::write_buffer(&dir, "RecycleOffsets.bin", &[offsets]);
     for _ in 0..3 {
@@ -299,7 +313,7 @@ fn fixture(root: &Path, n: usize, mode: &str) -> Value {
         }
     }
     pilot::write_buffer(&dir, "Tiles.expected.bin", &tiles);
-    json!({"name":name,"kind":"prepare","count":n,"storage":storage,"bodies":bodies,
+    json!({"name":name,"kind":"prepare","count":n,"launch_capacity":storage,"storage":storage,"bodies":bodies,
         "new_base":new_base,"states":states.len(),"tiles":tile_count,"old_tiles":old.len(),"iterations":3})
 }
 fn main() {

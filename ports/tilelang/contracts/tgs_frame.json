@@ -27,7 +27,8 @@
     "Color1",
     "Color2",
     "Mode",
-    "Params"
+    "Params",
+    "Plan"
   ],
   "outputs": [
     "Poses",
@@ -50,14 +51,16 @@
     "Fresh caller-supplied native contact manifolds with valid fixed color order; no recycled links or hubs",
     "Two solved colors with disjoint velocity writers within each color, including static slots; colors may share bodies sequentially",
     "Finite unit rotations, positive timestep, matching native batch/substep/PGS uniforms",
-    "All dynamic bodies remain awake; no sleeping or scene culling"
+    "All dynamic bodies remain awake; no sleeping or scene culling",
+    "The native ContactPlan bound is supplied in device storage and does not exceed the declared launch capacity; standalone fixtures declare its live count."
   ],
   "invariants": [
     "Generated kernels update world masses, initialize body state, prepare contacts and apply gravity before warmstart/solve/integrate/finalize in Rust order",
     "At least one biased PGS iteration per substep even when configured count is zero; friction mode and impulse scaling follow native uniforms",
     "Caller-owned buffers stay resident; no CPU physics or intermediate readback",
     "Fixed body velocities and poses are invariant; final rotations remain normalized and impulses obey unilateral/Coulomb bounds",
-    "Every untouched word and integer field remains exact"
+    "Every untouched word and integer field remains exact",
+    "Every contact invocation reads the device plan bound before dereferencing contact or body storage; padded invocations preserve every guard word."
   ],
   "outside_scope": [
     "Collision/manifold generation and broad phase",

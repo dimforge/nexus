@@ -15,7 +15,8 @@
     "Params",
     "OldColors",
     "Colors",
-    "Colored"
+    "Colored",
+    "Plan"
   ],
   "outputs": [
     "Colors",
@@ -28,13 +29,15 @@
   "preconditions": [
     "Native Rust layouts and valid active references; old adjacency cumulative ends are monotone and IDs in bounds",
     "Old and new state ranges are disjoint; inactive link body IDs need not be valid for match/seed",
-    "Finite active poses with unit quaternions, finite recycle limits; positive length unit and nonnegative distance"
+    "Finite active poses with unit quaternions, finite recycle limits; positive length unit and nonnegative distance",
+    "The native ContactPlan bound is supplied in device storage and does not exceed the declared launch capacity; standalone fixtures declare its live count."
   ],
   "invariants": [
     "Only declared active fields change; readonly inputs, padding, state gaps and inactive lanes stay bitwise unchanged",
     "First identity match in the shorter nonempty adjacency list; exact previous indices and color seeds",
     "Multibody exclusion is retained even though articulated dynamics is deferred",
-    "Empty manifolds can retain invalid body and collider IDs; init, match and seed never dereference those IDs. Active manifold IDs remain validated."
+    "Empty manifolds can retain invalid body and collider IDs; init, match and seed never dereference those IDs. Active manifold IDs remain validated.",
+    "Every contact invocation reads the device plan bound before dereferencing contact or body storage; padded invocations preserve every guard word."
   ],
   "outside_scope": [
     "Collision generation",

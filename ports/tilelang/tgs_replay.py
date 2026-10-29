@@ -25,6 +25,7 @@ BUFFERS = (
     "Color2",
     "Mode",
     "Params",
+    "Plan",
 )
 OPERATIONS = ("tgs_frame",)
 
@@ -122,6 +123,7 @@ def validate_case(layout, case, arrays):
         "States": case["states"] * layout["state_words"],
         **{n: 2 for n in ("Color0", "Color1", "Color2", "Mode")},
         "Params": 6,
+        "Plan": 2 * layout["plan_words"],
     }
     if set(arrays) != set(BUFFERS) or case["buffer_words"] != sizes:
         raise ValueError("Invalid TGS storage manifest")

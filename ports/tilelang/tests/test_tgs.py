@@ -110,6 +110,8 @@ class TgsTests(unittest.TestCase):
             ("Gravity", 0),
             ("Color1", 1),
             ("Contacts", 0),
+            ("Plan", 0),
+            ("Plan", -1),
         ]:
             l, c, b, e, k = self.fixture()
             a = {n: v.copy() for n, v in e.items()}

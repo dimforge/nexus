@@ -5,8 +5,36 @@ from shaders.dynamics.tile_kernels import gpu_prepare_constraints
 
 
 def make_kernel(layout, case, target):
-    n = case["count"]
-    one = gpu_prepare_constraints(layout, case)
+    n = case.get("launch_capacity", case["count"])
+    case = dict(case, count=n)
+    prepare = gpu_prepare_constraints(layout, case)
+
+    @T.macro
+    def one(
+        Links,
+        Contacts,
+        WorldMass,
+        SolverPoses,
+        Velocities,
+        States,
+        OldTiles,
+        Tiles,
+        Plan,
+        i,
+    ):
+        if i < Plan[layout["plan"]["bound"]]:
+            prepare(
+                Links,
+                Contacts,
+                WorldMass,
+                SolverPoses,
+                Velocities,
+                States,
+                OldTiles,
+                Tiles,
+                i,
+            )
+
     n0 = case["storage"] * layout["link_words"]
     n1 = case["storage"] * layout["contact_words"]
     n2 = case["bodies"] * layout["world_mass_words"]
@@ -27,6 +55,7 @@ def make_kernel(layout, case, target):
             States: T.Tensor((n5,), "uint32"),
             OldTiles: T.Tensor((n6,), "uint32"),
             Tiles: T.Tensor((n7,), "uint32"),
+            Plan: T.Tensor((2 * layout["plan_words"],), "uint32"),
         ):
             with T.Kernel(1):
                 for i in T.serial(max(n, 1)):
@@ -39,6 +68,7 @@ def make_kernel(layout, case, target):
                         States,
                         OldTiles,
                         Tiles,
+                        Plan,
                         i,
                     )
     elif target == "ascend":
@@ -54,6 +84,7 @@ def make_kernel(layout, case, target):
             States: A.Tensor((n5,), "uint32"),
             OldTiles: A.Tensor((n6,), "uint32"),
             Tiles: A.Tensor((n7,), "uint32"),
+            Plan: A.Tensor((2 * layout["plan_words"],), "uint32"),
         ):
             with A.Kernel(max((n + 63) // 64, 1)) as block:
                 with A.SimtVF(threads=64):
@@ -66,6 +97,7 @@ def make_kernel(layout, case, target):
                         States,
                         OldTiles,
                         Tiles,
+                        Plan,
                         block * 64 + A.get_thread_binding(),
                     )
     elif target in ("metal", "cuda"):
@@ -80,6 +112,7 @@ def make_kernel(layout, case, target):
             States: T.Tensor((n5,), "uint32"),
             OldTiles: T.Tensor((n6,), "uint32"),
             Tiles: T.Tensor((n7,), "uint32"),
+            Plan: T.Tensor((2 * layout["plan_words"],), "uint32"),
         ):
             with T.Kernel(max((n + 63) // 64, 1), threads=64) as block:
                 one(
@@ -91,6 +124,7 @@ def make_kernel(layout, case, target):
                     States,
                     OldTiles,
                     Tiles,
+                    Plan,
                     block * 64 + T.get_thread_binding(),
                 )
     else:

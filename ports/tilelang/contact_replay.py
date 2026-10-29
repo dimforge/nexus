@@ -12,6 +12,7 @@ BUFFERS = (
     "States",
     "OldTiles",
     "Tiles",
+    "Plan",
 )
 
 
@@ -33,6 +34,7 @@ def validate_layout(layout):
             used |= words
 
     l = layout
+    fields(l["plan_words"], [(v, 1) for v in l["plan"].values()])
     fields(l["link_words"], [(v, 1) for v in l["link"].values()])
     fields(
         l["contact_words"],
@@ -111,7 +113,11 @@ def validate_case(layout, case, arrays):
         or case["new_base"] + case["storage"] > case["states"]
     ):
         raise ValueError("Invalid contact dimensions")
+    launch = case.get("launch_capacity", case["count"])
+    if type(launch) is not int or not case["count"] <= launch <= case["storage"]:
+        raise ValueError("Invalid contact launch capacity")
     sizes = {
+        "Plan": 2 * layout["plan_words"],
         "Links": case["storage"] * layout["link_words"],
         "Contacts": case["storage"] * layout["contact_words"],
         "WorldMass": case["bodies"] * layout["world_mass_words"],
@@ -126,6 +132,8 @@ def validate_case(layout, case, arrays):
         for n, a in arrays.items()
     ):
         raise ValueError("Invalid contact buffer sizes")
+    if arrays["Plan"][layout["plan"]["bound"]] != case["count"]:
+        raise ValueError("Device contact plan differs from the declared live count")
 
     def finite(a):
         if not np.isfinite(a).all():
@@ -333,7 +341,7 @@ def main():
         validate_case=validate_case,
         check_outputs=check_outputs,
         launch=lambda case: (
-            max((case["count"] + 63) // 64, 1),
+            max((case.get("launch_capacity", case["count"]) + 63) // 64, 1),
             64,
             case["iterations"],
         ),

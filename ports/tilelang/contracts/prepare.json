@@ -10,7 +10,8 @@
     "Velocities",
     "States",
     "OldTiles",
-    "Tiles"
+    "Tiles",
+    "Plan"
   ],
   "outputs": [
     "Tiles"
@@ -23,11 +24,13 @@
     "Rust-derived 3D Coulomb ABI, finite data, unit rotations and orthonormal contact frames",
     "Valid active contact/body/previous indices; link bodies agree with manifold bodies",
     "Recycled links identify a previous constraint; input and output allocations are disjoint",
-    "Output lanes are independent; input body and velocity indices MAY be shared"
+    "Output lanes are independent; input body and velocity indices MAY be shared",
+    "The native ContactPlan bound is supplied in device storage and does not exceed the declared launch capacity; standalone fixtures declare its live count."
   ],
   "invariants": [
     "Readonly inputs and inactive tile lanes/points unchanged",
-    "Copied distances, impulse selections, body IDs, split velocity slot IDs and warmstart tags remain exact"
+    "Copied distances, impulse selections, body IDs, split velocity slot IDs and warmstart tags remain exact",
+    "Every contact invocation reads the device plan bound before dereferencing contact or body storage; padded invocations preserve every guard word."
   ],
   "outside_scope": [
     "Contact manifold generation",

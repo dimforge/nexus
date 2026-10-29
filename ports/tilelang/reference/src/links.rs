@@ -234,6 +234,18 @@ fn fixture(root: &Path, n: usize, op: &str) -> Value {
             );
         }
     }
+    pilot::write_buffer(
+        &dir,
+        "Plan.bin",
+        &[
+            plan,
+            ContactPlan {
+                bound: 0xdeadbeef,
+                pfm_base: 0xabcdef12,
+                pfm_len: 0x12345678,
+            },
+        ],
+    );
     macro_rules! write {($($name:literal=>$value:expr),+ $(,)?)=>{$(pilot::write_buffer(&dir,$name,$value);)+};}
     write!("Contacts.bin"=>&ims,"Links.bin"=>&links,"BodyIsMultibody.bin"=>&is_mb,
         "OldCounts.bin"=>&old_counts,"OldIds.bin"=>&old_ids,"OldLinks.bin"=>&old_links,
@@ -275,7 +287,7 @@ fn fixture(root: &Path, n: usize, op: &str) -> Value {
         }
     }
     write!("Links.expected.bin"=>&links,"States.expected.bin"=>&states,"Colors.expected.bin"=>&colors,"Colored.expected.bin"=>&colored);
-    json!({"name":name,"kind":op,"count":n,"storage":storage,"bodies":bodies,"colliders":colliders,
+    json!({"name":name,"kind":op,"count":n,"launch_capacity":storage,"storage":storage,"bodies":bodies,"colliders":colliders,
         "old_storage":old_storage,"ids_storage":old_ids.len(),"state_storage":state_storage,
         "old_base":old_base,"new_base":new_base,"iterations":3})
 }
