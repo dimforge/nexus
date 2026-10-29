@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "feature": "rbd.utils.radix_sort",
+  "scope": "Resident eight-pass native stable u32 radix sort over independent batches",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Config",
+    "NumKeys",
+    "Keys",
+    "Values",
+    "Aux",
+    "OutKeys",
+    "OutValues",
+    "OutAux",
+    "BatchIds",
+    "Counts",
+    "Reduced",
+    "SortGrid",
+    "ReduceGrid",
+    "InitConfig",
+    "Config0",
+    "Config1",
+    "Config2",
+    "Config3",
+    "Config4",
+    "Config5",
+    "Config6",
+    "Config7"
+  ],
+  "outputs": [
+    "Counts",
+    "Reduced",
+    "OutKeys",
+    "OutValues",
+    "OutAux",
+    "Keys",
+    "Values",
+    "Aux"
+  ],
+  "comparison": "radix_fields",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "Every word is compared exactly against native cooperative Rust shaders and an independent integer/stable-sort specification.",
+  "preconditions": [
+    "Rust-derived u32 layouts; nonaliasing buffers; finite bounded allocation and launch dimensions",
+    "Capacity <= 64 million keys per batch, <= 1024 reduced histogram entries per batch; validated active counts and fixed native 4-bit shifts",
+    "Synthetic >1M-key histogram fixtures are restricted to reduce/scan/add stages and do not imply sorting that many runtime keys was tested."
+  ],
+  "invariants": [
+    "Stable ordering preserves original order of equal keys and the associated values/auxiliary fields",
+    "All intermediate, readonly, inactive, padding and guard words are checked exactly",
+    "Cooperative GPU phases include explicit workgroup barriers; serial CPU phases are a separate execution adaptation"
+  ],
+  "outside_scope": [
+    "Ascend vendor compilation, execution, synchronization qualification and performance",
+    "Production scene integration",
+    "Native flattened-batch host optimization; the tested sort runs independent native batch grids"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b3-s0-a0-mixed",
+    "n1-b1-s0-a1-mixed",
+    "n31-b3-s4-a1-mixed",
+    "n255-b1-s28-a0-mixed",
+    "n256-b2-s0-a1-equal",
+    "n257-b3-s12-a1-digits",
+    "n1023-b1-s0-a1-reverse",
+    "n1024-b2-s28-a1-mixed",
+    "n1025-b3-s4-a0-mixed",
+    "n2049-b2-s16-a1-mixed"
+  ]
+}

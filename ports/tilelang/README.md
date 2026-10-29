@@ -551,3 +551,14 @@ checking the contact fields. Composed box-box coordinates and depths allow a
 scale-aware f32 roundoff budget, with an independent check that both contact
 endpoints lie on their respective box surfaces. Normal and material tolerances
 are unchanged. General scene stepping and Ascend execution remain unvalidated.
+
+
+Native radix shaders are mirrored under `shaders/utils/radix_sort`. The registered
+stages and composed pass/sort use exact integer checks against both cooperative
+Rust kernels and an independent stable-sort specification. `canonical_contacts`
+connects native key generation, radix stages and whole-manifold permutation over
+resident buffers. It preserves contact identity and equal-key order, with inert
+contacts reset to the Rust default. The current adapter uses eight radix passes
+per field and independent batch grids; Rust's variable-bit and flattened-batch
+host optimizations remain pending. These operations still need connection to the
+general scene solver.

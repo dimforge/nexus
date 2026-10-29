@@ -39,7 +39,9 @@ Remaining implementation sequence:
    material combination and positional inert-slot writes. Generic PFM, meshes,
    polylines remain. PFM counter reset and contact-plan publication are implemented;
    a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
-   collision detection. It still needs connection to general scene solving.
+   collision detection. Native radix stages and contact canonicalization are now
+   implemented as resident programs. These still need connection to general scene
+   solving.
    Port collision detection and shapes, contact creation/removal, broad-phase
    schedules, rigid-body joints, queries, deterministic ordering and other required
    inventory capabilities. Do not introduce CPU physics fallbacks and call them

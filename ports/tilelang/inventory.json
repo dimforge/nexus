@@ -100,14 +100,19 @@
     {
       "reference": "src_rbd_shaders/dynamics/canonical_order.rs",
       "implementation": "ports/tilelang/shaders/dynamics/canonical_order.py",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
-        "rbd.scheduling.stabilize_body_constraint_ids"
+        "rbd.scheduling.stabilize_body_constraint_ids",
+        "rbd.scheduling.contact_keys3d",
+        "rbd.scheduling.permute_contacts3d",
+        "rbd.scheduling.canonical_contacts3d"
       ],
       "symbols": [
-        "gpu_stabilize_body_constraint_ids"
+        "gpu_stabilize_body_constraint_ids",
+        "gpu_contact_sort_keys",
+        "gpu_permute_contacts"
       ],
-      "remaining": "Only per-body constraint-ID sorting; contact keys/permutation and multibody ordering remain unported."
+      "remaining": "All three native canonical shader entry points are implemented. General deterministic scene scheduling and hardware qualification remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/color_buckets.rs",
@@ -1047,18 +1052,26 @@
     {
       "reference": "src_rbd_shaders/utils/radix_sort/init_batch_ids.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/init_batch_ids.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_init_batched"
+      ],
+      "symbols": [
+        "gpu_init_sort_batched"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/init_indirect_dispatches.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/init_indirect_dispatches.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_dispatch"
+      ],
+      "symbols": [
+        "gpu_init_sort_dispatch"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/mod.rs",
@@ -1066,55 +1079,99 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Namespace reexports only; executable stages and constants are mapped in the adjacent modules."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/sort_count.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_count.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_count",
+        "rbd.utils.radix_pass",
+        "rbd.utils.radix_sort"
+      ],
+      "symbols": [
+        "gpu_sort_count"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/sort_reduce.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_reduce.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_reduce",
+        "rbd.utils.radix_pass",
+        "rbd.utils.radix_sort"
+      ],
+      "symbols": [
+        "gpu_sort_reduce"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/sort_scan.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scan.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_scan",
+        "rbd.utils.radix_pass",
+        "rbd.utils.radix_sort"
+      ],
+      "symbols": [
+        "gpu_sort_scan"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/sort_scan_add.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scan_add.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_scan_add",
+        "rbd.utils.radix_pass",
+        "rbd.utils.radix_sort"
+      ],
+      "symbols": [
+        "gpu_sort_scan_add"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/sort_scatter.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scatter.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_scatter",
+        "rbd.utils.radix_pass",
+        "rbd.utils.radix_sort"
+      ],
+      "symbols": [
+        "gpu_sort_scatter"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/sorting.rs",
       "implementation": "ports/tilelang/shaders/utils/radix_sort/sorting.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.radix_dispatch",
+        "rbd.utils.radix_init_batched",
+        "rbd.utils.radix_count",
+        "rbd.utils.radix_reduce",
+        "rbd.utils.radix_scan",
+        "rbd.utils.radix_scan_add",
+        "rbd.utils.radix_scatter",
+        "rbd.utils.radix_pass",
+        "rbd.utils.radix_sort"
+      ],
+      "symbols": [
+        "div_ceil",
+        "num_workgroups",
+        "extract_digit"
+      ],
+      "remaining": "Shader algorithm ported; Rust-derived uniforms, backend placement and ordered launch adaptation are tested separately. Ascend execution remains unvalidated."
     },
     {
       "reference": "src_rbd_shaders/utils/slice.rs",
@@ -1325,18 +1382,30 @@
       "operations": [
         "rbd.utils.prefix_sweep",
         "rbd.utils.prefix_add",
-        "rbd.utils.prefix_scan"
+        "rbd.utils.prefix_scan",
+        "rbd.utils.radix_dispatch",
+        "rbd.utils.radix_init_batched",
+        "rbd.utils.radix_count",
+        "rbd.utils.radix_reduce",
+        "rbd.utils.radix_scan",
+        "rbd.utils.radix_scan_add",
+        "rbd.utils.radix_scatter",
+        "rbd.utils.radix_pass",
+        "rbd.utils.radix_sort"
       ],
-      "remaining": "Prefix sum kernels and ordered hierarchy ported; radix sort and other utility algorithms remain."
+      "remaining": "Prefix hierarchy and native radix stages/sorts implemented. Flattened-batch host optimization and other utility algorithms remain."
     },
     {
       "id": "rbd.determinism",
       "description": "Canonical ordering and deterministic schedules",
       "coverage": "partial",
       "operations": [
-        "rbd.scheduling.stabilize_body_constraint_ids"
+        "rbd.scheduling.stabilize_body_constraint_ids",
+        "rbd.scheduling.contact_keys3d",
+        "rbd.scheduling.permute_contacts3d",
+        "rbd.scheduling.canonical_contacts3d"
       ],
-      "remaining": "Per-body constraint-ID sorting only; other canonical ordering and production deterministic schedules remain unported."
+      "remaining": "Native per-body ordering and canonical contact keys, stable sorting and permutation implemented. Full deterministic scene scheduling remains."
     },
     {
       "id": "rbd.pipeline",

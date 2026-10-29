@@ -317,3 +317,13 @@ class ContactPlanHandoffTests(HandoffTests):
 class CollisionPipelineHandoffTests(ScanHandoffTests):
     operation = "analytic_collision"
     mutable_buffer = "Contacts"
+
+
+class RadixHandoffTests(ScanHandoffTests):
+    operation = "radix_sort"
+    mutable_buffer = "Values"
+
+
+class CanonicalHandoffTests(ScanHandoffTests):
+    operation = "canonical_contacts"
+    mutable_buffer = "Output"

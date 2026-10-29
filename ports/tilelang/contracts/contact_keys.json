@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "feature": "rbd.scheduling.contact_keys3d",
+  "scope": "Native contact field selection, identity/permuted IDs and empty-slot keys",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Contacts",
+    "Output",
+    "InOrder",
+    "Keys",
+    "Values",
+    "SortCount",
+    "Plan",
+    "BatchIds",
+    "Selector",
+    "SortKeys",
+    "PongKeys",
+    "PongValues",
+    "RadixAux",
+    "RadixOutAux",
+    "RadixBatchIds",
+    "Counts",
+    "Reduced",
+    "SortGrid",
+    "ReduceGrid",
+    "Config",
+    "InitConfig",
+    "Config0",
+    "Config1",
+    "Config2",
+    "Config3",
+    "Config4",
+    "Config5",
+    "Config6",
+    "Config7"
+  ],
+  "outputs": [
+    "Keys",
+    "Values",
+    "SortCount"
+  ],
+  "comparison": "canonical_fields",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "Every word is compared exactly against native cooperative Rust shaders and an independent integer/stable-sort specification.",
+  "preconditions": [
+    "Native manifold lengths <= 4; ContactPlan bound fits storage; valid permutation and selector",
+    "Packed pair selectors require collider IDs representable at the declared shift; integer IDs remain exact"
+  ],
+  "invariants": [
+    "Stable ordering preserves original order of equal keys and the associated values/auxiliary fields",
+    "All intermediate, readonly, inactive, padding and guard words are checked exactly",
+    "Cooperative GPU phases include explicit workgroup barriers; serial CPU phases are a separate execution adaptation"
+  ],
+  "outside_scope": [
+    "Ascend vendor compilation, execution, synchronization qualification and performance",
+    "Production scene integration",
+    "Production geometry and multi-frame solver stability",
+    "Variable-bit pass-count optimization; full 32-bit passes preserve order while doing extra work"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-mixed-s7",
+    "n1-mixed-s7",
+    "n31-mixed-s7",
+    "n32-mixed-s7",
+    "n33-mixed-s7",
+    "n63-mixed-s7",
+    "n64-mixed-s7",
+    "n65-mixed-s7",
+    "n129-mixed-s7",
+    "n65-full-u32-s0",
+    "n65-full-u32-s1",
+    "n65-full-u32-s2",
+    "n65-full-u32-s3",
+    "n65-full-u32-s4",
+    "n65-full-u32-s5",
+    "n65-full-u32-s6",
+    "n65-full-u32-s7"
+  ]
+}

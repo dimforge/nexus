@@ -296,6 +296,8 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from coefficient_replay import check_outputs as check_coefficient_outputs
     from contact_plan_replay import check_outputs as check_contact_plan_outputs
     from collision_replay import check_outputs as check_collision_outputs
+    from radix_replay import check_outputs as check_radix_outputs
+    from canonical_replay import check_outputs as check_canonical_outputs
     from narrow_replay import check_outputs as check_narrow_outputs
     from broadphase_replay import check_outputs as check_broadphase_outputs
     from tgs_replay import check_outputs as check_tgs_outputs
@@ -368,6 +370,8 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "narrow_fields": check_narrow_outputs,
                     "contact_plan_fields": check_contact_plan_outputs,
                     "collision_fields": check_collision_outputs,
+                    "radix_fields": check_radix_outputs,
+                    "canonical_fields": check_canonical_outputs,
                     "body_uniform_fields": check_body_uniform_outputs,
                 }[contract.get("comparison")]
                 before = {

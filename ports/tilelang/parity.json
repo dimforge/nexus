@@ -880,6 +880,162 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/analytic_collision.json",
       "test_command": "python ports/tilelang/collision_replay.py --operation analytic_collision --target c"
+    },
+    {
+      "id": "rbd.utils.radix_dispatch",
+      "operation": "radix_dispatch",
+      "runner": "radix_replay.py",
+      "coverage": "Native indirect radix launch grids",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/init_indirect_dispatches.rs::gpu_init_sort_dispatch"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/init_indirect_dispatches.py::gpu_init_sort_dispatch",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_dispatch.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_dispatch --target c"
+    },
+    {
+      "id": "rbd.utils.radix_init_batched",
+      "operation": "radix_init_batched",
+      "runner": "radix_replay.py",
+      "coverage": "Native batch-ID initialization and sentinel key/value fill",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/init_batch_ids.rs::gpu_init_sort_batched"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/init_batch_ids.py::gpu_init_sort_batched",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_init_batched.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_init_batched --target c"
+    },
+    {
+      "id": "rbd.utils.radix_count",
+      "operation": "radix_count",
+      "runner": "radix_replay.py",
+      "coverage": "Native 256-lane per-workgroup 16-bin histograms",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/sort_count.rs::gpu_sort_count"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_count.py::gpu_sort_count",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_count.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_count --target c"
+    },
+    {
+      "id": "rbd.utils.radix_reduce",
+      "operation": "radix_reduce",
+      "runner": "radix_replay.py",
+      "coverage": "Native per-bin multi-block histogram reduction",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/sort_reduce.rs::gpu_sort_reduce"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_reduce.py::gpu_sort_reduce",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_reduce.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_reduce --target c"
+    },
+    {
+      "id": "rbd.utils.radix_scan",
+      "operation": "radix_scan",
+      "runner": "radix_replay.py",
+      "coverage": "Native transposed reduced-histogram exclusive scan",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/sort_scan.rs::gpu_sort_scan"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scan.py::gpu_sort_scan",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_scan.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_scan --target c"
+    },
+    {
+      "id": "rbd.utils.radix_scan_add",
+      "operation": "radix_scan_add",
+      "runner": "radix_replay.py",
+      "coverage": "Native per-bin chunk prefix and global-offset addition",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/sort_scan_add.rs::gpu_sort_scan_add"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scan_add.py::gpu_sort_scan_add",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_scan_add.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_scan_add --target c"
+    },
+    {
+      "id": "rbd.utils.radix_scatter",
+      "operation": "radix_scatter",
+      "runner": "radix_replay.py",
+      "coverage": "Native stable 4-bit key/value/optional-aux scatter",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/sort_scatter.rs::gpu_sort_scatter"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scatter.py::gpu_sort_scatter",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_scatter.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_scatter --target c"
+    },
+    {
+      "id": "rbd.utils.radix_pass",
+      "operation": "radix_pass",
+      "runner": "radix_replay.py",
+      "coverage": "Resident native count/reduce/scan/add/scatter radix pass",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/sort_scatter.rs::gpu_sort_scatter"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scatter.py::gpu_sort_scatter",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_pass.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_pass --target c"
+    },
+    {
+      "id": "rbd.utils.radix_sort",
+      "operation": "radix_sort",
+      "runner": "radix_replay.py",
+      "coverage": "Resident eight-pass native stable u32 radix sort over independent batches",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/radix_sort/sort_scatter.rs::gpu_sort_scatter"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scatter.py::gpu_sort_scatter",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/radix_sort.json",
+      "test_command": "python ports/tilelang/radix_replay.py --operation radix_sort --target c"
+    },
+    {
+      "id": "rbd.scheduling.contact_keys3d",
+      "operation": "contact_keys",
+      "runner": "canonical_replay.py",
+      "coverage": "Native contact field selection, identity/permuted IDs and empty-slot keys",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/canonical_order.rs::gpu_contact_sort_keys"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/canonical_order.py::gpu_contact_sort_keys",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/contact_keys.json",
+      "test_command": "python ports/tilelang/canonical_replay.py --operation contact_keys --target c"
+    },
+    {
+      "id": "rbd.scheduling.permute_contacts3d",
+      "operation": "permute_contacts",
+      "runner": "canonical_replay.py",
+      "coverage": "Native whole-manifold permutation and default inert-slot output",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/canonical_order.rs::gpu_permute_contacts"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/canonical_order.py::gpu_permute_contacts",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/permute_contacts.json",
+      "test_command": "python ports/tilelang/canonical_replay.py --operation permute_contacts --target c"
+    },
+    {
+      "id": "rbd.scheduling.canonical_contacts3d",
+      "operation": "canonical_contacts",
+      "runner": "canonical_replay.py",
+      "coverage": "Resident native canonical keys, radix dispatch publication, stable radix sorting and contact permutation",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/canonical_order.rs::gpu_permute_contacts"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/canonical_order.py::gpu_permute_contacts",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/canonical_contacts.json",
+      "test_command": "python ports/tilelang/canonical_replay.py --operation canonical_contacts --target c"
     }
   ],
   "targets": [
