@@ -1,0 +1,19 @@
+[package]
+name = "nexus-tilelang-reference"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Isolated host-only oracle: no cargo-gpu, Python or accelerator is needed.
+[workspace]
+
+[dependencies]
+nexus_rbd_shaders3d = { path = "../../../crates/nexus_rbd_shaders3d", default-features = false, features = ["dim3"] }
+bytemuck = "1"
+serde_json = "1"
+
+[patch.crates-io]
+khal = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
+khal-derive = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
+khal-std = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
+vortx-shaders = { git = "https://github.com/dimforge/vortx", tag = "v0.5.0" }

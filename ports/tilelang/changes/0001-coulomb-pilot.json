@@ -1,0 +1,13 @@
+{
+  "id": "0001-coulomb-pilot",
+  "features": ["rbd.contact.coulomb.solve3d"],
+  "kinds": ["port", "tooling", "test"],
+  "disposition": "implementation_updated",
+  "summary": "Introduce a typed-buffer 3D Coulomb solve pilot, a live Rust replay oracle, and evidence-bound parity maintenance.",
+  "regressions": ["tile and workgroup boundaries including zero contacts", "all bias/friction combinations with three passes", "static bodies, locked axes, zero friction, singular tangent mass", "disjoint velocity slots distinct from pose indices", "unchanged integer, padding, inactive point, and sentinel words", "reference mutation, new files, stale evidence, tolerance changes, and hash-only updates"],
+  "differences": [
+    "Shared scalar arithmetic uses separate C, Metal/CUDA, and experimental Ascend launch wrappers. No production runtime integration or complete rigid-body port is claimed.",
+    "CPU and Metal parity builds disable floating-point contraction. An explicit conditional avoids invalid Metal source emitted by TileLang 0.1.15 for a mutable if_then_else assignment.",
+    "Rust host SIMD quaternion arithmetic can change the soft-contact branch at cancellation-generated zero distance. The portable suite uses exact zero without rotated-point cancellation; --boundary-stress preserves the failing diagnostic and the contract blocks release pending a numerical policy. Tolerances were not widened."
+  ]
+}

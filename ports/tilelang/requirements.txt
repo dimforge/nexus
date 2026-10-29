@@ -1,0 +1,6 @@
+# Compiler ABI and numerical dependencies are pinned. Revalidate evidence on upgrade.
+tilelang==0.1.15
+apache-tvm-ffi==0.1.12
+numpy==2.2.6
+torch==2.9.1
+z3-solver==4.15.4.0

@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "reference_scope": [
+    "src_rbd/**/*.rs",
+    "src_rbd_shaders/**/*.rs",
+    "crates/nexus_rbd*/Cargo.toml",
+    "crates/nexus_rbd*/build.rs",
+    "Cargo.toml"
+  ],
+  "implementation_scope": [
+    "ports/tilelang/*.py",
+    "ports/tilelang/tests/*.py",
+    "ports/tilelang/native_metal.swift",
+    "ports/tilelang/contract.json",
+    "ports/tilelang/parity.json",
+    "ports/tilelang/requirements.txt",
+    "ports/tilelang/reference/Cargo.toml",
+    "ports/tilelang/reference/Cargo.lock",
+    "ports/tilelang/reference/src/*.rs",
+    ".github/workflows/tilelang.yml",
+    "ports/tilelang/reference/rust-toolchain.toml",
+    "ports/tilelang/AGENTS.md",
+    "AGENTS.md"
+  ],
+  "features": [
+    {
+      "id": "rbd.contact.coulomb.solve3d",
+      "coverage": "pilot: prepared tiles, one conflict-free color; see contract.json for exclusions",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver_utils.rs::ContactSolverData::solve_points",
+        "src_rbd_shaders/dynamics/solver_utils.rs::maybe_inv",
+        "src_rbd_shaders/dynamics/solver_utils.rs::cap_magnitude",
+        "src_rbd_shaders/dynamics/constraint.rs::SymInertia::mul",
+        "src_rbd_shaders/dynamics/coulomb_tiles.rs::CoulombTile"
+      ],
+      "implementation": "ports/tilelang/coulomb.py::make_kernel",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contract.json",
+      "test_command": "python ports/tilelang/replay.py --target c"
+    }
+  ],
+  "targets": [
+    "c",
+    "metal",
+    "cuda",
+    "ascend"
+  ],
+  "required_reconciliation_targets": [
+    "c"
+  ]
+}

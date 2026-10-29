@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.coulomb.solve3d",
+  "scope": "One conflict-free 3D Coulomb color, prepared Rust tiles, one or more ordered solve passes",
+  "inputs": [
+    "Tiles",
+    "Velocities",
+    "Poses",
+    "Params"
+  ],
+  "outputs": [
+    "Tiles",
+    "Velocities"
+  ],
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "f32 arithmetic with differing CPU/GPU contraction and quaternion evaluation; checked per output after up to three sequential passes",
+  "preconditions": [
+    "finite input floats",
+    "unit quaternions and contact frames",
+    "0..4 active points",
+    "valid body and velocity indices",
+    "no velocity slot shared by two active manifolds"
+  ],
+  "invariants": [
+    "normal impulses nonnegative",
+    "friction inside Coulomb disk when enabled",
+    "outputs finite",
+    "all other words unchanged"
+  ],
+  "outside_scope": [
+    "contact preparation",
+    "warmstart",
+    "color construction",
+    "integration",
+    "joints",
+    "twist friction",
+    "2D",
+    "full simulation scheduling",
+    "Ascend execution"
+  ],
+  "required_cases": [
+    "n0-b1-f1-i1-s20261029",
+    "n1-b1-f1-i1-s20261030",
+    "n31-b1-f1-i1-s20261060",
+    "n32-b1-f1-i1-s20261061",
+    "n33-b1-f1-i1-s20261062",
+    "n63-b1-f1-i1-s20261092",
+    "n64-b1-f1-i1-s20261093",
+    "n65-b1-f1-i1-s20261094",
+    "n127-b1-f1-i1-s20261156",
+    "n129-b0-f0-i3-s17",
+    "n129-b0-f0-i3-s42",
+    "n129-b0-f1-i3-s17",
+    "n129-b0-f1-i3-s42",
+    "n129-b1-f0-i3-s17",
+    "n129-b1-f0-i3-s42",
+    "n129-b1-f1-i3-s17",
+    "n129-b1-f1-i3-s42"
+  ],
+  "known_gaps": [
+    {
+      "id": "zero-distance-cancellation",
+      "description": "Rust host SIMD and scalar/GPU quaternion transforms can round to opposite sides of distance == 0, selecting different CFM branches. Portable suite tests exact zero without rotated-point cancellation; replay --boundary-stress preserves the adversarial case. A cross-backend numerical policy is unresolved.",
+      "blocks_release": true
+    }
+  ]
+}

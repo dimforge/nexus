@@ -1,0 +1,56 @@
+# Initial validation — 2026-10-29
+
+This records the first pilot's local validation. Current source reconciliation and
+backend evidence are determined by `parity.py report`, not by this historical note.
+Exact source fingerprints and environments are in `evidence/c.json` and
+`evidence/metal.json`.
+
+- Reference: current Nexus Rust source based on `c94e14bd1a8a20408a1fb159364b57a5347c0198`,
+  Rust 1.99.1, standalone checked-in Cargo lockfile.
+- Compiler: TileLang 0.1.15, TVM FFI 0.1.12, Python 3.13, NumPy 2.2.6.
+- Host: macOS ARM64; GPU: Apple M4 Max.
+- CPU generated C++: 17/17 portable replay cases passed.
+- Native Metal: 17/17 portable replay cases passed.
+- Maximum absolute differences on both backends: `9.5367431640625e-7` in impulse
+  outputs and `4.76837158203125e-7` in velocities. All untouched words compared
+  exactly; normal/friction/finite-value invariants passed.
+- Change-tracking regressions: 12/12 passed.
+- Replay corruption/race regressions: 7/7 passed, using actual exported buffers.
+- Rust exporter: `cargo fmt --check` and Clippy with `-D warnings` passed.
+- Python: Ruff F checks passed. Ruff is only a development formatter/linter,
+  not a runtime or parity dependency.
+
+## Deliberate drift experiment
+
+Temporarily changed the actual Rust normal-impulse update from `cfm_factor * ...`
+to `0.5 * cfm_factor * ...` in the worktree's `solver_utils.rs`.
+
+1. The parity check failed, identified the Rust source change, and marked both
+   accepted CPU and Metal reports stale.
+2. Rebuilding the live Rust oracle and replaying TileLang failed numerically on
+   `n1-b1-f1-i1-s20261030`.
+3. Restoring the exact original bytes restored source reconciliation and both
+   accepted reports. The reference binary was rebuilt from the restored source.
+
+No production Rust solver changes remain in this milestone.
+
+## Explicit failures and unavailable validation
+
+The retained `--boundary-stress` diagnostic failed on
+`n127-b1-f1-i1-s20261156`: six impulse outputs differed beyond tolerance, with a
+maximum difference of about `0.0157851`. This is the documented cancellation at
+zero distance selecting a different CFM branch. The portable suite tests exact
+zero without rotated-point cancellation. The original diagnostic remains
+reproducible, tolerances were not widened, and `check --release` correctly fails.
+
+Source-lowering attempts with this macOS wheel could not validate the other
+backends:
+
+- CUDA: missing `tilelang.cuda._ffi_api.AnnotateDeviceBoundTmaCopies`.
+- Ascend: `Target ascend is not supported`.
+
+Neither is an execution result. CUDA and Ascend remain unvalidated in the parity
+report. The Linux CPU CI workflow has been added but has not been run remotely.
+Production runtime integration, same-GPU Rust-kernel comparison, full-scene tests,
+Ascend toolkit compilation/execution, and performance measurements remain future
+milestones.
