@@ -68,6 +68,9 @@ def validate_program(program):
 
 def lower_program(plans, arrays, target, iterations=1):
     import tilelang
+    from compiler_intrinsics import register_intrinsics
+
+    register_intrinsics(target)
 
     program = {
         "schema": 2,

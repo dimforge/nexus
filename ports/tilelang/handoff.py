@@ -302,6 +302,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from broadphase_replay import check_outputs as check_broadphase_outputs
     from tgs_replay import check_outputs as check_tgs_outputs
     from scene_replay import check_outputs as check_scene_outputs
+    from joint_validation import check_outputs as check_joint_outputs
     from body_uniform_replay import check_outputs as check_body_uniform_outputs
 
     result = {
@@ -368,6 +369,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "coefficient_fields": check_coefficient_outputs,
                     "tgs_fields": check_tgs_outputs,
                     "scene_fields": check_scene_outputs,
+                    "joint_fields": check_joint_outputs,
                     "broadphase_fields": check_broadphase_outputs,
                     "narrow_fields": check_narrow_outputs,
                     "contact_plan_fields": check_contact_plan_outputs,

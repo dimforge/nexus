@@ -1,0 +1,1590 @@
+{
+  "scope": "Joint operations only; global reconciliation is pending remaining source changes",
+  "inputs_sha256": "78b3dbfc09b57b420d1b2fe8cc05230809696b7239d0f050c4778afca89c7a18",
+  "reports": [
+    {
+      "operation": "joint_motor_params",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "03f797cf3bc516153ecf4bc032b422bd23902f7f7a3a4f228585b5a7f38ca03d",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_init",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "bbc5ae932da446b048694c0d419f97ee8ebc5c4774bd0ea9d456d996f253e757",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_update",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "61b9c074cb411ad5add402dd5f2c43bc3cc0671687c3e00b85e6e268caaca5b8",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 1.9073486328125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 7.62939453125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 2.288818359375e-05,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.000244140625,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_orthogonalize",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "61e018260f4eb4125bb5bfe86fdee98fc06093be879570023e16203122158ba8",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_solve",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "39f15edf004673dba09dd93cf75e2fcb487342c48b235333966fa2bc3fd4c6e7",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_program",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "43ef2e735044992a5ee262325ecc546570962f37c7408f9147b3966d0c7eb89a",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 1.9073486328125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 7.62939453125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 2.288818359375e-05,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 7.62939453125e-06,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.000244140625,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.000244140625,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_motor_params",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "449494f85db37346b292195e7fb0bcc541e875e6dedb026275dfd55ca98c8d38",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_init",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "d4511daa6f8f19bae0d8c9ad3507c8eaf6cceda7638c4bb6bd5cce681f5a7e10",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_update",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "d2978603bf6fcd8e23cc39027f943f48b2a1c1a778af24967b1e47f06652ee23",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 1.9073486328125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 7.62939453125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 2.288818359375e-05,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.000244140625,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_orthogonalize",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "0c975dd4bd682ebc2876550c56f90bd19eaccb4b2a0f9682fb8339987422139e",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_solve",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "96b6106819250626300acf0ded9e35120f16b9819c8b80afdbe809b58ec263f0",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_program",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "b3df12e2c8f741dc9210366996f399b4ff00a0c66ea7f7e77ff1da3d3cc2bd55",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.0,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 1.9073486328125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 7.62939453125e-06,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 2.288818359375e-05,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 7.62939453125e-06,
+            "WorldMass": 0.0
+          }
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Builders": 0.0,
+            "Color": 0.0,
+            "ColorGroups": 0.0,
+            "Constraints": 0.000244140625,
+            "Joints": 0.0,
+            "LocalMass": 0.0,
+            "MotorParams": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "UseBias": 0.0,
+            "Velocities": 0.000244140625,
+            "WorldMass": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_motor_params",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "389e81c295a327d8af92c11430f11f95f3f41b251e796379f79203cec3b4ccae",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "joint_init",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "969eb5e7c56a01b9803df23d7d7157b0d9576063e825532d2a6d9fbfd574782a",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "joint_update",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "d1273264180e153b4a2824719a5e5478c249c6c3c0a9ebd1efd4f3745ba88f9b",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "joint_orthogonalize",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "7439e3073f7357b10eeaf6ea0a4af5f4d618e6a9a9dbf8b3095d07425601b81c",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "joint_solve",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "be44bc0459ebcfd13e452e08c08ceb00b911bcf7add57255dcc72d3439139033",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "joint_program",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "1250c8247481b63d91131ca19c1b046c7a0c579335d7739d4961e1c624b1998f",
+      "cases": [
+        {
+          "name": "n0-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1-b1-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n12-b3-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33-b1-z1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65-b2-z0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129-b1-z0",
+          "max_absolute_errors": null
+        }
+      ]
+    }
+  ]
+}

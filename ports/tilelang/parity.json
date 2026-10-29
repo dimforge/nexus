@@ -1063,6 +1063,94 @@
       "test_command": "python ports/tilelang/scene_replay.py --target c",
       "runner": "scene_replay.py",
       "operation": "analytic_scene"
+    },
+    {
+      "id": "rbd.joint.motor_params3d",
+      "operation": "joint_motor_params",
+      "runner": "joint_replay.py",
+      "coverage": "Native motor coefficients for acceleration and force models",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/joint.rs::JointMotor::motor_params"
+      ],
+      "implementation": "ports/tilelang/joint_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/joint_motor_params.json",
+      "test_command": "python ports/tilelang/joint_replay.py --operation joint_motor_params --target c"
+    },
+    {
+      "id": "rbd.joint.init3d",
+      "operation": "joint_init",
+      "runner": "joint_replay.py",
+      "coverage": "COM-centered joint builders and batched body indices",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/joint_constraint.rs::gpu_init_joint_constraints"
+      ],
+      "implementation": "ports/tilelang/joint_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/joint_init.json",
+      "test_command": "python ports/tilelang/joint_replay.py --operation joint_init --target c"
+    },
+    {
+      "id": "rbd.joint.update3d",
+      "operation": "joint_update",
+      "runner": "joint_replay.py",
+      "coverage": "Ordinary rigid-joint rows: locks, limits, motors and native coupled-linear behavior",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/joint_constraint.rs::gpu_update_joint_constraints",
+        "src_rbd_shaders/dynamics/joint_constraint_builder.rs::JointConstraintBuilder::update_constraint",
+        "src_rbd_shaders/dynamics/sim_params.rs::RbdSimParams::joint_erp_inv_dt",
+        "src_rbd_shaders/dynamics/sim_params.rs::RbdSimParams::joint_cfm_coeff"
+      ],
+      "implementation": "ports/tilelang/joint_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/joint_update.json",
+      "test_command": "python ports/tilelang/joint_replay.py --operation joint_update --target c"
+    },
+    {
+      "id": "rbd.joint.orthogonalize3d",
+      "operation": "joint_orthogonalize",
+      "runner": "joint_replay.py",
+      "coverage": "Ordered Gram-Schmidt preparation of active joint rows",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/joint_constraint_builder.rs::JointConstraint::orthogonalize_constraints"
+      ],
+      "implementation": "ports/tilelang/joint_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/joint_orthogonalize.json",
+      "test_command": "python ports/tilelang/joint_replay.py --operation joint_orthogonalize --target c"
+    },
+    {
+      "id": "rbd.joint.solve3d",
+      "operation": "joint_solve",
+      "runner": "joint_replay.py",
+      "coverage": "Bounded impulse solve of one conflict-free joint color",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/joint_constraint.rs::gpu_solve_joint_constraints",
+        "src_rbd_shaders/dynamics/joint_constraint_builder.rs::JointConstraint::solve_joint_constraint"
+      ],
+      "implementation": "ports/tilelang/joint_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/joint_solve.json",
+      "test_command": "python ports/tilelang/joint_replay.py --operation joint_solve --target c"
+    },
+    {
+      "id": "rbd.joint.program3d",
+      "operation": "joint_program",
+      "runner": "joint_replay.py",
+      "coverage": "Resident ordered joint initialization, update and one color solve",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/joint_constraint.rs::gpu_init_joint_constraints",
+        "src_rbd_shaders/dynamics/joint_constraint.rs::gpu_update_joint_constraints",
+        "src_rbd_shaders/dynamics/joint_constraint_builder.rs::JointConstraintBuilder::update_constraint",
+        "src_rbd_shaders/dynamics/sim_params.rs::RbdSimParams::joint_erp_inv_dt",
+        "src_rbd_shaders/dynamics/sim_params.rs::RbdSimParams::joint_cfm_coeff",
+        "src_rbd_shaders/dynamics/joint_constraint.rs::gpu_solve_joint_constraints",
+        "src_rbd_shaders/dynamics/joint_constraint_builder.rs::JointConstraint::solve_joint_constraint"
+      ],
+      "implementation": "ports/tilelang/joint_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/joint_program.json",
+      "test_command": "python ports/tilelang/joint_replay.py --operation joint_program --target c"
     }
   ],
   "targets": [

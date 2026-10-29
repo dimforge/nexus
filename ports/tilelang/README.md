@@ -606,3 +606,20 @@ This is a connected analytic scene milestone. General collision, rigid joints,
 hubs, production backend selection and continuous trajectory diagnostics remain.
 Ascend `--compile-only` checks source lowering; vendor builds, execution,
 synchronization qualification and performance remain unvalidated.
+
+### Rigid joint stages
+
+`joint_replay.py` registers native motor coefficients, COM-centered initialization,
+row construction, orthogonalization, colored solving and their resident composition.
+The shader modules mirror `dynamics/joint.rs`, `joint_constraint.rs` and
+`joint_constraint_builder.rs`. Six configurations per operation cover empty and
+partial lanes, interleaved batches, zero timestep, both motor models, limits,
+offset centers of mass and anisotropic inertia. All float comparisons keep the
+existing 2e-6 absolute / 2e-5 relative bounds. Joint colors require disjoint **both**
+endpoints, including static and zero-row joints, matching Rust's unconditional stores.
+The fixture validator rejects conflicting writers before launch and checks solved
+impulses independently against their bounds. Coupled angular omissions and the
+coupled linear minimum-limit TODO are recorded as Rust reference limitations.
+Metal uses target-specific `asin` intrinsic registration to correct the pinned
+compiler's unsupported `asinf` spelling; no physics equation is substituted.
+These stages do not yet establish full joint scene integration or Ascend execution.

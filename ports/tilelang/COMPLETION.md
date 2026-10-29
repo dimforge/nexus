@@ -44,10 +44,12 @@ Remaining implementation sequence:
    implemented as resident programs. Canonicalization is connected to analytic scene solving. Generic scene
    integration remains.
    Port collision detection and shapes, contact creation/removal, broad-phase
-   schedules, rigid-body joints, queries, deterministic ordering and other required
+   schedules, joint frame integration, queries, deterministic ordering and other required
    inventory capabilities. Do not introduce CPU physics fallbacks and call them
    completed TileLang features.
-4. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
+4. Ordinary rigid-joint stages (motor coefficients, COM-centered initialization,
+   row construction, orthogonalization and colored solve) are ported. Connect them
+   to frames and validate joint scene stability. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
    restitution, empty inputs and interleaved batches through connected steps and
    1/8/120-frame checkpoints with independent physical assertions. Add joints,
    generic collision and continuous trajectory diagnostics. Compare intermediate stages and short-run checkpoints to Rust;

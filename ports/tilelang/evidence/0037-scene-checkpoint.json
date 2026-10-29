@@ -1,0 +1,91 @@
+{
+  "reference_commit": "62392cd81",
+  "scope": "analytic_scene only; global baseline remains stale",
+  "reports": {
+    "c": {
+      "state": "executed",
+      "sha256": "4f7fa812686a6a2a119258a3528bc619db29b6bdb5c1395adaae2364fde9c9f0",
+      "cases": [
+        "empty-c0-l0-b1-f1",
+        "ground-c0-l0-b2-f1",
+        "stack-c1-l3-b1-f1",
+        "free-c1-l1-b1-f1",
+        "friction-c3-l1-b1-f1",
+        "boxes-c2-l3-b1-f1",
+        "impact-c2-l1-b1-f1",
+        "stack-c1-l3-b1-f120",
+        "free-c1-l1-b1-f120",
+        "friction-c3-l1-b1-f120",
+        "boxes-c2-l3-b1-f120",
+        "impact-c2-l1-b1-f120",
+        "stack-c2-l3-b3-f8",
+        "friction-c33-l1-b2-f1"
+      ],
+      "max_absolute_errors": {
+        "Aabbs": 2.384185791015625e-07,
+        "Contacts": 2.384185791015625e-07,
+        "Counts": 0.0,
+        "FirstSlot": 0.0,
+        "HubCounts": 0.0,
+        "PairCount": 0,
+        "Params": 0.0,
+        "SolverVelocities": 6.850241334177554e-07,
+        "States": 1.1920928955078125e-07,
+        "Tiles": 2.7436763048171997e-06
+      }
+    },
+    "metal": {
+      "state": "executed",
+      "sha256": "86454c152e59b35fd5a67b5d0c2f11e1ecb910e89773be132c2285903ea6ea48",
+      "cases": [
+        "empty-c0-l0-b1-f1",
+        "ground-c0-l0-b2-f1",
+        "stack-c1-l3-b1-f1",
+        "free-c1-l1-b1-f1",
+        "friction-c3-l1-b1-f1",
+        "boxes-c2-l3-b1-f1",
+        "impact-c2-l1-b1-f1",
+        "stack-c1-l3-b1-f120",
+        "free-c1-l1-b1-f120",
+        "friction-c3-l1-b1-f120",
+        "boxes-c2-l3-b1-f120",
+        "impact-c2-l1-b1-f120",
+        "stack-c2-l3-b3-f8",
+        "friction-c33-l1-b2-f1"
+      ],
+      "max_absolute_errors": {
+        "Aabbs": 2.384185791015625e-07,
+        "Contacts": 2.384185791015625e-07,
+        "Counts": 0.0,
+        "FirstSlot": 0.0,
+        "HubCounts": 0.0,
+        "PairCount": 0,
+        "Params": 0.0,
+        "SolverVelocities": 6.850241334177554e-07,
+        "States": 1.1920928955078125e-07,
+        "Tiles": 2.7436763048171997e-06
+      }
+    },
+    "ascend": {
+      "state": "source_lowered",
+      "sha256": "a2f9de94e8457ad3a6f2fd70fc703148bd8f914f6468229fe9b170bb12d9a0c8",
+      "cases": [
+        "empty-c0-l0-b1-f1",
+        "ground-c0-l0-b2-f1",
+        "stack-c1-l3-b1-f1",
+        "free-c1-l1-b1-f1",
+        "friction-c3-l1-b1-f1",
+        "boxes-c2-l3-b1-f1",
+        "impact-c2-l1-b1-f1",
+        "stack-c1-l3-b1-f120",
+        "free-c1-l1-b1-f120",
+        "friction-c3-l1-b1-f120",
+        "boxes-c2-l3-b1-f120",
+        "impact-c2-l1-b1-f120",
+        "stack-c2-l3-b3-f8",
+        "friction-c33-l1-b2-f1"
+      ],
+      "max_absolute_errors": {}
+    }
+  }
+}

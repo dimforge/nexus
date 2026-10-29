@@ -88,3 +88,24 @@ def body_coefficients(layout):
             Params[3 + d] = Gravity[d]
 
     return one
+
+
+def joint_coefficients(l):
+    f = l["rbd_params"]
+
+    @T.macro
+    def one(Params, Result):
+        dt = f32(Params, f["dt"])
+        damping = f32(Params, f["joint_damping_ratio"])
+        omega = f32(Params, f["joint_natural_frequency"]) * T.reinterpret(
+            T.uint32(l["constants"]["two_pi_bits"]), "float32"
+        )
+        Result[0] = omega / (dt * omega + 2.0 * damping)
+        erp = dt * Result[0]
+        Result[1] = 0.0
+        if erp != 0.0:
+            inv = 1.0 / erp - 1.0
+            Result[1] = inv * inv / ((1.0 + inv) * 4.0 * damping * damping)
+        Result[2] = T.if_then_else(dt == 0.0, 0.0, 1.0 / dt)
+
+    return one

@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "feature": "rbd.joint.init3d",
+  "scope": "COM-centered joint builders and batched body indices",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Joints",
+    "Builders",
+    "Constraints",
+    "LocalMass",
+    "WorldMass",
+    "Poses",
+    "Velocities",
+    "Params",
+    "BatchIds",
+    "ColorGroups",
+    "Color",
+    "UseBias",
+    "MotorParams"
+  ],
+  "outputs": [
+    "Builders",
+    "Constraints"
+  ],
+  "comparison": "joint_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Existing f32 policy; integer IDs, masks, copied fields, inactive rows, padding and read-only storage remain exact.",
+  "preconditions": [
+    "Finite valid native 3D joint ABI, normalized anchor/body quaternions, nonnegative mass and motor parameters, ordered limits",
+    "Shared joint color prefix ranges across interleaved batches; BOTH velocity endpoints disjoint within a color, including static bodies and zero-row joints",
+    "At most twelve active rows, finite nonnegative timestep, positive damping"
+  ],
+  "invariants": [
+    "Motor rows precede locks and limits, with native separate orthogonalization ranges",
+    "Exact IDs and untouched words; finite active floats; solved impulses inside their bounds",
+    "Explicit lane guards preserve native empty and partial-tail dispatch behavior"
+  ],
+  "outside_scope": [
+    "Articulated multibodies and 2D",
+    "Joint color construction and full frame integration (separate follow-up)",
+    "Ascend vendor compilation, execution and performance"
+  ],
+  "reference_limitations": [
+    "Coupled angular motors remain unimplemented in Rust; coupled angular limits are not emitted by its rigid joint builder",
+    "Coupled linear limits use the native maximum-only behavior; its minimum-limit TODO is preserved"
+  ],
+  "required_cases": [
+    "n0-b1-z0",
+    "n1-b1-z0",
+    "n12-b3-z0",
+    "n33-b1-z1",
+    "n65-b2-z0",
+    "n129-b1-z0"
+  ],
+  "known_gaps": []
+}

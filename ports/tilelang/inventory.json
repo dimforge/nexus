@@ -224,26 +224,70 @@
     {
       "reference": "src_rbd_shaders/dynamics/joint.rs",
       "implementation": "ports/tilelang/shaders/dynamics/joint.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.joint.motor_params3d",
+        "rbd.joint.init3d",
+        "rbd.joint.update3d",
+        "rbd.joint.orthogonalize3d",
+        "rbd.joint.solve3d",
+        "rbd.joint.program3d"
+      ],
+      "symbols": [
+        "motor_params"
+      ],
+      "remaining": "Ordinary 3D rigid-joint runtime math is ported, preserving native coupled-axis limitations. Multibody-only helpers, 2D and frame integration remain outside these kernel contracts."
     },
     {
       "reference": "src_rbd_shaders/dynamics/joint_constraint.rs",
       "implementation": "ports/tilelang/shaders/dynamics/joint_constraint.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.joint.motor_params3d",
+        "rbd.joint.init3d",
+        "rbd.joint.update3d",
+        "rbd.joint.orthogonalize3d",
+        "rbd.joint.solve3d",
+        "rbd.joint.program3d"
+      ],
+      "symbols": [
+        "gpu_init_joint_constraints",
+        "gpu_update_joint_constraints",
+        "gpu_solve_joint_constraints",
+        "ii_mul"
+      ],
+      "remaining": "Ordinary 3D rigid-joint runtime math is ported, preserving native coupled-axis limitations. Multibody-only helpers, 2D and frame integration remain outside these kernel contracts."
     },
     {
       "reference": "src_rbd_shaders/dynamics/joint_constraint_builder.rs",
       "implementation": "ports/tilelang/shaders/dynamics/joint_constraint_builder.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.joint.motor_params3d",
+        "rbd.joint.init3d",
+        "rbd.joint.update3d",
+        "rbd.joint.orthogonalize3d",
+        "rbd.joint.solve3d",
+        "rbd.joint.program3d"
+      ],
+      "symbols": [
+        "orthogonalize_constraints",
+        "solve_joint_constraint",
+        "gcross_matrix",
+        "rotation_diff_conj1_2",
+        "new_helper",
+        "world_frame",
+        "lock_linear",
+        "lock_angular",
+        "limit_linear",
+        "limit_angular",
+        "motor_linear",
+        "motor_angular",
+        "limit_linear_coupled",
+        "motor_linear_coupled",
+        "update_constraint"
+      ],
+      "remaining": "Ordinary 3D rigid-joint runtime math is ported, preserving native coupled-axis limitations. Multibody-only helpers, 2D and frame integration remain outside these kernel contracts."
     },
     {
       "reference": "src_rbd_shaders/dynamics/mass_splitting.rs",
@@ -537,13 +581,16 @@
         "rbd.contact.coulomb.colored_cached3d",
         "rbd.contact.coulomb.colored_program3d",
         "rbd.contact.coefficients3d",
-        "rbd.body.coefficients3d"
+        "rbd.body.coefficients3d",
+        "rbd.joint.update3d",
+        "rbd.joint.program3d"
       ],
       "symbols": [
         "contact_coefficients",
-        "body_coefficients"
+        "body_coefficients",
+        "joint_coefficients"
       ],
-      "remaining": "Contact and body coefficients are ported; joint softness and other helpers remain."
+      "remaining": "Body, contact and joint softness coefficients are ported; unrelated parameter helpers remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/solver.rs",
@@ -1358,9 +1405,16 @@
     {
       "id": "rbd.constraints.joints",
       "description": "Impulse joints and joint constraints",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.joint.motor_params3d",
+        "rbd.joint.init3d",
+        "rbd.joint.update3d",
+        "rbd.joint.orthogonalize3d",
+        "rbd.joint.solve3d",
+        "rbd.joint.program3d"
+      ],
+      "remaining": "Native ordinary 3D joint construction, update, orthogonalization and colored solve are ported. Production graph coloring, frame integration and scene stability remain."
     },
     {
       "id": "rbd.constraints.multibody",

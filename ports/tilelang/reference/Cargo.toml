@@ -112,3 +112,7 @@ path = "src/canonical.rs"
 [[bin]]
 name = "scenes"
 path = "src/scenes.rs"
+
+[[bin]]
+name = "joints"
+path = "src/joints.rs"
