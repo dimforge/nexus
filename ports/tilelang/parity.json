@@ -208,6 +208,24 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/sync_colliders.json",
       "test_command": "python ports/tilelang/pose_replay.py --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.prepare3d",
+      "operation": "prepare",
+      "runner": "contact_replay.py",
+      "coverage": "Full 3D Coulomb gpu_prepare_constraints with fresh and recycled points, nearest cached impulse transfer, scaled masses and body-tagged warmstart cache",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_prepare_constraints",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::transfer_contact_impulses",
+        "src_rbd_shaders/dynamics/solver_utils.rs::IndexedManifold::contact_to_constraint_header",
+        "src_rbd_shaders/dynamics/solver_utils.rs::IndexedManifold::contact_to_constraint_points",
+        "src_rbd_shaders/dynamics/solver_utils.rs::TwoBodyConstraint::recycle_from",
+        "src_rbd_shaders/dynamics/coulomb_tiles.rs::constraint_warmstart"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_prepare_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/prepare.json",
+      "test_command": "python ports/tilelang/contact_replay.py --target c"
     }
   ],
   "targets": [

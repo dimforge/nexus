@@ -241,6 +241,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from primitives import check_outputs as check_integer_outputs
     from body_validation import check_outputs as check_body_outputs
     from pose_replay import check_outputs as check_pose_outputs
+    from contact_replay import check_outputs as check_contact_outputs
 
     result = {
         "schema": 1,
@@ -294,6 +295,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "exact_u32": check_integer_outputs,
                     "body_fields": check_body_outputs,
                     "pose_fields": check_pose_outputs,
+                    "contact_fields": check_contact_outputs,
                 }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)

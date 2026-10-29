@@ -1,0 +1,41 @@
+{
+  "id": "0013-contact-preparation",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d"
+  ],
+  "kinds": [
+    "port",
+    "refactor",
+    "test",
+    "tooling"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port the complete Coulomb preparation entry point, nearest impulse transfer, recycling and tagged warmstart cache; share warmstart arithmetic without changing existing solve behavior.",
+  "regressions": [
+    "Fresh, reordered nearest, first-tie, rotated-friction, no-match and threshold-adjacent cached points",
+    "Recycled old point count differs from current manifold; masses and restitution refresh without rebuilding anchors",
+    "Shared body inputs, split velocity slots, 31/32/33 and 63/64/65 boundaries, inactive gaps and empty launches",
+    "Both signs and zero z for deterministic tangent generation, empty old manifolds and zero effective mass",
+    "Exact copied impulse selection, distances, recycled geometry, body/slot IDs, cache tags/padding and untouched storage",
+    "Malformed indices, lengths, poses, scales, layouts, sizes and nonfinite/corrupted outputs rejected; external handoff uses the same comparator"
+  ],
+  "differences": [
+    "No Rust physics or existing floating tolerance changes. Fresh point restitution remains manifold-based, recycled point restitution remains link-based, exactly as Rust.",
+    "Prepared output lanes are disjoint, but readonly body inputs may overlap. Full coloring/gather and recycle eligibility are still outside this operation.",
+    "Rust ContactPlan.bound and ContactRecycleOffsets.new_base are specialized from the live fixture; complete original uniforms are retained in artifacts.",
+    "Empty dispatches specialize to an explicit no-op before TileLang index analysis, avoiding a compiler failure on unreachable gather/matching loops; no buffer is read or written."
+  ]
+}

@@ -1,17 +1,19 @@
 # TileLang rigid-body parity pilot
 
-This experimental port has thirteen operation contracts: effective mass calculation,
+This experimental port has fourteen operation contracts: effective mass calculation,
 warmstarting, Coulomb solving, clamped integration, deterministic constraint-ID
 sorting, five body lifecycle entry points, world mass-property updates, collider
-pose propagation, and a composed no-contact body step.
+pose propagation, contact preparation, and a composed no-contact body step.
 The body stages cover cleanup, COM pose initialization, gravity increments,
 increment application and final writeback. They use Rust buffer layouts and live
 Rust reference functions. The composed step reuses those ports for repeated frames
 and substeps; it does not yet connect to Nexus's production simulation backend.
 
-Contact operations still require one prepared, conflict-free color. Complete
-contact preparation, collision detection, production coloring, joints, twist
-friction and Ascend execution remain unimplemented. Articulated multibodies, MPM
+Contact preparation now builds Coulomb tiles from sorted links and manifolds,
+transfers nearest cached impulses, reuses recycled anchors, and writes tagged
+warmstart deltas. Solving and direct warmstart still require a conflict-free color.
+Collision detection, link/recycle eligibility, production coloring and warmstart
+gather, joints, twist friction and Ascend execution remain unimplemented. Articulated multibodies, MPM
 and 2D are deferred by the user. See `COMPLETION.md` for the agreed completion scope.
 
 Rust remains the behavioral reference. `parity.json` maps stable operation IDs
@@ -31,9 +33,9 @@ and their module boundaries wherever practical:
 | `mprops_update.rs` | `mprops_update.py` | world inertia/COM updates and indexed collider pose propagation (3D) |
 | `solver.rs` | `solver.py` | cleanup, COM pose initialization, gravity/increment application, integration, finalization |
 | `constraint.rs` | `constraint.py` | `compute_effective_masses` |
-| `solver_utils.rs` | `solver_utils.py` | `solve_points`, `warmstart_constraint` |
-| `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation |
-| `tile_kernels.rs` | `tile_kernels.py` | prepared-color entry adapters |
+| `solver_utils.rs` | `solver_utils.py` | solve/warmstart, manifold headers/points, recycled points |
+| `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation and tagged warmstart cache |
+| `tile_kernels.rs` | `tile_kernels.py` | prepared-color adapters, preparation and nearest impulse transfer |
 | `canonical_order.rs` | `canonical_order.py` | `gpu_stabilize_body_constraint_ids` |
 
 A counterpart file does not imply the whole Rust module is ported. Launch-target
@@ -90,7 +92,7 @@ The default `results/` directory is ignored by Git.
 
 ## What is tested
 
-There are 94 required cases across thirteen contracts. The eight body/collider
+There are 115 required cases across fourteen contracts. The eight body/collider
 contracts added after the original pilot have 56 cases, including empty/zero-batch launches, 63/64/65 boundaries,
 multiple batches, capacity beyond active bodies, static and partially locked
 masses, nonzero local COMs, zero gravity, and up to 32 frames of four substeps.
@@ -103,6 +105,16 @@ Gravity deliberately follows Rust's vector-wide static test rather than masking
 individual mass axes. World inertia updates include anisotropic and singular principal inertias and
 rotated mass frames. Collider propagation covers indexed parents and multiple
 colliders per body. Native scene integration remains incomplete.
+
+Contact preparation has 21 cases covering empty and inactive launches, tile and
+workgroup boundaries, shared readonly bodies, split velocity slots, reordered
+nearest-point matching, strict ties, rotated friction bases, threshold-adjacent
+anchors, no/empty previous contacts, refreshed recycled masses/restitution, and
+both signs and zero in tangent-frame construction. Copied distances, selected
+normal impulses, recycled geometry, IDs and cache tags remain bitwise exact.
+Computed fields use the original contact tolerances. The source of fresh point
+restitution is the manifold; recycled point restitution comes from the link,
+matching the Rust reference. Preparation does not itself decide recycle eligibility.
 
 The original five contracts retain their 38 cases. Six integer sorting cases
 cover empty/skewed rows, duplicates, high unsigned IDs, workgroup boundaries and
@@ -133,7 +145,7 @@ only active impulses and velocity components may change. Unchanged words,
 including padding, inactive points, and sentinel bodies, are compared bitwise.
 Floating outputs use the tolerances in the contract and must remain finite;
 normal impulses must be nonnegative and enabled friction must remain inside its
-Coulomb disk. Input validation rejects overlapping velocity slots before dispatch.
+Coulomb disk. Solve and direct-warmstart validation reject overlapping velocity slots before dispatch; preparation permits shared readonly body inputs.
 
 Arguments are bound in the order found in the lowered device IR. TileLang may
 reorder them or remove all arguments from an empty-input kernel. Never infer the

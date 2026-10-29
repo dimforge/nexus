@@ -176,5 +176,11 @@ class PoseHandoffTests(HandoffTests):
     mutable_buffer = "WorldPoses"
 
 
+class ContactHandoffTests(HandoffTests):
+    operation = "prepare"
+    fixture_index = 7
+    mutable_buffer = "Tiles"
+
+
 if __name__ == "__main__":
     unittest.main()

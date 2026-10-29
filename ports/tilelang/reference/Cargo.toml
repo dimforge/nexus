@@ -34,3 +34,7 @@ path = "src/bodies.rs"
 [[bin]]
 name = "poses"
 path = "src/poses.rs"
+
+[[bin]]
+name = "contacts"
+path = "src/contacts.rs"

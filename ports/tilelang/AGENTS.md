@@ -8,8 +8,9 @@
    features are implemented in TileLang.
 3. Preserve normal-row order followed by friction-row order. Keep integer IDs
    integer. Derive offsets from Rust; never copy literal byte offsets into Python.
-   One dispatch must have disjoint velocity slots. Fused colors and barriers are
-   outside the contract.
+   Solving or applying warmstart to velocities requires disjoint velocity slots
+   under the current contracts. Preparation only reads body inputs, so shared
+   indices are allowed there. Fused colors and barriers remain outside the contracts.
 4. Add a regression for every bug fix. A bug discovered in Rust should be fixed
    there with the same regression, or recorded as an explicit unresolved
    difference. Do not change Rust arithmetic just to make the port tests pass.

@@ -125,12 +125,14 @@
       "implementation": "ports/tilelang/shaders/dynamics/coulomb_tiles.py",
       "coverage": "partial",
       "operations": [
-        "rbd.contact.coulomb.solve3d"
+        "rbd.contact.coulomb.solve3d",
+        "rbd.contact.coulomb.prepare3d"
       ],
       "symbols": [
-        "validate_layout"
+        "validate_layout",
+        "constraint_warmstart"
       ],
-      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+      "remaining": "Preparation and the listed kernels are ported; production cached gather, scaling, fused/tail scheduling and all unlisted symbols remain unported."
     },
     {
       "reference": "src_rbd_shaders/dynamics/joint.rs",
@@ -463,13 +465,18 @@
       "coverage": "partial",
       "operations": [
         "rbd.contact.coulomb.solve3d",
-        "rbd.contact.coulomb.warmstart3d"
+        "rbd.contact.coulomb.warmstart3d",
+        "rbd.contact.coulomb.prepare3d"
       ],
       "symbols": [
         "solve_points",
-        "warmstart_constraint"
+        "warmstart_constraint",
+        "contact_to_constraint_header",
+        "contact_to_constraint_points",
+        "recycle_from",
+        "warmstart_delta"
       ],
-      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+      "remaining": "Preparation and the listed kernels are ported; production cached gather, scaling, fused/tail scheduling and all unlisted symbols remain unported."
     },
     {
       "reference": "src_rbd_shaders/dynamics/tile_kernels.rs",
@@ -477,13 +484,16 @@
       "coverage": "partial",
       "operations": [
         "rbd.contact.coulomb.solve3d",
-        "rbd.contact.coulomb.warmstart3d"
+        "rbd.contact.coulomb.warmstart3d",
+        "rbd.contact.coulomb.prepare3d"
       ],
       "symbols": [
         "gpu_solve_constraints",
-        "gpu_warmstart_constraints"
+        "gpu_warmstart_constraints",
+        "gpu_prepare_constraints",
+        "transfer_contact_impulses"
       ],
-      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+      "remaining": "Preparation and the listed kernels are ported; production cached gather, scaling, fused/tail scheduling and all unlisted symbols remain unported."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_friction.rs",
@@ -943,9 +953,10 @@
       "operations": [
         "rbd.contact.coulomb.solve3d",
         "rbd.contact.coulomb.effective_mass3d",
-        "rbd.contact.coulomb.warmstart3d"
+        "rbd.contact.coulomb.warmstart3d",
+        "rbd.contact.coulomb.prepare3d"
       ],
-      "remaining": "Partial: prepared disjoint colors; no complete manifold preparation, cached gather, shared-static scheduling or recycling."
+      "remaining": "Full Coulomb preparation, independent solve/warmstart and effective masses are ported; cached gather, shared-static scheduling, link creation/recycle eligibility and production integration remain incomplete."
     },
     {
       "id": "rbd.broadphase.brute_force",

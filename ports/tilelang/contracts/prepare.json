@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.coulomb.prepare3d",
+  "scope": "Full 3D Coulomb gpu_prepare_constraints with fresh and recycled points, nearest cached impulse transfer, scaled masses and body-tagged warmstart cache",
+  "inputs": [
+    "Links",
+    "Contacts",
+    "WorldMass",
+    "SolverPoses",
+    "Velocities",
+    "States",
+    "OldTiles",
+    "Tiles"
+  ],
+  "outputs": [
+    "Tiles"
+  ],
+  "comparison": "contact_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Same f32 limits as existing contact kernels; copied fields, IDs, zero padding, cached impulse selection and inactive storage are exact.",
+  "preconditions": [
+    "Rust-derived 3D Coulomb ABI, finite data, unit rotations and orthonormal contact frames",
+    "Valid active contact/body/previous indices; link bodies agree with manifold bodies",
+    "Recycled links identify a previous constraint; input and output allocations are disjoint",
+    "Output lanes are independent; input body and velocity indices MAY be shared"
+  ],
+  "invariants": [
+    "Readonly inputs and inactive tile lanes/points unchanged",
+    "Copied distances, impulse selections, body IDs, split velocity slot IDs and warmstart tags remain exact"
+  ],
+  "outside_scope": [
+    "Contact manifold generation",
+    "Link creation, sorting and recycle eligibility",
+    "Shared body warmstart gather and production solver schedule",
+    "Twist friction",
+    "2D",
+    "Ascend execution"
+  ],
+  "required_cases": [
+    "n0-mixed",
+    "n31-mixed",
+    "n32-mixed",
+    "n33-mixed",
+    "n63-mixed",
+    "n64-mixed",
+    "n65-mixed",
+    "n129-mixed",
+    "n1-fresh",
+    "n1-nearest",
+    "n1-rotated",
+    "n1-recycled",
+    "n1-no-match",
+    "n1-threshold",
+    "n1-ties",
+    "n1-inactive",
+    "n1-normal-positive-z",
+    "n1-normal-negative-z",
+    "n1-normal-zero-z",
+    "n1-empty-old",
+    "n1-zero-mass"
+  ],
+  "known_gaps": []
+}
