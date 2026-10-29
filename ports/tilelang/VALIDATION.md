@@ -113,3 +113,26 @@ pass strict Clippy. An actual immutable 32-case handoff was built and verified
 from commit a828f306b (before the native size-contract fix), covering 297 files.
 Returned-output round trips, corruption/missing files, path escape, and unavailable
 NPU probes are tested. They are offline validation tests, not Ascend execution.
+
+## Irregular integer kernel and numerical isolation
+
+Added `dynamics/canonical_order.py::gpu_stabilize_body_constraint_ids`, calling the
+original Rust GPU entry function on the host for its oracle. All six cases match
+bit-for-bit on C and native Metal and lower to Ascend source. They cover empty and
+skewed rows, high unsigned IDs, duplicates, workgroup boundaries and a 513-entry
+row. This is evidence for one real indexed-read/variable-loop/scatter operation;
+atomics, collective scans and BVH traversal remain unvalidated.
+
+The five implemented operations now pass 38/38 C and native Metal cases and all
+38 Ascend source lowerings. All 45 Python regressions pass. Three native contract
+tests and both Rust tools' strict Clippy checks pass.
+
+The fresh three-way diagnostic retains 12 failing boundary-stress cases, with
+three passing and two unavailable modes. The portable diagnostic has nine failing
+cases, six passing and two unavailable modes. A separate zero-frame diagnostic
+has 15 passing and two unavailable modes: removing frame translations isolates
+the zero-distance cancellation sensitivity. Every original portable Rust input and
+expected-output binary across all 38 operation cases is byte-for-byte unchanged.
+No solver arithmetic or tolerance changed, and neither failing suite was replaced.
+The numerical policy remains unresolved and release-blocking. CPU/Metal development
+checks pass; both the release gate and required Ascend execution gate fail as expected.

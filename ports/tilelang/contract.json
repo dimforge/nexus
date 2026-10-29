@@ -61,7 +61,7 @@
   "known_gaps": [
     {
       "id": "zero-distance-cancellation",
-      "description": "Rust host SIMD and scalar/GPU quaternion transforms can round to opposite sides of distance == 0, selecting different CFM branches. Portable suite tests exact zero without rotated-point cancellation; replay --boundary-stress preserves the adversarial case. A cross-backend numerical policy is unresolved.",
+      "description": "Rust host SIMD, original Rust Metal and scalar TileLang can round quaternion transforms or translation dot products to opposite sides of distance == 0, selecting different CFM branches. Both portable and rotated-anchor diagnostics retain disagreements with original Rust Metal. A separate zero-frame diagnostic agrees for all 15 supported modes but does not replace either failing suite or resolve the numerical policy.",
       "blocks_release": true
     }
   ]

@@ -54,10 +54,16 @@ def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=HERE / "results-numerics")
-    parser.add_argument(
+    geometry = parser.add_mutually_exclusive_group()
+    geometry.add_argument(
         "--portable",
         action="store_true",
         help="Use portable fixtures instead of retained cancellation stress",
+    )
+    geometry.add_argument(
+        "--zero-frame",
+        action="store_true",
+        help="Diagnostic only: remove translation cancellation while retaining the original portable and stress suites",
     )
     args = parser.parse_args()
     output = args.output.resolve()
@@ -67,7 +73,9 @@ def main():
         "level": "diagnostic_only",
         "status": "preparing",
         "inputs": evidence_inputs(ROOT),
-        "suite": "portable" if args.portable else "boundary-stress",
+        "suite": "zero-frame"
+        if args.zero_frame
+        else ("portable" if args.portable else "boundary-stress"),
         "cases": [],
     }
     write_json(output / "report.json", report)
@@ -83,7 +91,11 @@ def main():
                 "--",
                 fixtures,
             ]
-            + ([] if args.portable else ["--boundary-stress"]),
+            + (
+                ["--zero-frame"]
+                if args.zero_frame
+                else ([] if args.portable else ["--boundary-stress"])
+            ),
             cwd=HERE / "reference",
         )
         original = build_native(reference=True)

@@ -27,7 +27,15 @@ fn main() {
         fs::create_dir_all(&root).unwrap();
         let mut cases = Vec::new();
         for n in [0usize, 1, 32, 65, 129] {
-            let mut case = pilot::fixture(&root, n, true, true, 3, 20261100 + n as u64, false);
+            let mut case = pilot::fixture(
+                &root,
+                n,
+                true,
+                true,
+                3,
+                20261100 + n as u64,
+                pilot::FixtureGeometry::Portable,
+            );
             case["kind"] = json!(kind);
             case["active_bodies"] = json!(n);
             let dir = root.join(case["name"].as_str().unwrap());

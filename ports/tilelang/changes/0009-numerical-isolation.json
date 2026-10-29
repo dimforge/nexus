@@ -1,0 +1,25 @@
+{
+  "id": "0009-numerical-isolation",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids"
+  ],
+  "kinds": [
+    "numerical",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Isolate translation/dot-product cancellation with an additional zero-frame diagnostic while preserving every original fixture and release-blocking difference.",
+  "regressions": [
+    "All original portable and adversarial cases remain available with unchanged binary oracle inputs and outputs",
+    "Zero-frame diagnostic compares Rust CPU, original Rust Metal and TileLang Metal; unavailable production modes remain explicit",
+    "Diagnostic results cannot become portable or release evidence"
+  ],
+  "differences": [
+    "No production Rust or TileLang arithmetic or tolerance changed. Only a separate diagnostic geometry mode was added.",
+    "A zero-frame pass is evidence about the cause of the branch discontinuity; it does not establish scene stability or resolve the cross-backend numerical policy."
+  ]
+}

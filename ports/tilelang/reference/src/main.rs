@@ -83,6 +83,13 @@ impl Rng {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FixtureGeometry {
+    Portable,
+    BoundaryStress,
+    ZeroFrame,
+}
+
 pub(crate) fn fixture(
     root: &Path,
     n: usize,
@@ -90,7 +97,7 @@ pub(crate) fn fixture(
     friction: bool,
     iterations: usize,
     seed: u64,
-    boundary_stress: bool,
+    geometry: FixtureGeometry,
 ) -> Value {
     let name = format!(
         "n{n}-b{}-f{}-i{iterations}-s{seed}",
@@ -108,6 +115,9 @@ pub(crate) fn fixture(
             rng.vector() * 0.05,
             Quat::from_scaled_axis(rng.vector() * 0.2),
         );
+        if geometry == FixtureGeometry::ZeroFrame {
+            poses[i].translation = Vec3::ZERO;
+        }
         velocities[i] = Velocity::new(rng.vector() * 0.8, rng.vector() * 0.4);
         velocities[i].padding0 = 0x12345678;
         velocities[i].padding1 = 0x7f123456;
@@ -179,7 +189,7 @@ pub(crate) fn fixture(
             p.local_pt_b = rng.vector() * 0.1;
             // Exact-zero cases in the portable suite avoid cancellation of rotated
             // points. --boundary-stress deliberately retains that unstable branch.
-            if (i + k) % 4 == 1 && !boundary_stress {
+            if (i + k) % 4 == 1 && geometry != FixtureGeometry::BoundaryStress {
                 p.local_pt_a = Vec3::ZERO;
                 p.local_pt_b = Vec3::ZERO;
             }
@@ -246,7 +256,13 @@ fn main() {
     let root = Path::new(&root);
     fs::create_dir_all(root).unwrap();
     write_json(root.join("layout.json"), &layout());
-    let boundary_stress = std::env::args().any(|arg| arg == "--boundary-stress");
+    let geometry = if std::env::args().any(|arg| arg == "--zero-frame") {
+        FixtureGeometry::ZeroFrame
+    } else if std::env::args().any(|arg| arg == "--boundary-stress") {
+        FixtureGeometry::BoundaryStress
+    } else {
+        FixtureGeometry::Portable
+    };
     let mut cases = Vec::new();
     for n in [0, 1, 31, 32, 33, 63, 64, 65, 127] {
         cases.push(fixture(
@@ -256,13 +272,13 @@ fn main() {
             true,
             1,
             20261029 + n as u64,
-            boundary_stress,
+            geometry,
         ));
     }
     for bias in [false, true] {
         for friction in [false, true] {
             for seed in [17, 42] {
-                cases.push(fixture(root, 129, bias, friction, 3, seed, boundary_stress));
+                cases.push(fixture(root, 129, bias, friction, 3, seed, geometry));
             }
         }
     }

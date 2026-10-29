@@ -126,7 +126,8 @@ native order from the Python function signature.
 
 ## Known numerical gap: cancellation at zero contact distance
 
-Rust host SIMD and scalar/GPU quaternion transforms can differ by a few ULPs. If
+Rust host SIMD, original Rust Metal and scalar TileLang transforms or dot products
+can differ by a few ULPs. If
 `point.dist + dot(world_a - world_b, normal)` was constructed by cancellation to
 be exactly zero, the result can acquire the opposite sign on another backend.
 Rust's `distance <= 0` then selects a different soft-contact CFM branch. This can
@@ -156,10 +157,15 @@ three-way diagnostic also finds disagreements with production Rust Metal in nine
 cases (six pass; two modes are unavailable), even though TileLang C/Metal agree
 with Rust CPU on all 17. Zero local anchors avoid rotated-point cancellation but
 leave translation/dot-product cancellation; the original GPU compiler can evaluate
-that expression differently. These diagnostic failures remain visible. Run:
+that expression differently. These diagnostic failures remain visible. A separate `--zero-frame` diagnostic
+sets frame translations to zero and passes all 15 production-supported cases
+across all three implementations. This isolates the cancellation sensitivity; it
+does not replace the original suites or clear the release block. Run:
 
 ```sh
 ports/tilelang/.venv/bin/python ports/tilelang/numerics.py
+ports/tilelang/.venv/bin/python ports/tilelang/numerics.py --portable --output ports/tilelang/results-numerics-portable
+ports/tilelang/.venv/bin/python ports/tilelang/numerics.py --zero-frame --output ports/tilelang/results-numerics-zero-frame
 ```
 
 CPU parity compilation uses `-ffp-contract=off`. Metal additionally needs
@@ -228,7 +234,8 @@ throughout development. An early Ascend smoke test is **not a prerequisite** for
 expanding the port. The objective is to complete an explicitly inventoried
 rigid-body scope on available hardware, with reproducible evidence and an Ascend
 handoff package. Ascend execution and performance remain unvalidated until tested
-on a real device. The milestones below are planned work, not completed features.
+on a real device. The current implemented subset is described above. The milestones below retain
+the remaining work explicitly; this branch is not a completed rigid-body backend.
 
 Keep Rust as the behavioral reference and retain its public API, scene/state
 ownership, and host scheduling. TileLang supplies generated native kernels. Keep
