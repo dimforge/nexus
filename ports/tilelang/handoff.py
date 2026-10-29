@@ -301,6 +301,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from narrow_replay import check_outputs as check_narrow_outputs
     from broadphase_replay import check_outputs as check_broadphase_outputs
     from tgs_replay import check_outputs as check_tgs_outputs
+    from scene_replay import check_outputs as check_scene_outputs
     from body_uniform_replay import check_outputs as check_body_uniform_outputs
 
     result = {
@@ -366,6 +367,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "colored_fields": check_colored_outputs,
                     "coefficient_fields": check_coefficient_outputs,
                     "tgs_fields": check_tgs_outputs,
+                    "scene_fields": check_scene_outputs,
                     "broadphase_fields": check_broadphase_outputs,
                     "narrow_fields": check_narrow_outputs,
                     "contact_plan_fields": check_contact_plan_outputs,

@@ -1,5 +1,7 @@
 //! Native canonical key/permutation shaders with the native cooperative radix pipeline.
+mod dispatch;
 #[allow(dead_code)]
+#[path = "radix_program.rs"]
 mod radix;
 use khal::backend::GpuBuffer;
 #[allow(dead_code)]

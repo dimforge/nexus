@@ -5,13 +5,10 @@ mod contacts;
 mod dispatch;
 mod prefix_program;
 use contacts::pilot;
-use khal::backend::{GpuBackend, GpuBuffer, GpuPass};
+use khal::backend::GpuBuffer;
 use nexus_rbd_shaders3d::{
     broad_phase::ContactPlan,
-    dynamics::{
-        ColorStats, ContactLink, GpuColorBucketsCount, GpuColorBucketsReset,
-        GpuColorBucketsScatter, GpuColorDispatchGrid,
-    },
+    dynamics::{ColorStats, ContactLink},
     utils::BatchIndices,
 };
 use serde_json::{Value, json};
@@ -30,102 +27,9 @@ fn layout() -> Value {
     l["stats"] = json!({"sizes":offset_of!(ColorStats,sizes)/4,"max_bucket":offset_of!(ColorStats,max_bucket)/4,"highest_color":offset_of!(ColorStats,highest_color)/4});
     l
 }
-struct State {
-    colors: GpuBuffer<u32>,
-    links: GpuBuffer<ContactLink>,
-    plan: GpuBuffer<ContactPlan>,
-    buckets: GpuBuffer<u32>,
-    batch: GpuBuffer<BatchIndices>,
-    sorted: GpuBuffer<ContactLink>,
-    indices: GpuBuffer<u32>,
-    stats: GpuBuffer<ColorStats>,
-    indirect: GpuBuffer<[u32; 3]>,
-    aux: Vec<Vec<u32>>,
-    strides: [u32; 5],
-    levels: usize,
-    groups: u32,
-}
+mod bucket_program;
+use bucket_program::State;
 impl State {
-    fn reset(&mut self) {
-        let k = GpuColorBucketsReset::from_bytes(
-            &GpuBackend::Cpu,
-            &[],
-            GpuColorBucketsReset::ENTRY_POINT,
-        )
-        .unwrap();
-        k.call(
-            &mut GpuPass::Cpu(None),
-            dispatch::workgroups([
-                (self.buckets.unwrap_slice().len() as u32).div_ceil(64),
-                1,
-                1,
-            ]),
-            &mut self.buckets,
-        )
-        .unwrap();
-    }
-    fn count(&mut self) {
-        let k = GpuColorBucketsCount::from_bytes(
-            &GpuBackend::Cpu,
-            &[],
-            GpuColorBucketsCount::ENTRY_POINT,
-        )
-        .unwrap();
-        k.call(
-            &mut GpuPass::Cpu(None),
-            dispatch::workgroups([self.groups, 1, 1]),
-            &self.colors,
-            &self.links,
-            &self.plan,
-            &mut self.buckets,
-            &self.batch,
-            &mut self.sorted,
-        )
-        .unwrap();
-    }
-    fn scan(&mut self) {
-        let GpuBuffer::Cpu(ref mut data) = self.buckets else {
-            unreachable!()
-        };
-        prefix_program::scan(data, &mut self.aux, &self.strides, self.levels);
-    }
-    fn scatter(&mut self) {
-        let k = GpuColorBucketsScatter::from_bytes(
-            &GpuBackend::Cpu,
-            &[],
-            GpuColorBucketsScatter::ENTRY_POINT,
-        )
-        .unwrap();
-        k.call(
-            &mut GpuPass::Cpu(None),
-            dispatch::workgroups([self.groups, 1, 1]),
-            &self.colors,
-            &self.links,
-            &self.plan,
-            &mut self.buckets,
-            &mut self.sorted,
-            &self.batch,
-            &mut self.indices,
-        )
-        .unwrap();
-    }
-    fn dispatch(&mut self) {
-        let k = GpuColorDispatchGrid::from_bytes(
-            &GpuBackend::Cpu,
-            &[],
-            GpuColorDispatchGrid::ENTRY_POINT,
-        )
-        .unwrap();
-        k.call(
-            &mut GpuPass::Cpu(None),
-            dispatch::workgroups([1, 1, 1]),
-            &self.buckets,
-            &mut self.stats,
-            &mut self.indirect,
-            &self.batch,
-        )
-        .unwrap();
-    }
     fn write(&self, dir: &Path, expected: bool) {
         macro_rules! w {
             ($name:literal,$buf:expr,$changed:expr) => {

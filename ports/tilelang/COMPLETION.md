@@ -14,9 +14,10 @@ the complete backend ready because all currently registered kernel cases pass.
 Remaining implementation sequence:
 
 1. Body/collider state, Coulomb preparation and contact-link persistence stages
-   are ported in isolation, along with cached warmstart scaling, body gathering
-   and split-slot application. Connect these to changing scene topology and
-   production frame stepping.
+   are ported, along with cached warmstart scaling, body gathering
+   and split-slot application. The analytic ordinary-body scene program now connects
+   changing contact topology and persistence through 120-frame checkpoints. Connect
+   this to production frame stepping, general collision and the remaining variants.
 2. Ordered native dispatch, hierarchical prefix scan and composed contact
    adjacency, bounded Topo coloring, and color-bucket construction are implemented.
    Native Coulomb color ranges, cached unbiased solve and ordered contact iterations
@@ -40,14 +41,16 @@ Remaining implementation sequence:
    polylines remain. PFM counter reset and contact-plan publication are implemented;
    a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
    collision detection. Native radix stages and contact canonicalization are now
-   implemented as resident programs. These still need connection to general scene
-   solving.
+   implemented as resident programs. Canonicalization is connected to analytic scene solving. Generic scene
+   integration remains.
    Port collision detection and shapes, contact creation/removal, broad-phase
    schedules, rigid-body joints, queries, deterministic ordering and other required
    inventory capabilities. Do not introduce CPU physics fallbacks and call them
    completed TileLang features.
-4. Run free motion, impacts, stacks, friction, restitution and joints through full
-   scene steps. Compare intermediate stages and short-run checkpoints to Rust;
+4. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
+   restitution, empty inputs and interleaved batches through connected steps and
+   1/8/120-frame checkpoints with independent physical assertions. Add joints,
+   generic collision and continuous trajectory diagnostics. Compare intermediate stages and short-run checkpoints to Rust;
    test long-run bounded penetration, energy/momentum behavior and stability.
    Keep sleeping disabled for benchmarks and stability comparisons.
 5. Complete offline Ascend source coverage, immutable scene/kernel handoff bundles,

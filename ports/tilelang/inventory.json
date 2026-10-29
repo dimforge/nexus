@@ -560,7 +560,8 @@
         "rbd.scheduling.adjacency_count3d",
         "rbd.scheduling.adjacency_scatter3d",
         "rbd.scheduling.adjacency_build3d",
-        "rbd.pipeline.tgs_frame3d"
+        "rbd.pipeline.tgs_frame3d",
+        "rbd.pipeline.analytic_scene3d"
       ],
       "symbols": [
         "gpu_integrate_linearized",
@@ -572,7 +573,7 @@
         "gpu_solver_count_constraints",
         "gpu_solver_sort_constraints"
       ],
-      "remaining": "Body lifecycle and adjacency count/scatter are ported, including an ordered count/scan/scatter program; remaining solver entry points and full scene schedules are pending."
+      "remaining": "Body lifecycle and adjacency are connected to analytic ball/box scene checkpoints with persistent topology and coloring. Remaining solver variants, rigid joints, hubs and general production schedules are pending."
     },
     {
       "reference": "src_rbd_shaders/dynamics/solver_utils.rs",
@@ -1405,9 +1406,10 @@
         "rbd.scheduling.stabilize_body_constraint_ids",
         "rbd.scheduling.contact_keys3d",
         "rbd.scheduling.permute_contacts3d",
-        "rbd.scheduling.canonical_contacts3d"
+        "rbd.scheduling.canonical_contacts3d",
+        "rbd.pipeline.analytic_scene3d"
       ],
-      "remaining": "Native per-body ordering and canonical contact keys, stable sorting and permutation implemented. Full deterministic scene scheduling remains."
+      "remaining": "Canonical contact order and deterministic bounded Topo schedules are connected in analytic scene checkpoints; generic and production scheduling remains."
     },
     {
       "id": "rbd.pipeline",
@@ -1415,9 +1417,10 @@
       "coverage": "partial",
       "operations": [
         "rbd.pipeline.tgs_frame3d",
-        "rbd.pipeline.analytic_collision3d"
+        "rbd.pipeline.analytic_collision3d",
+        "rbd.pipeline.analytic_scene3d"
       ],
-      "remaining": "Resident ball/box collision program and native TGS frame over supplied manifolds are implemented separately. Full scene generation/solving composition, topology, graph scheduling, joints, hubs, backend selection and long-run stability remain."
+      "remaining": "Resident analytic ball/box scenes now connect collision, deterministic contact ordering, persistent links, adjacency, bounded Topo colors, buckets and ordinary-body Coulomb TGS through 120-frame checkpoints. Production public backend selection, joints, hubs, generic collision and continuous trajectory diagnostics remain."
     },
     {
       "id": "rbd.dim2",

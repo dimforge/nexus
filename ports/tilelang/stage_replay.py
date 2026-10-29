@@ -51,6 +51,7 @@ def run_stage(
     launch,
     extra_files=(),
     make_program=None,
+    diagnostics=None,
 ):
     """Shared evidence/runtime path; operation modules own their ABI and comparisons."""
     import numpy as np
@@ -189,6 +190,10 @@ def run_stage(
                 outcome["max_absolute_errors"] = check_outputs(
                     layout, case, before, actual, expected, contract
                 )
+                if diagnostics is not None:
+                    outcome["diagnostics"] = diagnostics(
+                        layout, case, before, actual, expected, contract
+                    )
                 for n, a in actual.items():
                     a.tofile(directory / f"{n}.actual.bin")
             names = (

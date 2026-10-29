@@ -574,3 +574,35 @@ from device storage. Their launch adapters support padded capacity and guard
 every invocation with the live device bound before loading contact or body data.
 This matches the native Rust uniform and allows collision generation to feed
 these stages without a host contact-count readback.
+
+
+### Connected analytic scenes
+
+`scene_replay.py --target c` (or `--target metal`) runs `analytic_scene` using the
+live noalias-disabled Rust oracle. The controller in `scene_kernels.py` composes
+existing mirrored shaders; device buffers remain resident through collision,
+canonical contact sorting, persistent links, adjacency, bounded Topo coloring,
+color buckets, contact preparation, Coulomb TGS, finalization and state copies.
+Fourteen fixtures cover empty/static scenes, ball/box stacks, falling bodies,
+restitution, friction, interleaved batches, lane tails and 120-frame checkpoints.
+No sleeping or CPU physics fallback is used.
+
+The scene contract checks live identities, graph and bucket ownership, static
+bodies, copy semantics and capacity guards independently of float comparisons.
+It rejects an unsolved color bucket. Checkpoints also check normalized finite
+state, penetration, energy, settling, rebound and rolling contact. Legal atomic
+allocation order is compared by contact identity. Workspace above a published
+count can retain earlier-frame records; guards beyond maximum capacity remain
+exact. Physical measurements are recorded separately from parity errors.
+
+Body and active-constraint tolerances remain `atol=2e-6, rtol=2e-5`. Only cached
+warmstart velocity diagnostics after multiple frames use `atol=1e-5`: the
+120-frame box stack has a `2.744e-6` near-zero angular-cache discrepancy while
+final body velocity and position errors stay below `6.851e-7` and `2.385e-7`.
+The contract and change 0037 explain this scope. Isolated warmstart checks and
+the retained zero-distance stress release block remain unchanged.
+
+This is a connected analytic scene milestone. General collision, rigid joints,
+hubs, production backend selection and continuous trajectory diagnostics remain.
+Ascend `--compile-only` checks source lowering; vendor builds, execution,
+synchronization qualification and performance remain unvalidated.

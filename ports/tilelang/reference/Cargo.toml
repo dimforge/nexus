@@ -108,3 +108,7 @@ path = "src/radix.rs"
 [[bin]]
 name = "canonical"
 path = "src/canonical.rs"
+
+[[bin]]
+name = "scenes"
+path = "src/scenes.rs"
