@@ -42,3 +42,7 @@ path = "src/contacts.rs"
 [[bin]]
 name = "links"
 path = "src/links.rs"
+
+[[bin]]
+name = "warmstarts"
+path = "src/warmstarts.rs"

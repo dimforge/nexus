@@ -1,10 +1,11 @@
 # TileLang rigid-body parity pilot
 
-This experimental port has eighteen operation contracts: effective mass calculation,
+This experimental port has twenty-one operation contracts: effective mass calculation,
 warmstarting, Coulomb solving, clamped integration, deterministic constraint-ID
 sorting, five body lifecycle entry points, world mass-property updates, collider
 pose propagation, contact preparation, contact-link initialization/matching/color seeding, and
-composed no-contact body and contact-persistence steps.
+composed no-contact body and contact-persistence steps, impulse scaling, cached
+body warmstart gathering and split-slot warmstart application.
 The body stages cover cleanup, COM pose initialization, gravity increments,
 increment application and final writeback. They use Rust buffer layouts and live
 Rust reference functions. The composed step reuses those ports for repeated frames
@@ -13,9 +14,10 @@ and substeps; it does not yet connect to Nexus's production simulation backend.
 Contact preparation now builds Coulomb tiles from sorted links and manifolds,
 transfers nearest cached impulses, reuses recycled anchors, and writes tagged
 warmstart deltas. Solving and direct warmstart still require a conflict-free color.
-Contact-link matching and recycle eligibility are also ported. Collision
-detection, production coloring and warmstart
-gather, joints, twist friction and Ascend execution remain unimplemented. Articulated multibodies, MPM
+Contact-link matching, recycle eligibility, impulse scaling, cached body gathering
+and split-slot warmstart application are also ported. Collision detection,
+production coloring/hub schedules, joints, twist friction and Ascend execution
+remain unimplemented. Articulated multibodies, MPM
 and 2D are deferred by the user. See `COMPLETION.md` for the agreed completion scope.
 
 Rust remains the behavioral reference. `parity.json` maps stable operation IDs
@@ -35,9 +37,9 @@ and their module boundaries wherever practical:
 | `mprops_update.rs` | `mprops_update.py` | world inertia/COM updates and indexed collider pose propagation (3D) |
 | `solver.rs` | `solver.py` | cleanup, COM pose initialization, gravity/increment application, integration, finalization |
 | `constraint.rs` | `constraint.py` | `compute_effective_masses` |
-| `solver_utils.rs` | `solver_utils.py` | solve/warmstart, manifold headers/points, recycled points |
-| `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation and tagged warmstart cache |
-| `tile_kernels.rs` | `tile_kernels.py` | prepared-color adapters, preparation and nearest impulse transfer |
+| `solver_utils.rs` | `solver_utils.py` | solve/warmstart, impulse scaling, manifold headers/points, recycled points |
+| `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation, tagged cache and tiled warmstart deltas |
+| `tile_kernels.rs` | `tile_kernels.py` | prepared-color adapters, preparation/impulse transfer, scaling and body/hub warmstart |
 | `contact_links.rs` | `contact_links.py` | complete 3D link initialization, matching, recycling decisions and color seeding |
 | `canonical_order.rs` | `canonical_order.py` | `gpu_stabilize_body_constraint_ids` |
 
@@ -95,7 +97,16 @@ The default `results/` directory is ignored by Git.
 
 ## What is tested
 
-There are 151 required cases across eighteen contracts. The eight body/collider
+The three warmstart graph operations have 27 cases. Native batch uniforms, bucket
+totals, adjacency and ID indirections drive the kernels. Ordinary bodies gather
+cached deltas in list order; split slots recompute their constraint deltas. Tests
+deliberately distinguish those values, exercise shared bodies, static bodies,
+empty points, fractional/zero/unit scaling, multiple batches, bounded hub capacity,
+exact cache tags and untouched padding. A cancellation-sensitive cache detects
+reassociation or reordering. Hub assignment, splitting, averaging and complete
+solver schedules remain separate work.
+
+There are 178 required cases across twenty-one contracts. The eight body/collider
 contracts added after the original pilot have 56 cases, including empty/zero-batch launches, 63/64/65 boundaries,
 multiple batches, capacity beyond active bodies, static and partially locked
 masses, nonzero local COMs, zero gravity, and up to 32 frames of four substeps.

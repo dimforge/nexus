@@ -1,0 +1,47 @@
+{
+  "id": "0015-warmstart-gather",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d",
+    "rbd.contact.coulomb.scale_impulses3d",
+    "rbd.contact.coulomb.gather_warmstart3d",
+    "rbd.contact.coulomb.hub_warmstart3d"
+  ],
+  "kinds": [
+    "port",
+    "test",
+    "tooling"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port Coulomb impulse scaling, ordered cached body warmstart gathering and split-slot warmstart application with native graph buffers.",
+  "regressions": [
+    "All three Rust entry points at 0/1/31/32/33/63/64/65/129 constraints with three dispatches",
+    "Distinct cache and recomputed deltas, both sides, reversed adjacency, permuted constraint IDs, empty points, shared static/dynamic bodies, hub skip and split-slot indirection",
+    "Runtime multi-batch body lengths, final bucket constraint count, coefficients zero/one/fractional, capacity-clipped hub slots and untouched sentinel storage",
+    "Exact cache tags, padding and write_constraint resets; malformed graphs, layouts, tags, uniforms and output writes rejected",
+    "Cancellation-sensitive cached accumulation rejects reordered adjacency summation; mutable local buffers avoid invalid guarded Metal scalar assignment and repeated CPU interval-analysis expansion."
+  ],
+  "differences": [
+    "No changes to Rust physics or existing tolerances. Three isolated entry points do not complete production solver/frame scheduling.",
+    "The shared tiled warmstart helper reuses the identical force/torque arithmetic from TwoBodyConstraint while preserving the extra zero-based delta then velocity-add order of the Rust hub entry point.",
+    "Read/write constraint roundtrip is specialized to the actually changed impulse fields, inactive coupling zeros, model-specific header zeros and cache. All preserved storage is guarded bitwise.",
+    "Native uniforms are represented as readonly u32 storage buffers in replay; all offsets derive from the live Rust exporter. Empty fixtures specialize a no-op before compiler index analysis.",
+    "Gather start and hub mapped index use one-element local buffers to work around compiler issues; no arithmetic order or native layout changes."
+  ]
+}

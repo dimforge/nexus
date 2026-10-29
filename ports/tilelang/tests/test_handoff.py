@@ -188,5 +188,10 @@ class LinkHandoffTests(HandoffTests):
     mutable_buffer = "States"
 
 
+class WarmstartHandoffTests(HandoffTests):
+    operation = "gather_warmstart"
+    fixture_index = 8
+
+
 if __name__ == "__main__":
     unittest.main()

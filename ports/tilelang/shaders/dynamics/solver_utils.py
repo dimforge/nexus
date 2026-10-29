@@ -555,3 +555,23 @@ def recycle_from(layout):
                 )
 
     return one
+
+
+def scale_impulses(layout):
+    """TwoBodyConstraint::scale_impulses for the active Coulomb point rows."""
+    h, p = layout["header"], layout["point"]
+
+    @T.macro
+    def one(Tiles, i, coefficient):
+        base = i // 32 * layout["tile_words"] + i % 32 * 4
+        count = Tiles[base + h["normal"] + 3]
+        for k in T.serial(4):
+            if k < count:
+                point = base + layout["points"] + k * layout["point_words"]
+                value = f32(Tiles, point + p["arm_a"] + 3) * coefficient
+                Tiles[point + p["arm_a"] + 3] = T.reinterpret(value, "uint32")
+                for d in T.serial(2):
+                    tangent = f32(Tiles, point + p["friction"] + d) * coefficient
+                    Tiles[point + p["friction"] + d] = T.reinterpret(tangent, "uint32")
+
+    return one

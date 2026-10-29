@@ -1,7 +1,8 @@
 """Counterparts of dynamics/tile_kernels.rs entry points for prepared colors.
 
-The replay supplies a single contiguous, disjoint color. Production bucket,
-shared-static and gather schedules are deliberately not claimed by these adapters.
+Direct solve/warmstart adapters still supply one disjoint color. Cache scaling,
+ordered body gathering and split-slot warmstart use runtime native graph buffers;
+production color schedules and complete frame stepping remain separate work.
 """
 
 from kernel_support import launch
@@ -148,5 +149,150 @@ def gpu_prepare_constraints(layout, case):
                         transfer(OldTiles, Tiles, i, old)
                 masses(Tiles, Velocities, SolverPoses, Contacts, i)
                 cache(Tiles, i)
+
+    return one
+
+
+def gpu_scale_constraint_impulses(layout):
+    """Scale active points and refresh the cache, including write_constraint resets."""
+    import tilelang.language as T
+    from kernel_support import f32
+    from .solver_utils import scale_impulses
+    from .coulomb_tiles import constraint_warmstart
+
+    scale = scale_impulses(layout)
+    cache = constraint_warmstart(layout)
+    h, b = layout["header"], layout["batch"]
+
+    @T.macro
+    def one(Tiles, Buckets, BatchIds, Params, i):
+        end = T.cast(BatchIds[b["num_batches"]], "int32") * T.cast(
+            BatchIds[b["solver_color_buckets_stride"]], "int32"
+        )
+        if i < T.cast(Buckets[end - 1], "int32"):
+            scale(Tiles, i, f32(Params, layout["warmstart_coefficient"]))
+            base = i // 32 * layout["tile_words"] + i % 32 * 4
+            # Rust read_constraint/write_constraint preserves active fields, zeros
+            # inactive coupling and the Coulomb header's two model-specific words.
+            Tiles[base + h["diag_b"] + 3] = T.uint32(0)
+            Tiles[base + h["off_b"] + 3] = T.uint32(0)
+            for k in T.serial(4):
+                if k >= Tiles[base + h["normal"] + 3]:
+                    Tiles[base + layout["coupling"] + k] = T.uint32(0)
+            cache(Tiles, i)
+
+    return one
+
+
+def gpu_gather_warmstart_velocities(layout):
+    """Each ordinary body owns its output; accumulate in Rust adjacency-list order."""
+    import tilelang.language as T
+    from kernel_support import f32
+
+    b = layout["batch"]
+
+    @T.macro
+    def one(Counts, Ids, Indices, Tiles, Velocities, HubFirstSlot, BatchIds, body):
+        count = T.cast(BatchIds[b["bodies_len"]], "int32") * T.cast(
+            BatchIds[b["num_batches"]], "int32"
+        )
+        if body < count:
+            if HubFirstSlot[body] == T.uint32(0xFFFFFFFF):
+                # A local buffer avoids invalid Metal code for a mutable scalar
+                # assigned from a bounds-guarded load. Body zero must not read -1.
+                start = T.alloc_local((1,), "int32")
+                start[0] = 0
+                if body > 0:
+                    start[0] = T.cast(Counts[body - 1], "int32")
+                end = T.cast(Counts[body], "int32")
+                velocity = T.alloc_local((6,), "float32")
+                for d in T.serial(3):
+                    velocity[d] = f32(
+                        Velocities,
+                        body * layout["velocity_words"] + layout["velocity_linear"] + d,
+                    )
+                    velocity[d + 3] = f32(
+                        Velocities,
+                        body * layout["velocity_words"]
+                        + layout["velocity_angular"]
+                        + d,
+                    )
+                for entry in T.serial(start[0], end):
+                    index = T.cast(Indices[T.cast(Ids[entry], "int32")], "int32")
+                    pair = (
+                        index // 32 * layout["tile_words"]
+                        + layout["warmstart"]
+                        + index % 32 * 2 * layout["velocity_words"]
+                    )
+                    side = T.if_then_else(
+                        Tiles[pair + layout["velocity_padding1"]]
+                        == T.cast(body, "uint32"),
+                        0,
+                        1,
+                    )
+                    source = pair + side * layout["velocity_words"]
+                    for d in T.serial(3):
+                        velocity[d] = velocity[d] + f32(
+                            Tiles, source + layout["velocity_linear"] + d
+                        )
+                        velocity[d + 3] = velocity[d + 3] + f32(
+                            Tiles, source + layout["velocity_angular"] + d
+                        )
+                for d in T.serial(3):
+                    Velocities[
+                        body * layout["velocity_words"] + layout["velocity_linear"] + d
+                    ] = T.reinterpret(velocity[d], "uint32")
+                    Velocities[
+                        body * layout["velocity_words"] + layout["velocity_angular"] + d
+                    ] = T.reinterpret(velocity[d + 3], "uint32")
+
+    return one
+
+
+def gpu_hub_warmstart_constraints(layout):
+    """Recompute each split slot's delta from its constraint, not the cached pair."""
+    import tilelang.language as T
+    from kernel_support import f32
+    from .coulomb_tiles import tile_warmstart
+
+    delta = tile_warmstart(layout)
+    h, hc = layout["header"], layout["hub"]
+
+    @T.macro
+    def one(Velocities, Tiles, HubSlotConstraint, HubCounts, Indices, slot):
+        count = T.min(
+            T.cast(HubCounts[hc["slots"]], "int32"),
+            T.cast(HubCounts[hc["pool"]], "int32"),
+        )
+        if slot < count:
+            vel_slot = T.cast(HubCounts[hc["base"]], "int32") + slot
+            # Keep the graph indirection out of every expanded point expression;
+            # otherwise CPU interval simplification grows prohibitively expensive.
+            index = T.alloc_local((1,), "int32")
+            index[0] = T.cast(
+                Indices[T.cast(HubSlotConstraint[slot], "int32")], "int32"
+            )
+            a = T.alloc_local((6,), "float32")
+            b = T.alloc_local((6,), "float32")
+            delta(Tiles, index[0], a, b)
+            base = index[0] // 32 * layout["tile_words"] + index[0] % 32 * 4
+            use_a = Tiles[base + h["diag_a"] + 3] == T.cast(vel_slot, "uint32")
+            for d in T.serial(3):
+                linear = f32(
+                    Velocities,
+                    vel_slot * layout["velocity_words"] + layout["velocity_linear"] + d,
+                ) + T.if_then_else(use_a, a[d], b[d])
+                angular = f32(
+                    Velocities,
+                    vel_slot * layout["velocity_words"]
+                    + layout["velocity_angular"]
+                    + d,
+                ) + T.if_then_else(use_a, a[d + 3], b[d + 3])
+                Velocities[
+                    vel_slot * layout["velocity_words"] + layout["velocity_linear"] + d
+                ] = T.reinterpret(linear, "uint32")
+                Velocities[
+                    vel_slot * layout["velocity_words"] + layout["velocity_angular"] + d
+                ] = T.reinterpret(angular, "uint32")
 
     return one

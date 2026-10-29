@@ -283,6 +283,49 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/contact_persistence.json",
       "test_command": "python ports/tilelang/link_replay.py --operation contact_persistence --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.scale_impulses3d",
+      "operation": "scale_impulses",
+      "runner": "warmstart_replay.py",
+      "coverage": "Scale active Coulomb point impulses and refresh tagged warmstart caches for the runtime bucket total",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_scale_constraint_impulses",
+        "src_rbd_shaders/dynamics/solver_utils.rs::TwoBodyConstraint::scale_impulses",
+        "src_rbd_shaders/dynamics/coulomb_tiles.rs::constraint_warmstart",
+        "src_rbd_shaders/dynamics/coulomb_tiles.rs::CoulombTile::write_constraint"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_scale_constraint_impulses",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/scale_impulses.json",
+      "test_command": "python ports/tilelang/warmstart_replay.py --operation scale_impulses --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.gather_warmstart3d",
+      "operation": "gather_warmstart",
+      "runner": "warmstart_replay.py",
+      "coverage": "Gather cached deltas per ordinary body in adjacency-list order, skipping split hubs",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_gather_warmstart_velocities"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_gather_warmstart_velocities",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/gather_warmstart.json",
+      "test_command": "python ports/tilelang/warmstart_replay.py --operation gather_warmstart --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.hub_warmstart3d",
+      "operation": "hub_warmstart",
+      "runner": "warmstart_replay.py",
+      "coverage": "Recompute and apply each live split velocity slot's warmstart from its constraint",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_hub_warmstart_constraints",
+        "src_rbd_shaders/dynamics/coulomb_tiles.rs::tile_warmstart"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_hub_warmstart_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/hub_warmstart.json",
+      "test_command": "python ports/tilelang/warmstart_replay.py --operation hub_warmstart --target c"
     }
   ],
   "targets": [

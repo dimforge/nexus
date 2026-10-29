@@ -138,13 +138,16 @@
       "coverage": "partial",
       "operations": [
         "rbd.contact.coulomb.solve3d",
-        "rbd.contact.coulomb.prepare3d"
+        "rbd.contact.coulomb.prepare3d",
+        "rbd.contact.coulomb.scale_impulses3d",
+        "rbd.contact.coulomb.hub_warmstart3d"
       ],
       "symbols": [
         "validate_layout",
-        "constraint_warmstart"
+        "constraint_warmstart",
+        "tile_warmstart"
       ],
-      "remaining": "Preparation and the listed kernels are ported; production cached gather, scaling, fused/tail scheduling and all unlisted symbols remain unported."
+      "remaining": "Rust-derived layouts and the listed cache/tiled-warmstart helpers are ported; unlisted symbols and production runtime integration remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/joint.rs",
@@ -478,7 +481,8 @@
       "operations": [
         "rbd.contact.coulomb.solve3d",
         "rbd.contact.coulomb.warmstart3d",
-        "rbd.contact.coulomb.prepare3d"
+        "rbd.contact.coulomb.prepare3d",
+        "rbd.contact.coulomb.scale_impulses3d"
       ],
       "symbols": [
         "solve_points",
@@ -486,9 +490,10 @@
         "contact_to_constraint_header",
         "contact_to_constraint_points",
         "recycle_from",
-        "warmstart_delta"
+        "warmstart_delta",
+        "scale_impulses"
       ],
-      "remaining": "Preparation and the listed kernels are ported; production cached gather, scaling, fused/tail scheduling and all unlisted symbols remain unported."
+      "remaining": "Listed solve, preparation, warmstart and scaling methods are ported; unlisted helpers, other solver variants and production integration remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/tile_kernels.rs",
@@ -497,15 +502,21 @@
       "operations": [
         "rbd.contact.coulomb.solve3d",
         "rbd.contact.coulomb.warmstart3d",
-        "rbd.contact.coulomb.prepare3d"
+        "rbd.contact.coulomb.prepare3d",
+        "rbd.contact.coulomb.scale_impulses3d",
+        "rbd.contact.coulomb.gather_warmstart3d",
+        "rbd.contact.coulomb.hub_warmstart3d"
       ],
       "symbols": [
         "gpu_solve_constraints",
         "gpu_warmstart_constraints",
         "gpu_prepare_constraints",
-        "transfer_contact_impulses"
+        "transfer_contact_impulses",
+        "gpu_scale_constraint_impulses",
+        "gpu_gather_warmstart_velocities",
+        "gpu_hub_warmstart_constraints"
       ],
-      "remaining": "Preparation and the listed kernels are ported; production cached gather, scaling, fused/tail scheduling and all unlisted symbols remain unported."
+      "remaining": "Preparation, isolated direct solve/warmstart and cache scaling/gather/split-slot warmstart are ported; actual color dispatch, fused/tail solver variants and scene scheduling remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_friction.rs",
@@ -966,9 +977,12 @@
         "rbd.contact.coulomb.solve3d",
         "rbd.contact.coulomb.effective_mass3d",
         "rbd.contact.coulomb.warmstart3d",
-        "rbd.contact.coulomb.prepare3d"
+        "rbd.contact.coulomb.prepare3d",
+        "rbd.contact.coulomb.scale_impulses3d",
+        "rbd.contact.coulomb.gather_warmstart3d",
+        "rbd.contact.coulomb.hub_warmstart3d"
       ],
-      "remaining": "Full Coulomb preparation, independent solve/warmstart and effective masses are ported; cached gather, shared-static scheduling, link creation/recycle eligibility and production integration remain incomplete."
+      "remaining": "Coulomb preparation, isolated solve, impulse scaling, cached gather and split-slot warmstart are ported; production color schedules and scene integration remain."
     },
     {
       "id": "rbd.broadphase.brute_force",
@@ -1037,9 +1051,12 @@
     {
       "id": "rbd.scheduling.hubs",
       "description": "Mass splitting, hub gather and synchronization",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.coulomb.hub_warmstart3d",
+        "rbd.contact.coulomb.gather_warmstart3d"
+      ],
+      "remaining": "Warmstart consumes existing split-slot maps and skips original hubs; hub assignment, splitting, scatter/average and synchronized solver scheduling remain unported."
     },
     {
       "id": "rbd.constraints.joints",

@@ -60,3 +60,20 @@ def constraint_warmstart(layout):
         ]
 
     return one
+
+
+def tile_warmstart(layout):
+    """The tiled reader has the same force/torque order as constraint_warmstart."""
+    import tilelang.language as T
+    from .solver_utils import warmstart_delta
+
+    delta = warmstart_delta(layout)
+
+    @T.macro
+    def one(Tiles, i, a, b):
+        for d in T.serial(6):
+            a[d] = 0.0
+            b[d] = 0.0
+        delta(Tiles, i, a, b)
+
+    return one

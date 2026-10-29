@@ -266,3 +266,42 @@ The full-port goal remains active. Warmstart gathering/scaling, production
 scheduling, collision detection, joints, native scene integration and scene
 stability tests remain unfinished. The existing floating branch-sensitivity
 policy remains unresolved; Ascend vendor compilation/execution is unvalidated.
+
+## Cached and split-slot warmstart
+
+The mirrored `tile_kernels.py` now ports three more Coulomb entry points:
+`gpu_scale_constraint_impulses`, `gpu_gather_warmstart_velocities` and
+`gpu_hub_warmstart_constraints`. Native batch uniforms, buckets, adjacency
+lists, ID/index indirection and hub counters drive their active ranges.
+Scaling refreshes the cache and preserves Rust's constraint rewrite side effects:
+inactive coupling and two model-specific header words are reset. Ordinary bodies
+gather cached deltas in adjacency order; hub slots recompute the constraint delta
+and then add it to the existing velocity. These are separate dispatch operations.
+
+The 27 cases cover empty input, tile/workgroup boundaries, shared static/dynamic
+bodies, both contact sides, reordered IDs and adjacency, two batches, zero/one/
+fractional coefficients, zero-point contacts, skipped original hubs, requested
+hub slots exceeding capacity, cache tags and padding. Cached values deliberately
+differ from recomputed deltas. A finite cancellation-sensitive cache detects
+accumulation reordering; it is an arithmetic regression, not a physical scene.
+The new operation outputs agree exactly with live Rust in the tested environments;
+the existing float tolerance policy is retained rather than assuming universal
+bitwise equivalence.
+
+Two compiler workarounds are explicit in the source. A one-element local buffer
+for the cumulative adjacency start avoids invalid Metal source when a mutable
+scalar receives a guarded load. Storing the mapped hub constraint index once also
+avoids expensive repeated CPU interval analysis. The compiler-heavy attempt was
+sampled and stopped; the final form passes all cases on each available target.
+
+The complete registered suite now has 178 cases across twenty-one contracts.
+All pass on generated C++ CPU and native Rust/khal Metal, and all lower to Ascend
+source only. The 119 Python regressions and three native adapter tests pass,
+as do Rust formatting/strict Clippy and Ruff F checks. Six extra C++ UBSan runs
+(65 and 129 constraints for each new operation) pass with recovery disabled;
+their output bytes also match the regular C++ replay already compared to Rust.
+
+Production graph/hub construction, color dispatch, solver variants, collisions,
+joints, native scene integration and physical stability evidence remain
+unfinished. The earlier zero-distance branch-sensitivity release block remains.
+Ascend vendor compilation, execution and performance remain unvalidated.
