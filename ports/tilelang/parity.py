@@ -47,6 +47,9 @@ def manifest(root):
     result = read_json(root / PORT / "parity.json")
     if result["schema"] != 1:
         raise ValueError("Unsupported parity schema")
+    ids = [feature["id"] for feature in result["features"]]
+    if not ids or len(ids) != len(set(ids)):
+        raise ValueError("Feature IDs must be nonempty and unique")
     return result
 
 
@@ -94,7 +97,10 @@ def evidence_state(root, report, inputs):
         return "failed"
     if report.get("suite") != "portable":
         return "diagnostic_only"
-    required_cases = read_json(root / PORT / "contract.json")["required_cases"]
+    feature = next(
+        f for f in manifest(root)["features"] if f["id"] == report["feature"]
+    )
+    required_cases = feature_contract(root, feature)["required_cases"]
     names = [c.get("name") for c in report["cases"]]
     if len(names) != len(set(names)) or set(names) != set(required_cases):
         return "incomplete"
@@ -136,6 +142,21 @@ def evidence_state(root, report, inputs):
     return "executed"
 
 
+def feature_contract(root, feature):
+    return read_json(root / feature.get("contract", str(PORT / "contract.json")))
+
+
+def saved_evidence(baseline, config):
+    # Read the pilot's original schema without treating its evidence as coverage
+    # for subsequently added operations.
+    result = {
+        key: dict(value) for key, value in baseline.get("feature_evidence", {}).items()
+    }
+    first = config["features"][0]["id"]
+    result.setdefault(first, baseline.get("evidence", {}))
+    return result
+
+
 def status(root, extra_evidence=()):
     config = manifest(root)
     current = evidence_inputs(root)
@@ -149,29 +170,38 @@ def status(root, extra_evidence=()):
     record_current = record_path.is_file() and digest(record_path) == record.get(
         "sha256"
     )
-    backends = {target: {"state": "unvalidated"} for target in config["targets"]}
-    for target, item in baseline.get("evidence", {}).items():
-        path = root / item["path"]
-        if not path.is_file() or digest(path) != item["sha256"]:
-            backends[target] = {
-                "state": "missing_or_modified_evidence",
-                "path": str(path),
-            }
-        else:
-            report = read_json(path)
-            backends[target] = {
-                "state": evidence_state(root, report, current)
-                if report.get("target") == target
-                else "invalid_target",
-                "path": str(path),
-                "environment": report.get("environment"),
-            }
+    matrix = {
+        f["id"]: {target: {"state": "unvalidated"} for target in config["targets"]}
+        for f in config["features"]
+    }
+    for feature, targets in saved_evidence(baseline, config).items():
+        if feature not in matrix:
+            continue
+        for target, item in targets.items():
+            if target not in matrix[feature]:
+                continue
+            path = root / item["path"]
+            if not path.is_file() or digest(path) != item["sha256"]:
+                matrix[feature][target] = {
+                    "state": "missing_or_modified_evidence",
+                    "path": str(path),
+                }
+            else:
+                report = read_json(path)
+                matrix[feature][target] = {
+                    "state": evidence_state(root, report, current)
+                    if report.get("target") == target
+                    and report.get("feature") == feature
+                    else "invalid_target",
+                    "path": str(path),
+                    "environment": report.get("environment"),
+                }
     for path in extra_evidence:
         report = read_json(path)
-        target = report["target"]
-        if target not in backends:
-            raise ValueError(f"Unknown evidence target: {target}")
-        backends[target] = {
+        feature, target = report["feature"], report["target"]
+        if feature not in matrix or target not in matrix[feature]:
+            raise ValueError(f"Unknown evidence feature/target: {feature}/{target}")
+        matrix[feature][target] = {
             "state": evidence_state(root, report, current),
             "path": str(path),
             "environment": report.get("environment"),
@@ -188,8 +218,14 @@ def status(root, extra_evidence=()):
         if source_current
         else [f["id"] for f in config["features"]],
         "features": config["features"],
-        "backends": backends,
-        "known_gaps": read_json(root / PORT / "contract.json").get("known_gaps", []),
+        "feature_backends": matrix,
+        # Compatibility alias for existing single-operation consumers only.
+        "backends": matrix[config["features"][0]["id"]],
+        "known_gaps": [
+            gap
+            for f in config["features"]
+            for gap in feature_contract(root, f).get("known_gaps", [])
+        ],
     }
 
 
@@ -238,12 +274,17 @@ def reconcile(root, change_path, evidence_paths):
         state = evidence_state(root, report, current)
         if state not in ("executed", "source_lowered"):
             raise ValueError(f"Evidence {path} is {state}; rerun replay")
-        accepted[report["target"]] = (report, state)
-    for target in config["required_reconciliation_targets"]:
-        if target not in accepted or accepted[target][1] != "executed":
-            raise ValueError(
-                f"Reconciliation requires current {target} execution evidence"
-            )
+        key = (report["feature"], report["target"])
+        if key in accepted:
+            raise ValueError("Duplicate feature/target evidence")
+        accepted[key] = (report, state)
+    for feature in config["features"]:
+        for target in config["required_reconciliation_targets"]:
+            key = (feature["id"], target)
+            if key not in accepted or accepted[key][1] != "executed":
+                raise ValueError(
+                    f"Reconciliation requires current {target} execution evidence for {feature['id']}"
+                )
     # No convenience operation can simply advance the source hash without checks.
     subprocess.run(
         [
@@ -260,19 +301,18 @@ def reconcile(root, change_path, evidence_paths):
     )
     if evidence_inputs(root) != current:
         raise ValueError("Sources changed during reconciliation")
-    evidence = {}
-    for target, (report, _) in accepted.items():
-        path = root / PORT / "evidence" / f"{target}.json"
+    baseline_path = root / PORT / "baseline.json"
+    previous = read_json(baseline_path) if baseline_path.exists() else {}
+    evidence = saved_evidence(previous, config)
+    first = config["features"][0]["id"]
+    for (feature, target), (report, _) in accepted.items():
+        name = f"{target}.json" if feature == first else f"{feature}.{target}.json"
+        path = root / PORT / "evidence" / name
         write_json(path, report)
-        evidence[target] = {
+        evidence.setdefault(feature, {})[target] = {
             "path": path.relative_to(root).as_posix(),
             "sha256": digest(path),
         }
-    # Preserve old backend evidence so it remains visible as stale, not silently lost.
-    baseline_path = root / PORT / "baseline.json"
-    if baseline_path.exists():
-        old = read_json(baseline_path)
-        evidence = {**old.get("evidence", {}), **evidence}
     baseline = {
         "schema": 1,
         "inputs": current,
@@ -280,7 +320,8 @@ def reconcile(root, change_path, evidence_paths):
             "path": change_path.relative_to(root).as_posix(),
             "sha256": digest(change_path),
         },
-        "evidence": evidence,
+        "feature_evidence": evidence,
+        "evidence": evidence.get(first, {}),
     }
     write_json(baseline_path, baseline)
     return status(root)
@@ -318,8 +359,9 @@ def main():
                         print(f"  {kind} {action}: {path}")
             for gap in result["known_gaps"]:
                 print(f"Known gap: {gap['id']}: {gap['description']}")
-            for target, item in result["backends"].items():
-                print(f"{target}: {item['state']}")
+            for feature, targets in result["feature_backends"].items():
+                for target, item in targets.items():
+                    print(f"{feature} / {target}: {item['state']}")
         if args.command == "check":
             targets = args.require or manifest(ROOT)["required_reconciliation_targets"]
             if (
@@ -328,7 +370,11 @@ def main():
                     and any(g.get("blocks_release") for g in result["known_gaps"])
                 )
                 or result["source_reconciliation"] != "current"
-                or any(result["backends"][t]["state"] != "executed" for t in targets)
+                or any(
+                    backends[t]["state"] != "executed"
+                    for backends in result["feature_backends"].values()
+                    for t in targets
+                )
             ):
                 return 1
         return 0

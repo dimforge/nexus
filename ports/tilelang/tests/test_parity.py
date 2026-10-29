@@ -214,5 +214,62 @@ class ParityTests(unittest.TestCase):
         self.assertEqual(result["backends"]["metal"]["state"], "stale")
 
 
+class MultiFeatureTests(unittest.TestCase):
+    setUp = ParityTests.setUp
+    accept = ParityTests.accept
+
+    def add_feature(self):
+        path = self.port / "parity.json"
+        config = parity.read_json(path)
+        config["features"].append(
+            {"id": "integrate", "contract": "ports/tilelang/integrate.json"}
+        )
+        parity.write_json(path, config)
+        parity.write_json(
+            self.port / "integrate.json", {"required_cases": ["integration-case"]}
+        )
+        record = parity.read_json(self.change)
+        record["features"].append("integrate")
+        parity.write_json(self.change, record)
+        self.report["inputs"] = parity.evidence_inputs(self.root)
+        parity.write_json(self.evidence, self.report)
+
+    def test_one_operation_cannot_certify_another(self):
+        self.add_feature()
+        with self.assertRaisesRegex(ValueError, "integrate"):
+            self.accept()
+        result = parity.status(self.root, [self.evidence])
+        self.assertEqual(result["feature_backends"]["solve"]["c"]["state"], "executed")
+        self.assertEqual(
+            result["feature_backends"]["integrate"]["c"]["state"], "unvalidated"
+        )
+
+    def test_contract_is_selected_by_feature(self):
+        self.add_feature()
+        wrong = {**self.report, "feature": "integrate"}
+        self.assertEqual(
+            parity.evidence_state(self.root, wrong, parity.evidence_inputs(self.root)),
+            "incomplete",
+        )
+        wrong["cases"] = [
+            {
+                "name": "integration-case",
+                "status": "passed",
+                "max_absolute_errors": {"Poses": 0.0},
+            }
+        ]
+        second = self.root / "integrate-report.json"
+        parity.write_json(second, wrong)
+        with patch.object(parity.subprocess, "run"):
+            result = parity.reconcile(self.root, self.change, [self.evidence, second])
+        self.assertEqual(
+            result["feature_backends"]["integrate"]["c"]["state"], "executed"
+        )
+        self.assertEqual(result["feature_backends"]["solve"]["c"]["state"], "executed")
+        self.assertEqual(
+            result["feature_backends"]["integrate"]["ascend"]["state"], "unvalidated"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

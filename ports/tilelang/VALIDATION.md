@@ -86,3 +86,15 @@ provides a dedicated-environment build recipe. Its record-only path was tested
 against the actual build. The complete clean helper/CI build is not yet tested.
 No vendor device binary was compiled. Ascend runtime, numerical correctness and
 performance remain unvalidated. Source lowering cannot satisfy `--require ascend`.
+
+## Mirrored solver-operation milestone
+
+The shader tree now mirrors the corresponding Rust modules, including the split
+between body integration arithmetic and solver-side clamping. Four separately
+contracted operations pass 32/32 live-reference replay cases on generated C++ and
+native Rust Metal; all 32 specializations also lower to Ascend source in the
+separate pinned source-build environment. The 26 parity and actual-buffer guard
+regressions pass, as do Rust exporter fmt/strict Clippy and Python Ruff F checks.
+No global tolerance changed. Full scene stepping, complete contact preparation,
+and production coloring remain unimplemented; the solve numerical release block
+and missing Ascend execution remain explicit.

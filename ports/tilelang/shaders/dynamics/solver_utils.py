@@ -1,50 +1,18 @@
-"""rbd.contact.coulomb.solve3d: one conflict-free color of existing Nexus tiles.
+"""Counterpart of src_rbd_shaders/dynamics/solver_utils.rs.
 
-Arithmetic follows ContactSolverData::solve_points: all normal rows, then all
-friction rows, with sequential updates within each manifold. Integer fields
-remain uint32 bits. ABI offsets come from the compiled Rust reference exporter.
-Launch wrappers are deliberately separate from the shared arithmetic.
+solve_points preserves normal-row order followed by friction-row order. The
+factory captures Rust-derived layouts; its macro operates on native typed tiles.
 """
 
 import tilelang.language as T
+from kernel_support import dot, f32, relative_velocity
 
 
-def f32(buffer, index):
-    return T.reinterpret(buffer[index], "float32")
-
-
-def dot(a, b):
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-
-
-def relative_velocity(direction, torque_a, torque_b, va, vb):
-    return (
-        direction[0] * va[0]
-        + direction[1] * va[1]
-        + direction[2] * va[2]
-        + (torque_a[0] * va[3] + torque_a[1] * va[4] + torque_a[2] * va[5])
-        - (direction[0] * vb[0] + direction[1] * vb[1] + direction[2] * vb[2])
-        + (torque_b[0] * vb[3] + torque_b[1] * vb[4] + torque_b[2] * vb[5])
-    )
-
-
-def make_kernel(layout, case, target):
-    if (
-        layout["version"] != 1
-        or layout["tile_len"] != 32
-        or layout["max_points"] != 4
-        or layout["vec_scalar_words"] != 4
-        or layout["friction_words"] != 4
-    ):
-        raise ValueError("Unsupported Rust replay ABI")
+def solve_points(layout, case):
     n = case["count"]
     tile_words = layout["tile_words"]
-    nt = case["tiles"] * tile_words
-    nv = case["bodies"] * layout["velocity_words"]
-    np = case["bodies"] * layout["pose_words"]
     h, p = layout["header"], layout["point"]
     use_bias, solve_friction = case["use_bias"], case["solve_friction"]
-    threads = 64
 
     @T.macro
     def cross(a, b, out):
@@ -251,56 +219,113 @@ def make_kernel(layout, case, target):
                     vb[d + 3], "uint32"
                 )
 
-    if target == "c":
+    return solve_one
 
-        @T.prim_func
-        def kernel(
-            Tiles: T.Tensor((nt,), "uint32"),
-            Velocities: T.Tensor((nv,), "uint32"),
-            Poses: T.Tensor((np,), "uint32"),
-            Params: T.Tensor((6,), "float32"),
-        ):
-            with T.Kernel(1):
-                for index in T.serial(n):
-                    solve_one(Tiles, Velocities, Poses, Params, index)
-    elif target == "ascend":
-        import tilelang.ascend.language as A
 
-        @A.prim_func
-        def kernel(
-            Tiles: A.Tensor((nt,), "uint32"),
-            Velocities: A.Tensor((nv,), "uint32"),
-            Poses: A.Tensor((np,), "uint32"),
-            Params: A.Tensor((6,), "float32"),
-        ):
-            with A.Kernel(max((n + threads - 1) // threads, 1)) as block:
-                with A.SimtVF(threads=threads):
-                    solve_one(
-                        Tiles,
-                        Velocities,
-                        Poses,
-                        Params,
-                        block * threads + A.get_thread_binding(),
-                    )
-    elif target in ("metal", "cuda"):
+def warmstart_constraint(layout, case):
+    n = case["count"]
+    h, p = (layout["header"], layout["point"])
 
-        @T.prim_func
-        def kernel(
-            Tiles: T.Tensor((nt,), "uint32"),
-            Velocities: T.Tensor((nv,), "uint32"),
-            Poses: T.Tensor((np,), "uint32"),
-            Params: T.Tensor((6,), "float32"),
-        ):
-            with T.Kernel(
-                max((n + threads - 1) // threads, 1), threads=threads
-            ) as block:
-                solve_one(
-                    Tiles,
-                    Velocities,
-                    Poses,
-                    Params,
-                    block * threads + T.get_thread_binding(),
+    @T.macro
+    def cross(a, b, out):
+        out[0] = a[1] * b[2] - a[2] * b[1]
+        out[1] = a[2] * b[0] - a[0] * b[2]
+        out[2] = a[0] * b[1] - a[1] * b[0]
+
+    @T.macro
+    def inertia(diag, off, v, out):
+        out[0] = diag[0] * v[0] + off[0] * v[1] + off[1] * v[2]
+        out[1] = off[0] * v[0] + diag[1] * v[1] + off[2] * v[2]
+        out[2] = off[1] * v[0] + off[2] * v[1] + diag[2] * v[2]
+
+    @T.macro
+    def one(Tiles, Velocities, Poses, Params, i):
+        if i < n:
+            base = i // 32 * layout["tile_words"]
+            lane = i % 32
+            lane4 = lane * 4
+            count = Tiles[base + h["normal"] + lane4 + 3]
+            direction = T.alloc_local((3,), "float32")
+            tangent0 = T.alloc_local((3,), "float32")
+            tangent1 = T.alloc_local((3,), "float32")
+            im_a = T.alloc_local((3,), "float32")
+            im_b = T.alloc_local((3,), "float32")
+            diag_a = T.alloc_local((3,), "float32")
+            diag_b = T.alloc_local((3,), "float32")
+            off_a = T.alloc_local((3,), "float32")
+            off_b = T.alloc_local((3,), "float32")
+            force = T.alloc_local((3,), "float32")
+            torque_a = T.alloc_local((3,), "float32")
+            torque_b = T.alloc_local((3,), "float32")
+            for d in T.serial(3):
+                direction[d] = f32(Tiles, base + h["normal"] + lane4 + d)
+                tangent0[d] = f32(Tiles, base + h["tangent"] + lane4 + d)
+                im_a[d] = f32(Tiles, base + h["body_a"] + lane4 + d)
+                im_b[d] = f32(Tiles, base + h["body_b"] + lane4 + d)
+                diag_a[d] = f32(Tiles, base + h["diag_a"] + lane4 + d)
+                diag_b[d] = f32(Tiles, base + h["diag_b"] + lane4 + d)
+                off_a[d] = f32(Tiles, base + h["off_a"] + lane4 + d)
+                off_b[d] = f32(Tiles, base + h["off_b"] + lane4 + d)
+                force[d] = 0.0
+                torque_a[d] = 0.0
+                torque_b[d] = 0.0
+            cross(direction, tangent0, tangent1)
+            for k in T.serial(4):
+                if k < count:
+                    pb = base + layout["points"] + k * layout["point_words"] + lane4
+                    ra = T.alloc_local((3,), "float32")
+                    rb = T.alloc_local((3,), "float32")
+                    ta = T.alloc_local((3,), "float32")
+                    tb = T.alloc_local((3,), "float32")
+                    ia = T.alloc_local((3,), "float32")
+                    ib = T.alloc_local((3,), "float32")
+                    impulse = T.alloc_local((3,), "float32")
+                    for d in T.serial(3):
+                        ra[d] = f32(Tiles, pb + p["arm_a"] + d)
+                        rb[d] = f32(Tiles, pb + p["arm_b"] + d)
+                    ni = f32(Tiles, pb + p["arm_a"] + 3)
+                    t0 = f32(Tiles, pb + p["friction"])
+                    t1 = f32(Tiles, pb + p["friction"] + 1)
+                    for d in T.serial(3):
+                        impulse[d] = (
+                            direction[d] * ni + tangent0[d] * t0 + tangent1[d] * t1
+                        )
+                        force[d] = force[d] + impulse[d]
+                    cross(ra, impulse, ta)
+                    cross(rb, impulse, tb)
+                    for d in T.serial(3):
+                        torque_a[d] = torque_a[d] + ta[d]
+                        torque_b[d] = torque_b[d] + tb[d]
+            ia = T.alloc_local((3,), "float32")
+            ib = T.alloc_local((3,), "float32")
+            inertia(diag_a, off_a, torque_a, ia)
+            inertia(diag_b, off_b, torque_b, ib)
+            va = (
+                T.cast(Tiles[base + h["diag_a"] + lane4 + 3], "int32")
+                * layout["velocity_words"]
+            )
+            vb = (
+                T.cast(Tiles[base + h["off_a"] + lane4 + 3], "int32")
+                * layout["velocity_words"]
+            )
+            for d in T.serial(3):
+                Velocities[va + layout["velocity_linear"] + d] = T.reinterpret(
+                    f32(Velocities, va + layout["velocity_linear"] + d)
+                    + im_a[d] * force[d],
+                    "uint32",
                 )
-    else:
-        raise ValueError(f"Unsupported target: {target}")
-    return kernel
+                Velocities[vb + layout["velocity_linear"] + d] = T.reinterpret(
+                    f32(Velocities, vb + layout["velocity_linear"] + d)
+                    - im_b[d] * force[d],
+                    "uint32",
+                )
+                Velocities[va + layout["velocity_angular"] + d] = T.reinterpret(
+                    f32(Velocities, va + layout["velocity_angular"] + d) + ia[d],
+                    "uint32",
+                )
+                Velocities[vb + layout["velocity_angular"] + d] = T.reinterpret(
+                    f32(Velocities, vb + layout["velocity_angular"] + d) - ib[d],
+                    "uint32",
+                )
+
+    return one

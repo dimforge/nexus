@@ -1,7 +1,7 @@
 # Maintaining this port
 
 1. Read `parity.py report --json`, `parity.json`, and `contract.json` before editing.
-   Use the stable feature ID `rbd.contact.coulomb.solve3d` in change records.
+   Use the stable feature IDs from the registry in change records.
 2. Inspect the actual Rust symbols in the mapping, including helpers, layouts,
    parameters, Cargo changes, and upstream math dependencies. All watched Rust
    files conservatively invalidate this pilot; watching a file does not mean its
@@ -43,3 +43,9 @@ conservative impact envelope with narrower dependencies without tests showing
 that helper, layout, configuration, and newly added source changes still trigger
 reconciliation. Metadata plus tests is an audit aid, not a proof of equivalence or
 an adversarial security boundary against an agent editing its own checks.
+
+Mirror `src_rbd_shaders` paths under `shaders/`, with corresponding Rust function
+names. Do not combine unrelated Rust modules into a monolithic port. Shared
+Python compiler/buffer helpers belong outside that tree and are not physics ports.
+Every new operation needs its own contract and per-target evidence; the global
+check requires evidence for all registered operations.

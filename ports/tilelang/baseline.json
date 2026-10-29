@@ -1,31 +1,93 @@
 {
   "change": {
-    "path": "ports/tilelang/changes/0003-ascend-source.json",
-    "sha256": "951c6445f4686742f0bb3542ef87428c7dff28653c645e90d2a153a9dcd5ab8c"
+    "path": "ports/tilelang/changes/0004-solver-operations.json",
+    "sha256": "6c72b2c82f51811ffa413e4439f822f03458c45c0d5e45fcb65a688424e613e1"
   },
   "evidence": {
     "ascend": {
       "path": "ports/tilelang/evidence/ascend.json",
-      "sha256": "f09f7373e848f539983f4b13f060acce2d5bc24d697344ceb020bc6f4574e0f7"
+      "sha256": "e59ae711aaec5d1c429b22687f50d62c89346094c5f4687a6fa81b3ac7316a32"
     },
     "c": {
       "path": "ports/tilelang/evidence/c.json",
-      "sha256": "4c9f51203f7c170c1ca2321b1eb1a4aa369521eb7c7de32b538fcb90be588b7d"
+      "sha256": "5a73868816587f559214bc21952b14c9da7231b5cd1513ec379f35b087c21362"
     },
     "metal": {
       "path": "ports/tilelang/evidence/metal.json",
-      "sha256": "2a604b9b1f3bad5a2bccfd8d82c57a56b9c6a812f3f0566c3afaffdedc7e95b4"
+      "sha256": "4a628d9fe6eb7cc9ff9fc3451efca553ae20e84631633558d1783420d134cc4c"
+    }
+  },
+  "feature_evidence": {
+    "rbd.body.integrate_linearized3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.ascend.json",
+        "sha256": "135f6f702ccbfada8efcd63fbf06f0b7483a808e2234fdbbc96b348929149d3e"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.c.json",
+        "sha256": "b339185d90745645030775065ebafe31eb50bfe1f752e47b14e2f7312157fa8a"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.metal.json",
+        "sha256": "7b45168f286ec669d9c40fc32ec835f296a7c5ce7af673009cf1ff8d56a9a1d6"
+      }
+    },
+    "rbd.contact.coulomb.effective_mass3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.ascend.json",
+        "sha256": "41aa95d7518f9013bbc60ed22c125105a0ee8ebdd0cb18dd8777c896641ec057"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.c.json",
+        "sha256": "6355698914a2c4ee592b6b8e2f760c85b5f646d2e7659b8181f6e9912671c720"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.metal.json",
+        "sha256": "5abf7e66c0cd6ade70f38ecff65eefdcb48976d368cd41379be68d119ce207d7"
+      }
+    },
+    "rbd.contact.coulomb.solve3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/ascend.json",
+        "sha256": "e59ae711aaec5d1c429b22687f50d62c89346094c5f4687a6fa81b3ac7316a32"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/c.json",
+        "sha256": "5a73868816587f559214bc21952b14c9da7231b5cd1513ec379f35b087c21362"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/metal.json",
+        "sha256": "4a628d9fe6eb7cc9ff9fc3451efca553ae20e84631633558d1783420d134cc4c"
+      }
+    },
+    "rbd.contact.coulomb.warmstart3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.ascend.json",
+        "sha256": "e3ce053296dcf4c72500fd74ea0be982f3fa89cee7f737f02a19a7bbd3ab8bab"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.c.json",
+        "sha256": "bcd1ad4683cbddfb72796ceb0e26e1e9d57c328bb7609bb5c6d1a8c02ad6321d"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.metal.json",
+        "sha256": "3f574a4b6e6ab0bfec63082ed2e40787c0a1c73e6c7ad0f769df280a335ee907"
+      }
     }
   },
   "inputs": {
     "implementation": {
-      ".github/workflows/tilelang.yml": "2e793b8baea818298c9209619e99286f1399d154adbe1fbc5903a9d5b9e79413",
-      "AGENTS.md": "ff9871eab80c0256ee666a9fe1fcc00f0bf804618461e2f482852fcd5d35653d",
-      "ports/tilelang/AGENTS.md": "c3d499507c73319d6602a959371d1c10f1864259fa0c526413cb4839d0ace065",
+      ".github/workflows/tilelang.yml": "480e17f9517bcd43aa1b2e07a2fa34b81801f74a292b280942c27a912ab96aa8",
+      "AGENTS.md": "5fb95e93ac8a5360463e47d0db9afc08f2c7ad13f1e302053a6b5e26947fa677",
+      "ports/tilelang/AGENTS.md": "a435842bd32e39b6598fca17869c0c8d6c9cf282a8384f97cb5e7f12a8758935",
       "ports/tilelang/compiler.lock.json": "328632f9962f548b5597970c76b126139f8295bbecf504a47066288ccc195cfe",
       "ports/tilelang/compiler.py": "67beeed0b138e7c77f3171060cc3f572066df5ab10e6a5ef3c955d229a728ea6",
       "ports/tilelang/contract.json": "bac7a7b37fbc0cc52de7660be3490831549cbbd3cae968f3de1927c1c18456fd",
-      "ports/tilelang/coulomb.py": "7a8e3edbcc2615c8223749d046066b499385c59214b3063a32962b6693869ccb",
+      "ports/tilelang/contracts/effective_mass.json": "fb80c9138d02c1d99a63acf35c17d249fae4ce0f5ce8a5a6cab28461f3db6971",
+      "ports/tilelang/contracts/integrate.json": "f92d44634b5f93f146d45f864e020fd5b9b2c8d5b050f94c735c2a0f1d567b0f",
+      "ports/tilelang/contracts/warmstart.json": "384861217604cd84e74e8a421112054f2f32a95f92eadf866659ab066240afeb",
+      "ports/tilelang/kernel_support.py": "c35ab6b77ab828cf99997f7f689ce33e5cfe9c8130eb9eb25066a38ae92e58fc",
+      "ports/tilelang/kernels.py": "02172893f5f1601d42cd7cd9b7dbb786dcc9d1842227524ae0c053c194eb6ce5",
       "ports/tilelang/native/Cargo.lock": "3d66d537a41d3386978a535f40529556165fe26a4209caf0aa9054d85463b064",
       "ports/tilelang/native/Cargo.toml": "4f7f72e257241414c654826c44e8b00f7d770652802d25d4add657b84ceaaad0",
       "ports/tilelang/native/rust-toolchain.toml": "5e7517b95a2b4e810124f84091dd4a6e3f2192523fcac7b6d52abc7fc6aff91d",
@@ -34,16 +96,25 @@
       "ports/tilelang/native/src/lib.rs": "25705bd9187a8f2b5e6cc3c94f963b6e548e4df0a4d1a1c18647a4df59ebfdd4",
       "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
       "ports/tilelang/numerics.py": "1ee5c998e19750294162d94aedb87928010b3b524ac53338e6badfdaec9d4652",
-      "ports/tilelang/parity.json": "d626b7fe421af8ed6662d38dce24d133c4218d7e608887bb33f745249c8f7b9b",
-      "ports/tilelang/parity.py": "082105db6892a8e8702f514b985bc0ba915e78cbfa76003a5ad4f7a751af2392",
+      "ports/tilelang/parity.json": "2d81e1f6b506f447de4b012b8e6e4b34f7384a3dc7e4a195459e503ff4322128",
+      "ports/tilelang/parity.py": "e6419a31368a7fe395e0c7325720f1a4cc44c448f0e9dd75cc67511ec103b912",
       "ports/tilelang/reference/Cargo.lock": "f30132799c20433c709af9df85a357dc328d5f973cfed3289c97e6139dde615b",
-      "ports/tilelang/reference/Cargo.toml": "c2d6db79191afd99ebae0e0a9b5c3243efcf75233273712f7fcf8b0b6a10c5d3",
+      "ports/tilelang/reference/Cargo.toml": "866556f7f2415974a4685dc9036768aef3b2fc8bb7d05469da110af6c3933fb1",
       "ports/tilelang/reference/rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33",
-      "ports/tilelang/reference/src/main.rs": "4eb354f53bd5159801a6c6a2d051916d634896bf1d6df996abf91b0936f42f40",
-      "ports/tilelang/replay.py": "b09f932022604e179e58b31152d7a992180d40941a1d06b751a303b56d3de9fa",
+      "ports/tilelang/reference/src/main.rs": "484046a409871dc401f9efcca3c16345a424b9391a783fc8580c07a89087dd8e",
+      "ports/tilelang/reference/src/operations.rs": "811b604b2f9c7b017538dd09c7df0f5f915784d569975aa30b2b918823ebbec7",
+      "ports/tilelang/replay.py": "d936cd45df0e6a9a6016d10006d3a70e7bf91b47ac842f512ed0194d6827f54e",
       "ports/tilelang/requirements.txt": "8dba2741619f70e2f7c08d61350c8c2a0f105902b87e243b129e5410a3f8012c",
-      "ports/tilelang/tests/test_parity.py": "30928b8d128e5fb0a0dbabc7c5fd3b4528d4eb4cd168894b5b3930e576fd71a5",
-      "ports/tilelang/tests/test_replay.py": "5d5685e3bff806e0da5aa89dfd5293dec431ad2538174d79af4965281461a800"
+      "ports/tilelang/shaders/__init__.py": "b49b0d4bdf369abaa2cff4a137163b6cdc9d5914d94cd0afd1600d99ac4a7cd4",
+      "ports/tilelang/shaders/dynamics/__init__.py": "7c14f6c45a11fb2603d327922a8823188d96f11836521a9db0f6eb0c6545004d",
+      "ports/tilelang/shaders/dynamics/body.py": "64c9f7757e3cd1baa754f918df279ff00557a915d8c232b830e12ea909a469ab",
+      "ports/tilelang/shaders/dynamics/constraint.py": "e70e7ac9dbe82fbcbac7b2737313b310cf5fcb55cda8fd9c63b439b5707c6ba8",
+      "ports/tilelang/shaders/dynamics/coulomb_tiles.py": "a19cd2d6dad2cd96b1e0fe5da083bcbe418487a6db38526a0d465d45181de0b9",
+      "ports/tilelang/shaders/dynamics/solver.py": "ade7d5903dbf4d4a13a020d305df1319e4e0895c382e6050be36562913379156",
+      "ports/tilelang/shaders/dynamics/solver_utils.py": "82468301dd6728c33fb2cc177ec7971e3b39342d8efee8b79cb52d75f3437df9",
+      "ports/tilelang/shaders/dynamics/tile_kernels.py": "a3d374572a8f28acb643ca5e738fd08611d96e412adce335ddce9df4a9a0e479",
+      "ports/tilelang/tests/test_parity.py": "cd1e85d9601dc81c57808b9cbb94eb64cac553f354df64e88e0bc5922a757474",
+      "ports/tilelang/tests/test_replay.py": "6cabd50d01366dc999b8e213efbaae4f9d22d0dc63b51c92fb1319ce9619cfdc"
     },
     "reference": {
       "Cargo.toml": "793417ef325c861841fb12ebd0ea5c769509704a2bb06dd29878682ca79daa1e",

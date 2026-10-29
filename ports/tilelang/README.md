@@ -1,16 +1,37 @@
 # TileLang rigid-body parity pilot
 
-This is an experimental port of **one prepared, conflict-free 3D Coulomb contact
-color**. It executes the actual Nexus normal/friction solve against Rust reference
-results, using the existing typed tile layout. It is not yet selectable as a Nexus
-simulation backend. Contact generation, preparation, warmstart, integration,
-joints, twist friction, 2D, and Ascend execution remain outside this milestone.
+This is an experimental port of four isolated 3D solver operations: effective
+mass calculation, warmstarting, Coulomb solving, and clamped pose integration.
+They use the existing Rust buffer layouts and live Rust reference functions.
+The contact operations require one prepared, conflict-free color. This is not
+yet selectable as a full Nexus simulation backend. Complete contact preparation,
+collision detection, production coloring, joints, twist friction, 2D, and Ascend
+execution remain unimplemented.
 
-The feature ID is `rbd.contact.coulomb.solve3d`. Rust remains the behavioral
-reference. `parity.json` maps its symbols and conservatively watches the whole
-rigid-body source envelope. `contract.json` records scope, preconditions,
-tolerances, required cases, and unresolved gaps. Watching a Rust file does not
-mean all of its features have been ported.
+Rust remains the behavioral reference. `parity.json` maps stable operation IDs
+to reference symbols, implementations, contracts, and per-target evidence. Each
+operation has its own required cases; a passing solve cannot certify integration.
+The checker conservatively watches the whole rigid-body source envelope. Watching
+a Rust file does not mean all of its features have been ported.
+
+## Shader organization
+
+The Python shader tree mirrors `src_rbd_shaders`, preserving Rust function names
+and their module boundaries wherever practical:
+
+| Rust file under `src_rbd_shaders/dynamics` | TileLang file under `ports/tilelang/shaders/dynamics` | Implemented subset |
+| --- | --- | --- |
+| `body.rs` | `body.py` | `Velocity::integrate_linearized` |
+| `solver.rs` | `solver.py` | `gpu_integrate_linearized` |
+| `constraint.rs` | `constraint.py` | `compute_effective_masses` |
+| `solver_utils.rs` | `solver_utils.py` | `solve_points`, `warmstart_constraint` |
+| `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation |
+| `tile_kernels.rs` | `tile_kernels.py` | prepared-color entry adapters |
+
+A counterpart file does not imply the whole Rust module is ported. Launch-target
+wrappers and scalar compiler utilities live in `kernel_support.py`; build-time
+entry selection lives in `kernels.py`. Replay, native execution, compiler builds,
+and evidence tracking stay outside `shaders/`.
 
 ## Run locally
 
@@ -24,9 +45,13 @@ From the repository root:
 ```sh
 python3 -m venv ports/tilelang/.venv
 ports/tilelang/.venv/bin/python -m pip install -r ports/tilelang/requirements.txt
-ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target c
+ports/tilelang/.venv/bin/python ports/tilelang/replay.py --operation all --target c
 ports/tilelang/.venv/bin/python -m unittest discover -s ports/tilelang/tests -v
-python3 ports/tilelang/parity.py check --require c --evidence ports/tilelang/results/c/report.json
+python3 ports/tilelang/parity.py check --require c \
+  --evidence ports/tilelang/results/c/report.json \
+  --evidence ports/tilelang/results/effective_mass/c/report.json \
+  --evidence ports/tilelang/results/warmstart/c/report.json \
+  --evidence ports/tilelang/results/integrate/c/report.json
 ```
 
 On Linux, install the pinned CPU-only PyTorch wheel before the requirements to
@@ -40,7 +65,7 @@ On Apple silicon with the Xcode command-line tools, run the same suite through
 native Metal:
 
 ```sh
-ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target metal
+ports/tilelang/.venv/bin/python ports/tilelang/replay.py --operation all --target metal
 ```
 
 Python and TileLang compile the kernel. The Metal execution process uses generated
@@ -60,7 +85,15 @@ The default `results/` directory is ignored by Git.
 
 ## What is tested
 
-The 17 required cases cover 0/1/31/32/33/63/64/65/127/129 manifolds, 0–4 points per
+There are 32 required cases across four operations. The three new operations each
+cover 0/1/32/65/129 items and three sequential passes. Effective-mass fixtures
+poison the output fields before recomputation. Integration includes zero and
+capped velocities, quaternion normalization, and sentinel bodies. Warmstart
+must leave every cached impulse unchanged. Every output is compared against the
+current Rust function with the same fixed tolerances as the solve pilot.
+
+
+The 17 solve cases cover 0/1/31/32/33/63/64/65/127/129 manifolds, 0–4 points per
 manifold, static bodies on either side, locked mass axes, zero friction, singular
 friction mass, restitution terms, penetrating/speculative contacts, all four
 bias/friction flag combinations, and up to three sequential passes. Two seeds
@@ -143,11 +176,17 @@ Then regenerate results and reconcile:
 python3 ports/tilelang/parity.py reconcile \
   --change ports/tilelang/changes/NEW-CHANGE.json \
   --evidence ports/tilelang/results/c/report.json \
-  --evidence ports/tilelang/results/metal/report.json
+  --evidence ports/tilelang/results/metal/report.json \
+  --evidence ports/tilelang/results/effective_mass/c/report.json \
+  --evidence ports/tilelang/results/effective_mass/metal/report.json \
+  --evidence ports/tilelang/results/warmstart/c/report.json \
+  --evidence ports/tilelang/results/warmstart/metal/report.json \
+  --evidence ports/tilelang/results/integrate/c/report.json \
+  --evidence ports/tilelang/results/integrate/metal/report.json
 python3 ports/tilelang/parity.py check
 ```
 
-The Metal argument is optional when unavailable. Its previous report remains
+The Metal arguments are optional when unavailable. Its previous report remains
 visible as stale after relevant changes. Reconciliation requires the complete
 current CPU execution suite, pinned package versions, a change record, and passing
 change-tracking tests. It archives reports and updates `baseline.json`. Hashes
@@ -212,7 +251,7 @@ replay C/Metal if adopting a different compiler. Do not silently compare reports
 from different compiler builds as if they certified the same configuration.
 
 The shared arithmetic has separate C, Metal/CUDA, and experimental Ascend SIMT
-launch wrappers. The CUDA and Ascend wrappers remain unvalidated. On a build
+launch wrappers. The CUDA wrapper remains unvalidated; the Ascend wrapper has source-lowering evidence only. On a build
 containing those backends, source lowering can be attempted with:
 
 ```sh
@@ -333,9 +372,8 @@ reruns to avoid consuming paid device time on unrelated setup or repeated cases.
 
 Continue to require source-impact review and classified change records for Rust
 changes, new features, bug fixes, optimizations, numerical changes, and intentional
-differences. Extend the registry to support per-feature, per-target evidence as
-coverage grows. This is planned metadata work: the existing checker currently
-tracks the single pilot and must not be described as a complete capability matrix.
+differences. The registry now supports per-feature, per-target evidence for all four
+implemented operations. This is not yet a complete rigid-body capability inventory.
 
 Keep these evidence levels distinct, bound to exact inputs and toolchains:
 

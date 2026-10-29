@@ -12,10 +12,10 @@ use std::{
     path::Path,
 };
 
-fn write_json(path: impl AsRef<Path>, value: &Value) {
+pub(crate) fn write_json(path: impl AsRef<Path>, value: &Value) {
     fs::write(path, serde_json::to_vec_pretty(value).unwrap()).unwrap();
 }
-fn write_buffer<T: bytemuck::Pod>(dir: &Path, name: &str, data: &[T]) {
+pub(crate) fn write_buffer<T: bytemuck::Pod>(dir: &Path, name: &str, data: &[T]) {
     const {
         assert!(
             cfg!(target_endian = "little"),
@@ -24,7 +24,7 @@ fn write_buffer<T: bytemuck::Pod>(dir: &Path, name: &str, data: &[T]) {
     };
     fs::write(dir.join(name), bytemuck::cast_slice(data)).unwrap();
 }
-fn layout() -> Value {
+pub(crate) fn layout() -> Value {
     const {
         assert!(offset_of!(CoulombTile, header) == 0);
         assert!(size_of::<VecScalar>() == 16);
@@ -83,7 +83,7 @@ impl Rng {
     }
 }
 
-fn fixture(
+pub(crate) fn fixture(
     root: &Path,
     n: usize,
     bias: bool,

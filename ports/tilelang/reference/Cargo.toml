@@ -3,6 +3,7 @@ name = "nexus-tilelang-reference"
 version = "0.1.0"
 edition = "2024"
 publish = false
+default-run = "nexus-tilelang-reference"
 
 # Isolated host-only oracle: no cargo-gpu, Python or accelerator is needed.
 [workspace]
@@ -17,3 +18,7 @@ khal = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
 khal-derive = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
 khal-std = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
 vortx-shaders = { git = "https://github.com/dimforge/vortx", tag = "v0.5.0" }
+
+[[bin]]
+name = "operations"
+path = "src/operations.rs"

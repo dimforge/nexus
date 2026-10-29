@@ -9,6 +9,10 @@ with `python3 ports/tilelang/parity.py report`. The pilot intentionally watches
 the entire rigid-body source envelope, so even a reference-only change requires
 an explicit impact disposition before its parity baseline is advanced.
 
-Preserve the current scope: one prepared, conflict-free 3D Coulomb color. CPU or
-Metal evidence does not certify Ascend or a complete simulation. Keep unsupported
+Preserve each feature contract when expanding coverage. CPU or Metal evidence
+does not certify Ascend or a complete simulation. Keep unsupported
 features and known numerical gaps visible in the contract and generated report.
+
+Keep TileLang shader paths under `ports/tilelang/shaders` as close to 1-to-1
+with `src_rbd_shaders` as practical, preserving corresponding Rust symbol names.
+Keep replay/build/evidence tooling outside the mirrored shader tree.

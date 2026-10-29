@@ -42,14 +42,19 @@ jobs:
           python -m pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r ports/tilelang/requirements.txt
       - name: Replay the current Rust reference
-        run: python ports/tilelang/replay.py --target c
+        run: python ports/tilelang/replay.py --operation all --target c
       - name: Test replay corruption and race detection
         run: python -m unittest discover -s ports/tilelang/tests -p test_replay.py -v
       - name: Require reconciled source and fresh CPU execution evidence
-        run: python ports/tilelang/parity.py check --require c --evidence ports/tilelang/results/c/report.json
+        run: >-
+          python ports/tilelang/parity.py check --require c
+          --evidence ports/tilelang/results/c/report.json
+          --evidence ports/tilelang/results/effective_mass/c/report.json
+          --evidence ports/tilelang/results/warmstart/c/report.json
+          --evidence ports/tilelang/results/integrate/c/report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: tilelang-cpu-parity
-          path: ports/tilelang/results/c/
+          path: ports/tilelang/results/
           if-no-files-found: ignore

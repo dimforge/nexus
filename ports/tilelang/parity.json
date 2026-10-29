@@ -25,7 +25,9 @@
     "ports/tilelang/native/Cargo.toml",
     "ports/tilelang/native/Cargo.lock",
     "ports/tilelang/native/rust-toolchain.toml",
-    "ports/tilelang/compiler.lock.json"
+    "ports/tilelang/compiler.lock.json",
+    "ports/tilelang/contracts/*.json",
+    "ports/tilelang/shaders/**/*.py"
   ],
   "features": [
     {
@@ -38,10 +40,47 @@
         "src_rbd_shaders/dynamics/constraint.rs::SymInertia::mul",
         "src_rbd_shaders/dynamics/coulomb_tiles.rs::CoulombTile"
       ],
-      "implementation": "ports/tilelang/coulomb.py::make_kernel",
+      "implementation": "ports/tilelang/shaders/dynamics/solver_utils.py::solve_points",
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contract.json",
-      "test_command": "python ports/tilelang/replay.py --target c"
+      "test_command": "python ports/tilelang/replay.py --target c",
+      "operation": "solve"
+    },
+    {
+      "id": "rbd.contact.coulomb.effective_mass3d",
+      "coverage": "Compute normal and tangent effective masses from existing contact headers and lever arms; no contact generation or recycling",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/constraint.rs::TwoBodyConstraint::compute_effective_masses"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/constraint.py::compute_effective_masses",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/effective_mass.json",
+      "test_command": "python ports/tilelang/replay.py --operation effective_mass --target c",
+      "operation": "effective_mass"
+    },
+    {
+      "id": "rbd.contact.coulomb.warmstart3d",
+      "coverage": "Apply existing point impulses to one conflict-free color; no cached gather, scaling, or shared static slots",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver_utils.rs::TwoBodyConstraint::warmstart_constraint"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver_utils.py::warmstart_constraint",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/warmstart.json",
+      "test_command": "python ports/tilelang/replay.py --operation warmstart --target c",
+      "operation": "warmstart"
+    },
+    {
+      "id": "rbd.body.integrate_linearized3d",
+      "coverage": "Clamp velocities and integrate COM-centered solver poses; no force accumulation or scene orchestration",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_integrate_linearized"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_integrate_linearized",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/integrate.json",
+      "test_command": "python ports/tilelang/replay.py --operation integrate --target c",
+      "operation": "integrate"
     }
   ],
   "targets": [

@@ -55,6 +55,29 @@ def validate_case(layout, case, arrays):
         if arrays[name].size != expected[name]:
             raise ValueError(f"Invalid {name} buffer length")
     masks = {name: np.zeros(arrays[name].size, dtype=bool) for name in BUFFERS}
+    kind = case.get("kind")
+    if kind == "integrate":
+        count = case["active_bodies"]
+        if not 0 <= count <= case["bodies"]:
+            raise ValueError("Invalid active body count")
+        params = arrays["Params"].view(np.float32)
+        if not np.isfinite(params).all() or params[0] <= 0 or (params[1:3] < 0).any():
+            raise ValueError("Invalid integration timestep or speed caps")
+        for i in range(count):
+            q = i * layout["pose_words"] + layout["pose_rotation"]
+            rotation = arrays["Poses"].view(np.float32)[q : q + 4]
+            if (
+                not np.isfinite(rotation).all()
+                or abs(float(np.linalg.norm(rotation)) - 1.0) > 2e-6
+            ):
+                raise ValueError("Invalid input rotation")
+            for field, length in (("pose_translation", 3), ("pose_rotation", 4)):
+                start = i * layout["pose_words"] + layout[field]
+                masks["Poses"][start : start + length] = True
+            for field in ("velocity_linear", "velocity_angular"):
+                start = i * layout["velocity_words"] + layout[field]
+                masks["Velocities"][start : start + 3] = True
+        return masks
     used = set()
     tiles = arrays["Tiles"]
     h, p = layout["header"], layout["point"]
@@ -82,6 +105,19 @@ def validate_case(layout, case, arrays):
             masks["Tiles"][pb + p["arm_a"] + 3] = True
             if case["solve_friction"]:
                 masks["Tiles"][pb + p["friction"] : pb + p["friction"] + 2] = True
+    if kind == "warmstart":
+        masks["Tiles"][:] = False
+    if kind == "effective_mass":
+        masks["Velocities"][:] = False
+        masks["Tiles"][:] = False
+        for i in range(n):
+            base, lane = (i // 32) * layout["tile_words"], i % 32
+            count = int(tiles[base + h["normal"] + lane * 4 + 3])
+            for k in range(count):
+                pb = base + layout["points"] + k * layout["point_words"] + lane * 4
+                masks["Tiles"][pb + p["arm_b"] + 3] = True
+                masks["Tiles"][pb + p["friction"] + 2 : pb + p["friction"] + 4] = True
+                masks["Tiles"][base + layout["coupling"] + lane * 4 + k] = True
     return masks
 
 
@@ -111,6 +147,25 @@ def check_outputs(layout, case, before, actual, expected, contract):
             a, e, rtol=rtol, atol=atol, err_msg=f"{case['name']}: {name}"
         )
         errors[name] = float(np.max(np.abs(a - e)))
+    if case.get("kind"):
+        if case["kind"] == "integrate":
+            poses = actual["Poses"].view(np.float32)
+            velocities = actual["Velocities"].view(np.float32)
+            params = before["Params"].view(np.float32)
+            for i in range(case["active_bodies"]):
+                q = i * layout["pose_words"] + layout["pose_rotation"]
+                if abs(float(np.linalg.norm(poses[q : q + 4])) - 1.0) > 2e-6:
+                    raise AssertionError("Quaternion normalization invariant")
+                for field, limit in (
+                    ("velocity_linear", params[1]),
+                    ("velocity_angular", params[2]),
+                ):
+                    v = i * layout["velocity_words"] + layout[field]
+                    if np.linalg.norm(
+                        velocities[v : v + 3]
+                    ) > limit + atol + rtol * abs(limit):
+                        raise AssertionError("Velocity cap invariant")
+        return errors
     tiles = actual["Tiles"].view(np.float32)
     h, p = layout["header"], layout["point"]
     for i in range(case["count"]):
@@ -132,7 +187,8 @@ def check_outputs(layout, case, before, actual, expected, contract):
 
 def lower(layout, case, target):
     import tilelang
-    from coulomb import make_kernel
+
+    from kernels import make_kernel
 
     requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
     artifact = tilelang.lower(
@@ -158,7 +214,7 @@ def lower(layout, case, target):
         "entry": str(function.attrs["global_symbol"]),
         "buffers": order,
         "storage_buffers": list(BUFFERS),
-        "blocks": max((case["count"] + 63) // 64, 1),
+        "blocks": max((case.get("active_bodies", case["count"]) + 63) // 64, 1),
         "threads": 64,
         "iterations": case["iterations"],
     }
@@ -247,16 +303,44 @@ def main():
         action="store_true",
         help="Reproduce the known rounding-sensitive zero-distance branch; not release evidence",
     )
+    parser.add_argument(
+        "--operation",
+        choices=["all", "solve", "effective_mass", "warmstart", "integrate"],
+        default="solve",
+    )
     parser.add_argument("--output", type=Path, default=HERE / "results")
     args = parser.parse_args()
     if args.target in ("cuda", "ascend") and not args.compile_only:
         parser.error(
             "CUDA/Ascend execution runners are not implemented; use --compile-only"
         )
+    if args.boundary_stress and args.operation != "solve":
+        parser.error("Boundary stress applies only to solve")
+    if args.operation == "all":
+        registry = json.loads((HERE / "parity.json").read_text())
+        for feature in registry["features"]:
+            command = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--target",
+                args.target,
+                "--operation",
+                feature["operation"],
+                "--output",
+                str(args.output),
+            ]
+            if args.compile_only:
+                command.append("--compile-only")
+            subprocess.run(command, check=True)
+        return
     import numpy as np
     from parity import evidence_inputs
 
-    output = args.output.resolve() / args.target
+    output = (
+        args.output.resolve() / args.target
+        if args.operation == "solve"
+        else args.output.resolve() / args.operation / args.target
+    )
     output.mkdir(parents=True, exist_ok=True)
     inputs = evidence_inputs(ROOT)
     # A setup/build failure must not leave a previous successful report in place.
@@ -272,6 +356,8 @@ def main():
             "--locked",
             "--manifest-path",
             HERE / "reference/Cargo.toml",
+            "--bin",
+            "nexus-tilelang-reference" if args.operation == "solve" else "operations",
             "--",
             output / "fixtures",
         ]
@@ -280,8 +366,16 @@ def main():
     )
     fixture_dir = output / "fixtures"
     layout = json.loads((fixture_dir / "layout.json").read_text())
+    if args.operation != "solve":
+        fixture_dir = fixture_dir / args.operation
     suite = json.loads((fixture_dir / "suite.json").read_text())
-    contract = json.loads((HERE / "contract.json").read_text())
+    contract_path = (
+        HERE / "contract.json"
+        if args.operation == "solve"
+        else HERE / "contracts" / f"{args.operation}.json"
+    )
+    contract = json.loads(contract_path.read_text())
+    suite["feature"] = contract["feature"]
     if evidence_inputs(ROOT) != inputs:
         raise RuntimeError("Sources changed during Rust fixture export")
     runner = None
@@ -309,7 +403,7 @@ def main():
         },
         "compiler_libraries": compiler_libraries(),
         "layout_sha256": hashlib.sha256(
-            (fixture_dir / "layout.json").read_bytes()
+            (output / "fixtures/layout.json").read_bytes()
         ).hexdigest(),
         "cases": [],
     }

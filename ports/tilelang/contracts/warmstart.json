@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.coulomb.warmstart3d",
+  "scope": "Apply existing point impulses to one conflict-free color; no cached gather, scaling, or shared static slots",
+  "inputs": [
+    "Tiles",
+    "Velocities",
+    "Poses",
+    "Params"
+  ],
+  "outputs": [
+    "Velocities"
+  ],
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "f32 backend arithmetic; same initial limits as the solve pilot; each operation checks its own mutable fields",
+  "preconditions": [
+    "finite inputs",
+    "valid Rust-derived ABI",
+    "unit input rotations",
+    "positive dt and nonnegative speed caps for integration",
+    "disjoint velocity slots for contact operations"
+  ],
+  "outside_scope": [
+    "full contact preparation",
+    "contact generation",
+    "color construction",
+    "shared static velocity slots",
+    "scene scheduling",
+    "joints",
+    "twist friction",
+    "2D",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-f1-i3-s20261100",
+    "n1-b1-f1-i3-s20261101",
+    "n32-b1-f1-i3-s20261132",
+    "n65-b1-f1-i3-s20261165",
+    "n129-b1-f1-i3-s20261229"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "0004-solver-operations",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d"
+  ],
+  "kinds": [
+    "port",
+    "tooling",
+    "test",
+    "refactor"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port effective masses, scatter warmstart and linearized integration with live Rust oracles and separate per-feature target evidence. Mirror Rust shader paths and function boundaries, keeping launch and evidence tools outside the shader tree.",
+  "regressions": [
+    "empty input and workgroup/tile boundaries",
+    "poisoned mass fields require real recomputation",
+    "zero and capped velocities, quaternion normalization, untouched sentinel bodies",
+    "three repeated passes for each operation",
+    "evidence from one feature cannot certify a different operation",
+    "Original solve suite unchanged after module split"
+  ],
+  "differences": [
+    "Effective-mass preparation consumes existing headers and lever arms; complete manifold preparation is not yet ported.",
+    "Warmstart remains scoped to disjoint velocity slots; shared static slots and gather scheduling are not yet supported.",
+    "Integration calls the unchanged Rust GPU entry function on the host for expected results. It uses COM-centered poses and clamped solver velocities exactly as that operation specifies.",
+    "No scene backend or Ascend execution is claimed. The existing solve numerical blocker remains."
+  ]
+}
