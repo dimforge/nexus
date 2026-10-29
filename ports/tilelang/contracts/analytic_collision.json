@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "feature": "rbd.pipeline.analytic_collision3d",
+  "scope": "Resident native PFM reset, world bounds, brute-force pairs, contact plan and analytic ball/box manifolds",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Poses",
+    "Shapes",
+    "Aabbs",
+    "BatchIds",
+    "Vertices",
+    "Pairs",
+    "PairCount",
+    "Groups",
+    "Filters",
+    "RbdParams",
+    "Plan",
+    "Contacts",
+    "Parents",
+    "Materials",
+    "PfmCount",
+    "PfmSortLen",
+    "ContactsIndirect",
+    "PfmIndirect",
+    "MbIndirect"
+  ],
+  "outputs": [
+    "Aabbs",
+    "Pairs",
+    "PairCount",
+    "PfmCount",
+    "Plan",
+    "PfmSortLen",
+    "ContactsIndirect",
+    "PfmIndirect",
+    "MbIndirect",
+    "Contacts"
+  ],
+  "comparison": "collision_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Base per-field f32 tolerances remain unchanged. Composed box-box coordinates and depths additionally allow 32 f32 epsilon times local geometry scale, with independent surface validation of both Rust and TileLang contacts. Normals, materials, counters, plans, IDs and guards retain their existing checks.",
+  "preconditions": [
+    "Rust-derived buffer layouts, valid sizes and launch bounds",
+    "Contact capacity equals twice the global pair capacity",
+    "Ball/cuboid shapes only; valid parents agree with broad-phase filters; initial pair count is zero",
+    "Enough pair capacity for every candidate; no truncation and no host pair/manifold computation"
+  ],
+  "invariants": [
+    "All counters and indirect-grid dimensions match Rust exactly, including zero work and capacity clamping",
+    "Copied bits and unused capacity remain unchanged",
+    "Native pair order may vary but every pair is present exactly once; compare each manifold by its exact collider-pair identity",
+    "Five ordered stages share resident storage; the analytic grid-stride kernel consumes the published device plan with no host readback"
+  ],
+  "outside_scope": [
+    "Deferred PFM geometry, meshes, polylines and contact reduction",
+    "Full solver stepping, long-run stability, production backend integration",
+    "Ascend vendor compilation, execution, synchronization qualification and performance"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-mixed",
+    "n1-b1-mixed",
+    "n3-b2-mixed",
+    "n7-b3-mixed",
+    "n31-b1-mixed",
+    "n32-b2-mixed",
+    "n33-b1-mixed",
+    "n63-b1-mixed",
+    "n64-b1-mixed",
+    "n65-b2-mixed",
+    "n129-b1-mixed",
+    "n33-b2-balls",
+    "n33-b2-boxes",
+    "n33-b2-rotated",
+    "n33-b2-filters",
+    "n33-b2-groups",
+    "n33-b2-separated"
+  ],
+  "box_geometry_roundoff": {
+    "epsilon_multiplier": 32,
+    "scale": "max cuboid half-extent or relative translation component",
+    "fields": [
+      "active box-box point coordinates",
+      "active box-box separation distances"
+    ],
+    "independent_check": "Both endpoints lie on their respective box surfaces and the contact normal is unit length, in f64 validation of the f32 inputs."
+  }
+}

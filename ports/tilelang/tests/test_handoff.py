@@ -307,3 +307,13 @@ class BroadPhaseHandoffTests(ScanHandoffTests):
 class NarrowPhaseHandoffTests(HandoffTests):
     operation = "analytic_contacts"
     mutable_buffer = "Contacts"
+
+
+class ContactPlanHandoffTests(HandoffTests):
+    operation = "contact_plan"
+    mutable_buffer = "Plan"
+
+
+class CollisionPipelineHandoffTests(ScanHandoffTests):
+    operation = "analytic_collision"
+    mutable_buffer = "Contacts"

@@ -1,7 +1,8 @@
 //! Live native narrow-phase oracle for the native analytic first pass.
 #[allow(dead_code)]
-#[path = "contacts.rs"]
-mod contacts;
+#[path = "collision_layout.rs"]
+mod collision_layout;
+use collision_layout::contacts;
 use nexus_rbd_shaders3d::{
     Pose,
     broad_phase::{CollisionPair, ContactPlan, gpu_narrow_phase_shape_shape},
@@ -11,33 +12,9 @@ use nexus_rbd_shaders3d::{
     shapes::*,
 };
 use serde_json::{Value, json};
-use std::{
-    fs,
-    mem::{offset_of, size_of},
-    path::Path,
-};
+use std::{fs, path::Path};
 fn layout() -> Value {
-    let mut l = contacts::layout();
-    macro_rules! fields {($ty:ty,$($field:ident),+)=>{json!({$(stringify!($field):offset_of!($ty,$field)/4),+})};}
-    l["shape_words"] = json!(size_of::<Shape>() / 4);
-    l["shape"] = fields!(Shape, a, b, c);
-    l["shape_types"] = json!({"ball":SHAPE_TYPE_BALL,"cuboid":SHAPE_TYPE_CUBOID,"capsule":SHAPE_TYPE_CAPSULE,"cone":SHAPE_TYPE_CONE,"cylinder":SHAPE_TYPE_CYLINDER});
-    l["contact"]["recycle_extent"] = json!(offset_of!(IndexedManifold, recycle_extent) / 4);
-    l["plan_words"] = json!(size_of::<ContactPlan>() / 4);
-    l["plan"] = fields!(ContactPlan, bound, pfm_base, pfm_len);
-    l["pair_words"] = json!(size_of::<CollisionPair>() / 4);
-    l["pair_colliders"] = json!(offset_of!(CollisionPair, colliders) / 4);
-    l["material_words"] = json!(size_of::<ColliderMaterial>() / 4);
-    l["material"] = fields!(
-        ColliderMaterial,
-        friction,
-        restitution,
-        friction_combine_rule,
-        restitution_combine_rule
-    );
-    l["rbd_params_words"] = json!(size_of::<RbdSimParams>() / 4);
-    l["rbd_params"] = fields!(RbdSimParams, normalized_prediction_distance, length_unit);
-    l
+    collision_layout::layout()
 }
 fn shape(ty: usize) -> Shape {
     match ty {

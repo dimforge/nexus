@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "feature": "rbd.collision.contact_plan3d",
+  "scope": "Native atomic list-counter reads, capacity clamping, ContactPlan and all dependent dispatch grids",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "PairCount",
+    "PfmCount",
+    "Plan",
+    "PfmSortLen",
+    "ContactsIndirect",
+    "PfmIndirect",
+    "MbIndirect",
+    "BatchIds"
+  ],
+  "outputs": [
+    "Plan",
+    "PfmSortLen",
+    "ContactsIndirect",
+    "PfmIndirect",
+    "MbIndirect"
+  ],
+  "comparison": "contact_plan_fields",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "Every native word is exact unsigned integer storage.",
+  "preconditions": [
+    "Rust-derived buffer layouts, valid sizes and launch bounds",
+    "Contact capacity equals twice the global pair capacity",
+    "Pair capacity is at most u32::MAX/2; both counters may contain any u32 value"
+  ],
+  "invariants": [
+    "All counters and indirect-grid dimensions match Rust exactly, including zero work and capacity clamping",
+    "Copied bits and unused capacity remain unchanged",
+    "Atomic add-zero preserves counter bits and implements the atomic read required by Rust; the pinned Metal and Ascend codegens do not lower atomic_load",
+    "Ceiling division does not overflow for maximum valid ContactPlan totals"
+  ],
+  "outside_scope": [
+    "Deferred PFM geometry, meshes, polylines and contact reduction",
+    "Full solver stepping, long-run stability, production backend integration",
+    "Ascend vendor compilation, execution, synchronization qualification and performance"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "empty",
+    "zero-capacity",
+    "pairs-only",
+    "pfm-only",
+    "one",
+    "31",
+    "32",
+    "63",
+    "64",
+    "65",
+    "129",
+    "clamp-pairs",
+    "clamp-pfm",
+    "clamp-both",
+    "max-capacity",
+    "no-batches",
+    "no-multibodies"
+  ]
+}

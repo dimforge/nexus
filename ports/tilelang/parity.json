@@ -841,6 +841,45 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/analytic_contacts.json",
       "test_command": "python ports/tilelang/narrow_replay.py --target c"
+    },
+    {
+      "id": "rbd.collision.reset_narrow3d",
+      "operation": "reset_narrow",
+      "runner": "contact_plan_replay.py",
+      "coverage": "Native reset of the PFM counter slice with exact guarded writes",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_reset_narrow_phase"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_reset_narrow_phase",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/reset_narrow.json",
+      "test_command": "python ports/tilelang/contact_plan_replay.py --operation reset_narrow --target c"
+    },
+    {
+      "id": "rbd.collision.contact_plan3d",
+      "operation": "contact_plan",
+      "runner": "contact_plan_replay.py",
+      "coverage": "Native atomic list-counter reads, capacity clamping, ContactPlan and all dependent dispatch grids",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_contact_plan"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_contact_plan",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/contact_plan.json",
+      "test_command": "python ports/tilelang/contact_plan_replay.py --operation contact_plan --target c"
+    },
+    {
+      "id": "rbd.pipeline.analytic_collision3d",
+      "operation": "analytic_collision",
+      "runner": "collision_replay.py",
+      "coverage": "Resident native PFM reset, world bounds, brute-force pairs, contact plan and analytic ball/box manifolds",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_narrow_phase_shape_shape"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_narrow_phase_shape_shape",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/analytic_collision.json",
+      "test_command": "python ports/tilelang/collision_replay.py --operation analytic_collision --target c"
     }
   ],
   "targets": [

@@ -1,7 +1,8 @@
 //! Native world bounds and brute-force candidate pair oracles.
 #[allow(dead_code)]
-#[path = "main.rs"]
-mod pilot;
+#[path = "collision_layout.rs"]
+mod collision_layout;
+use collision_layout::contacts::pilot;
 use nexus_rbd_shaders3d::{
     PaddedVector, Pose,
     bounding_volumes::Aabb,
@@ -13,37 +14,9 @@ use nexus_rbd_shaders3d::{
     utils::BatchIndices,
 };
 use serde_json::{Value, json};
-use std::{
-    fs,
-    mem::{offset_of, size_of},
-    path::Path,
-};
+use std::{fs, path::Path};
 fn layout() -> Value {
-    let mut l = pilot::layout();
-    macro_rules! f {($ty:ty,$($field:ident),+)=>{json!({$(stringify!($field):offset_of!($ty,$field)/4),+})}}
-    l["shape_words"] = json!(size_of::<Shape>() / 4);
-    l["shape"] = f!(Shape, a, b, c);
-    l["shape_types"] = json!({"ball":SHAPE_TYPE_BALL,"cuboid":SHAPE_TYPE_CUBOID,"capsule":SHAPE_TYPE_CAPSULE,"cone":SHAPE_TYPE_CONE,"cylinder":SHAPE_TYPE_CYLINDER,"polyline":SHAPE_TYPE_POLYLINE,"trimesh":SHAPE_TYPE_TRIMESH,"convex_poly":SHAPE_TYPE_CONVEX_POLY,"triangle":SHAPE_TYPE_TRIANGLE});
-    l["polyline_thickness_bits"] = json!(POLYLINE_THICKNESS.to_bits());
-    l["aabb_words"] = json!(size_of::<Aabb>() / 4);
-    l["aabb"] = f!(Aabb, mins, maxs, padding0, padding1);
-    l["vertex_words"] = json!(size_of::<PaddedVector>() / 4);
-    l["vertex_vector"] = json!(offset_of!(PaddedVector, 0) / 4);
-    l["group_words"] = json!(size_of::<InteractionGroups>() / 4);
-    l["groups"] = f!(InteractionGroups, memberships, filter, test_mode);
-    l["pair_words"] = json!(size_of::<CollisionPair>() / 4);
-    l["pair_colliders"] = json!(offset_of!(CollisionPair, colliders) / 4);
-    l["batch_words"] = json!(size_of::<BatchIndices>() / 4);
-    l["batch"] = f!(
-        BatchIndices,
-        num_batches,
-        colliders_batch_capacity,
-        colliders_len,
-        collision_pairs_capacity
-    );
-    l["rbd_params_words"] = json!(size_of::<RbdSimParams>() / 4);
-    l["rbd_params"] = f!(RbdSimParams, normalized_prediction_distance, length_unit);
-    l
+    collision_layout::layout()
 }
 fn shape(ty: u32) -> Shape {
     match ty {

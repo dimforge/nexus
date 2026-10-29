@@ -540,3 +540,14 @@ dense and seeded 65-contact cliques keep a two-round budget to test safe exhaust
 The existing Rust policy stores unresolved contacts in the last bucket for warmstart
 but does not solve them. The port preserves this policy; safe classification does
 not imply every dense-graph contact was solved. Full scene validation remains pending.
+
+
+The `analytic_collision` operation composes native PFM reset, world bounds,
+brute-force candidates, contact-plan publication and ball/box manifold generation
+over resident device buffers. `contact_plan` and `reset_narrow` also have isolated
+integer contracts, including overflow and zero-work grids. Pair allocation order is
+unspecified; the checker matches manifolds by exact collider-pair identity before
+checking the contact fields. Composed box-box coordinates and depths allow a
+scale-aware f32 roundoff budget, with an independent check that both contact
+endpoints lie on their respective box surfaces. Normal and material tolerances
+are unchanged. General scene stepping and Ascend execution remain unvalidated.

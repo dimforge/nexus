@@ -165,3 +165,54 @@ def gpu_narrow_phase_shape_shape(layout, case):
                 Contacts[manifold + mf["len"]] = T.uint32(0)
 
     return one
+
+
+def gpu_reset_narrow_phase(count):
+    @T.macro
+    def one(PfmCount, gid):
+        if gid < count:
+            PfmCount[gid] = T.uint32(0)
+
+    return one
+
+
+def gpu_contact_plan(layout):
+    p, b = layout["plan"], layout["batch"]
+
+    @T.macro
+    def one(
+        PairCount,
+        PfmCount,
+        Plan,
+        PfmSortLen,
+        ContactsIndirect,
+        PfmIndirect,
+        MbIndirect,
+        BatchIds,
+    ):
+        # The pinned Metal and Ascend compilers do not lower atomic_load.
+        # Add-zero preserves the counter bits and still performs an atomic read.
+        pairs = T.min(
+            T.atomic_add(PairCount[0], T.uint32(0), return_prev=True),
+            BatchIds[b["collision_pairs_capacity"]],
+        )
+        pfm = T.min(
+            T.atomic_add(PfmCount[0], T.uint32(0), return_prev=True),
+            BatchIds[b["collision_pairs_capacity"]],
+        )
+        bound = pairs + pfm
+        Plan[p["bound"]], Plan[p["pfm_base"]], Plan[p["pfm_len"]] = bound, pairs, pfm
+        PfmSortLen[0] = pfm
+        # Rust div_ceil does not overflow for totals near u32::MAX.
+        ContactsIndirect[0] = bound // T.uint32(64) + T.cast(
+            bound % T.uint32(64) != 0, "uint32"
+        )
+        PfmIndirect[0] = pfm // T.uint32(64) + T.cast(pfm % T.uint32(64) != 0, "uint32")
+        ContactsIndirect[1], ContactsIndirect[2] = T.uint32(1), T.uint32(1)
+        PfmIndirect[1], PfmIndirect[2] = T.uint32(1), T.uint32(1)
+        MbIndirect[0] = T.if_then_else(
+            bound > 0, BatchIds[b["multibodies_batch_capacity"]], T.uint32(0)
+        )
+        MbIndirect[1], MbIndirect[2] = BatchIds[b["num_batches"]], T.uint32(1)
+
+    return one

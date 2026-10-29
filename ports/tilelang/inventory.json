@@ -71,12 +71,17 @@
       "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py",
       "coverage": "partial",
       "operations": [
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.collision.reset_narrow3d",
+        "rbd.collision.contact_plan3d",
+        "rbd.pipeline.analytic_collision3d"
       ],
       "symbols": [
-        "gpu_narrow_phase_shape_shape"
+        "gpu_narrow_phase_shape_shape",
+        "gpu_reset_narrow_phase",
+        "gpu_contact_plan"
       ],
-      "remaining": "Native analytic first pass implemented; plan/reset, PFM lists, deferred geometry, sort keys and composite reduction remain unported."
+      "remaining": "Analytic first pass, PFM counter reset and ContactPlan publication implemented, with resident ball/box collision composition. PFM lists, deferred geometry, sort keys and composite reduction remain unported."
     },
     {
       "reference": "src_rbd_shaders/dynamics/body.rs",
@@ -1201,7 +1206,10 @@
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.pairs_program3d",
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.collision.reset_narrow3d",
+        "rbd.collision.contact_plan3d",
+        "rbd.pipeline.analytic_collision3d"
       ],
       "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
@@ -1335,9 +1343,10 @@
       "description": "Public API, production scene stepping and runtime integration",
       "coverage": "partial",
       "operations": [
-        "rbd.pipeline.tgs_frame3d"
+        "rbd.pipeline.tgs_frame3d",
+        "rbd.pipeline.analytic_collision3d"
       ],
-      "remaining": "Native composed TGS frame over supplied manifolds/two conflict-free colors is implemented. Full scene generation, topology, graph scheduling, joints, hubs, backend selection and long-run stability remain."
+      "remaining": "Resident ball/box collision program and native TGS frame over supplied manifolds are implemented separately. Full scene generation/solving composition, topology, graph scheduling, joints, hubs, backend selection and long-run stability remain."
     },
     {
       "id": "rbd.dim2",

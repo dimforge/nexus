@@ -122,6 +122,7 @@ def validate_case(layout, case, arrays):
 def check_outputs(layout, case, before, actual, expected, contract):
     import numpy as np
     from narrow_symmetry import symmetry_frame, validate_symmetry_contact
+    from narrow_box_geometry import box_frame, validate_box_contact
 
     validate_case(layout, case, before)
     if set(actual) != set(before) or set(expected) != set(before):
@@ -191,6 +192,23 @@ def check_outputs(layout, case, before, actual, expected, contract):
             p = m + mf["points_a"]
             floats[p + pf["pt"] : p + pf["pt"] + 3] = False
             floats[m + mf["normal_a"] : m + mf["normal_a"] + 3] = False
+        box = box_frame(layout, before, *map(int, ids), contract)
+        if box is not None:
+            geometry = np.zeros(cw, dtype=bool)
+            for pi in range(length):
+                p = m + mf["points_a"] + pi * layout["manifold_point_words"]
+                geometry[p + pf["pt"] : p + pf["pt"] + 3] = True
+                geometry[p + pf["dist"]] = True
+            for row in (a[i], e[i]):
+                validate_box_contact(layout, box, row, length, atol, rtol)
+            np.testing.assert_allclose(
+                af[geometry],
+                ef[geometry],
+                atol=box[-1],
+                rtol=rtol,
+                err_msg=f"Box contact geometry {i}",
+            )
+            floats[geometry] = False
         np.testing.assert_allclose(
             af[floats], ef[floats], atol=atol, rtol=rtol, err_msg=f"Contact {i}"
         )

@@ -92,3 +92,11 @@ path = "src/broadphase.rs"
 [[bin]]
 name = "narrow"
 path = "src/narrow.rs"
+
+[[bin]]
+name = "contact_plans"
+path = "src/contact_plans.rs"
+
+[[bin]]
+name = "collision"
+path = "src/collision.rs"

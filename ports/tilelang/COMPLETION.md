@@ -37,7 +37,9 @@ Remaining implementation sequence:
    scene integration and deferred contact generation remain. The complete native
    analytic first pass now handles ball/primitive and box/box contacts, including
    material combination and positional inert-slot writes. Generic PFM, meshes,
-   polylines and contact-plan publication remain.
+   polylines remain. PFM counter reset and contact-plan publication are implemented;
+   a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
+   collision detection. It still needs connection to general scene solving.
    Port collision detection and shapes, contact creation/removal, broad-phase
    schedules, rigid-body joints, queries, deterministic ordering and other required
    inventory capabilities. Do not introduce CPU physics fallbacks and call them
