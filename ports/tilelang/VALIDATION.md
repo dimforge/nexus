@@ -377,3 +377,36 @@ by these corrected runs. CPU oracle noalias enforcement remains in effect.
 
 These operations still require production graph/color/solver orchestration and
 full-scene validation. Ascend CANN compilation and NPU execution remain unavailable.
+
+## Ordered programs and hierarchical prefix scans — 2026-10-29
+
+The native Metal adapter now executes a schema-2 ordered program over persistent
+caller-owned buffers. Each stage records its own compiler ABI, launch shape and
+mapping to physical storage. Dependencies complete before later stages execute;
+there is no host physics calculation, repacking or intermediate readback. This
+synchronous implementation establishes correctness, not optimal dispatch cost.
+A native two-stage test checks read-after-write dependencies over two iterations;
+manifest tests reject missing, aliased, wrongly sized and unsafe source mappings.
+
+The mirrored prefix-sum module contains both Rust entry points. Its full hierarchy
+runs sweep, coarser sweeps and descending offset additions as separate kernels.
+Thirty cases cover empty input, 255/256/257 boundaries, independent batches, sparse
+spikes, zeros, padding and 65537 values per batch (three hierarchy levels). Every
+integer, auxiliary word and guard compares exactly; complete scans additionally
+match independent per-batch exclusive sums. The live Rust oracle executes the
+original cooperative GPU entry points with explicit workgroup counts and noalias
+disabled. Overflowing u32 totals remain outside this fixture contract.
+
+All 269 cases across 29 registered operations pass fresh Rust comparison on CPU
+and native Metal, and Ascend source lowering. Explicit tree-loop expansion removes
+an Ascend synchronization-analysis warning caused by pragma-only unrolling: the
+final source has group-uniform barriers between tree stages and no such warning.
+This still does not qualify Ascend hardware synchronization or CANN compilation.
+The 163 Python tests, five native adapter tests, Rust formatting/strict Clippy and
+Ruff F checks pass. Six additional UBSan executions cover each new operation on
+sparse multi-batch and three-level cases; all match regular CPU output bytes.
+
+Ordered handoffs require every stage source and mapping. Their verifier rejects
+missing later-stage hashes and replacement of a program with its first kernel.
+Full adjacency/color/solver schedules, collision detection, joints and scene-level
+physical validation remain in progress; this is not full-backend completion.
