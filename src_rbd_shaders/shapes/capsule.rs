@@ -62,6 +62,21 @@ impl Capsule {
     pub fn project_local_point_on_boundary(&self, pt: Vector) -> ProjectionResult {
         let proj_on_axis = self.segment.project_local_point(pt);
         let dproj = pt - proj_on_axis;
+        #[cfg(feature = "dim3")]
+        let dproj = {
+            let axis = self.segment.b - self.segment.a;
+            let from_a = pt - self.segment.a;
+            let along = axis.dot(from_a);
+            let axis_len_sq = axis.length_squared();
+            if along > 0.0 && along < axis_len_sq {
+                // Subtracting the rounded segment projection can leave an axial
+                // residual comparable to the radial component near the axis.
+                // A double cross removes that residual before normalization.
+                axis.cross(from_a).cross(axis) / axis_len_sq
+            } else {
+                dproj
+            }
+        };
         let dist_to_axis = dproj.length();
 
         if dist_to_axis > 0.0 {
@@ -75,7 +90,13 @@ impl Capsule {
             // Pick an arbitrary projection direction along an axis orthogonal to the principal axis.
             let axis_seg = self.segment.b - self.segment.a;
             let axis_len = axis_seg.length();
-            let proj_dir = any_orthogonal_vector(axis_seg / axis_len);
+            let proj_dir = if axis_len > 0.0 {
+                any_orthogonal_vector(axis_seg / axis_len)
+            } else {
+                // A zero-length capsule is a ball; its center has no unique
+                // projection direction, but the chosen point must be finite.
+                Vector::X
+            };
             ProjectionResult::new(proj_on_axis + proj_dir * self.radius, true)
         }
     }
@@ -169,5 +190,50 @@ pub fn any_orthogonal_vector(v: Vector) -> Vector {
     #[cfg(feature = "dim3")]
     {
         orthonormal_basis3(v)[0]
+    }
+}
+
+#[cfg(all(test, feature = "dim3"))]
+mod projection_tests {
+    use super::*;
+    use crate::glamx::Vec3;
+    #[test]
+    fn near_axis_projection_reaches_boundary() {
+        let c = Capsule::from_endpoints(Vec3::new(0., -0.7, 0.), Vec3::new(0., 0.7, 0.), 0.3);
+        for p in [
+            Vec3::new(0., 0.29999998, -2.2351742e-8),
+            Vec3::new(-2.9802322e-8, 0.29999998, -2.2351742e-8),
+            Vec3::new(0., 0.3, 0.),
+        ] {
+            let q = c.project_local_point_on_boundary(p);
+            let radial = (q.point.x * q.point.x + q.point.z * q.point.z).sqrt();
+            assert!((radial - c.radius).abs() < 2e-6);
+            assert!(q.is_inside);
+        }
+    }
+    #[test]
+    fn degenerate_capsule_is_finite_sphere() {
+        let c = Capsule::from_endpoints(Vec3::ZERO, Vec3::ZERO, 0.3);
+        for p in [Vec3::ZERO, Vec3::X, Vec3::new(0.001, 0.002, -0.003)] {
+            let q = c.project_local_point_on_boundary(p);
+            assert!(q.point.is_finite());
+            assert!((q.point.length() - c.radius).abs() < 2e-6);
+            assert_eq!(q.is_inside, p.length() <= c.radius);
+        }
+    }
+    #[test]
+    fn oriented_near_axis_points_reach_capsule_boundary() {
+        for (a, b) in [
+            (Vec3::new(-0.4, -0.7, 0.2), Vec3::new(0.3, 0.8, -0.1)),
+            (Vec3::new(10., -20., 30.), Vec3::new(11., -19., 32.)),
+        ] {
+            let c = Capsule::from_endpoints(a, b, 0.3);
+            for u in [0.1, 0.4, 0.7, 0.9] {
+                let pt = a + (b - a) * u;
+                let q = c.project_local_point_on_boundary(pt);
+                let center = c.segment.project_local_point(q.point);
+                assert!(((q.point - center).length() - c.radius).abs() < 5e-6);
+            }
+        }
     }
 }
