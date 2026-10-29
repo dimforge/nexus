@@ -1,665 +1,735 @@
 {
   "change": {
-    "path": "ports/tilelang/changes/0024-bounded-topo-program.json",
-    "sha256": "ea93905c713e57c2c49ab82adcd37e247f29a7744f4239680f4ea7047c558927"
+    "path": "ports/tilelang/changes/0025-native-color-solvers.json",
+    "sha256": "09ba36a124251156ff3640f4c0afa607826a843ebfa5cc25712a01a1ea4fd003"
   },
   "evidence": {
     "ascend": {
       "path": "ports/tilelang/evidence/ascend.json",
-      "sha256": "6c2755534598672b83d8d607ae27354c70c73028aa9df368097335f9b65e1be7"
+      "sha256": "4e1437477ddef3a0f99ca1b245e0cdf95ff47a3797d0c3071a8a30f0d33f3dc2"
     },
     "c": {
       "path": "ports/tilelang/evidence/c.json",
-      "sha256": "8248deb69a6deb5c97b24828db8a90ea6d2a08a406162c61407cacdcab1472fa"
+      "sha256": "4c6bbd2f9074ea72a17447c1768109a67bc3a58c0a5a4577d5975c7fbddc3892"
     },
     "metal": {
       "path": "ports/tilelang/evidence/metal.json",
-      "sha256": "4f882cb06996eb8de33b12a7885d7540267716c12b93799eedc067e776f1dd36"
+      "sha256": "4ad963ce918d6c6218e0906edde2e8abbe51d5d528ea0a19408056a5fb0c8dbc"
     }
   },
   "feature_evidence": {
     "rbd.body.apply_increments3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.apply_increments3d.ascend.json",
-        "sha256": "8373ed985cd8ff59549d9db1ada6603c995afd6f2d4b22103db965843095405d"
+        "sha256": "9775c08a7d3b71a253c07afe44dd7c4b1f8a406d6a709c4c2b110b316be45a99"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.apply_increments3d.c.json",
-        "sha256": "7e7aa450ae61289093e2939c909492b61f41d2ce72effc37b27bad7899f5df1a"
+        "sha256": "51401a686ee7f5c509ddd62043f43550d8a06eb37ee1d2d9c19553ce421afe7c"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.apply_increments3d.metal.json",
-        "sha256": "b19d3c9920dfca667248b102d9c6e29ba33184e963034a6176b56b3738ffe812"
+        "sha256": "520b64ca060787afc99f98b70620c465b51af3926452ab7f95af72d6b5c6ba70"
       }
     },
     "rbd.body.cleanup3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.cleanup3d.ascend.json",
-        "sha256": "98c46b309fe21c16a9759824680f717c60c1028b687d8dfc48b6b550e9d96159"
+        "sha256": "65c0416c6719839e5a3f79e6aa25bfb81bf3a2c29899ccbc19443d6c9d484cdb"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.cleanup3d.c.json",
-        "sha256": "6a87d8e11331b48d0da5c8bd5989e038a7b3d9babd965d7556a30360460b6100"
+        "sha256": "7484cff5712890a8ade8a221ea48a4c13817fd9376ee515cd875b5bd04c6576e"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.cleanup3d.metal.json",
-        "sha256": "b37921f17b41e0037134660ac2a12416b18701857b454336a15609948eda776c"
+        "sha256": "240f904806860575c4e672a930eebb3b5b619f6a4fba1f55d693a7ecc71b6962"
       }
     },
     "rbd.body.finalize3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.finalize3d.ascend.json",
-        "sha256": "897ca5e8a245a72e2581b14ffeec7d2eca5805e8cfacfbbd9c1c74cf5e37a6f4"
+        "sha256": "d9f2bd2548b257f8be00cb4fef7791c99c08aa9517194a19d72bd7ce263b7ddd"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.finalize3d.c.json",
-        "sha256": "820ba469c8208e624bced075d9b5506b3da3909b51d2167ef5ef93bc074bd15d"
+        "sha256": "dadaba45cdab55344c3ba9f9f5432d9647644498b6c3131e697c90fbfc9521da"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.finalize3d.metal.json",
-        "sha256": "56cbf65ea02c3df74f5c100806265c1a3d4f189b9edf71ced36bf1d52e1e375d"
+        "sha256": "951a875c814b18d40506075ac213c5f7a779ffd97f3bcb7980d658b3a61618c8"
       }
     },
     "rbd.body.free_step3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.free_step3d.ascend.json",
-        "sha256": "b9c4651e064ab724aa06d730ccc9b861f9daafdd483cd6a2118eaa2b819009c1"
+        "sha256": "7583077796e98539cc31c6daeaf93a416688ae7aeab4b4c9d1741ef5c09bf6ed"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.free_step3d.c.json",
-        "sha256": "1e942721d87fa0d118ba26478ac8a77695ff123f56c124a3a7d04581c7191991"
+        "sha256": "2ea0e47361040a9e884f486102963ad6cae88fd18405412fcd9af0384a5942ff"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.free_step3d.metal.json",
-        "sha256": "25541c479d4abe93d31e72aa1fba05be53fd6f4e850984fc57a05a785b3755d5"
+        "sha256": "f9a5ebaf4a70d283f404f4cfe5dc37c4202581c155911ac5eebf22cc5f05993d"
       }
     },
     "rbd.body.init_bodies3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.init_bodies3d.ascend.json",
-        "sha256": "063d0d00ae5ff6695bf3fc72fb1139a441cba788cee510135cdb46d2dea8899a"
+        "sha256": "b526ce34ba58c61beff89a5efed6d2bcfc9416b45352d806c7d72b6e91bcfcd2"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.init_bodies3d.c.json",
-        "sha256": "028e1cb62601e13197902df6a97536e259d9355404893644f96fe2d4f23f30f3"
+        "sha256": "e96465f5f031a4e7c05900a579d770a68666acf8d14d9e30d63a0899a77256bb"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.init_bodies3d.metal.json",
-        "sha256": "f23c7c6fcf5937a1a65988e945c3995da1542e56aa8401e29163f5c43ab6969b"
+        "sha256": "94946b1e5389266ae09ffddd44b671635fd775f8168225e3d2454776e7e935fa"
       }
     },
     "rbd.body.init_increments3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.init_increments3d.ascend.json",
-        "sha256": "2e0209782f9e5baabebfdf68721075606fa2ae409c38408a161034f14d00a6c4"
+        "sha256": "565b9179b72a10ece269768bea5ca4fa482795b1e2fe3078a338607bada5e554"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.init_increments3d.c.json",
-        "sha256": "934408d4ce82119cfff090e4e5c2972d45a4af8b2fa4b22f4765c074f8425d8d"
+        "sha256": "7804319e359b98b4d466cc6d61157faf51a23862821b842aa555345abdb2211c"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.init_increments3d.metal.json",
-        "sha256": "3ab4ba0b4abc85ea217f5c6c662c3f85e35c66d4c9c6f84e237179481c52e3d4"
+        "sha256": "ab0d81ee32aa78f36e7e7df92140e322aebf8afd30e8a1e3f992a7905b566a2c"
       }
     },
     "rbd.body.integrate_linearized3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.ascend.json",
-        "sha256": "8dd1b3767088cc763215ae453fd91117f6998bc6dd8cc844f17c2431ebe9aa16"
+        "sha256": "8f42f3dc781f4ccd58d0994a1c9cdd6d933909b7549b4fc7450f5d4dd48b047a"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.c.json",
-        "sha256": "f7548fb3cc34a693c50201af4b5ef88e32bdae4789a952bf347c4c2bee78ab33"
+        "sha256": "32105a510feed8f05638478192a84a0f7c2cc8bca782e89455f7aba3d3ed3241"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.integrate_linearized3d.metal.json",
-        "sha256": "5c066a17f229123c6723a7b8db4ce47e2953b4a9f6977e809f3da6818f428be1"
+        "sha256": "a876136ca98acfc3a4320de8e324e83a155ce7a0bb4e8efa49f44d76d08d992a"
       }
     },
     "rbd.body.sync_collider_poses3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.sync_collider_poses3d.ascend.json",
-        "sha256": "89d6cdd1338c3988d71e4234cb0011fc541532d251c0fcd12f48bc01800e5c0e"
+        "sha256": "30c4e2ea9266830985645628d0f68b6cb4f251daea9d8a6377de6b8effdfa0b8"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.sync_collider_poses3d.c.json",
-        "sha256": "7d325d297df0e1aabd867b98330f597de277ffed1b68a606b16651dc6c1bfabd"
+        "sha256": "e58033f3c8c508cd541db99f9bcee2ff0ff5493f885c4a481d0331f2056aacd0"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.sync_collider_poses3d.metal.json",
-        "sha256": "50a0c720f6085b4aadcfdd2d22ae0c26ceb10b06ec35ca67c6e7ad778fe2e785"
+        "sha256": "eb522fb4b9a25e52a926083afc8fca47014494425e1732269b16502de22cf032"
       }
     },
     "rbd.body.update_mprops3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.body.update_mprops3d.ascend.json",
-        "sha256": "76d174a7bf0a0db306fc480f2e2f4fb68e335e5e35317edb8ef69c02891ae9bd"
+        "sha256": "86cb87af281c3ab23fdc3d0be64465f847daaf229de135b468305c8d845388d0"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.body.update_mprops3d.c.json",
-        "sha256": "ac65a1f5fc307311c446ad6faa085ab9422157af89658ffc61bbd3d8924889aa"
+        "sha256": "c7f840bf1dfccc54b1d859cfd71ab1d225cef976064eab9bc57f7c274d1dc620"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.body.update_mprops3d.metal.json",
-        "sha256": "68d23a35c8e33d9ffbb23c35b485688453409e1cfc3a5cf9bec1a58a538ee93b"
+        "sha256": "494c44dbdcc192ff1f5822bde1e95e7397911b8a6c0f3210a3c6b408dc63f53d"
+      }
+    },
+    "rbd.contact.coefficients3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.contact.coefficients3d.ascend.json",
+        "sha256": "061f5c5be6b0108d7d901ca5e071ea6c40684f4fa5ffb115248781b89acf83bc"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.contact.coefficients3d.c.json",
+        "sha256": "c854f70eb4e2268b48a4de327c65660a23155f7dfe50ce82cd55168dd2a6f597"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.contact.coefficients3d.metal.json",
+        "sha256": "851c6665634200e939bbdece1d39c96542c8a1487b57dde0272cb79f27e9b6ec"
+      }
+    },
+    "rbd.contact.coulomb.colored_cached3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_cached3d.ascend.json",
+        "sha256": "8e73f72e9feaa5c594f821c6fa00ab267b31a531a9ae18f24234ffd713e0181f"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_cached3d.c.json",
+        "sha256": "2dc56cd536f77dede4ad6c6099040d44f2302d7693013ecb3661d2ef06e471dd"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_cached3d.metal.json",
+        "sha256": "a94ff44e0a9e441348ac5c7ef55c960769d02da20e73a542e0c27b5c34f6fbdc"
+      }
+    },
+    "rbd.contact.coulomb.colored_program3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_program3d.ascend.json",
+        "sha256": "a621820e903100019ce41c161ba14ae3a41cfc5e78e55909064a130cb37002ba"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_program3d.c.json",
+        "sha256": "7862310465fce67cd6bb61308fe2856435e1af9b6874ce195f7488ae839f5db9"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_program3d.metal.json",
+        "sha256": "da7fde0a6eb6fb09f44cb4ba7712e1d49853685fc4e026f30ceeceac11c5f154"
+      }
+    },
+    "rbd.contact.coulomb.colored_solve3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_solve3d.ascend.json",
+        "sha256": "47a7bac713b45e1e2de924326c4f1f6a379857348e5500b18bdaa02b0f3254b3"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_solve3d.c.json",
+        "sha256": "6ce2d6b5e42785c7aeed016921523b3dbfdc497d5b74a424dd46281025dd5be5"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_solve3d.metal.json",
+        "sha256": "b02871473d4ce07b3b1bb2c09b21c65f9131a7e4d0a84012cc68637d6d3856b2"
+      }
+    },
+    "rbd.contact.coulomb.colored_warmstart3d": {
+      "ascend": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_warmstart3d.ascend.json",
+        "sha256": "279ac22e583921567129a3496a00fa4c3ae44c6fefe244621538b29828241dac"
+      },
+      "c": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_warmstart3d.c.json",
+        "sha256": "326f3d62c1cf0966c2c4eb1bf2529c602ea4e260856566b84261459f6dd6ac61"
+      },
+      "metal": {
+        "path": "ports/tilelang/evidence/rbd.contact.coulomb.colored_warmstart3d.metal.json",
+        "sha256": "bca2c9804ca9202372a9fd3c93ea684d29ff3ab71a01c84ab7b7aaaa9da89096"
       }
     },
     "rbd.contact.coulomb.effective_mass3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.ascend.json",
-        "sha256": "efbb83c27b86dd94c9a42dabde39d708f2a7fb78c27a554e83bc226073bd5256"
+        "sha256": "3d4cc2a635337c407e5dacda629e1f192a456645879f54036e296604282348f8"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.c.json",
-        "sha256": "e450f7978b93e852c371b1f4774675ea4b794436dcaa34cc3504ade553b384e2"
+        "sha256": "554656ace4fe81d90a16ce22942b74e65b3fd02fba718b8eb2380874597238fb"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.effective_mass3d.metal.json",
-        "sha256": "8459f3bddc4eb9b042e1c81cebba9ec1c3b64f157630313d1de9b32fb907fa6c"
+        "sha256": "36b0ed0de63dab807a7441ca960c69a8d701dba601f95581abfedfe0626403dd"
       }
     },
     "rbd.contact.coulomb.gather_warmstart3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.gather_warmstart3d.ascend.json",
-        "sha256": "601b32596214557afc89ecdda1d3f69ae0b7aea7dc02f8ad3905ed8f72b8f482"
+        "sha256": "f82bfd889213989951eb5d6556a39f762bddf7e61fb57afde0d1b90e82af800e"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.gather_warmstart3d.c.json",
-        "sha256": "0dc099778ebef890515ec4498b10a8eb4e0494da50d975754d11d272da7cfe94"
+        "sha256": "b96639470c84080c8d061e39cef2ec9ddde8d5063ead739dafd8806c888c650a"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.gather_warmstart3d.metal.json",
-        "sha256": "1a166bfafd2dd9e434b5d8b4e755201ef9a973910defc9778170ac73da0039a0"
+        "sha256": "9b258444804eaad929d367e15fa3498847a31cb4f9dc6f052faf8a3bea02b880"
       }
     },
     "rbd.contact.coulomb.hub_warmstart3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.hub_warmstart3d.ascend.json",
-        "sha256": "c1adaba7f11ae998136418ed0eea7a643dfa5e8d03f92f46a98e34c4c326893d"
+        "sha256": "3581bdd0ea0fbd7002798be436c1bde1b6beb2b96d18a38462459a85333a6e78"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.hub_warmstart3d.c.json",
-        "sha256": "5731a260d680e2d4de754bb8aa0ca9a124f7365ee33812ba8716df08ccd1017b"
+        "sha256": "496a8716c3a26b9ba7e5d1f76d3b81acb4dc89663b9da557043a4b8c6e774c67"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.hub_warmstart3d.metal.json",
-        "sha256": "41392cb43bb58eebf1d89fe26f0871345ea6b4bbed54953a35d649517d2c6e71"
+        "sha256": "5ec46fd13e7d27d00cdb92f8b51b81aa2f3208a6f6c2290d19258e2828c45e08"
       }
     },
     "rbd.contact.coulomb.prepare3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.prepare3d.ascend.json",
-        "sha256": "16030fefcfaaa57d8d101dd1175917bd31f9724b53c599ea68ec62b37a78ac66"
+        "sha256": "6b1679492f696da44fd594dbf8b05c98891ccb11d20342b8398defb5a2c1b0fb"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.prepare3d.c.json",
-        "sha256": "f6203473633d55636afebba70eea88fdb17c5027a2e0bc29192d61003d0f90a1"
+        "sha256": "bc1771b9a178354f6af5779af6e9e54f95bc38ce0d0b046dfd8dec6488ff9dab"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.prepare3d.metal.json",
-        "sha256": "26e9f7950f529892239662d33c9a98119da26f67357dbaa2a4dae18508b4c50b"
+        "sha256": "c10c3b60745ba7f80557bf232558dae551b23dd22d5ecbcac53e6b224226d515"
       }
     },
     "rbd.contact.coulomb.scale_impulses3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.scale_impulses3d.ascend.json",
-        "sha256": "93a857488fb14314c6364efb3f75d223b0f311147f377a64f9bdb2e554964d1e"
+        "sha256": "6e369fddcd3a4720ecc326c22853407202a53f90f63be59db558dc8dcec4c636"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.scale_impulses3d.c.json",
-        "sha256": "a3fc3d1dc65a81eeee9e5471eb250d534d24dfa956b2192123a9e65ee4120665"
+        "sha256": "0aea7efe5bedc0fab3f2557270cf748da4f50d351fafee404c7db3fed83e8d32"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.scale_impulses3d.metal.json",
-        "sha256": "fb8dc2e656d511b8b375928462f162c19442ec287f337abe546547311b1f8437"
+        "sha256": "be51228bd3e26b86b2132eeea01be723c526beb95c946de7b5cb19f797c44e4d"
       }
     },
     "rbd.contact.coulomb.solve3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/ascend.json",
-        "sha256": "6c2755534598672b83d8d607ae27354c70c73028aa9df368097335f9b65e1be7"
+        "sha256": "4e1437477ddef3a0f99ca1b245e0cdf95ff47a3797d0c3071a8a30f0d33f3dc2"
       },
       "c": {
         "path": "ports/tilelang/evidence/c.json",
-        "sha256": "8248deb69a6deb5c97b24828db8a90ea6d2a08a406162c61407cacdcab1472fa"
+        "sha256": "4c6bbd2f9074ea72a17447c1768109a67bc3a58c0a5a4577d5975c7fbddc3892"
       },
       "metal": {
         "path": "ports/tilelang/evidence/metal.json",
-        "sha256": "4f882cb06996eb8de33b12a7885d7540267716c12b93799eedc067e776f1dd36"
+        "sha256": "4ad963ce918d6c6218e0906edde2e8abbe51d5d528ea0a19408056a5fb0c8dbc"
       }
     },
     "rbd.contact.coulomb.warmstart3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.ascend.json",
-        "sha256": "5819a7b7ede14e3de670f51cb86c28885f4ee3f864faa18a510892fa8153da9f"
+        "sha256": "dc1a70510d5ffc8c038e71015af6e05cfe8cd052c6d881d7b1d5cfb8668cdb25"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.c.json",
-        "sha256": "ae76573c939ad1fd19c31d12e14e3b0101d7aded2a2261394dac6aa73707d387"
+        "sha256": "9e05dd3ba31c1da945da5786a7b3a42b4ca305450f12f49f03480f5ac2942564"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.coulomb.warmstart3d.metal.json",
-        "sha256": "07b414f96a188d2d8d7afdb5bd600d414e9e0f3c95b1f86f78cb549bd93fdcad"
+        "sha256": "2366082698e25a167bf4ea97c55f909168226c2a405cc8835d7ccde3f7c432d7"
       }
     },
     "rbd.contact.init_links3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.init_links3d.ascend.json",
-        "sha256": "04e76186c78542a0d69d54a6fe74f7eb766e3ec9e5be7094e7e7b4d19b341dee"
+        "sha256": "5c922a9c4ccd97910de7a85f07bb15494b6fe31ce15e3cc6e3bd98ba1a48709e"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.init_links3d.c.json",
-        "sha256": "2a613cb2811daeb44561230570494cad1bc7a14d9bb132df1cc981174e6be96f"
+        "sha256": "9e69127b0bf7ecd933d91248ec2d17dde84acaa84f1bfbd040a165743d582e38"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.init_links3d.metal.json",
-        "sha256": "e40c1989734fbdd62838990900c90aab50e8ce046439c6f7550b56839a1faf1a"
+        "sha256": "2e40b6b4085619e4bf3b2d44f38fcbc95e7f5de5b03d4ab9946d20972047f75d"
       }
     },
     "rbd.contact.match_links3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.match_links3d.ascend.json",
-        "sha256": "5175d156a7a7b09117cc0dd81efb6c934adf91a9e85e4e2989ed5a12f54c3ece"
+        "sha256": "4ab51fa8aa03099625b58e1ebc62a31811eb6182e4a329091ef44b8d69c1112d"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.match_links3d.c.json",
-        "sha256": "e35a3a93b8d8d375a0dc0cbc27653367b347ba48c40e0765ab75e2898f864acb"
+        "sha256": "64ac86dd2c68d762b522f46bd7a4529b56b24732879884f7a781a9b4bda42ec8"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.match_links3d.metal.json",
-        "sha256": "b909b7b2b4300232f9f86c5bd83c895ba3e3b44626c91bba4683a3971e582a5e"
+        "sha256": "389b29313d35633b05ff4735b70811814ff517dc86a8361f627b5136a15d0bbe"
       }
     },
     "rbd.contact.persistence3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.contact.persistence3d.ascend.json",
-        "sha256": "05469383389289e4aa6256736de240821d6b308cdd536c2658a28d216b29f0c1"
+        "sha256": "9f5adea857d878859afd87a18474ce7a46c407f5879fdb0ccd4760e11a67a7ee"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.contact.persistence3d.c.json",
-        "sha256": "93fee2b651c5f8ac4d82dc0896903b69dac7877a40742a6d947ebd7063ae0f11"
+        "sha256": "ace3b633ed57622a6a17dd1d90d206b75923de2d7b1e5e92c0075782b76cce54"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.contact.persistence3d.metal.json",
-        "sha256": "b78c87d7c93fb17cb1006547fcac681a802e8a82a8df16c50c7396589cd6ca0d"
+        "sha256": "bbe8c077dc8bd3973868d5082d5c58f338ee74d0f89f9cef612bad3c6221d46d"
       }
     },
     "rbd.scheduling.adjacency_build3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_build3d.ascend.json",
-        "sha256": "558393d12f743d973626c4adb5b6e69057e05276ae9e088289d14489a2d24b70"
+        "sha256": "fca263d856b185b59593d2308569662fc602dac813766520a18150022e7d754f"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_build3d.c.json",
-        "sha256": "f29b6a72fc6c9bffe039e3d5720efa88e97f361fc96af8ed3097fcae2bbd4cd0"
+        "sha256": "5ffbae6c2d9571289c9afecfa38643b12be107f21aad7e107b856c86add1c59e"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_build3d.metal.json",
-        "sha256": "02c23b376e5de9ab97f59a978c7b61093bcc53b05eb57bf0b6e770d1b13e41ce"
+        "sha256": "c9a8f822a1a1ddbce7f8cffae53c5ef87b030c3b0a65baf7a46a68002d59543c"
       }
     },
     "rbd.scheduling.adjacency_count3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_count3d.ascend.json",
-        "sha256": "f92932f0ac4d51fbff6cd6c26a4555de8506747fd524fdde1c168b47127712aa"
+        "sha256": "f04cd3bf31f8c7428f3fbd06b0fe4be0bb681532ce8015ef9005011340155092"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_count3d.c.json",
-        "sha256": "3e1b200ebec6e4913cf17223ebbaf17e11606e710865c2b4ad8bdabe5ea39167"
+        "sha256": "7959a9ef25227784c1824feba5489ea546424acaada710b7fe94d6b33f9067f0"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_count3d.metal.json",
-        "sha256": "e80cd3b8c571b258faf6e8f4db1a85ad04cb2b6a43e97931b081a6d1314dd11f"
+        "sha256": "c76efc699eeb45d8ce64b7ac83bafe7ff29e5d0af05561e2f3f97389613549c7"
       }
     },
     "rbd.scheduling.adjacency_scatter3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_scatter3d.ascend.json",
-        "sha256": "b4af7a7cc17daf1081defd1ca657b65c1f06fbf2d58c87b0fdb9c06b799354a1"
+        "sha256": "63ef35a970bdb91c2c389db6441172a52cb678ff4c04e0de460a1246a9ef3b89"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_scatter3d.c.json",
-        "sha256": "445ac0c135f87d94c560dfe8e0c188b194c177d595206901586f8d03bd9f21b5"
+        "sha256": "8e4433c3a6a1f965c9a17a181d05d2b029e0d431830b8d50c05f5c72fc4d2758"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.adjacency_scatter3d.metal.json",
-        "sha256": "83bde2de0551d6069c0783e19a22c06ac5a1810662e9aac77018904c3c519191"
+        "sha256": "e435409cd6a591d3cc6036402f010f6fb541f1f9dbf337e4a16588a2677da4b2"
       }
     },
     "rbd.scheduling.bucket_build3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_build3d.ascend.json",
-        "sha256": "677dc4c605a24a47ae719aeae47442127190d7d1db204921cdcaee7604278018"
+        "sha256": "f7da316bbc5f60e3f5a7dd803348cd7dff0562169360f37a2a365bd073ef8465"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_build3d.c.json",
-        "sha256": "1248bf66d67dc8f36b362c3970a8c59c869e7013a1f897a9fdb309b32531383b"
+        "sha256": "43aa5d3e38624611b7e577f0bd90843ae40d0804f0b68d4281ce3dc0b32f1932"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_build3d.metal.json",
-        "sha256": "cc07c9baa13c32b5ec47e9ca4e725673c13a80b6dc23c7e6e327c07a4bd49847"
+        "sha256": "5d04df375604b6cbda5f5539a705d227e7f9d38b983528cc1ba475e02ae8f167"
       }
     },
     "rbd.scheduling.bucket_count3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_count3d.ascend.json",
-        "sha256": "bcc7793f5edd126d5174ca0ea9392731c2c2c9fabc5e265973e91125582caff1"
+        "sha256": "348c653713f560ca84ad60f54e302dd9043c603516bb4526b8d52aa1ed3b06fd"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_count3d.c.json",
-        "sha256": "cc9d73f119923bc106e3bfb0cef67baa6926953370406afa63edf0e11b4ffab7"
+        "sha256": "2e37e543859cdc223985bedd52f4e831fa3510b3f5c019f3135e8ac104e925eb"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_count3d.metal.json",
-        "sha256": "9f89c5c7d16de48fbda2554130c1d5c6cbf9f24265880a365e51afdc5bf490ee"
+        "sha256": "fe122b67118d6bcdfb04aee494d82c2a8faf931cbe7e45aca077250a28930995"
       }
     },
     "rbd.scheduling.bucket_dispatch3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_dispatch3d.ascend.json",
-        "sha256": "b5cd4e48c57616c6ba47c77d570bb6c35327fed8258fcd72d9fe4130b080a101"
+        "sha256": "a127e00256aa54ea598990da08523b5e524e5a76f475c9ea82e88a4adbdb737c"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_dispatch3d.c.json",
-        "sha256": "d5e80c173066f35e04a207847c1f87b66bdb324af76470acab26982212484c24"
+        "sha256": "a7337aa5a991c2108ac4054b5459421c003b46dfbcd426d63bed00acf3ac0ac4"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_dispatch3d.metal.json",
-        "sha256": "23df19a572094c08afb222a16a6ae0b53e2ea68ce92447e9e475d4fc4dd4ab13"
+        "sha256": "481c16cedcae3c96c4c4f6410b959438dcf3a82b23e70e35d30c7b53faaad61c"
       }
     },
     "rbd.scheduling.bucket_reset3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_reset3d.ascend.json",
-        "sha256": "07fa82bcfaab42b8e9432e708d2d0c946c64d545cc23f4de6fcb3d748228581f"
+        "sha256": "e238a55f139961782a7eb991731b8bdd04c83c34a7cf573ee3c14f7fa31b33c1"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_reset3d.c.json",
-        "sha256": "15b39c9f5f627468966ede6f73f7a17a069dbc51fe803e2f2eee2f53fe766d06"
+        "sha256": "8ece34d47598da4f8a6da3b62d5beed104c6ba9ea8173fc7fbfc0f4347b7ed0b"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_reset3d.metal.json",
-        "sha256": "b5580def10c0a6443a8ef4a2738fcd4f3e33f857edb9325ff42e02b93dafaad1"
+        "sha256": "54f74b93eb26cb96beaeedbd6e0b5089a871a4138042118ca7f418e5ba9a19e3"
       }
     },
     "rbd.scheduling.bucket_scatter3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_scatter3d.ascend.json",
-        "sha256": "764b9ad9a747ef57067c556c4bda3aff72a30ef6c0ce1314afa58e958e2ce5e3"
+        "sha256": "70ee1256d8d8263c6f118ec78fd417040a21c359ee80f3c9c43fcafd94f76a0a"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_scatter3d.c.json",
-        "sha256": "8bc689ad24033716f6b9bbd9f09d1dba189caaedfd43c13d30e8877c3afa7bed"
+        "sha256": "ba8b799e6d95d8a9ca279e9943c952d6034db05dec37a89e565a46a52b810256"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.bucket_scatter3d.metal.json",
-        "sha256": "56ff13761b187f3fc60b4ad8cea33df03ecac1e93890f726b8c1672742f08810"
+        "sha256": "81f1b08e49bd48d567b88638d6f2b227d86b876b0562bd5d863be4ffa1284108"
       }
     },
     "rbd.scheduling.hub_assign3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_assign3d.ascend.json",
-        "sha256": "0269bf1e3ad093888a9b44ad9051f0c42bd7e83b154340f09ef8911868a1094d"
+        "sha256": "512a30bb49c13273e5fd5456c7fe2ba8539e5a7a413bd58f292db3264b7c4ca7"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_assign3d.c.json",
-        "sha256": "10f34a6b6c8455db724266960449970a4476e55a0634aaef93b453055628420f"
+        "sha256": "292db8c24632eb5e64ea4a6a37a3fe2ea3b0657f317c5747c413e090b26ae58c"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_assign3d.metal.json",
-        "sha256": "1689bc59d54b01b1036a9983ca2df65633534e6f5dd99d3a0be2b49ee3a74657"
+        "sha256": "a82eac30236c77f2860a467f8668110328597435f1f136eccbbc77f172a10378"
       }
     },
     "rbd.scheduling.hub_average3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_average3d.ascend.json",
-        "sha256": "a9ba0369d622691e645f78e3e05cfab560e667fbefbb537f82961a94116892b9"
+        "sha256": "d0bb4b3802b5275c26a74592f39b29cab054bf71836997285ca0881d798f8f10"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_average3d.c.json",
-        "sha256": "98371267705ace08ee9827cf864e9e61b686f026faa82228fc26018737cd81b8"
+        "sha256": "cdddacc023c11ecdd44045455a13db771c7c22dcba5697a23ad247a5929d85ca"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_average3d.metal.json",
-        "sha256": "7431918331dfda9b436d1ae44274f040e355e31712ca0d6434f560e6ae7e7719"
+        "sha256": "6329588e596e9e6e1c3edb071ac952ac1edd46b8f39bbf44614c303218d41026"
       }
     },
     "rbd.scheduling.hub_dispatch3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_dispatch3d.ascend.json",
-        "sha256": "390d952d44e83d23c0ff75ece99c486bf03cf767b3663ceb614de3375b3b1aeb"
+        "sha256": "1e49cd12b70fb8c4f5d7f946d9652128a95fe2b1e44bf557fe244116f2fff40d"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_dispatch3d.c.json",
-        "sha256": "4463dc9c1e500e645bdff1b60bb6553a9302209896649081cb3db7b9640e311a"
+        "sha256": "dd15a6dddaac14129fb76407a79aa29110357344fdf7ef1920271ca8c5bcb89c"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_dispatch3d.metal.json",
-        "sha256": "af9b035ce21323380daa2126c775434d89821be4f935d5e428f364673f145970"
+        "sha256": "fa00bcec5f6752b3086b4d68e407ca87f59bd6d08d43853771907d8f6084f14b"
       }
     },
     "rbd.scheduling.hub_scatter3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_scatter3d.ascend.json",
-        "sha256": "2a7dced92d11c61aefb622f1bfdaba6804620a67a94807287c65b30a56777454"
+        "sha256": "5dc54cd60e266c2bf8cfb3291f049c78c72078d86fca4a6555b198fc171e9cd7"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_scatter3d.c.json",
-        "sha256": "f8b8020024cad9a5885283908107585a75ad5887ba8285d79392b6a42f8b09d6"
+        "sha256": "129aad29992ed2992ce8961598ac67ec7df5f64f7939df17da184d5d783d1172"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_scatter3d.metal.json",
-        "sha256": "269746da5dcb158cadfc89da979da8f02c01baca1658cd8cdd7a5794b47bc824"
+        "sha256": "46729b12ad9b59519adb4f515ac4993afe75c1346ba2e5db18ce672f85bf7936"
       }
     },
     "rbd.scheduling.hub_split3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_split3d.ascend.json",
-        "sha256": "6013cf01d0ffd55e50a286db7862d76d4b56ea7edc32d90b178c9750c0552965"
+        "sha256": "e3658ba69e8539304c8b6a5ef942d6d5a1e73336fbabd6ae499996c50a5c6482"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_split3d.c.json",
-        "sha256": "95063debebd6326e830365bc84aac0864e069fbcb920782d22fec8e9c3b98992"
+        "sha256": "37cc3002cb3564e8f2d52a4d352d81dbfaad0fbdd05712f787c34f001a34501a"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.hub_split3d.metal.json",
-        "sha256": "5d3c1ef0c39c53ef713beca748c20a4f61d0f6088dd0d288e6ac1a7589acb2e5"
+        "sha256": "8b6f12d8890f68956b0ccaa39f2261b49a712552e0a1e7598f2e6efff4d260ca"
       }
     },
     "rbd.scheduling.luby_reset3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.luby_reset3d.ascend.json",
-        "sha256": "88e6096e502a1036dfd96641ecdd65082ae7c7d0494ba69e47d15f9f8a70d41d"
+        "sha256": "d4ed13408abbf23be7b62f1d3d4bd535a812dacdf60e09fed710d8fb0842fb8a"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.luby_reset3d.c.json",
-        "sha256": "a6a4806eeddaf6da406fc06d770984f87bbc34435c21dee192feaa54ce8a02c2"
+        "sha256": "4e2dc66ba1bbdf931174220f37ead89e5ae953d0e05e2540d1492642758b8589"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.luby_reset3d.metal.json",
-        "sha256": "0c69b93658a8094962683a6a7d279509c186d5c75cf374d237bbe77885ff0309"
+        "sha256": "80272afd0ec4685dedbc639966e0e1884e486de3712e353375d5f27ba285f1e8"
       }
     },
     "rbd.scheduling.luby_step3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.luby_step3d.ascend.json",
-        "sha256": "96517eb4b2c3090469632927ac1e63b550ab987afd51ec23787e84bac3d145dd"
+        "sha256": "ab7c4607960834e5297b476a05055cdbc5e9cb7c4d3bb99e354aa716e8c3d1a5"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.luby_step3d.c.json",
-        "sha256": "b81d934924462947df3cb3a65f7aa51012ec553d9b279ffc122f014fbc41b1c0"
+        "sha256": "e5ee6ec2c5beb980da23882694189f6f776d7106504ac3cd225f920a0b7f108f"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.luby_step3d.metal.json",
-        "sha256": "a04d5fbe3cfef5334fb9ac874b99b64fb51546147b1baba8a9e143a1266af6f4"
+        "sha256": "64e7e66c4f1a183c3d7b83ddff302d6b1c08f96bc9bc46f4622225628947fd0e"
       }
     },
     "rbd.scheduling.seed_colors3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.seed_colors3d.ascend.json",
-        "sha256": "71ba0d635054c3f88e4b222189fb0db209aac576fb0e9af53db5c5aa32031d27"
+        "sha256": "ef76eafdfb45c7311f22446bccba00df11a9a05434f1cb3cdc6c313216d35a81"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.seed_colors3d.c.json",
-        "sha256": "f766e85c9263f24b3c3f44aff953a25a488517ccc8d88e378debbb1097fe9fcf"
+        "sha256": "13c4d9e712316cd4c65eebae271af037e9b2cc319932a26bbdd77497220f8b92"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.seed_colors3d.metal.json",
-        "sha256": "7b09112b8cc33e1ae5bcd76ae69712c3fc0124c0a4b946771808a89a2a8264e5"
+        "sha256": "0e7b4408461e803df87bae0debf284069225161241abf0676c217a9e50b82598"
       }
     },
     "rbd.scheduling.stabilize_body_constraint_ids": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.stabilize_body_constraint_ids.ascend.json",
-        "sha256": "a6449a9cb9f3d0bfbac86022b2b3aadd9ea48e7d82cb5fdae3a4d89a21459bf4"
+        "sha256": "a2d9f507151c92b93ff1e8fb5138aaf901e73709e9b451585a0914f9ca9f240a"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.stabilize_body_constraint_ids.c.json",
-        "sha256": "d6b22ca4f1804bfc960d3d3eb7d39601d1c252a05753f30780c24bc34d52c4c0"
+        "sha256": "3749f0c75cacb10cba7b7b891b742be97ad77f223abf155b53256b6588cd9b7d"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.stabilize_body_constraint_ids.metal.json",
-        "sha256": "f5538750ebe2da41979930493ab9c2b869652266ceebb1c1e5925d4fafdfd6d3"
+        "sha256": "0f8696ca07f784b36a607b96340abaf69a162c776be5775020442dff7873975f"
       }
     },
     "rbd.scheduling.topo_bounded3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_bounded3d.ascend.json",
-        "sha256": "0e6e969e574d332d0126eebe161a40871bcb5a4685c943a30543d35bed9f4442"
+        "sha256": "c1a350cf45cc0ceb004c848b9c3fb5d1b74ff2724207d78f78876ffc5d4b8956"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_bounded3d.c.json",
-        "sha256": "f019d947bbca7b3b3cd5a729cff19f253fd64e3cbc1c32e291c5141be6c549a2"
+        "sha256": "efbb7a89dc07205a8af32cd20ddb6038b26a434b169614d5286c63a946055724"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_bounded3d.metal.json",
-        "sha256": "d99e982ae1f7bc6888c93876084dc6192d9dacdd2da47562e69bc451b13057a9"
+        "sha256": "e52efbd6081db842b642ba924ee4ebbd97b367c9fdbabb44f4cab54074c5c245"
       }
     },
     "rbd.scheduling.topo_clear3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_clear3d.ascend.json",
-        "sha256": "f66197aae7d968abfcb503a209bae8a70ce2e58f4c483f040a9d26dfae8f6084"
+        "sha256": "95d772ec68d726ad055a4fd48003bc96818b7c5713c1ce5d3717004a06f14188"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_clear3d.c.json",
-        "sha256": "519c07eb559b6314089f2eee32320d66fb27d97531ec01522513b4190724403c"
+        "sha256": "be5aa33163fde4130c28155d68438197656836af052a4f2a585cb3f7f93be0ce"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_clear3d.metal.json",
-        "sha256": "0053a63324430e614d25c12812abd0c674828923b6fc3c67f7947c5740183eb6"
+        "sha256": "7e2023fce300d85d27aad612bb5291e1ab100401850c676b27bee7aa4ce7d6c8"
       }
     },
     "rbd.scheduling.topo_completion3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_completion3d.ascend.json",
-        "sha256": "648ea4ef288d2df045ea8e008757eba43e63dd128d04cb36e4e249d8d445359e"
+        "sha256": "cee80f4d4e95c7522a59f6889109c8d94094bf0b03eeb8a3c8eb9f3a59f13054"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_completion3d.c.json",
-        "sha256": "d4f32e0858fcacd9a7901d924e6fbadc6e65cfb6fce96053d154148b5220e13e"
+        "sha256": "4f533987576b7387607b2ee21f46513822ae7f77926812ed1ce9f6dbea0ceb8b"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_completion3d.metal.json",
-        "sha256": "28f0883a9c2fe7b0acece863e96b555c5336e7826160d22d3af8fed83fa7b3f0"
+        "sha256": "433ccd670e73206dae017f8aadc0b674a6005ddbb20334901a0c9abd5ea8ae88"
       }
     },
     "rbd.scheduling.topo_finalize3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_finalize3d.ascend.json",
-        "sha256": "b51e43d67a25a4636c15a4b7c496e9b1736a394a7f5f90bc89523ee46c71289f"
+        "sha256": "92aafbba814ad29072fac1af869d4c5c5d4274c45f386c2772cbb63c1b54b995"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_finalize3d.c.json",
-        "sha256": "79eca5d61d1bec683badfbcd159c289898630c356224f67aa961bab59077a83f"
+        "sha256": "a8115d53eb2ce47736c8fb09752467b871fe547552d1bbb6984f5ad1c230e34e"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_finalize3d.metal.json",
-        "sha256": "4f4f07a2d37e865053b95efe9f0dc2a9b23d4e6d69bdf2c67e88852c7606ea1f"
+        "sha256": "4277d4e4002d92f134dc916529fa7aa19a0dc44842df4c66d3ce2bca3839b77e"
       }
     },
     "rbd.scheduling.topo_fix3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_fix3d.ascend.json",
-        "sha256": "b66a9c147bd5c372d6006213e184c53495c9d6960004ab8d68ee18a11f563f88"
+        "sha256": "ba6274872d3e6931d4c5f66d0b71fd84f3381f500dae1768d659d9b7191e0ab8"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_fix3d.c.json",
-        "sha256": "cba576b4583da04382e010214f79ac542d74fae8f55fd8c02453a64e6c2043b9"
+        "sha256": "53f77de3597011754cf74eac27f645a2ab19400233a70b57ced6c01ae3dbb497"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_fix3d.metal.json",
-        "sha256": "c3702a2f4eb0abeba97686ca30ff29ec596a9b347c8d9c2627ed5e89ef43159b"
+        "sha256": "e54d76666608354b51a4b8c8d392329c647969f7e21fe2ea469e83c7ce7c9227"
       }
     },
     "rbd.scheduling.topo_reset3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_reset3d.ascend.json",
-        "sha256": "6189c0616ea308c182f5087c42d30966555494b1823027b4394ba9219715d508"
+        "sha256": "b9fffeb06c53abd365437a61254f845c0f5c59cf229ff45dd504c8ad2d6ec825"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_reset3d.c.json",
-        "sha256": "92f63721d2de3500529e898c374aa902b5c3fd30265c05b4be5920d252dcd1e2"
+        "sha256": "cd5b5bf0fcc5eab8b84a78a627effc2f3c6072bae1ad05be12f9d9750b1ca52c"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_reset3d.metal.json",
-        "sha256": "9fd92a44c42f55cc8924883c567f74342b1858e44acfa5de9a3fbda01958a3a8"
+        "sha256": "cc9e18114e5760bd0c3bbfbf7595989fc9fb491d6a5fe95e33bc94d91afda95f"
       }
     },
     "rbd.scheduling.topo_step3d": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_step3d.ascend.json",
-        "sha256": "2fcdf22fc2118e16566b86b19f508639a9a7a6da5e4eb0a31e4304021a5d43d2"
+        "sha256": "445f42a081e15a75afe8c607f1d3db4e29c9c68b9e08f2495d7ae6b2e08dd9df"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_step3d.c.json",
-        "sha256": "55242eb4dd9031cdd5f1b18767a9a8c53bfd5291b22419b9d637379e17997df0"
+        "sha256": "70a11ce09c22488d0a1acf9c96d74e6bed5ffaae22fb8ed4d9bdf848c58cc738"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.scheduling.topo_step3d.metal.json",
-        "sha256": "ac9eb461c4a5e317e37bb4c38e60a5987c15988ed2de105772f0eb08f013d648"
+        "sha256": "d0060ecb7d649cb7a3dfb56844b9f768d1ca3e8b53aa19f852d1ec48e5582240"
       }
     },
     "rbd.utils.prefix_add": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_add.ascend.json",
-        "sha256": "1577cc3e1694760c590d123b65e801963de5b7c875bd7ee68bcde04a46acca21"
+        "sha256": "a3e13f958f8a07e879677556f3696edddb41f83cac6f01af66f99932c7063c13"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_add.c.json",
-        "sha256": "befe34c4100ae19fa1ec142a937f437754f3b9c3b3eab053af59935de9936bef"
+        "sha256": "6f52705ef55c9bb5753d16e1143c024685f9522344f002a50eafcdd5b2c8e3a5"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_add.metal.json",
-        "sha256": "2a89ead574d5bd0ccc986f5ec47c3b0ca853f8d8adb71e14eab720652d4ea988"
+        "sha256": "65636a212c7b425d793283bf9a71069a56ceff477d0be90168335603fb6a7a90"
       }
     },
     "rbd.utils.prefix_scan": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_scan.ascend.json",
-        "sha256": "bc9afdd1af3b6b1a8491982d0a5919e45d67b9c4e8c09296c96ed9976f397458"
+        "sha256": "460604b38e5e20c4b13b6a803b34ac98eae52f9128851796498c8e1ce4cd4df0"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_scan.c.json",
-        "sha256": "44241c950981383e5b2bd02143f6f0287c734d452fa7f716019efd9a73f8ba8a"
+        "sha256": "34b2ce7a412c22a17b81fbf9abd9d5aaa240e41c6b5acc9b736f617031c47ae4"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_scan.metal.json",
-        "sha256": "56daf4f98f22e2720042746b4e1fb90b3cf413b9bf4d26d450d9562724b78a90"
+        "sha256": "96f4177cd0cec270774d2aafdaec5e440010c246b940638c5ee2d57a3f9fb9b3"
       }
     },
     "rbd.utils.prefix_sweep": {
       "ascend": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_sweep.ascend.json",
-        "sha256": "d4cf3f8b7f54f8e4706692403f23c218d7461c3c6656d38524b8d96421d672b0"
+        "sha256": "0583332164c6a1dd25508e645f2bb9be20271fd6fa34aab763f48e55ecc7116d"
       },
       "c": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_sweep.c.json",
-        "sha256": "5efd20655d92b8872597050d024aa88e7907052c60f8a60a9c91a031ea8a5a11"
+        "sha256": "bc291d02773a1bf6e469e71208d48a29fbb990ad4b9b6d90de9fac0eee085126"
       },
       "metal": {
         "path": "ports/tilelang/evidence/rbd.utils.prefix_sweep.metal.json",
-        "sha256": "2cdd0ba9f3c60959dd266ed100d12312301fb97b7994b752869f40aecc40b9ab"
+        "sha256": "6da9565cf50d601188720962698f3bd214726ba43427341af96474b1ac5e92cc"
       }
     }
   },
@@ -668,13 +738,17 @@
       ".github/workflows/tilelang.yml": "65c1b585d37388eb0bdf40f9d4230406a4e8b44388f3e079519b2e46bd80e169",
       "AGENTS.md": "5fb95e93ac8a5360463e47d0db9afc08f2c7ad13f1e302053a6b5e26947fa677",
       "ports/tilelang/AGENTS.md": "13fb3655092847e9350c0180d0caf80fec46c7aecb1c5f1215a28ac6f340a2a1",
-      "ports/tilelang/COMPLETION.md": "4ab381237b4c531673d42d647a9707873cc2d043cb62cf6b476a68fc460505ad",
+      "ports/tilelang/COMPLETION.md": "08a120de9519a13095851e60bee9deb35830c3426f3f4a343056fca53d160d8c",
       "ports/tilelang/HANDOFF.md": "b96f16fffc3382c7070a01c18b4ec7acffcebdbe237d360d31b9f308b152cecb",
       "ports/tilelang/body_kernels.py": "58a2187f6201cbccf9f49166cd391bc9e6b6e749b461a3c39a743cf2003f78a7",
       "ports/tilelang/body_replay.py": "53e01f94404afc200a99b48917feed8e3e01267e9d7dc5039b24bfb84082376f",
       "ports/tilelang/body_validation.py": "135e06d8977b5ed4292c63c133848d93a53473579cdd298d33311948d84cf817",
       "ports/tilelang/bucket_kernels.py": "b8ae949db9ae847cc005370012e7aab5ecd8b6b99ed9706708594bffce4c01fd",
       "ports/tilelang/bucket_replay.py": "090c84c5200cbf7283506e847f7b17324dd47c88b1fd5f67582f693c68e76125",
+      "ports/tilelang/coefficient_kernels.py": "e0ccb9fdd43d5771dfb31103639a3119c2e8a4d345849d513fe4ee9634be58ab",
+      "ports/tilelang/coefficient_replay.py": "a7547c0ff67797155656c3735842d058cfd9573480135f08f7480163342e7381",
+      "ports/tilelang/colored_kernels.py": "5ee1bbf33a477a5a34dd3bdb642251699c15cac17b0f7159dc1db259a1eaca5c",
+      "ports/tilelang/colored_replay.py": "b49cdae1c675fc732ff8d61c81862a4e0dcf0fefc27d642adf5666b1e7ba3468",
       "ports/tilelang/coloring_kernels.py": "635f0de0a2bb3e213c95562c57e8f7884c0a3fef0ae7d6dbcd9db2ee7746f193",
       "ports/tilelang/coloring_replay.py": "b81fc12239b4223527a53a04a61fca467e2dca960200c5882650f0bf5ea93a4c",
       "ports/tilelang/compiler.lock.json": "328632f9962f548b5597970c76b126139f8295bbecf504a47066288ccc195cfe",
@@ -692,6 +766,11 @@
       "ports/tilelang/contracts/bucket_reset.json": "912329ca121bbb1ea67feaa9415f4fb0ae8c52be21a98f32bbda433ab9810c26",
       "ports/tilelang/contracts/bucket_scatter.json": "d7f7a4fe1e829bad53e1f42f4136fae554cb7d9ae15877e9bd0439cda3d50cfb",
       "ports/tilelang/contracts/cleanup.json": "eb6c769756c16b270af58aa6826c5a6e05a9aa80343b85e88e87faa14019bdf7",
+      "ports/tilelang/contracts/colored_cached.json": "e8cccc219bc644a2653421ea57ec4fa0659f955ae3d0a8bae3e87522da8f84a8",
+      "ports/tilelang/contracts/colored_program.json": "e3f970ac3162e315f8ceb3d4356642ca046c60218d20a23c26c2b223e7f66f07",
+      "ports/tilelang/contracts/colored_solve.json": "dd2cd177ee0e54b747c8338103ce59c9621d1940c29ddf01a8c31c57daa5a2c9",
+      "ports/tilelang/contracts/colored_warmstart.json": "fc237f5be8fd1ca5d52f27be3f130e96aa62f4df56f18bfdc5bd7e53aad0ebf5",
+      "ports/tilelang/contracts/contact_coefficients.json": "758d8e43aefee1ad88788cbcd455548de676a3071cbd0897a198d60a5a6a2a93",
       "ports/tilelang/contracts/contact_persistence.json": "3cc765d53b0ef3a6c4b0ea9d6c9fd80be5d3bae88f984c619947022027f54ca4",
       "ports/tilelang/contracts/effective_mass.json": "fb80c9138d02c1d99a63acf35c17d249fae4ce0f5ce8a5a6cab28461f3db6971",
       "ports/tilelang/contracts/finalize.json": "3f09c7f585302b4d6c012fa5908fce7ec580934b102d21f949e5adb568232ef4",
@@ -730,10 +809,10 @@
       "ports/tilelang/cpu_oracle.py": "32a8237ddbfc60b4b33d7425380eac496a30ddcc78a2607cf7135d9a61ef6a80",
       "ports/tilelang/graph_kernels.py": "4d3afd6624779384083827c5517a849feab7f725be3d91fbae031c70e25db048",
       "ports/tilelang/graph_replay.py": "1125ea9978a0eed59485313be7b1bbe9b98a8fcdc13fc27a18758f1462783dcf",
-      "ports/tilelang/handoff.py": "dba933fc1d988ae49ebebd909a75e8b641e548a39a940f23ae15c333b9f4e816",
+      "ports/tilelang/handoff.py": "e88946e9394ed6ab63ac968e93350983594539f2eff6dc8fa369b50e6db6eabd",
       "ports/tilelang/hub_kernels.py": "ff57fd23ddc5245fb4eeb220e9d76288101686e3566fc56e36db9800a7e82441",
       "ports/tilelang/hub_replay.py": "d8e1547f30a81ca6d00b1cce35c6877961f67a5a8f1c289ae9fff726de520adc",
-      "ports/tilelang/inventory.json": "66eb90b96ca6bbf30294cbbe6296c84e352a7eb22890848a00ff042f0a1eb695",
+      "ports/tilelang/inventory.json": "614f229ebf45a8b365668edab1ecd61fa448cafc1f6c316e705039ffcd29c520",
       "ports/tilelang/inventory.py": "646aa275c28b6fd17424f8d32c64d74a31f75376fe75496916e43e09b3052ce5",
       "ports/tilelang/kernel_support.py": "c9172e85861f530652d73057990268524d94935680a1d882651055162406c093",
       "ports/tilelang/kernels.py": "02172893f5f1601d42cd7cd9b7dbb786dcc9d1842227524ae0c053c194eb6ce5",
@@ -748,19 +827,21 @@
       "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
       "ports/tilelang/numerics.py": "22dbc8ef3c9abc652257cde5f6ee1f531d3c40d6cd6a66d4fe0b761a8befec4e",
       "ports/tilelang/ordered.py": "f385cff4afd88f6f41eec9d4deca23877273665a71c6eef745197a25226a0566",
-      "ports/tilelang/parity.json": "0da954f7c69e0cb956806a3263d291907ba174fae258aec7fa4c78fb28949628",
+      "ports/tilelang/parity.json": "decdb2b7bbd3ae9602472eb5a6cdfacf586c6a038c2ac7c0aada19070478bba6",
       "ports/tilelang/parity.py": "1ce2534d5a8e2c88b81fea6498a2da253de663f2b8a3ad1436c6269f803b4b95",
       "ports/tilelang/pose_kernels.py": "cec2d4d0ddcfb2cf6dfe7d9c719d1bcafbf8c92b57e67271a2528c6be0edac75",
       "ports/tilelang/pose_replay.py": "74ae707c0bd45e29bb82f61c08307fdc6af79f6ca592456c4187985f929e8c2b",
       "ports/tilelang/primitive_kernels.py": "63edee78b75f8cfb4aef8ad320ad7a329cee9772fb79a4a9f4e1340dd857dac1",
       "ports/tilelang/primitives.py": "08230822daacfe398e7febf17f8f3e65de649016c6edf928bd67a09913064886",
       "ports/tilelang/reference/Cargo.lock": "dd3c9235708a1e2ef16c3cefbf85a3f56ef22145f503409663199ef4b2c8ad7d",
-      "ports/tilelang/reference/Cargo.toml": "9daf05b9153fe5d70b14d43dfc22d39de46e3ecfbc04cdbe4496e073924131ef",
+      "ports/tilelang/reference/Cargo.toml": "e904c6b7ef1450cf6b316e23527242073fa741077868e88ddfe9259df4c35e02",
       "ports/tilelang/reference/build.rs": "a707d175c57a4edccec3c77a52f766e51da6b13c60b9d9b7e9c57b865a23aa92",
       "ports/tilelang/reference/noalias_probe.rs": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
       "ports/tilelang/reference/rust-toolchain.toml": "887f9be066a15585a2c583578e84b0fcb541126d81546276bad3d2ff00d61167",
       "ports/tilelang/reference/src/bodies.rs": "1070d153a007844671940dcf94069d7c9153db6ed3efdbe4504bda959251023a",
       "ports/tilelang/reference/src/buckets.rs": "a114c50ad9dd770e67817cac83115cdc448b65f373844448439d21ab283f45b2",
+      "ports/tilelang/reference/src/coefficients.rs": "51d1375376c0bc000ba484e2de4e49185ab51c2053952120a1d53616049fda48",
+      "ports/tilelang/reference/src/colored.rs": "1f46c9c1496bcd5257894166e09474b54297af15c0c1f9cf9936306d645ec832",
       "ports/tilelang/reference/src/colorings.rs": "797e5c3f454d45cf314a03cc5c235ee08310e3ae8729b8d6bcf7560e2fb37766",
       "ports/tilelang/reference/src/contacts.rs": "3fd0b5d20c5c0cfcc76b51152abc75d6e24daab4e4dde15aaa142c89095d04cd",
       "ports/tilelang/reference/src/cpu_dispatch_check.rs": "7dacc203954ad4f60046de911e9b977a71beda8856c5e57a5a0d7d4f3ee363d2",
@@ -791,18 +872,20 @@
       "ports/tilelang/shaders/dynamics/coulomb_tiles.py": "85c7e58d444a6c82c56f36624f9c8a21ec93a626b615a771fc8a3510a2fbe1a6",
       "ports/tilelang/shaders/dynamics/mass_splitting.py": "5bbddfd4a43ab224466544ddfed8351c6a762809a70a50778c5286e18e9cfe96",
       "ports/tilelang/shaders/dynamics/mprops_update.py": "b088a327949de45d3d7be4db4b8ecff194e52f69da6e34f8d51458305b6a02fc",
+      "ports/tilelang/shaders/dynamics/sim_params.py": "bd5a2ed9c6076663c4ba8596a6651f8f9faea92d6c17091226da747ebda3fde1",
       "ports/tilelang/shaders/dynamics/solver.py": "465c55a4c102453cfd206f2c96fe9e9f3a5400655df7ea393c6d5c16e991207e",
-      "ports/tilelang/shaders/dynamics/solver_utils.py": "0090d0e36f594a3f510fafc71e4a48dc7b9c336d81ba38628c94c28863e2eb38",
-      "ports/tilelang/shaders/dynamics/tile_kernels.py": "f30db9031235a227931e08e11bad3cf3e1567b1f41fac67bdc9853bcc997d725",
+      "ports/tilelang/shaders/dynamics/solver_utils.py": "bbbd45bf07467477d1488df9c3debf2cedec5a4883f977a9373cf20cd4ab7b5e",
+      "ports/tilelang/shaders/dynamics/tile_kernels.py": "919474bdd0447baab1d64ef3285db08292bea2a047985153c791ae487898bf14",
       "ports/tilelang/shaders/utils/prefix_sum.py": "5c51da0e79840eee44abb35a5782eb2409a61713e2092d865ed87e466f03ad87",
       "ports/tilelang/stage_replay.py": "dadfb5499870c21421c0c59102eaeb4997258c4b3f3210b9d917ec744473c610",
       "ports/tilelang/tests/test_bodies.py": "ffd41418937f93499a7cfa56cc26d29c353830c90bad54dd185a952b117d2c95",
       "ports/tilelang/tests/test_buckets.py": "c7c841235130bfebd5dad9c169d4b81bd234ae78b4b2a7927e11dec958e46cba",
+      "ports/tilelang/tests/test_colored.py": "ff16fe83385a27987d9557e14375b24c720d0a7dfcc2bbfc9adcd42f68fcc2ca",
       "ports/tilelang/tests/test_colorings.py": "497a34e281a033386375eb1051f2f0d0aa87f0f23d43f44db91a005bed0ff8c0",
       "ports/tilelang/tests/test_contacts.py": "886e534a5a3e2049b3910e8940a79548ebb27d23f21c95b2e9d6999a8e096b70",
       "ports/tilelang/tests/test_cpu_oracle.py": "992829a7c75bd7edf2a0e1d4a4e1ff8a9d9074385c79b2ae69f2e4c4a598abf9",
       "ports/tilelang/tests/test_graphs.py": "4c6d358765e17b6203670f862b5e88ca8863d0fb25ddd54ea74a6de4b5af7822",
-      "ports/tilelang/tests/test_handoff.py": "9dd159cfeffd7873196057d446193d010598d3d448a6d6cbd80cb18d4a1ab398",
+      "ports/tilelang/tests/test_handoff.py": "55ec57df5229cfa497c1213d48e491433377c4c1a5b1e8713c78a2b65334f621",
       "ports/tilelang/tests/test_hubs.py": "22067602fa3ad0c75e7fa0ba5fd4914dfcdce47090cbb381af02c75daf4814d1",
       "ports/tilelang/tests/test_inventory.py": "f3288b3793403e871908f1d7ff00544478c1dec0fbacb4c149c45d090b0dae79",
       "ports/tilelang/tests/test_links.py": "dc4e644e4fb0976e95eebdef443136e44d28f8fb48ff35362b5cc5a16b5c41c5",
