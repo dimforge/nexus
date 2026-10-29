@@ -3,6 +3,7 @@
 #[path = "contacts.rs"]
 mod contacts;
 use contacts::pilot;
+mod dispatch;
 use khal::backend::{GpuBackend, GpuBuffer, GpuPass};
 use nexus_rbd_shaders3d::{
     dynamics::{
@@ -127,7 +128,7 @@ impl Graph {
         kernel
             .call(
                 &mut GpuPass::Cpu(None),
-                [groups, 1, 1],
+                dispatch::workgroups([groups, 1, 1]),
                 &mut velocities,
                 &GpuBuffer::Cpu(self.list.clone()),
                 &GpuBuffer::Cpu(self.first.clone()),

@@ -1,4 +1,5 @@
 //! Exercise real shared-memory shader dispatch in both debug and optimized builds.
+mod dispatch;
 use khal::backend::{GpuBackend, GpuBuffer, GpuPass};
 use nexus_rbd_shaders3d::dynamics::{GpuHubAverage, HubCounts, Velocity};
 use nexus_rbd_shaders3d::glamx::Vec3;
@@ -66,7 +67,7 @@ fn check_average(degrees: &[u32], groups: u32) {
         kernel
             .call(
                 &mut GpuPass::Cpu(None),
-                [groups, 1, 1],
+                dispatch::workgroups([groups, 1, 1]),
                 &mut velocities,
                 &list,
                 &first,
