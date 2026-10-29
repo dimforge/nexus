@@ -23,6 +23,11 @@ OPERATIONS = (
 )
 
 
+def dispatch_count(case):
+    """Cleanup covers slot capacity; other entry points cover active bodies."""
+    return case["slots"] if case["kind"] in ("cleanup", "free_step") else case["count"]
+
+
 def validate_case(layout, case, arrays):
     import numpy as np
 

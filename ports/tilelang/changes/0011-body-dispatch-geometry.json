@@ -1,0 +1,28 @@
+{
+  "id": "0011-body-dispatch-geometry",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Match body native dispatch metadata to the compiled active-body range while retaining full-capacity cleanup launches.",
+  "regressions": [
+    "63 active bodies with 65 slots require one group for ordinary stages and two groups for cleanup/composition; assert the exported binding manifest records those exact counts."
+  ],
+  "differences": [
+    "The prior manifest over-dispatched inactive groups for some standalone body stages. Bounds guards preserved output correctness; this removes unnecessary groups and makes vendor handoff metadata match the specialization. Physics and tolerances are unchanged."
+  ]
+}

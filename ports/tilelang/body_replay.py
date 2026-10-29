@@ -20,7 +20,13 @@ from replay import (
     write_json,
 )
 
-from body_validation import BUFFERS, OPERATIONS, validate_case, check_outputs
+from body_validation import (
+    BUFFERS,
+    OPERATIONS,
+    dispatch_count,
+    validate_case,
+    check_outputs,
+)
 
 
 def main():
@@ -132,7 +138,7 @@ def main():
                 "buffers": order,
                 "storage_buffers": list(BUFFERS),
                 "buffer_bytes": {n: a.nbytes for n, a in before.items()},
-                "blocks": max((case["slots"] + 63) // 64, 1),
+                "blocks": max((dispatch_count(case) + 63) // 64, 1),
                 "threads": 64,
                 "iterations": case["iterations"],
             }

@@ -57,6 +57,23 @@ class BodyTests(unittest.TestCase):
                     self.load(operation, index)
                     self.check()
 
+    def test_native_geometry_matches_specialized_active_range(self):
+        root = Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+        for operation in OPERATIONS:
+            self.load(operation, 2)  # 63 active bodies, 65 allocated slots.
+            bindings = json.loads(
+                (
+                    root
+                    / operation
+                    / "c/fixtures"
+                    / operation
+                    / self.case["name"]
+                    / "bindings.json"
+                ).read_text()
+            )
+            expected = 2 if operation in ("cleanup", "free_step") else 1
+            self.assertEqual(bindings["blocks"], expected)
+
     def test_padding_counter_and_input_writes_rejected(self):
         self.load()
         for name, index in (

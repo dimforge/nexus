@@ -1,6 +1,7 @@
 """Launch adapters and no-contact composition; physics stays in mirrored modules."""
 
 import tilelang.language as T
+from body_validation import dispatch_count
 from shaders.dynamics import solver
 
 
@@ -12,7 +13,7 @@ def make_kernel(layout, case, target):
     apply_inc = solver.gpu_apply_solver_vels_inc(layout, case)
     finalize = solver.gpu_solver_finalize(layout, case)
     integrate = solver._integrate_linearized_body(layout, case["count"])
-    n = case["slots"] if kind in ("cleanup", "free_step") else case["count"]
+    n = dispatch_count(case)
     storage = case["storage"]
     nv = storage * layout["velocity_words"]
     np = storage * layout["pose_words"]
