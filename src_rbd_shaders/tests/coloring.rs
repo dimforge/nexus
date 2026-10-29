@@ -124,3 +124,6 @@ fn conflict_pruning_matches_full_graph_with_seeded_and_pending_colors() {
         }
     }
 }
+
+#[path = "coloring_luby.rs"]
+mod luby;

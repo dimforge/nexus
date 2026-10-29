@@ -68,3 +68,7 @@ path = "src/graphs.rs"
 [[bin]]
 name = "buckets"
 path = "src/buckets.rs"
+
+[[bin]]
+name = "colorings"
+path = "src/colorings.rs"

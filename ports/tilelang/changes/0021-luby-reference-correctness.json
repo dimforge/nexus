@@ -1,0 +1,61 @@
+{
+  "id": "0021-luby-reference-correctness",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d",
+    "rbd.contact.coulomb.scale_impulses3d",
+    "rbd.contact.coulomb.gather_warmstart3d",
+    "rbd.contact.coulomb.hub_warmstart3d",
+    "rbd.scheduling.hub_assign3d",
+    "rbd.scheduling.hub_split3d",
+    "rbd.scheduling.hub_dispatch3d",
+    "rbd.scheduling.hub_scatter3d",
+    "rbd.scheduling.hub_average3d",
+    "rbd.utils.prefix_sweep",
+    "rbd.utils.prefix_add",
+    "rbd.utils.prefix_scan",
+    "rbd.scheduling.adjacency_count3d",
+    "rbd.scheduling.adjacency_scatter3d",
+    "rbd.scheduling.adjacency_build3d",
+    "rbd.scheduling.bucket_reset3d",
+    "rbd.scheduling.bucket_count3d",
+    "rbd.scheduling.bucket_scatter3d",
+    "rbd.scheduling.bucket_dispatch3d",
+    "rbd.scheduling.bucket_build3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "test",
+    "tooling"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Fix Rust Luby current-round priority filtering and make its GPU hash wrapping arithmetic explicit.",
+  "regressions": [
+    "Both new regressions were first executed against the unmodified Rust CPU oracle and failed with noalias disabled",
+    "A four-node conflict clique checks all 24 invocation orders, two priority/tie profiles and both fresh/previously colored states (96 schedules)",
+    "129 hash inputs run the actual reset entry point and compare against independent u64 modulo arithmetic",
+    "The same regression source is included by the Rust shader test module and the pinned CPU oracle; debug and release tests pass after the fix"
+  ],
+  "differences": [
+    "Reference bug fix: neighbors colored in the current round remain in the priority comparison; only earlier colors are excluded. This prevents adjacent nodes taking the same current color when one invocation observes another winner.",
+    "Reference bug fix: wrapping_mul expresses the existing intended modulo-2^32 GPU hash and prevents checked CPU overflow panics; GPU arithmetic is unchanged.",
+    "No floating-point arithmetic or tolerance changes. The TileLang coloring implementation will be added in a subsequent classified record and compared to this corrected reference.",
+    "New live Rust coloring fixtures prepare independent reset, flag, step and conflict-pruning phase inputs for that port."
+  ]
+}

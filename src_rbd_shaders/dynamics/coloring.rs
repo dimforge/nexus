@@ -28,10 +28,11 @@ const PENDING_COLORED: u32 = 2;
 /// weights from constraint indices.
 #[inline]
 fn hash(packed_key: u32) -> u32 {
+    // The GPU hash is modulo 2^32, including in checked CPU oracle builds.
     let mut key = packed_key;
-    key *= 0xcc9e2d51;
+    key = key.wrapping_mul(0xcc9e2d51);
     key = key.rotate_left(15);
-    key *= 0x1b873593;
+    key = key.wrapping_mul(0x1b873593);
     key
 }
 
@@ -162,6 +163,9 @@ pub fn gpu_step_graph_coloring_luby(
 
             let mut is_greatest = true;
 
+            // A winner from this round still participates in the priority test.
+            // Ignoring it after its store would let a smaller neighbor take the
+            // same color later in this dispatch. Only earlier colors are excluded.
             // Traverse all constraints from body A.
             for j in first_constraint_id_a..last_constraint_id_a {
                 if !is_greatest {
@@ -175,7 +179,7 @@ pub fn gpu_step_graph_coloring_luby(
                 // NOTE: the equality in i >= j is important here to account for the fact we will iterate
                 //       through the current constraint's index too.
                 is_greatest = is_greatest
-                    && (color_j != MAX_U32
+                    && ((color_j != MAX_U32 && color_j != color)
                         || rand_i > rand_j
                         || (rand_i == rand_j && constraint_i >= constraint_j));
             }
@@ -193,7 +197,7 @@ pub fn gpu_step_graph_coloring_luby(
                 // NOTE: the equality in i >= j is important here to account for the fact we will iterate
                 //       through the current constraint's index too.
                 is_greatest = is_greatest
-                    && (color_j != MAX_U32
+                    && ((color_j != MAX_U32 && color_j != color)
                         || rand_j < rand_i
                         || (rand_i == rand_j && constraint_i >= cid));
             }
