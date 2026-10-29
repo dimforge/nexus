@@ -429,19 +429,42 @@ fn fixture(
         );
     }
     outputs!(".expected");
-    let sizes: serde_json::Map<String, Value> = fs::read_dir(&dir)
-        .unwrap()
-        .map(|e| e.unwrap().path())
-        .filter(|p| {
-            p.extension().is_some_and(|e| e == "bin") && !p.to_string_lossy().contains(".expected.")
-        })
-        .map(|p| {
-            (
-                p.file_stem().unwrap().to_str().unwrap().to_owned(),
-                json!(fs::metadata(p).unwrap().len() / 4),
-            )
-        })
-        .collect();
+    // Only explicitly exported inputs define the ABI. Replay outputs and other
+    // retained artifacts in this directory must not enter the next manifest.
+    let sizes: serde_json::Map<String, Value> = [
+        "Poses",
+        "SolverPoses",
+        "Velocities",
+        "SolverVelocities",
+        "Increments",
+        "WorldMass",
+        "LocalMass",
+        "Counts",
+        "FirstSlot",
+        "HubCounts",
+        "Tiles",
+        "RbdParams",
+        "Gravity",
+        "BatchIds",
+        "Buckets",
+        "Links",
+        "Contacts",
+        "States",
+        "OldTiles",
+        "Color0",
+        "Color1",
+        "Color2",
+        "Mode",
+        "Params",
+    ]
+    .into_iter()
+    .map(|name| {
+        (
+            name.to_owned(),
+            json!(fs::metadata(dir.join(format!("{name}.bin"))).unwrap().len() / 4),
+        )
+    })
+    .collect();
     json!({"name":label,"kind":"tgs_frame","count":n,"body_count":active,"body_storage":storage,"contact_storage":capacity,"batches":nb,"columns":columns,"levels":levels,"substeps":substeps,"pgs":pgs,"mode":mode,"scale_warmstart":warmstart!=1.,"storage":capacity,"bodies":storage,"states":capacity,"new_base":0,"tiles":tiles_len,"old_tiles":tiles_len,"groups":cg,"iterations":1,"buffer_words":sizes})
 }
 fn main() {
@@ -528,4 +551,41 @@ fn coefficient_fixtures(root: &Path) {
         cases.push(json!({"name":format!("p{kind}"),"kind":"body_coefficients","count":6,"iterations":3,"buffer_words":{"RbdParams":size_of::<RbdSimParams>()/4,"Gravity":4,"Params":9}}));
     }
     pilot::write_json(root.join("suite.json"), &json!({"cases":cases}));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_export_ignores_saved_runtime_outputs() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("nexus-tgs-export-{}-{nonce}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let first = fixture(&root, "repeat", 1, 1, 1, 4, 1, 1, 1., 1.);
+        let directory = root.join("repeat");
+        let state = fs::read(directory.join("Velocities.expected.bin")).unwrap();
+        fs::write(
+            directory.join("Velocities.actual.bin"),
+            b"saved device output",
+        )
+        .unwrap();
+        fs::write(directory.join("unrelated.bin"), b"keep this artifact").unwrap();
+        let second = fixture(&root, "repeat", 1, 1, 1, 4, 1, 1, 1., 1.);
+        let actual_preserved = fs::read(directory.join("Velocities.actual.bin")).unwrap();
+        let unrelated_preserved = fs::read(directory.join("unrelated.bin")).unwrap();
+        let second_state = fs::read(directory.join("Velocities.expected.bin")).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(
+            first, second,
+            "Replay artifacts must never become native inputs"
+        );
+        assert_eq!(state, second_state);
+        assert_eq!(actual_preserved, b"saved device output");
+        assert_eq!(unrelated_preserved, b"keep this artifact");
+    }
 }
