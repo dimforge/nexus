@@ -14,6 +14,8 @@ import subprocess
 import sys
 import tomllib
 
+from inventory import audit
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 PORT = Path("ports/tilelang")
@@ -160,6 +162,7 @@ def saved_evidence(baseline, config):
 def status(root, extra_evidence=()):
     config = manifest(root)
     current = evidence_inputs(root)
+    inventory = audit(root, config)
     baseline_path = root / PORT / "baseline.json"
     baseline = read_json(baseline_path) if baseline_path.exists() else {}
     previous = baseline.get("inputs", {"reference": {}, "implementation": {}})
@@ -218,6 +221,7 @@ def status(root, extra_evidence=()):
         if source_current
         else [f["id"] for f in config["features"]],
         "features": config["features"],
+        "inventory": inventory,
         "feature_backends": matrix,
         # Compatibility alias for existing single-operation consumers only.
         "backends": matrix[config["features"][0]["id"]],
@@ -225,6 +229,11 @@ def status(root, extra_evidence=()):
             gap
             for f in config["features"]
             for gap in feature_contract(root, f).get("known_gaps", [])
+        ]
+        + [
+            {"id": c["id"], "description": c["remaining"], "blocks_release": True}
+            for c in inventory["capabilities"]
+            if c["coverage"] != "complete"
         ],
     }
 
@@ -233,6 +242,9 @@ def reconcile(root, change_path, evidence_paths):
     root = root.resolve()
     config = manifest(root)
     current = evidence_inputs(root)
+    inventory = audit(root, config)
+    if inventory["errors"]:
+        raise ValueError("Inventory needs review: " + "; ".join(inventory["errors"]))
     change_path = change_path.resolve()
     if not change_path.is_relative_to((root / PORT / "changes").resolve()):
         raise ValueError("Change records must live in ports/tilelang/changes")
@@ -299,6 +311,20 @@ def reconcile(root, change_path, evidence_paths):
         ],
         check=True,
     )
+    if "inventory" in config:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                str(root / PORT / "tests"),
+                "-p",
+                "test_inventory.py",
+            ],
+            check=True,
+        )
     if evidence_inputs(root) != current:
         raise ValueError("Sources changed during reconciliation")
     baseline_path = root / PORT / "baseline.json"
@@ -333,6 +359,13 @@ def main():
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--evidence", type=Path, action="append", default=[])
     parser.add_argument(
+        "--evidence-dir",
+        type=Path,
+        action="append",
+        default=[],
+        help="Read every report.json under a replay result root; failed reports are rejected",
+    )
+    parser.add_argument(
         "--require", action="append", choices=manifest(ROOT)["targets"], default=[]
     )
     parser.add_argument(
@@ -343,6 +376,11 @@ def main():
     parser.add_argument("--change", type=Path)
     args = parser.parse_args()
     try:
+        for directory in args.evidence_dir:
+            reports = sorted(directory.rglob("report.json"))
+            if not reports:
+                raise ValueError(f"No reports in {directory}")
+            args.evidence.extend(reports)
         if args.command == "reconcile":
             if args.change is None:
                 parser.error("reconcile requires --change")
@@ -357,6 +395,8 @@ def main():
                 for action, paths in diff.items():
                     for path in paths:
                         print(f"  {kind} {action}: {path}")
+            for error in result["inventory"]["errors"]:
+                print(f"Inventory error: {error}")
             for gap in result["known_gaps"]:
                 print(f"Known gap: {gap['id']}: {gap['description']}")
             for feature, targets in result["feature_backends"].items():
@@ -369,6 +409,7 @@ def main():
                     args.release
                     and any(g.get("blocks_release") for g in result["known_gaps"])
                 )
+                or bool(result["inventory"]["errors"])
                 or result["source_reconciliation"] != "current"
                 or any(
                     backends[t]["state"] != "executed"

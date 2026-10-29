@@ -1,0 +1,1039 @@
+{
+  "schema": 1,
+  "scope": "Rust rigid-body shader module inventory and capability groups. Module presence is not full feature parity. MPM is outside this scope.",
+  "modules": [
+    {
+      "reference": "src_rbd_shaders/bounding_volumes/aabb.rs",
+      "implementation": "ports/tilelang/shaders/bounding_volumes/aabb.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/bounding_volumes/mod.rs",
+      "implementation": "ports/tilelang/shaders/bounding_volumes/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/broad_phase/brute_force.rs",
+      "implementation": "ports/tilelang/shaders/broad_phase/brute_force.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/broad_phase/lbvh.rs",
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/broad_phase/mod.rs",
+      "implementation": "ports/tilelang/shaders/broad_phase/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/broad_phase/narrow_phase.rs",
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/body.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/body.py",
+      "coverage": "partial",
+      "operations": [
+        "rbd.body.integrate_linearized3d"
+      ],
+      "symbols": [
+        "integrate_linearized"
+      ],
+      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/canonical_order.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/canonical_order.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/color_buckets.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/color_buckets.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/coloring.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/constraint.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/constraint.py",
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.coulomb.effective_mass3d"
+      ],
+      "symbols": [
+        "compute_effective_masses"
+      ],
+      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/contact_links.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/contact_links.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/contact_tiles.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/contact_tiles.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/coulomb_tiles.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/coulomb_tiles.py",
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.coulomb.solve3d"
+      ],
+      "symbols": [
+        "validate_layout"
+      ],
+      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/joint.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/joint.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/joint_constraint.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/joint_constraint.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/joint_constraint_builder.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/joint_constraint_builder.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/mass_splitting.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/mass_splitting.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/mod.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/mprops_update.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/mprops_update.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/compute_dynamics_pre.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/compute_dynamics_pre.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/contact_constraints.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/contact_constraints.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/contact_sensor.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/contact_sensor.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/crba.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/crba.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/env_reset.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/env_reset.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/gravity_and_lu.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/gravity_and_lu.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/helper.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/helper.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/jacobians.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/jacobians.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/kernels.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/kernels.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/mod.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/types.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/types.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/update.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/update.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/integrate.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/integrate.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/jacobian.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/jacobian.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/joint_columns_simd.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/joint_columns_simd.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/joint_constraints.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/joint_constraints.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/link_static_soa.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/link_static_soa.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/lu.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/lu.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/lu_simd.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/lu_simd.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/mod.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/recursive_forces.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/recursive_forces.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/scatter_motor.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/scatter_motor.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/solve_constraints.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/solve_constraints.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/solve_simd.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/solve_simd.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/substeps_simd.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/substeps_simd.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/types.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/types.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/unroll.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/unroll.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/utils.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/utils.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/multibody/ws_soa.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/multibody/ws_soa.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/prep_render.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/prep_render.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/sim_params.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/sim_params.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/solver.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py",
+      "coverage": "partial",
+      "operations": [
+        "rbd.body.integrate_linearized3d"
+      ],
+      "symbols": [
+        "gpu_integrate_linearized"
+      ],
+      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/solver_utils.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/solver_utils.py",
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.coulomb.solve3d",
+        "rbd.contact.coulomb.warmstart3d"
+      ],
+      "symbols": [
+        "solve_points",
+        "warmstart_constraint"
+      ],
+      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/tile_kernels.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py",
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.coulomb.solve3d",
+        "rbd.contact.coulomb.warmstart3d"
+      ],
+      "symbols": [
+        "gpu_solve_constraints",
+        "gpu_warmstart_constraints"
+      ],
+      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/twist_friction.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/twist_friction.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/dynamics/twist_tiles.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/twist_tiles.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/lib.rs",
+      "implementation": "ports/tilelang/shaders/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/contact.rs",
+      "implementation": "ports/tilelang/shaders/queries/contact.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/contact_manifold.rs",
+      "implementation": "ports/tilelang/shaders/queries/contact_manifold.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/contact_pfm_pfm.rs",
+      "implementation": "ports/tilelang/shaders/queries/contact_pfm_pfm.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/gjk/cso_point.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/cso_point.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/gjk/epa2.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/epa2.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/gjk/epa3.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/epa3.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/gjk/gjk.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/gjk.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/gjk/mod.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/gjk/voronoi_simplex2.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/voronoi_simplex2.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/gjk/voronoi_simplex3.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/voronoi_simplex3.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/mod.rs",
+      "implementation": "ports/tilelang/shaders/queries/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/polygonal_feature.rs",
+      "implementation": "ports/tilelang/shaders/queries/polygonal_feature.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/projection.rs",
+      "implementation": "ports/tilelang/shaders/queries/projection.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/ray.rs",
+      "implementation": "ports/tilelang/shaders/queries/ray.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/queries/sat.rs",
+      "implementation": "ports/tilelang/shaders/queries/sat.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/capsule.rs",
+      "implementation": "ports/tilelang/shaders/shapes/capsule.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/cone.rs",
+      "implementation": "ports/tilelang/shaders/shapes/cone.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/convex_polyhedron.rs",
+      "implementation": "ports/tilelang/shaders/shapes/convex_polyhedron.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/cylinder.rs",
+      "implementation": "ports/tilelang/shaders/shapes/cylinder.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/mod.rs",
+      "implementation": "ports/tilelang/shaders/shapes/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/polyline.rs",
+      "implementation": "ports/tilelang/shaders/shapes/polyline.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/segment.rs",
+      "implementation": "ports/tilelang/shaders/shapes/segment.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/shape.rs",
+      "implementation": "ports/tilelang/shaders/shapes/shape.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
+      "implementation": "ports/tilelang/shaders/shapes/tetrahedron.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/triangle.rs",
+      "implementation": "ports/tilelang/shaders/shapes/triangle.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/shapes/trimesh.rs",
+      "implementation": "ports/tilelang/shaders/shapes/trimesh.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/coloring.rs",
+      "implementation": "ports/tilelang/shaders/tests/coloring.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/contact_constraints.rs",
+      "implementation": "ports/tilelang/shaders/tests/contact_constraints.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/contact_solver.rs",
+      "implementation": "ports/tilelang/shaders/tests/contact_solver.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/epa.rs",
+      "implementation": "ports/tilelang/shaders/tests/epa.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/gjk.rs",
+      "implementation": "ports/tilelang/shaders/tests/gjk.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/hub_split.rs",
+      "implementation": "ports/tilelang/shaders/tests/hub_split.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/linalg.rs",
+      "implementation": "ports/tilelang/shaders/tests/linalg.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/mod.rs",
+      "implementation": "ports/tilelang/shaders/tests/__init__.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/pfm_pfm.rs",
+      "implementation": "ports/tilelang/shaders/tests/pfm_pfm.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/tests/twist_friction.rs",
+      "implementation": "ports/tilelang/shaders/tests/twist_friction.py",
+      "coverage": "reference_test",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/basis.rs",
+      "implementation": "ports/tilelang/shaders/utils/basis.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/indices.rs",
+      "implementation": "ports/tilelang/shaders/utils/indices.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/linalg.rs",
+      "implementation": "ports/tilelang/shaders/utils/linalg.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/mod.rs",
+      "implementation": "ports/tilelang/shaders/utils/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/prefix_sum.rs",
+      "implementation": "ports/tilelang/shaders/utils/prefix_sum.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/init_batch_ids.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/init_batch_ids.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/init_indirect_dispatches.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/init_indirect_dispatches.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/mod.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/__init__.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/sort_count.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_count.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/sort_reduce.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_reduce.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/sort_scan.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scan.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/sort_scan_add.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scan_add.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/sort_scatter.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sort_scatter.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/radix_sort/sorting.rs",
+      "implementation": "ports/tilelang/shaders/utils/radix_sort/sorting.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    },
+    {
+      "reference": "src_rbd_shaders/utils/slice.rs",
+      "implementation": "ports/tilelang/shaders/utils/slice.py",
+      "coverage": "unported",
+      "operations": [],
+      "symbols": [],
+      "remaining": "No TileLang physics implementation."
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "rbd.body",
+      "description": "Free-body force accumulation, mass properties and pose/velocity lifecycle",
+      "coverage": "partial",
+      "operations": [
+        "rbd.body.integrate_linearized3d"
+      ],
+      "remaining": "Partial: clamped COM-centered integration only."
+    },
+    {
+      "id": "rbd.contact.coulomb",
+      "description": "Complete 3D Coulomb contact preparation and solution",
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.coulomb.solve3d",
+        "rbd.contact.coulomb.effective_mass3d",
+        "rbd.contact.coulomb.warmstart3d"
+      ],
+      "remaining": "Partial: prepared disjoint colors; no complete manifold preparation, cached gather, shared-static scheduling or recycling."
+    },
+    {
+      "id": "rbd.broadphase.brute_force",
+      "description": "Brute-force broad phase",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.broadphase.lbvh",
+      "description": "LBVH construction, refit and traversal",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.collision.primitives",
+      "description": "Primitive shape bounds, support maps and contact generation",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.collision.convex",
+      "description": "GJK, EPA, SAT and polygonal contact manifolds",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.collision.composite",
+      "description": "Triangle meshes, polylines and composite traversal",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.queries",
+      "description": "Ray and point queries",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.contact.persistence",
+      "description": "Contact matching, recycling and impulse transfer",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.scheduling.colors",
+      "description": "Coloring, buckets and production color dispatch",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.scheduling.hubs",
+      "description": "Mass splitting, hub gather and synchronization",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.constraints.joints",
+      "description": "Impulse joints and joint constraints",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.constraints.multibody",
+      "description": "Multibody dynamics, constraints, sensors and reset",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.contact.twist",
+      "description": "Twist-friction model",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.utils",
+      "description": "Scan, reduction, sorting and compaction",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.determinism",
+      "description": "Canonical ordering and deterministic schedules",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    },
+    {
+      "id": "rbd.pipeline",
+      "description": "Public API, production scene stepping and runtime integration",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Native buffer adapter exists; simulation backend is unimplemented."
+    },
+    {
+      "id": "rbd.dim2",
+      "description": "2D rigid bodies",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Deferred; initial target is 3D."
+    },
+    {
+      "id": "rbd.render",
+      "description": "Render preparation",
+      "coverage": "unported",
+      "operations": [],
+      "remaining": "Unported."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "0005-shader-inventory",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d"
+  ],
+  "kinds": [
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Inventory every Rust shader module and rigid-body capability group; enforce mirrored paths, mapped Python symbols and explicit added/removed module dispositions.",
+  "regressions": [
+    "New and removed Rust modules cannot silently disappear from the inventory",
+    "Moved or unmapped TileLang shaders fail the audit",
+    "Missing symbols and unclassified operations are rejected",
+    "Partial capabilities remain release-blocking"
+  ],
+  "differences": [
+    "No physics arithmetic changes. The inventory explicitly records remaining production scene, collision, scheduling and constraint gaps.",
+    "Module presence is not a claim of complete module parity; only each named operation contract is tested."
+  ]
+}

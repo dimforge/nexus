@@ -175,18 +175,13 @@ Then regenerate results and reconcile:
 ```sh
 python3 ports/tilelang/parity.py reconcile \
   --change ports/tilelang/changes/NEW-CHANGE.json \
-  --evidence ports/tilelang/results/c/report.json \
-  --evidence ports/tilelang/results/metal/report.json \
-  --evidence ports/tilelang/results/effective_mass/c/report.json \
-  --evidence ports/tilelang/results/effective_mass/metal/report.json \
-  --evidence ports/tilelang/results/warmstart/c/report.json \
-  --evidence ports/tilelang/results/warmstart/metal/report.json \
-  --evidence ports/tilelang/results/integrate/c/report.json \
-  --evidence ports/tilelang/results/integrate/metal/report.json
+  --evidence-dir ports/tilelang/results \
+  --evidence-dir ports/tilelang/results-ascend-source
 python3 ports/tilelang/parity.py check
 ```
 
-The Metal arguments are optional when unavailable. Its previous report remains
+Each evidence directory contributes its replay reports; failed or stale reports are rejected.
+The Ascend source directory and Metal reports are optional when unavailable. Its previous report remains
 visible as stale after relevant changes. Reconciliation requires the complete
 current CPU execution suite, pinned package versions, a change record, and passing
 change-tracking tests. It archives reports and updates `baseline.json`. Hashes
@@ -373,7 +368,11 @@ reruns to avoid consuming paid device time on unrelated setup or repeated cases.
 Continue to require source-impact review and classified change records for Rust
 changes, new features, bug fixes, optimizations, numerical changes, and intentional
 differences. The registry now supports per-feature, per-target evidence for all four
-implemented operations. This is not yet a complete rigid-body capability inventory.
+implemented operations. `inventory.json` separately lists every Rust shader module and 19 capability
+groups, with explicit partial/unported dispositions. `inventory.py` checks mirrored
+paths and mapped symbols without importing TileLang. New or removed Rust modules
+require a disposition before reconciliation. These coverage groups are an audit
+index, not evidence for unported code.
 
 Keep these evidence levels distinct, bound to exact inputs and toolchains:
 

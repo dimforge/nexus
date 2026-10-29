@@ -27,7 +27,8 @@
     "ports/tilelang/native/rust-toolchain.toml",
     "ports/tilelang/compiler.lock.json",
     "ports/tilelang/contracts/*.json",
-    "ports/tilelang/shaders/**/*.py"
+    "ports/tilelang/shaders/**/*.py",
+    "ports/tilelang/inventory.json"
   ],
   "features": [
     {
@@ -91,5 +92,6 @@
   ],
   "required_reconciliation_targets": [
     "c"
-  ]
+  ],
+  "inventory": "ports/tilelang/inventory.json"
 }

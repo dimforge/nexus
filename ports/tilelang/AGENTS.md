@@ -49,3 +49,9 @@ names. Do not combine unrelated Rust modules into a monolithic port. Shared
 Python compiler/buffer helpers belong outside that tree and are not physics ports.
 Every new operation needs its own contract and per-target evidence; the global
 check requires evidence for all registered operations.
+
+`inventory.json` gives every Rust shader module an explicit disposition and a
+mirrored target path. Run `inventory.py` after adding or moving either language's
+files. Update the exact module, implemented symbols, operation IDs and remaining
+scope; do not mark an entire module or capability complete merely because one
+function passed. `parity.py check` enforces inventory consistency.
