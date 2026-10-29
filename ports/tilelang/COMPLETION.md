@@ -20,8 +20,12 @@ Remaining implementation sequence:
 2. Ordered native dispatch, hierarchical prefix scan and composed contact
    adjacency, bounded Topo coloring, and color-bucket construction are implemented.
    Native Coulomb color ranges, cached unbiased solve and ordered contact iterations
-   are implemented with device-loaded coefficients. Connect these to the production
-   frame sequence. Unbounded Luby scheduling remains. Palette/iteration exhaustion routes
+   are implemented with device-loaded coefficients. Connect these to the general production
+   frame sequence. A composed native TGS frame now handles fresh supplied
+   manifolds and two fixed colors, with body initialization, gravity, contact
+   preparation, substeps and finalization. Collision generation, changing topology,
+   general coloring and hubs still need integration. Unbounded Luby scheduling remains.
+   Palette/iteration exhaustion routes
    unresolved contacts to the Rust unsolved bucket (retained for warmstart, not solved);
    preserve and explicitly assess that limitation in scene tests. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
    in isolation. Implement actual color schedules and the contact solver variants,

@@ -1,7 +1,7 @@
 //! Native color-bucket solve and warmstart oracle; bodies are shared across colors.
 #[allow(dead_code)]
 #[path = "contacts.rs"]
-mod contacts;
+pub(crate) mod contacts;
 use contacts::pilot;
 use nexus_rbd_shaders3d::{
     Pose,

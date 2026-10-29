@@ -80,3 +80,7 @@ path = "src/colored.rs"
 [[bin]]
 name = "coefficients"
 path = "src/coefficients.rs"
+
+[[bin]]
+name = "tgs"
+path = "src/tgs.rs"

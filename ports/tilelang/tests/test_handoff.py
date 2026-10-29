@@ -287,3 +287,13 @@ class ColoredSolverHandoffTests(ScanHandoffTests):
 class CoefficientHandoffTests(HandoffTests):
     operation = "contact_coefficients"
     mutable_buffer = "Coefficients"
+
+
+class TgsHandoffTests(ScanHandoffTests):
+    operation = "tgs_frame"
+    mutable_buffer = "Velocities"
+
+
+class BodyUniformHandoffTests(HandoffTests):
+    operation = "body_coefficients"
+    mutable_buffer = "Params"

@@ -734,6 +734,36 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/contact_coefficients.json",
       "test_command": "python ports/tilelang/coefficient_replay.py --target c"
+    },
+    {
+      "id": "rbd.body.coefficients3d",
+      "operation": "body_coefficients",
+      "runner": "body_uniform_replay.py",
+      "coverage": "Derive timestep, linear/angular velocity caps and gravity from native uniforms on device",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/sim_params.rs::RbdSimParams::max_linear_velocity",
+        "src_rbd_shaders/dynamics/sim_params.rs::RbdSimParams::max_angular_velocity",
+        "src_rbd_shaders/dynamics/sim_params.rs::RbdSimParams::inv_dt"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/sim_params.py::body_coefficients",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/body_coefficients.json",
+      "test_command": "python ports/tilelang/body_uniform_replay.py --operation body_coefficients --target c"
+    },
+    {
+      "id": "rbd.pipeline.tgs_frame3d",
+      "operation": "tgs_frame",
+      "runner": "tgs_replay.py",
+      "coverage": "Ordered native body/contact TGS frame from fresh caller-supplied manifolds and two conflict-free colors; no collision generation or changing topology",
+      "reference_symbols": [
+        "src_rbd/dynamics/solver.rs::GpuSolver::solve_tgs",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_prepare_constraints",
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_finalize"
+      ],
+      "implementation": "ports/tilelang/tgs_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/tgs_frame.json",
+      "test_command": "python ports/tilelang/tgs_replay.py --operation tgs_frame --target c"
     }
   ],
   "targets": [

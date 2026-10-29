@@ -498,12 +498,14 @@
         "rbd.contact.coulomb.colored_warmstart3d",
         "rbd.contact.coulomb.colored_cached3d",
         "rbd.contact.coulomb.colored_program3d",
-        "rbd.contact.coefficients3d"
+        "rbd.contact.coefficients3d",
+        "rbd.body.coefficients3d"
       ],
       "symbols": [
-        "contact_coefficients"
+        "contact_coefficients",
+        "body_coefficients"
       ],
-      "remaining": "Six native contact coefficients are ported and tested directly; other parameter helpers and joint softness remain."
+      "remaining": "Contact and body coefficients are ported; joint softness and other helpers remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/solver.rs",
@@ -519,7 +521,8 @@
         "rbd.body.free_step3d",
         "rbd.scheduling.adjacency_count3d",
         "rbd.scheduling.adjacency_scatter3d",
-        "rbd.scheduling.adjacency_build3d"
+        "rbd.scheduling.adjacency_build3d",
+        "rbd.pipeline.tgs_frame3d"
       ],
       "symbols": [
         "gpu_integrate_linearized",
@@ -1054,7 +1057,8 @@
         "rbd.body.finalize3d",
         "rbd.body.free_step3d",
         "rbd.body.update_mprops3d",
-        "rbd.body.sync_collider_poses3d"
+        "rbd.body.sync_collider_poses3d",
+        "rbd.body.coefficients3d"
       ],
       "remaining": "Body lifecycle, world inertia and free-body composition are ported; production scene integration remains incomplete."
     },
@@ -1220,9 +1224,11 @@
     {
       "id": "rbd.pipeline",
       "description": "Public API, production scene stepping and runtime integration",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Native Metal supports ordered kernels on persistent buffers; full simulation backend and scene stepping remain incomplete."
+      "coverage": "partial",
+      "operations": [
+        "rbd.pipeline.tgs_frame3d"
+      ],
+      "remaining": "Native composed TGS frame over supplied manifolds/two conflict-free colors is implemented. Full scene generation, topology, graph scheduling, joints, hubs, backend selection and long-run stability remain."
     },
     {
       "id": "rbd.dim2",

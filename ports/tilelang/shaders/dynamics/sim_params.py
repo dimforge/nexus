@@ -56,3 +56,35 @@ def contact_coefficients(layout):
                 Coefficients[2 + side * 2] = T.float32(1) / (T.float32(1) + coefficient)
 
     return compute
+
+
+def body_coefficients(layout):
+    f = layout["rbd_params"]
+
+    @T.macro
+    def one(RbdParams, Gravity, Params):
+        dt = f32(RbdParams, f["dt"])
+        inv_dt = T.if_then_else(dt == 0, T.float32(0), T.float32(1) / dt)
+        v = f32(RbdParams, f["normalized_max_linear_velocity"])
+        Params[0] = RbdParams[f["dt"]]
+        Params[1] = T.reinterpret(
+            T.if_then_else(
+                RbdParams[f["normalized_max_linear_velocity"]]
+                == T.uint32(layout["constants"]["max_flt_bits"]),
+                v,
+                v * f32(RbdParams, f["length_unit"]),
+            ),
+            "uint32",
+        )
+        Params[2] = T.reinterpret(
+            T.reinterpret(T.uint32(layout["constants"]["pi_over_four_bits"]), "float32")
+            * inv_dt
+            / T.cast(
+                T.max(RbdParams[f["num_solver_iterations"]], T.uint32(1)), "float32"
+            ),
+            "uint32",
+        )
+        for d in T.serial(3):
+            Params[3 + d] = Gravity[d]
+
+    return one

@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "feature": "rbd.body.coefficients3d",
+  "scope": "Derive timestep, linear/angular velocity caps and gravity from native uniforms on device",
+  "inputs": [
+    "RbdParams",
+    "Gravity",
+    "Params"
+  ],
+  "outputs": [
+    "Params"
+  ],
+  "comparison": "body_uniform_fields",
+  "atol": 1e-07,
+  "rtol": 2e-06,
+  "tolerance_reason": "Only computed velocity caps use f32 tolerance. Timestep, gravity, sentinel, zero timestep and guards are exact.",
+  "preconditions": [
+    "Native Rust-derived RbdSimParams layout, finite nonnegative timestep/cap and positive length unit",
+    "Finite gravity; num_solver_iterations is a native u32 including zero"
+  ],
+  "invariants": [
+    "Zero timestep yields zero angular cap",
+    "Zero solver iterations uses the same max(1) divisor as Rust",
+    "Only Nexus MAX_FLT disables length-unit scaling, not neighboring floats",
+    "Readonly uniforms and trailing words remain unchanged"
+  ],
+  "outside_scope": [
+    "Ascend vendor compilation and execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "p0",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9"
+  ]
+}
