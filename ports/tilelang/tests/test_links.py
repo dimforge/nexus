@@ -61,6 +61,20 @@ class LinkTests(unittest.TestCase):
                 self.load(op, c["name"])
                 self.check()
 
+    def test_initialization_does_not_read_inert_body_ids(self):
+        for operation in ("init_links", "contact_persistence"):
+            self.load(operation)
+            rows = self.before["Contacts"].reshape(-1, self.layout["contact_words"])
+            self.assertEqual(rows[10, self.layout["contact"]["bodies"]], 2**32 - 1)
+            self.assertEqual(self.links()[10, self.layout["link"]["len"]], 0)
+            self.check()
+            # The exception is confined to empty manifolds.
+            rows[
+                10, self.layout["contact"]["contact"] + self.layout["manifold"]["len"]
+            ] = 1
+            with self.assertRaises(ValueError):
+                validate_case(self.layout, self.case, self.before)
+
     def test_recycling_predicates(self):
         self.load()
         rows = self.links()

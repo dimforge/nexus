@@ -33,7 +33,8 @@
   "invariants": [
     "Only declared active fields change; readonly inputs, padding, state gaps and inactive lanes stay bitwise unchanged",
     "First identity match in the shorter nonempty adjacency list; exact previous indices and color seeds",
-    "Multibody exclusion is retained even though articulated dynamics is deferred"
+    "Multibody exclusion is retained even though articulated dynamics is deferred",
+    "Empty manifolds can retain invalid body and collider IDs; init, match and seed never dereference those IDs. Active manifold IDs remain validated."
   ],
   "outside_scope": [
     "Collision generation",

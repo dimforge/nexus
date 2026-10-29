@@ -35,8 +35,13 @@ pub fn gpu_init_contact_links(
         return;
     }
     let im = contacts.at(i);
-    let multibody =
-        body_is_multibody.read(im.bodies.x as usize) | body_is_multibody.read(im.bodies.y as usize);
+    // A miss only overwrites the manifold length. Its other fields can retain
+    // body IDs from a removed collider and must not be dereferenced.
+    let multibody = if im.contact.len != 0 {
+        body_is_multibody.read(im.bodies.x as usize) | body_is_multibody.read(im.bodies.y as usize)
+    } else {
+        0
+    };
     let len = if multibody != 0 { 0 } else { im.contact.len };
     links.write(
         i,
@@ -229,5 +234,30 @@ fn rot_cos(a: Rotation, b: Rotation) -> f32 {
     #[cfg(feature = "dim2")]
     {
         a.re * b.re + a.im * b.im
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn inert_contact_does_not_dereference_stale_body_ids() {
+        let mut im = IndexedManifold::default();
+        im.bodies = glamx::UVec2::splat(u32::MAX);
+        let mut links = [ContactLink::default()];
+        gpu_init_contact_links(
+            UVec3::ZERO,
+            &[im],
+            &mut links,
+            &[],
+            &ContactPlan {
+                bound: 1,
+                ..Default::default()
+            },
+        );
+        assert_eq!(links[0].len, 0);
+        assert_eq!(links[0].solver_body_a, u32::MAX);
+        assert_eq!(links[0].solver_body_b, u32::MAX);
+        assert_eq!(links[0].previous_constraint, u32::MAX);
     }
 }

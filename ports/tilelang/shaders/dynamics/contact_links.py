@@ -14,13 +14,15 @@ def gpu_init_contact_links(layout, case):
             lb = i * layout["link_words"]
             a = T.cast(Contacts[cb + c["bodies"]], "int32")
             b = T.cast(Contacts[cb + c["bodies"] + 1], "int32")
-            # Reduce flags to booleans before combining: keep high bits, avoid u32 range analysis.
-            ordinary = (BodyIsMultibody[a] == T.uint32(0)) & (
-                BodyIsMultibody[b] == T.uint32(0)
-            )
-            Links[lb + l["len"]] = T.if_then_else(
-                ordinary, Contacts[cb + c["contact"] + m["len"]], T.uint32(0)
-            )
+            length = T.alloc_local((1,), "uint32")
+            length[0] = Contacts[cb + c["contact"] + m["len"]]
+            # Inert manifolds retain stale IDs; do not read body flags for them.
+            if length[0] != T.uint32(0):
+                if (BodyIsMultibody[a] != T.uint32(0)) | (
+                    BodyIsMultibody[b] != T.uint32(0)
+                ):
+                    length[0] = T.uint32(0)
+            Links[lb + l["len"]] = length[0]
             Links[lb + l["solver_body_a"]] = T.cast(a, "uint32")
             Links[lb + l["solver_body_b"]] = T.cast(b, "uint32")
             Links[lb + l["vel_slot_a"]] = T.cast(a, "uint32")

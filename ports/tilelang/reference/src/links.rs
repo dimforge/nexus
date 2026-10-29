@@ -101,6 +101,10 @@ fn fixture(root: &Path, n: usize, op: &str) -> Value {
             ..Default::default()
         };
         im.contact.len = if mode == 10 { 0 } else { (i % 4 + 1) as u32 };
+        if mode == 10 {
+            im.bodies = UVec2::splat(u32::MAX);
+            im.colliders = UVec2::splat(u32::MAX);
+        }
         *im_dst = im;
         let mut old_a = Pose::from_parts(
             Vec3::new(0.17, 0.03 * i as f32, -0.2),

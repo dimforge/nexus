@@ -147,12 +147,15 @@ def validate_case(layout, case, arrays):
         link = links[i]
         if init:
             bodies = im[c["bodies"] : c["bodies"] + 2]
-            if np.any(bodies >= case["bodies"]):
-                raise ValueError("Invalid contact body")
             length = int(im[c["contact"] + m["len"]])
             if length > 4:
                 raise ValueError("Invalid contact length")
-            length = 0 if any(arrays["BodyIsMultibody"][b] for b in bodies) else length
+            if length:
+                if np.any(bodies >= case["bodies"]):
+                    raise ValueError("Invalid contact body")
+                length = (
+                    0 if any(arrays["BodyIsMultibody"][b] for b in bodies) else length
+                )
         else:
             length = int(link[l["len"]])
             if length > 4:
