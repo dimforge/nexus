@@ -231,7 +231,8 @@
         "rbd.joint.update3d",
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
-        "rbd.joint.program3d"
+        "rbd.joint.program3d",
+        "rbd.pipeline.joint_scene3d"
       ],
       "symbols": [
         "motor_params"
@@ -248,7 +249,8 @@
         "rbd.joint.update3d",
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
-        "rbd.joint.program3d"
+        "rbd.joint.program3d",
+        "rbd.pipeline.joint_scene3d"
       ],
       "symbols": [
         "gpu_init_joint_constraints",
@@ -268,7 +270,8 @@
         "rbd.joint.update3d",
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
-        "rbd.joint.program3d"
+        "rbd.joint.program3d",
+        "rbd.pipeline.joint_scene3d"
       ],
       "symbols": [
         "orthogonalize_constraints",
@@ -608,7 +611,8 @@
         "rbd.scheduling.adjacency_scatter3d",
         "rbd.scheduling.adjacency_build3d",
         "rbd.pipeline.tgs_frame3d",
-        "rbd.pipeline.analytic_scene3d"
+        "rbd.pipeline.analytic_scene3d",
+        "rbd.pipeline.joint_scene3d"
       ],
       "symbols": [
         "gpu_integrate_linearized",
@@ -1412,9 +1416,10 @@
         "rbd.joint.update3d",
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
-        "rbd.joint.program3d"
+        "rbd.joint.program3d",
+        "rbd.pipeline.joint_scene3d"
       ],
-      "remaining": "Native ordinary 3D joint construction, update, orthogonalization and colored solve are ported. Production graph coloring, frame integration and scene stability remain."
+      "remaining": "Ordinary joints are connected to analytic frames with continuous trajectory validation. Production arbitrary scene upload/backend selection and broader scene coverage remain."
     },
     {
       "id": "rbd.constraints.multibody",
@@ -1461,7 +1466,8 @@
         "rbd.scheduling.contact_keys3d",
         "rbd.scheduling.permute_contacts3d",
         "rbd.scheduling.canonical_contacts3d",
-        "rbd.pipeline.analytic_scene3d"
+        "rbd.pipeline.analytic_scene3d",
+        "rbd.pipeline.joint_scene3d"
       ],
       "remaining": "Canonical contact order and deterministic bounded Topo schedules are connected in analytic scene checkpoints; generic and production scheduling remains."
     },
@@ -1472,7 +1478,8 @@
       "operations": [
         "rbd.pipeline.tgs_frame3d",
         "rbd.pipeline.analytic_collision3d",
-        "rbd.pipeline.analytic_scene3d"
+        "rbd.pipeline.analytic_scene3d",
+        "rbd.pipeline.joint_scene3d"
       ],
       "remaining": "Resident analytic ball/box scenes now connect collision, deterministic contact ordering, persistent links, adjacency, bounded Topo colors, buckets and ordinary-body Coulomb TGS through 120-frame checkpoints. Production public backend selection, joints, hubs, generic collision and continuous trajectory diagnostics remain."
     },

@@ -48,8 +48,8 @@ Remaining implementation sequence:
    inventory capabilities. Do not introduce CPU physics fallbacks and call them
    completed TileLang features.
 4. Ordinary rigid-joint stages (motor coefficients, COM-centered initialization,
-   row construction, orthogonalization and colored solve) are ported. Connect them
-   to frames and validate joint scene stability. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
+   row construction, orthogonalization and colored solve) are ported. They are connected to analytic frames, with sixteen joint scenes and all-frame
+   device trajectory checks. General runtime scene upload remains. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
    restitution, empty inputs and interleaved batches through connected steps and
    1/8/120-frame checkpoints with independent physical assertions. Add joints,
    generic collision and continuous trajectory diagnostics. Compare intermediate stages and short-run checkpoints to Rust;

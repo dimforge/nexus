@@ -116,3 +116,7 @@ path = "src/scenes.rs"
 [[bin]]
 name = "joints"
 path = "src/joints.rs"
+
+[[bin]]
+name="joint-scenes"
+path="src/joint_scenes.rs"

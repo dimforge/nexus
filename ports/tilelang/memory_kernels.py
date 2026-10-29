@@ -51,7 +51,7 @@ def copy(words, target):
     return kernel
 
 
-def single(words, half, target):
+def single(words, half, target, increment=False):
     _validate(words, target)
     if type(half) is not int or not 0 <= half <= words // 2:
         raise ValueError("State copy ranges must be disjoint and in bounds")
@@ -61,7 +61,7 @@ def single(words, half, target):
     def one(Data, i):
         if half == 0:
             if i == 0:
-                Data[0] = T.uint32(0)
+                Data[0] = Data[0] + T.uint32(1) if increment else T.uint32(0)
         else:
             if i < half:
                 Data[i] = Data[i + half]
@@ -97,3 +97,7 @@ def reset(words, target):
 
 def states(words, half, target):
     return single(words, half, target)
+
+
+def increment(words, target):
+    return single(words, 0, target, increment=True)

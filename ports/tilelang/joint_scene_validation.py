@@ -1,0 +1,256 @@
+"""Composition checks for connected joint scenes and device trajectory storage."""
+
+import joint_validation as joints
+import numpy as np
+import scene_outputs as outputs
+import scene_validation as base
+
+EXTRA = (
+    "Joints",
+    "Builders",
+    "JointConstraints",
+    "JointColors",
+    "MotorParams",
+    "Trajectory",
+    "FrameIndex",
+    "JointBias",
+    "JointUnbiased",
+)
+BUFFERS = base.BUFFERS + EXTRA
+SCENES = (
+    "joint_fixed",
+    "joint_ball",
+    "joint_revolute",
+    "joint_prismatic",
+    "joint_motor",
+    "joint_impact",
+    "joint_chain",
+)
+
+
+def validate_case(l, c, b):
+    core = {n: b[n] for n in base.BUFFERS}
+    bc = dict(
+        c,
+        kind="analytic_scene",
+        scene="free",
+        buffer_words={n: c["buffer_words"][n] for n in core},
+    )
+    base.validate_case(l, bc, core)
+    if c["kind"] != "joint_scene" or c["scene"] not in SCENES:
+        raise ValueError("Invalid joint scene")
+    n = c["joint_count"]
+    nb = c["batches"]
+    js = c["joint_storage"]
+    if (
+        n != c["joints_per_batch"] * nb
+        or js != n + 3
+        or c["joint_color_count"] != 3
+        or c["joints_per_batch"] != c["columns"] * c["levels_scene"]
+    ):
+        raise ValueError("Invalid scene joint capacity")
+    sizes = {
+        "Joints": js * l["impulse_joint_words"],
+        "Builders": js * l["builder_words"],
+        "JointConstraints": js * l["joint_constraint_words"],
+        "JointColors": 4,
+        "MotorParams": js * 36,
+        "Trajectory": c["frames"] * c["trace_stride"] + 3,
+        "FrameIndex": 2,
+        "JointBias": 2,
+        "JointUnbiased": 2,
+    }
+    if c["trace_stride"] != c["body_count"] * (l["pose_words"] + l["velocity_words"]):
+        raise ValueError("Invalid trajectory stride")
+    if set(b) != set(BUFFERS) or any(
+        c["buffer_words"][name] != size
+        or b[name].shape != (size,)
+        or b[name].dtype != np.uint32
+        for name, size in sizes.items()
+    ):
+        raise ValueError("Invalid joint scene buffer ABI")
+    if b["FrameIndex"][0] != 0 or b["JointBias"][0] != 1 or b["JointUnbiased"][0] != 0:
+        raise ValueError("Invalid joint frame/bias state")
+    groups = b["JointColors"][:3].astype(np.int64)
+    if np.any(groups[1:] < groups[:-1]) or groups[-1] != c["joints_per_batch"]:
+        raise ValueError("Invalid joint color prefix ranges")
+    row = b["Joints"].reshape(-1, l["impulse_joint_words"])
+    jf, gf = l["impulse_joint"], l["generic_joint"]
+    # Fixed fixture topology and masks make the independent physical checks
+    # meaningful; bounds alone would accept a different experiment.
+    locked = {
+        "joint_fixed": 63,
+        "joint_ball": 7,
+        "joint_revolute": 31,
+        "joint_prismatic": 62,
+        "joint_motor": 62,
+        "joint_impact": 63,
+        "joint_chain": 7,
+    }[c["scene"]]
+    expected_pairs = {
+        (
+            body - 1
+            if c["scene"] == "joint_chain" and (body - 1) % c["levels_scene"]
+            else 0,
+            body,
+        )
+        for body in range(1, c["colliders_per_batch"])
+    }
+    for batch in range(nb):
+        observed = set()
+        for i in range(batch, n, nb):
+            a, bb = int(row[i, jf["body_a"]]), int(row[i, jf["body_b"]])
+            observed.add((a, bb))
+            data = row[i, jf["data"] : jf["data"] + l["generic_joint_words"]]
+            if (
+                data[gf["locked_axes"]] != locked
+                or data[gf["limit_axes"]] != (c["scene"] == "joint_prismatic")
+                or data[gf["motor_axes"]] != (c["scene"] == "joint_motor")
+                or data[gf["coupled_axes"]] != 0
+            ):
+                raise ValueError("Joint fixture axes changed")
+            f = data.view(np.float32)
+            for field in ("local_frame_a", "local_frame_b"):
+                start = gf[field]
+                q = f[start + l["pose_rotation"] : start + l["pose_rotation"] + 4]
+                if (
+                    not np.array_equal(q, np.array([0, 0, 0, 1], np.float32))
+                    or not np.isfinite(
+                        f[
+                            start + l["pose_translation"] : start
+                            + l["pose_translation"]
+                            + 3
+                        ]
+                    ).all()
+                ):
+                    raise ValueError("Invalid fixture joint anchor")
+            if c["scene"] == "joint_motor":
+                m = gf["motors"]
+                mf = l["motor"]
+                if data[m + mf["model"]] != 0 or any(
+                    f[m + mf[key]] != np.float32(value)
+                    for key, value in {
+                        "target_pos": 0.25,
+                        "target_vel": 0,
+                        "stiffness": 40,
+                        "damping": 8,
+                        "max_force": 10,
+                    }.items()
+                ):
+                    raise ValueError("Fixture motor changed")
+            if c["scene"] == "joint_prismatic":
+                off = gf["limits"]
+                if f[off + l["limits"]["min"]] != np.float32(-0.4) or f[
+                    off + l["limits"]["max"]
+                ] != np.float32(0.4):
+                    raise ValueError("Fixture limits changed")
+        if observed != expected_pairs:
+            raise ValueError("Fixture joint topology changed")
+    for start, end in zip([0, *groups[:2]], groups):
+        used = set()
+        for i in range(int(start) * nb, int(end) * nb):
+            for field in ("body_a", "body_b"):
+                slot = int(row[i, jf[field]]) * nb + i % nb
+                if slot in used:
+                    raise ValueError("Joint scene color has overlapping writers")
+                used.add(slot)
+    p = b["RbdParams"].view(np.float32)
+    pf = l["rbd_params"]
+    if p[pf["joint_natural_frequency"]] < 0 or p[pf["joint_damping_ratio"]] <= 0:
+        raise ValueError("Invalid joint scene softness")
+
+
+def check_outputs(l, c, b, a, e, k):
+    validate_case(l, c, b)
+    for r in (a, e):
+        if set(r) != set(b) or any(
+            v.dtype != np.uint32 or v.shape != b[n].shape for n, v in r.items()
+        ):
+            raise ValueError("Invalid returned scene storage")
+    bc, ac, ec = ({n: r[n] for n in base.BUFFERS} for r in (b, a, e))
+    outputs.check_guards(l, c, bc, ac, ec)
+    errors = outputs.check_bodies(l, c, bc, ac, ec, k)
+    errors.update(outputs.check_collision(l, c, bc, ac, ec, k))
+    count = outputs.check_graph(l, c, ac, ec)
+    errors.update(outputs.check_constraints(l, c, ac, ec, k, count))
+    errors.update(outputs.check_states(l, c, ac, ec, k, count))
+    for name in ("Joints", "JointColors", "MotorParams", "JointBias", "JointUnbiased"):
+        for r in (a, e):
+            np.testing.assert_array_equal(r[name], b[name], err_msg=f"Readonly {name}")
+    jc = dict(c, kind="joint_program", count=c["joint_count"], bodies=c["body_storage"])
+
+    def joint_arrays(arr):
+        return {
+            "Builders": arr["Builders"],
+            "Constraints": arr["JointConstraints"],
+            "Velocities": arr["SolverVelocities"],
+            "Color": b["Color0"],
+            "ColorGroups": b["JointColors"],
+        }
+
+    jb, ja, je = map(joint_arrays, (b, a, e))
+    for r in (ja, je):
+        joints.validate_constraints(l, jc, r)
+    masks = joints.output_masks(l, jc, jb, je)
+    for name in ("Builders", "Constraints"):
+        m = masks[name]
+        for r in (ja, je):
+            np.testing.assert_array_equal(
+                r[name][m == 0], jb[name][m == 0], err_msg=f"Joint scene guard {name}"
+            )
+        np.testing.assert_array_equal(
+            ja[name][m == 2], je[name][m == 2], err_msg=f"Joint scene identity {name}"
+        )
+        af, ef = (r[name].view(np.float32)[m == 1] for r in (ja, je))
+        if not np.isfinite(af).all() or not np.isfinite(ef).all():
+            raise AssertionError("Nonfinite joint scene row")
+        np.testing.assert_allclose(
+            af, ef, atol=k["atol"], rtol=k["rtol"], err_msg=f"Joint scene floats {name}"
+        )
+        errors["Joint" + name] = float(np.max(np.abs(af - ef))) if len(af) else 0.0
+    cf, ef = l["joint_constraint"], l["joint_element"]
+    for r in (ja, je):
+        for row in r["Constraints"].reshape(-1, l["joint_constraint_words"])[
+            : c["joint_count"]
+        ]:
+            for i in range(int(row[cf["len"]])):
+                offset = cf["elements"] + i * l["joint_element_words"]
+                f = row[offset : offset + l["joint_element_words"]].view(np.float32)
+                if (
+                    not f[ef["impulse_bounds"]]
+                    <= f[ef["impulse"]]
+                    <= f[ef["impulse_bounds"] + 1]
+                ):
+                    raise AssertionError("Scene joint impulse outside bounds")
+    n = c["body_count"]
+    pw = l["pose_words"]
+    vw = l["velocity_words"]
+    stride = c["trace_stride"]
+    mask = np.zeros(a["Trajectory"].size, bool)
+    for frame in range(c["frames"]):
+        for i in range(n):
+            for field, width in (("pose_translation", 3), ("pose_rotation", 4)):
+                off = frame * stride + i * pw + l[field]
+                mask[off : off + width] = True
+            for field in ("velocity_linear", "velocity_angular"):
+                off = frame * stride + n * pw + i * vw + l[field]
+                mask[off : off + 3] = True
+    for r in (a, e):
+        np.testing.assert_array_equal(
+            r["FrameIndex"], np.array([c["frames"], b["FrameIndex"][1]], np.uint32)
+        )
+        np.testing.assert_array_equal(r["Trajectory"][-3:], b["Trajectory"][-3:])
+        # The last recorded state must be exactly the published current state.
+        np.testing.assert_array_equal(
+            r["Trajectory"][(c["frames"] - 1) * stride : c["frames"] * stride],
+            np.r_[r["Poses"][: n * pw], r["Velocities"][: n * vw]],
+        )
+    np.testing.assert_array_equal(a["Trajectory"][~mask], e["Trajectory"][~mask])
+    af, ef = (r["Trajectory"].view(np.float32)[mask] for r in (a, e))
+    np.testing.assert_allclose(af, ef, atol=k["atol"], rtol=k["rtol"])
+    errors["Trajectory"] = float(np.max(np.abs(af - ef))) if len(af) else 0.0
+    from joint_scene_physics import check
+
+    for r in (a, e):
+        check(l, c, b, r, k)
+    return errors

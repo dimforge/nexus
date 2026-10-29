@@ -9,6 +9,7 @@ import colored_kernels
 import coloring_kernels
 import contact_kernels
 import graph_kernels
+import joint_kernels
 import link_kernels
 import memory_kernels
 import pose_kernels
@@ -230,6 +231,26 @@ def make_program(l, c, target):
         pm,
         max((cap + 63) // 64, 1),
     )
+
+    def joint(kind, col=0, bias=0):
+        mapping = {name: name for name in joint_kernels.BUFFERS}
+        mapping.update(
+            Constraints="JointConstraints",
+            ColorGroups="JointColors",
+            Poses="SolverPoses",
+            Velocities="SolverVelocities",
+            Params="RbdParams",
+            Color=f"Color{col}",
+            UseBias="JointBias" if bias else "JointUnbiased",
+        )
+        if kind not in cache:
+            cache[kind] = joint_kernels.make_kernel(
+                l, local(mapping, kind=kind, count=c["joint_count"], groups=1), target
+            )
+        add(kind, cache[kind], mapping)
+
+    if c["kind"] == "joint_scene":
+        joint("joint_init")
     body("init_increments")
 
     def color(kind, col, mode):
@@ -248,9 +269,14 @@ def make_program(l, c, target):
 
     for _ in range(c["substeps"]):
         body("apply_increments")
+        if c["kind"] == "joint_scene":
+            joint("joint_update")
         for col in range(1, c["color_stride"] - 1):
             color("colored_warmstart", col, "Mode")
         for _ in range(c["pgs"]):
+            if c["kind"] == "joint_scene":
+                for col in range(c["joint_color_count"]):
+                    joint("joint_solve", col, 1)
             for col in range(1, c["color_stride"] - 1):
                 color("colored_solve", col, "Mode")
         if "integrate" not in cache:
@@ -268,9 +294,29 @@ def make_program(l, c, target):
             },
             bg,
         )
+        if c["kind"] == "joint_scene":
+            for col in range(c["joint_color_count"]):
+                joint("joint_solve", col, 0)
         for col in range(1, c["color_stride"] - 1):
             color("colored_solve", col, "Color0")
     body("finalize")
+    if c["kind"] == "joint_scene":
+        from trajectory_kernels import make_kernel as trajectory_kernel
+
+        add(
+            "record_frame",
+            trajectory_kernel(l, c, target),
+            {
+                name: name
+                for name in ("Poses", "Velocities", "Trajectory", "FrameIndex")
+            },
+            max((n + 63) // 64, 1),
+        )
+        add(
+            "advance_frame",
+            memory_kernels.increment(sizes["FrameIndex"], target),
+            {"Data": "FrameIndex"},
+        )
     for source, dest in [
         ("Links", "OldLinks"),
         ("Counts", "OldCounts"),

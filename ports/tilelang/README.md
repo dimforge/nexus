@@ -623,3 +623,19 @@ coupled linear minimum-limit TODO are recorded as Rust reference limitations.
 Metal uses target-specific `asin` intrinsic registration to correct the pinned
 compiler's unsupported `asinf` spelling; no physics equation is substituted.
 These stages do not yet establish full joint scene integration or Ascend execution.
+
+### Joint scene trajectories
+
+`joint_scene_replay.py` connects ordinary joints to the same analytic collision
+and contact frame sequence. Native greedy endpoint coloring includes static bodies.
+Joint rows rebuild each substep and solve before contacts, in both biased and
+stabilization passes. Sixteen fixtures exercise fixed, spherical, revolute,
+prismatic, motor and chained joints, joint/contact interaction and batched worlds.
+Every frame is copied into device trajectory storage, with no CPU physics or
+intermediate readback. Validation checks each recorded state against Rust and
+independently bounds anchor drift, locked rotation, limits, penetration and energy.
+Motor work is accounted for separately, and the final motor target is checked.
+The last recording must exactly equal published body state. The native scene
+oracle shares its dispatch controller across contact and joint scene suites.
+This remains an explicit analytic scene scope; general collision, hubs and public
+runtime integration still need completion, and Ascend execution is unavailable.
