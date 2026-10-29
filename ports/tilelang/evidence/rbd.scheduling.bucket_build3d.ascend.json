@@ -1,0 +1,4388 @@
+{
+  "cases": [
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 12,
+          "Colors": 12,
+          "Indices": 12,
+          "Indirect": 36,
+          "Links": 192,
+          "Plan": 12,
+          "SortedLinks": 192,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 12,
+                "Colors": 12,
+                "Indices": 12,
+                "Indirect": 36,
+                "Links": 192,
+                "Plan": 12,
+                "SortedLinks": 192,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 12,
+                "Colors": 12,
+                "Indices": 12,
+                "Indirect": 36,
+                "Links": 192,
+                "Plan": 12,
+                "SortedLinks": 192,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 12,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 12,
+                "Colors": 12,
+                "Indices": 12,
+                "Indirect": 36,
+                "Links": 192,
+                "Plan": 12,
+                "SortedLinks": 192,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 12,
+                "Colors": 12,
+                "Indices": 12,
+                "Indirect": 36,
+                "Links": 192,
+                "Plan": 12,
+                "SortedLinks": 192,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 0,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "fda06b40be3d60e400df9c7b2187d899367298f73a66ffff1b396dc46951621a",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "1e1c3e5bd0f80f9898716e1e5529edd0a0bad1b47e30417cc7b48dbdb12fef9b",
+        "Buckets.bin": "fb2b59bdc92700a0fbf781b44cfaa1f27e29689317e14f6c020e8a28a95cbcc6",
+        "Buckets.expected.bin": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+        "Colors.bin": "fb2b59bdc92700a0fbf781b44cfaa1f27e29689317e14f6c020e8a28a95cbcc6",
+        "Indices.bin": "fb2b59bdc92700a0fbf781b44cfaa1f27e29689317e14f6c020e8a28a95cbcc6",
+        "Indices.expected.bin": "fb2b59bdc92700a0fbf781b44cfaa1f27e29689317e14f6c020e8a28a95cbcc6",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "5faec90fcb52730f9fcd9fd6773b8b798861c96f0db31161f98efcc1515c274f",
+        "Links.bin": "d99c33686f17610034a338b79d8b5477bce949a28c05cf2409f41338ab9ac802",
+        "Plan.bin": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+        "SortedLinks.bin": "f5d5b5b17a694387d5b15e991651b178214365e0523e9cea441e07aef092e505",
+        "SortedLinks.expected.bin": "f5d5b5b17a694387d5b15e991651b178214365e0523e9cea441e07aef092e505",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "4bd93e004b84a0598b31adf201fd8d258c945b1cc3cc864b3b3a4e534065992e",
+        "Stride0.bin": "f9090e43e94606075406c8c9060f37555370eb8a458a9f36e5d419a4af5e64c6",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "9e696d8c8efb7448e87594ccccc7607bc4900fa5fad47a423ad90e375b021520",
+        "kernel.1.ascend": "2d4118872f9a91f8840a007c158fce484e7306b1cee048c331bfb2d2acef37ab",
+        "kernel.2.ascend": "9aca838223a69136027f7317b867e1572a9577b7ee6cbeefa51556f0f2f21d2c",
+        "kernel.3.ascend": "3d3345338c2d37977d4ad094e5ba53a66158f30c683244189cb05f11705c89f3",
+        "kernel.4.ascend": "719fc743f2faeef20d40994e5d9d07def43282a3bea89bd6b057a48666ac828b",
+        "kernel.ascend": "af30045015e217463a560374e52ad40ca436abee386eedea336d5ea10e473f4a"
+      },
+      "fixture": {
+        "batches": 1,
+        "bucket_count": 3,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 3,
+          "Colors": 3,
+          "Indices": 3,
+          "Indirect": 9,
+          "Links": 48,
+          "Plan": 3,
+          "SortedLinks": 48,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 3,
+        "count": 0,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n0-b1-s3-g1",
+        "storage": 3,
+        "strides": [
+          3,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n0-b1-s3-g1",
+      "source_sha256": "af30045015e217463a560374e52ad40ca436abee386eedea336d5ea10e473f4a",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 20,
+          "Colors": 16,
+          "Indices": 16,
+          "Indirect": 36,
+          "Links": 256,
+          "Plan": 12,
+          "SortedLinks": 256,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 20,
+                "Colors": 16,
+                "Indices": 16,
+                "Indirect": 36,
+                "Links": 256,
+                "Plan": 12,
+                "SortedLinks": 256,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 20,
+                "Colors": 16,
+                "Indices": 16,
+                "Indirect": 36,
+                "Links": 256,
+                "Plan": 12,
+                "SortedLinks": 256,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 20,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 20,
+                "Colors": 16,
+                "Indices": 16,
+                "Indirect": 36,
+                "Links": 256,
+                "Plan": 12,
+                "SortedLinks": 256,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 20,
+                "Colors": 16,
+                "Indices": 16,
+                "Indirect": 36,
+                "Links": 256,
+                "Plan": 12,
+                "SortedLinks": 256,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 1,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "fda06b40be3d60e400df9c7b2187d899367298f73a66ffff1b396dc46951621a",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "02d12b877c5bb6b89d7d6ef4312aa9e2a5b34f834e2922d518a14907afaa11cb",
+        "Buckets.bin": "22c0d43d16384dba19bdaada10a3577ec8d92a6f39c403ab77078bc23a3bcaaf",
+        "Buckets.expected.bin": "de47c9b27eb8d300dbb5f2c353e632c393262cf06340c4fa7f1b40c4cbd36f90",
+        "Colors.bin": "fda06b40be3d60e400df9c7b2187d899367298f73a66ffff1b396dc46951621a",
+        "Indices.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Indices.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "5faec90fcb52730f9fcd9fd6773b8b798861c96f0db31161f98efcc1515c274f",
+        "Links.bin": "d9206236d7a8f754a90a8afbcda2f8864b23f237caff6724cec372e47940a9d6",
+        "Plan.bin": "7d450465ceb49083708a6970827f0e0b116ed285072a95b451e55f583f56da8d",
+        "SortedLinks.bin": "4009ec3a9fb6f18e4faa280e260a4fea09798a621126b00740407eea9de918ee",
+        "SortedLinks.expected.bin": "c5e6d85de288633d97cc3529e3eb851ec4ec624423c38051172f4388f35ca01c",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "4bd93e004b84a0598b31adf201fd8d258c945b1cc3cc864b3b3a4e534065992e",
+        "Stride0.bin": "0eb7acc9cc9abaaae1b1f9d847cf4272cdc3d7718a99e9f00413908cdaf9804d",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "4a44bbb4f4384896c7c3123b2e138315dfb63f78771dc31d8fb792d78871eb1b",
+        "kernel.1.ascend": "3d51a9c2dd4855d083a41092257654ebbaeebac651e204f4a7bbeef1d57c676f",
+        "kernel.2.ascend": "9623a6748f6716c9c5558e14acd42c43704d42447a4a3c0d4d4bf3d48e414807",
+        "kernel.3.ascend": "8d1b55f6c57b39f8e9296b556db16e48184db4a2d2dc37d1c33f86cbf0106226",
+        "kernel.4.ascend": "7e645704a5d1ffb5a96ab37ce5ae55d6032ac5b6627d14e16aa54c6e1085a69a",
+        "kernel.ascend": "8760860107f56d8a15009013c5c3e113d9f3189b28581435ec34e9ea21aa9f43"
+      },
+      "fixture": {
+        "batches": 1,
+        "bucket_count": 5,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 5,
+          "Colors": 4,
+          "Indices": 4,
+          "Indirect": 9,
+          "Links": 64,
+          "Plan": 3,
+          "SortedLinks": 64,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 5,
+        "count": 1,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n1-b1-s5-g1",
+        "storage": 4,
+        "strides": [
+          5,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n1-b1-s5-g1",
+      "source_sha256": "8760860107f56d8a15009013c5c3e113d9f3189b28581435ec34e9ea21aa9f43",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 260,
+          "Colors": 136,
+          "Indices": 136,
+          "Indirect": 36,
+          "Links": 2176,
+          "Plan": 12,
+          "SortedLinks": 2176,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 136,
+                "Indices": 136,
+                "Indirect": 36,
+                "Links": 2176,
+                "Plan": 12,
+                "SortedLinks": 2176,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 136,
+                "Indices": 136,
+                "Indirect": 36,
+                "Links": 2176,
+                "Plan": 12,
+                "SortedLinks": 2176,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 260,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 136,
+                "Indices": 136,
+                "Indirect": 36,
+                "Links": 2176,
+                "Plan": 12,
+                "SortedLinks": 2176,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 136,
+                "Indices": 136,
+                "Indirect": 36,
+                "Links": 2176,
+                "Plan": 12,
+                "SortedLinks": 2176,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 31,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "f2d3051bc15a699f31998240cdd7bee611e3bbdf070b433962f6161528cf11e7",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "47eda11e8ad2ecdb7f418f425194d9c75d21889d5472a474d79899e6164a8bee",
+        "Buckets.bin": "0578f53d12c8aabb72d3566e8bac72686cac3a96c4b4ad313b57e800f9353350",
+        "Buckets.expected.bin": "2b671c0c00bd1d39ce084c8954ab08d401ffabe657520e955bba8dc8d6146c6b",
+        "Colors.bin": "979f01fded98d62eb4832bbced65bcfc72fe7383189eb64b9b0fe63b95586eb3",
+        "Indices.bin": "9a7d340d005740ebbf3d32251556a61e02be558d03acd811d932423caaa3700a",
+        "Indices.expected.bin": "5711dc4810fc38c6b39c887c7787cea1c31d28d3d6e8774ef9ec39308fc7d561",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "593600933e2f42eea12d523e5ef897e304951f6365da3a9126cf74e48164f5d1",
+        "Plan.bin": "721394b9fe916e0a30f34ea1276bddbde41392e1a90624827df535a88a3fd2bc",
+        "SortedLinks.bin": "89e1a026ddc97b4caa7a1c91fc9a42a00383d00376195085c677a2ac9ceece2d",
+        "SortedLinks.expected.bin": "878d20405835d51ca9f54f2733d5e430671f7d831f3fb1db481f2646e3ce95f3",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "aab1311ebe1a4e0ba022d14bfb8d1ee93ea7dea4cebbc33f12cfa15ad1c1d4af",
+        "Stride0.bin": "94edd1e6b4708e28ecc8d3d7495f8bd3eabf276c977fe6300a29ca3f31f500ff",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "ef21e40ce66b5c241c62f184a438f0f2d7af1f668d79a7d305f47e8a4f37047f",
+        "kernel.1.ascend": "f16a5019f3d2f30a0d176dddc895a25d9518364db6929dabaa0922f1f167d538",
+        "kernel.2.ascend": "d3c226d87f6e9ae0b3295f88dc35a187b52a2f74ebeaf716ccdb18edd64445fd",
+        "kernel.3.ascend": "2708da9601a44791d57b8e0f4a1a6904295a5dfb9be5a144e92c40cde65d0049",
+        "kernel.4.ascend": "6da97f3aa7b9c2b89ce2900be848c91f429e5dc9e74c1bf44a866873b5aed03c",
+        "kernel.ascend": "f8888f5e89a3e603a7d7b0f6c22ba4b6177a0052c71c1c7baff35c22a37702bd"
+      },
+      "fixture": {
+        "batches": 1,
+        "bucket_count": 65,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 65,
+          "Colors": 34,
+          "Indices": 34,
+          "Indirect": 9,
+          "Links": 544,
+          "Plan": 3,
+          "SortedLinks": 544,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 65,
+        "count": 31,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n31-b1-s65-g1",
+        "storage": 34,
+        "strides": [
+          65,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n31-b1-s65-g1",
+      "source_sha256": "f8888f5e89a3e603a7d7b0f6c22ba4b6177a0052c71c1c7baff35c22a37702bd",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 528,
+          "Colors": 140,
+          "Indices": 140,
+          "Indirect": 36,
+          "Links": 2240,
+          "Plan": 12,
+          "SortedLinks": 2240,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 3,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 528,
+                "Colors": 140,
+                "Indices": 140,
+                "Indirect": 36,
+                "Links": 2240,
+                "Plan": 12,
+                "SortedLinks": 2240,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 528,
+                "Colors": 140,
+                "Indices": 140,
+                "Indirect": 36,
+                "Links": 2240,
+                "Plan": 12,
+                "SortedLinks": 2240,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 528,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 528,
+                "Colors": 140,
+                "Indices": 140,
+                "Indirect": 36,
+                "Links": 2240,
+                "Plan": 12,
+                "SortedLinks": 2240,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 528,
+                "Colors": 140,
+                "Indices": 140,
+                "Indirect": 36,
+                "Links": 2240,
+                "Plan": 12,
+                "SortedLinks": 2240,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 32,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "8fd247f69d0437ac4488cfda7444abab85a60b580cfeb63e211ee24a5be00a76",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "caac2290d04962c4b2d42bff113b38ff010a5a1ea7da9f5684ccd5d4ba186d51",
+        "Buckets.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Buckets.expected.bin": "daccce09ba492c3dd1df9f4636580562c5f927a2acc60a1542132cb2f405623e",
+        "Colors.bin": "4ac53f01ab02630eb597ec318464c1b226b28af22009c18270979e2269687408",
+        "Indices.bin": "b4b364a06cd47db99a3cfd1588f9795cb95457704bb41d9aadc150e596ec5989",
+        "Indices.expected.bin": "13eafbf4b3384411da93e2789e7058b761fdc9be4590370f1799c1fe5d36f0c4",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "61197f6cb37f770897c3354b082cdf28c3a7ac7143539f9d795013ff22a1bc3f",
+        "Plan.bin": "4e657ab80213472248c4fed5618a19512c7927a3f784a4171b0856540e8fc6eb",
+        "SortedLinks.bin": "60119726ecc0fc80b03a6c207d52f168ec8f97b8a7bb672ee8f89efe0f7329ad",
+        "SortedLinks.expected.bin": "8100e24331e1d54b6d0b8700456ff9e1b3b9219ec9a1a283151ec9e6b5ce4e63",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "10a67b86985d704f7c885412a7a56cfe6b31714a4264e7b23293a12a72fd3445",
+        "Stride0.bin": "1c2aa9ff50315a4cdf3f8da7fa5b1fd582b8e89a844468f1a110bfe4e35d1d56",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "6799ca7f7c58d21baa250f184878b5d4fe1bac24d0701d79fa7d721f1fbc709b",
+        "kernel.1.ascend": "6a65cab3ec86acfb9b16d6689ebc6c0d8d6e23cf585981642ebaff3cd6361431",
+        "kernel.2.ascend": "fc32ce243d983d6ed13a4c4901820a896e3546cf8e258dfcca9a32242ba5d986",
+        "kernel.3.ascend": "c586579cb018e82af0ec43f6f6a961d6dbd051c3df00d3bc26c00eb07f8329ab",
+        "kernel.4.ascend": "ee07004e1c4983caf670ec6a1a0b5bfba9230fd46661ef9fa07efdfa17380220",
+        "kernel.ascend": "a24c7157b9ab58a5690f4dc8526bfc720be46c71ac20dd124b2b01986d860038"
+      },
+      "fixture": {
+        "batches": 2,
+        "bucket_count": 132,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 132,
+          "Colors": 35,
+          "Indices": 35,
+          "Indirect": 9,
+          "Links": 560,
+          "Plan": 3,
+          "SortedLinks": 560,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 66,
+        "count": 32,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n32-b2-s66-g1",
+        "storage": 35,
+        "strides": [
+          132,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n32-b2-s66-g1",
+      "source_sha256": "a24c7157b9ab58a5690f4dc8526bfc720be46c71ac20dd124b2b01986d860038",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 804,
+          "Colors": 144,
+          "Indices": 144,
+          "Indirect": 36,
+          "Links": 2304,
+          "Plan": 12,
+          "SortedLinks": 2304,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 4,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 804,
+                "Colors": 144,
+                "Indices": 144,
+                "Indirect": 36,
+                "Links": 2304,
+                "Plan": 12,
+                "SortedLinks": 2304,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 804,
+                "Colors": 144,
+                "Indices": 144,
+                "Indirect": 36,
+                "Links": 2304,
+                "Plan": 12,
+                "SortedLinks": 2304,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 804,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 804,
+                "Colors": 144,
+                "Indices": 144,
+                "Indirect": 36,
+                "Links": 2304,
+                "Plan": 12,
+                "SortedLinks": 2304,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 804,
+                "Colors": 144,
+                "Indices": 144,
+                "Indirect": 36,
+                "Links": 2304,
+                "Plan": 12,
+                "SortedLinks": 2304,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 33,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "5beafa55acc7e6d88dc263c79ebf10c5df217d9f1fc7cb28987b326d25956d1e",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "3cf2a9fc365723c7883862f256ba4f924f0efdaaaefd3da47f7c8b507f51c9be",
+        "Buckets.bin": "1d3d3adaf77a78c3da1e0eb3b168430b307e7a6328e39005721a517890965c38",
+        "Buckets.expected.bin": "5bd15deae6e6ccde200df682de8d7eebf307a6263d91a64ddcf4bcef83089eb6",
+        "Colors.bin": "b53d23ecfc2da8396d80dc68432a062dc300bf366ddca5d28d9b4ff3ca55e2de",
+        "Indices.bin": "cd8ec64099b4715fe3c346b130ac2fe340fb1b505726ae64c402efd357cc6f80",
+        "Indices.expected.bin": "0996d832a1b1acbba4748a94d12aee6171ba847195165c04eeaad089189eae07",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "dd2c0ac9f23c53a661c4d3f868b8ff04942ddb0f9345d5fa6576e34211bb6097",
+        "Plan.bin": "4b7b2d6d8b206eae651e8d87509920fe1ded2bb7c71bddd8894dadf6a0241c5e",
+        "SortedLinks.bin": "6d8d1e888f98bcf832e46f7fe48095431fe5debb19d845c6d9413f49f0d8c6af",
+        "SortedLinks.expected.bin": "a6d1a68b485f69f1d387fcc26aef70a68e3c828426e1317eabcc1a622eef2d56",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "50bc0eab3a8d907ad88641ddcd93af61d3d6feaa06eae1909e12e1b4f3ff7ff0",
+        "Stride0.bin": "2cba5a0f68262d16d5c4d3d13a1f1f36a167b93ec4ab796b8a61de4572173de1",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "13531e8b102e8720cde57bcf940881805c3487b72c30f0281fa388341fb10097",
+        "kernel.1.ascend": "4635438ec942d3a4a2a4bd049250858a548bf2270a75359aa40d77699396f80b",
+        "kernel.2.ascend": "a57a5392e4cedbe3c7d6dfa90f68d001c89dbd7921c1fc0e6823519ea488338a",
+        "kernel.3.ascend": "fa95d8a2a7bd0a6af183e374b14e7a73ff0c01b18d02383d8d097e9380eafba8",
+        "kernel.4.ascend": "077442658f19d14e4389f4c0f91ccac25cb8d9a2a33e628a4c5e62c74c2bf543",
+        "kernel.ascend": "95d37dc503d750b8957ae86084bbb1fbb664ab57c02715d9f9db08d59e9dac40"
+      },
+      "fixture": {
+        "batches": 3,
+        "bucket_count": 201,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 201,
+          "Colors": 36,
+          "Indices": 36,
+          "Indirect": 9,
+          "Links": 576,
+          "Plan": 3,
+          "SortedLinks": 576,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 67,
+        "count": 33,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n33-b3-s67-g1",
+        "storage": 36,
+        "strides": [
+          201,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n33-b3-s67-g1",
+      "source_sha256": "95d37dc503d750b8957ae86084bbb1fbb664ab57c02715d9f9db08d59e9dac40",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 512,
+          "Colors": 264,
+          "Indices": 264,
+          "Indirect": 36,
+          "Links": 4224,
+          "Plan": 12,
+          "SortedLinks": 4224,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 512,
+                "Colors": 264,
+                "Indices": 264,
+                "Indirect": 36,
+                "Links": 4224,
+                "Plan": 12,
+                "SortedLinks": 4224,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 512,
+                "Colors": 264,
+                "Indices": 264,
+                "Indirect": 36,
+                "Links": 4224,
+                "Plan": 12,
+                "SortedLinks": 4224,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 512,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 512,
+                "Colors": 264,
+                "Indices": 264,
+                "Indirect": 36,
+                "Links": 4224,
+                "Plan": 12,
+                "SortedLinks": 4224,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 512,
+                "Colors": 264,
+                "Indices": 264,
+                "Indirect": 36,
+                "Links": 4224,
+                "Plan": 12,
+                "SortedLinks": 4224,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 63,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "704cb7ac03de519f34ffdf577c36a8de830cf5008536bd26ee6b1e74e02b9955",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "5a26f6f985601418b9d995d5409df8ddad9cc397fee4a4fb92a0c742688ffd8b",
+        "Buckets.bin": "8be87639e2605f164a59c3e2f23539063fad4b4dafcdff26723f42003096d8f4",
+        "Buckets.expected.bin": "1463b9db72c5cbd0228ca7a9b9d70a27c3fb9742a98af5dbae6001e8b3806b96",
+        "Colors.bin": "5f331a79a341dd45546dcb2702b896774be8cb784713f5d4f6f73d26bd9010b3",
+        "Indices.bin": "2a38afe6521bd066cc067825876bec46be0a904c0f2779426f7365f1bea7ac92",
+        "Indices.expected.bin": "2012239ac4aec7f2ff98424da258a5bc7e6f917c4ca0b1d04c9afcf01e0252c0",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "026673a27bed66989ff8595109929b324f5392e937ead88a9f5a7bc4718cd66b",
+        "Plan.bin": "a4d1d37e87b01106ad28832ceb7201bc897751a094a3d3da3cbe503646f42fbb",
+        "SortedLinks.bin": "e417f028ad1482435ed37d220e5dd2d87ddd7553af4fda381baa441b406e5d04",
+        "SortedLinks.expected.bin": "f451b07798bda690177ef53eae4c41c81cf39cde118765b60b9cb33b80bce5cf",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "4345e626eeb22cf17d171983ad78fbe6e69f8a67080403198466a03c887f9c9e",
+        "Stride0.bin": "69abe9a1dac2b1f412b9adeea7bf3b0e14b8922c17041a1c07c113caf7faa57f",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "69140abdb9ab5b5de5df964576b7effff0e0132c24c6b8a9e8e89e04606eb7f0",
+        "kernel.1.ascend": "2f2e64d3c26d1b875b049225f3c0c9f9fcd2f283cdbfad57d8ccae93f644d82a",
+        "kernel.2.ascend": "a5d33b3202071349a88d99a549130773737a2db3640fe0db8d97c94c8ed38ad1",
+        "kernel.3.ascend": "1730a4e4149902ba2f9d722883df37ce49b04dc65e0f4d4d89184361a9d2a47b",
+        "kernel.4.ascend": "0e1d74155cfa2f79a38bbaca8d0de8290afc157b68d9622f6869f08330cc43fb",
+        "kernel.ascend": "3dcfc12e952bbce38632c4de7d14241dec53d8d9c28c5a59c7fdd3d54a427b86"
+      },
+      "fixture": {
+        "batches": 1,
+        "bucket_count": 128,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 128,
+          "Colors": 66,
+          "Indices": 66,
+          "Indirect": 9,
+          "Links": 1056,
+          "Plan": 3,
+          "SortedLinks": 1056,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 128,
+        "count": 63,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n63-b1-s128-g1",
+        "storage": 66,
+        "strides": [
+          128,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n63-b1-s128-g1",
+      "source_sha256": "3dcfc12e952bbce38632c4de7d14241dec53d8d9c28c5a59c7fdd3d54a427b86",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 516,
+          "Colors": 268,
+          "Indices": 268,
+          "Indirect": 36,
+          "Links": 4288,
+          "Plan": 12,
+          "SortedLinks": 4288,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 3,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 516,
+                "Colors": 268,
+                "Indices": 268,
+                "Indirect": 36,
+                "Links": 4288,
+                "Plan": 12,
+                "SortedLinks": 4288,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 516,
+                "Colors": 268,
+                "Indices": 268,
+                "Indirect": 36,
+                "Links": 4288,
+                "Plan": 12,
+                "SortedLinks": 4288,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 516,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 516,
+                "Colors": 268,
+                "Indices": 268,
+                "Indirect": 36,
+                "Links": 4288,
+                "Plan": 12,
+                "SortedLinks": 4288,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 516,
+                "Colors": 268,
+                "Indices": 268,
+                "Indirect": 36,
+                "Links": 4288,
+                "Plan": 12,
+                "SortedLinks": 4288,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 64,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "704cb7ac03de519f34ffdf577c36a8de830cf5008536bd26ee6b1e74e02b9955",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "e8a758027d6de5f03b88574d5355ed29dd977d4f05df98622d6c8bf335759eaf",
+        "Buckets.bin": "f984ecaacaf4688912b58f34a389f9f85295c5779e73bb46ed38df0326abd332",
+        "Buckets.expected.bin": "48d7212b52714080b4700b16c2830f131f64df13dce487a40549785422ec7cd5",
+        "Colors.bin": "0c04d947323da255bd24c46cce7731692c29a94a3f53149ad483080b79fcd19b",
+        "Indices.bin": "29f249948bd25fb67a45d92fbcb1cb3fddc9bb22eb49fb0e41e1f4c95560dfe7",
+        "Indices.expected.bin": "5f19a0ac406323ee8f99428fa85464aafe88c020fd1fefc9b48815bd2962e266",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "4d68cbaa3b792e3b2223ad9bad7252936022dc622d1c857fa245223004995ae8",
+        "Plan.bin": "51c8c6fdc18f8f3d9a6b41c2189b50319494ea221c9f1d2a5061c438d26062e7",
+        "SortedLinks.bin": "2261ef73ba5c3bf9ffa1fa27fbec1bf7554a07fc35cfc6ef47bd1a174641c110",
+        "SortedLinks.expected.bin": "1c612fabd04246c618aecdb363852ecf8fa306d093eb7bba9153d917dc57379c",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "2d5886be0cc8c8d5442a0c6e937df962d41b336fb22a73208de39ea3aa368f95",
+        "Stride0.bin": "0a50b92cb9444793a28889da008fa77637c61880a16e3a2abb1998d5e7066511",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "702ea0fecf5d37124a0660422d347bbd62f5c61e8f94a81b96eb0fe6f16e1367",
+        "kernel.1.ascend": "ef31ba47e1fc775a2dfee42cdc7fbd2585c5f9e5057157b37b72ce41caf4cd74",
+        "kernel.2.ascend": "390c46cc4406f59e4dba5bedc83c7a603e063257fdc5e3aadd2cb8dc28ce49a0",
+        "kernel.3.ascend": "2c23053924650214ba0df048c042d43e90a26a916cf27f71d8db938f2abc1ccd",
+        "kernel.4.ascend": "fd61490d75607802cb4d97947978d2063d2119a4ee67f2b922f0761b2bb8c36c",
+        "kernel.ascend": "08f8781d0487776bbd04af338c5e2d67ca154c156391636282a2fc0e92b412c5"
+      },
+      "fixture": {
+        "batches": 1,
+        "bucket_count": 129,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 129,
+          "Colors": 67,
+          "Indices": 67,
+          "Indirect": 9,
+          "Links": 1072,
+          "Plan": 3,
+          "SortedLinks": 1072,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 129,
+        "count": 64,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n64-b1-s129-g1",
+        "storage": 67,
+        "strides": [
+          129,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n64-b1-s129-g1",
+      "source_sha256": "08f8781d0487776bbd04af338c5e2d67ca154c156391636282a2fc0e92b412c5",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 260,
+          "Colors": 272,
+          "Indices": 272,
+          "Indirect": 36,
+          "Links": 4352,
+          "Plan": 12,
+          "SortedLinks": 4352,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 260,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 260,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 65,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "d8efa5e51602458690542ca6c588b18be399e8c32f318549788fbd95d53500f0",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "47eda11e8ad2ecdb7f418f425194d9c75d21889d5472a474d79899e6164a8bee",
+        "Buckets.bin": "0578f53d12c8aabb72d3566e8bac72686cac3a96c4b4ad313b57e800f9353350",
+        "Buckets.expected.bin": "5671380ca6f673564fd747dc4c06babd7cdaef418801f315852fd5430c915b70",
+        "Colors.bin": "62efb440210ad8fe0c8a3a2d4c82dd521d954ee7c380b2e2893cb774f5026fc8",
+        "Indices.bin": "c4e71b3f6f00d11e46bf4355b68e4131f529ded21accd9e7820eef90ef0f4fbb",
+        "Indices.expected.bin": "ddd4ef9c89681631bf59ffbaf538b63770ec34961f44f096971134465bcb7323",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "43ed571837be5ec6690a66eda2bae6b7a926eecf81cc7dffe437fe1a69dba392",
+        "Plan.bin": "dc7501de82192d52f1d97841006c6efef0c76c40d79262d43b0147491a9ac55a",
+        "SortedLinks.bin": "cbf7eb38332cbd2ad0a0cb6f863d4a12ff3bd6ffdf651e0ae5e2b5159ac0cc36",
+        "SortedLinks.expected.bin": "c163381247a346b79b8821d1d9a8d877f55426a27da6e41b6ff1518c934e9a1a",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "919e6c48ef3ca6b48dc70dfb9d55011cf9a781e19cb9878e87e8bc6121e0fbd7",
+        "Stride0.bin": "94edd1e6b4708e28ecc8d3d7495f8bd3eabf276c977fe6300a29ca3f31f500ff",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "396302dd5a8bde188dd1f214a5eb6af718769a3d5e2ae4017ba331490f42b08b",
+        "kernel.1.ascend": "868ece36a2bc097c4306822a17da2fb1cd6b9aace12f6c30c8c82b4f759b6433",
+        "kernel.2.ascend": "d3c226d87f6e9ae0b3295f88dc35a187b52a2f74ebeaf716ccdb18edd64445fd",
+        "kernel.3.ascend": "7a8a0113fddba7677b7068b4b4374789a38c21f9dfad6486097aabb4851a3ed5",
+        "kernel.4.ascend": "6da97f3aa7b9c2b89ce2900be848c91f429e5dc9e74c1bf44a866873b5aed03c",
+        "kernel.ascend": "f8888f5e89a3e603a7d7b0f6c22ba4b6177a0052c71c1c7baff35c22a37702bd"
+      },
+      "fixture": {
+        "batches": 1,
+        "bucket_count": 65,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 65,
+          "Colors": 68,
+          "Indices": 68,
+          "Indirect": 9,
+          "Links": 1088,
+          "Plan": 3,
+          "SortedLinks": 1088,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 65,
+        "count": 65,
+        "groups": 2,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n65-b1-s65-g2",
+        "storage": 68,
+        "strides": [
+          65,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n65-b1-s65-g2",
+      "source_sha256": "f8888f5e89a3e603a7d7b0f6c22ba4b6177a0052c71c1c7baff35c22a37702bd",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 20,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 1040,
+          "Colors": 272,
+          "Indices": 272,
+          "Indirect": 36,
+          "Links": 4352,
+          "Plan": 12,
+          "SortedLinks": 4352,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 5,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1040,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1040,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "Aux": 20,
+                "Data": 1040,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 20,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux1",
+              "Data": "Aux0",
+              "Stride": "Stride1"
+            },
+            "name": "prefix_sweep_1",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "Aux": 20,
+                "Data": 1040,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_add_0",
+            "source": "kernel.4.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1040,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.5.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1040,
+                "Colors": 272,
+                "Indices": 272,
+                "Indirect": 36,
+                "Links": 4352,
+                "Plan": 12,
+                "SortedLinks": 4352,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.6.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 65,
+      "files": {
+        "Aux0.bin": "22c0d43d16384dba19bdaada10a3577ec8d92a6f39c403ab77078bc23a3bcaaf",
+        "Aux0.expected.bin": "dac43c93efe0ed2740db0fae385e1664451dc3cb6c36e2080230aec1dcb7bc4d",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "d8efa5e51602458690542ca6c588b18be399e8c32f318549788fbd95d53500f0",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "e7c6c6e59b54016189ff3dfb6ce3261d299ddaac8cbd903396d2fc6ae509703d",
+        "Buckets.bin": "8cd017ed0267b1adc83854cbde3a04638973156a3a9b0263b9e4e58621c4d6da",
+        "Buckets.expected.bin": "327cb6a4c1ee04129ec8be9e691535186f6a2520cd0f6e4a4f5d14a57de8301f",
+        "Colors.bin": "12b91a75123673cd723d987d50b9836787e8a902f316a6dc173f8dbcfe381f12",
+        "Indices.bin": "c4e71b3f6f00d11e46bf4355b68e4131f529ded21accd9e7820eef90ef0f4fbb",
+        "Indices.expected.bin": "8543430145e285c2d35081f481d6f1914b5d99fb4df5fd128f47a9a6773de777",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "cead8113b9dd6e59929affbac3778c8b3ee9cb667177654ed2078be90e367361",
+        "Plan.bin": "dc7501de82192d52f1d97841006c6efef0c76c40d79262d43b0147491a9ac55a",
+        "SortedLinks.bin": "cbf7eb38332cbd2ad0a0cb6f863d4a12ff3bd6ffdf651e0ae5e2b5159ac0cc36",
+        "SortedLinks.expected.bin": "5e86d78cbfe0c268048b7672e71405acd83bf2aaae81fee048f49fa2281af98c",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "fe16568a4a433b78e1bd2f647d7dbcd1bd711fba7e087bbc4499f890b4ceeccc",
+        "Stride0.bin": "9129b89b13a893cd0182890eb47416007d531d2f4f4cd1dde2e7028c2ec0e3c1",
+        "Stride1.bin": "0a914e5246a85d678441925e470d2467ac92d567609026f44fcc624f98354eb6",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "f66e48cbeeaaefa70daed9cfbcbdd81940343ef0929dc5de1eb56a0956b8ed13",
+        "kernel.1.ascend": "9d9b6623e622de5a5deacbe1cc4c0fd4a8e04aeb7922d40fe3d983d28d4fa277",
+        "kernel.2.ascend": "6aa953bc52b83c2351d2e36b00927aeb30dcc78cdebd226eb2580b04175fb2ea",
+        "kernel.3.ascend": "9623a6748f6716c9c5558e14acd42c43704d42447a4a3c0d4d4bf3d48e414807",
+        "kernel.4.ascend": "ee06a9261c2676eda4eb2a5695ed8f119eb54f8ac8dc2208f1e976108666c20e",
+        "kernel.5.ascend": "05dcd887efe280e2036fc345a4edb55f8d4c512af1905e2dd6c2919f9bafff5e",
+        "kernel.6.ascend": "4f2402dbf6e55af10dbacd293d680e17e0e2e5548829e58693f699e353075432",
+        "kernel.ascend": "18124cd21374f1f45cccaa2772601ce6ed2f72a912e7888a8e1558b8d8a9625c"
+      },
+      "fixture": {
+        "batches": 2,
+        "bucket_count": 260,
+        "buffer_words": {
+          "Aux0": 5,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 260,
+          "Colors": 68,
+          "Indices": 68,
+          "Indirect": 9,
+          "Links": 1088,
+          "Plan": 3,
+          "SortedLinks": 1088,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 130,
+        "count": 65,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 2,
+        "name": "n65-b2-s130-g1",
+        "storage": 68,
+        "strides": [
+          260,
+          2,
+          1,
+          1
+        ]
+      },
+      "name": "n65-b2-s130-g1",
+      "source_sha256": "18124cd21374f1f45cccaa2772601ce6ed2f72a912e7888a8e1558b8d8a9625c",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 16,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 268,
+          "Colors": 1040,
+          "Indices": 1040,
+          "Indirect": 36,
+          "Links": 16640,
+          "Plan": 12,
+          "SortedLinks": 16640,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 268,
+                "Colors": 1040,
+                "Indices": 1040,
+                "Indirect": 36,
+                "Links": 16640,
+                "Plan": 12,
+                "SortedLinks": 16640,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 268,
+                "Colors": 1040,
+                "Indices": 1040,
+                "Indirect": 36,
+                "Links": 16640,
+                "Plan": 12,
+                "SortedLinks": 16640,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 268,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 268,
+                "Colors": 1040,
+                "Indices": 1040,
+                "Indirect": 36,
+                "Links": 16640,
+                "Plan": 12,
+                "SortedLinks": 16640,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 268,
+                "Colors": 1040,
+                "Indices": 1040,
+                "Indirect": 36,
+                "Links": 16640,
+                "Plan": 12,
+                "SortedLinks": 16640,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.4.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 257,
+      "files": {
+        "Aux0.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux0.expected.bin": "a37be3563e6b462244e6550024dbd3792c1b0786299bf97b7c2d906e1ea95308",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "0f49126fb5e6efa0d26971c871e503b720c185fd832eae245c2f61363a413167",
+        "Buckets.bin": "29f249948bd25fb67a45d92fbcb1cb3fddc9bb22eb49fb0e41e1f4c95560dfe7",
+        "Buckets.expected.bin": "dda98c23eadc5111689ce99194925422c5dc56d139fcc2b160eac7ab355df46e",
+        "Colors.bin": "c7f1f84e316715a38d10f14f14bb2acba25ee7e485a518d9138331c66e062f61",
+        "Indices.bin": "8cd017ed0267b1adc83854cbde3a04638973156a3a9b0263b9e4e58621c4d6da",
+        "Indices.expected.bin": "d3b956245b3bc14946d3d86627e9558c78c9f46229e91e3a1e179b01ac6affd6",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "b680b4b3d0f64cf5ba93ec6040e02c6c251f42f86f4956978ca4d21fcc3fe331",
+        "Plan.bin": "ce12409baec701a4c9a69f0feebb34168b6a6b9d9363e78f69e69d78b755ff7e",
+        "SortedLinks.bin": "b1876aec75d11a63ffd0b72718f52b26dc3ef95b481da44a7bc11f701a3eb077",
+        "SortedLinks.expected.bin": "e6c19db8f901def54814450cfe3e15a93d5a8c4d51f408e6ed20189f3971faaf",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "bf2eb886b9e8762168e6ef713fa1b8f4251d1612a09b08970a80063e1b618c08",
+        "Stride0.bin": "7048c4cbb3fd6f96f53792c73a4b5ef6203c6a100b1eb6b758c1730bb2215afc",
+        "Stride1.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "7515572e453ed9107aa9a3bfb0b7101be4e1a812b67424c7f625afe0fc44fe93",
+        "kernel.1.ascend": "76832d5ff8e99c5e8dc01a5ebb2dbd5424a0ce720b63839148e06c0115a274e5",
+        "kernel.2.ascend": "53b6a808fb7e43a71d72d602a47bda5155ff47aecb9642c917fb6e5b94afc8a1",
+        "kernel.3.ascend": "ec98357520926c30a2ee1c9a3b85a61ae02ca22c880b9d9d5c97955b18a42697",
+        "kernel.4.ascend": "7e049667b8dd896fcf4c9119ee93d132f44fbeb94b804b426a724bc517f0d410",
+        "kernel.ascend": "501554526bf15502c14c7a12d390c708a414c41c0479f6c1b63c02265f4e26f2"
+      },
+      "fixture": {
+        "batches": 1,
+        "bucket_count": 67,
+        "buffer_words": {
+          "Aux0": 4,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 67,
+          "Colors": 260,
+          "Indices": 260,
+          "Indirect": 9,
+          "Links": 4160,
+          "Plan": 3,
+          "SortedLinks": 4160,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 67,
+        "count": 257,
+        "groups": 1,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 1,
+        "name": "n257-b1-s67-g1",
+        "storage": 260,
+        "strides": [
+          67,
+          1,
+          1,
+          1
+        ]
+      },
+      "name": "n257-b1-s67-g1",
+      "source_sha256": "501554526bf15502c14c7a12d390c708a414c41c0479f6c1b63c02265f4e26f2",
+      "status": "passed"
+    },
+    {
+      "bindings": {
+        "buffer_bytes": {
+          "Aux0": 20,
+          "Aux1": 16,
+          "Aux2": 16,
+          "Aux3": 16,
+          "BatchIds": 100,
+          "Buckets": 1560,
+          "Colors": 2064,
+          "Indices": 2064,
+          "Indirect": 36,
+          "Links": 33024,
+          "Plan": 12,
+          "SortedLinks": 33024,
+          "Stats": 528,
+          "Stride0": 8,
+          "Stride1": 8,
+          "Stride2": 8,
+          "Stride3": 8
+        },
+        "iterations": 1,
+        "schema": 2,
+        "stages": [
+          {
+            "bindings": {
+              "blocks": 7,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1560,
+                "Colors": 2064,
+                "Indices": 2064,
+                "Indirect": 36,
+                "Links": 33024,
+                "Plan": 12,
+                "SortedLinks": 33024,
+                "Stats": 528
+              },
+              "buffers": [
+                "Buckets"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_reset",
+            "source": "kernel.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1560,
+                "Colors": 2064,
+                "Indices": 2064,
+                "Indirect": 36,
+                "Links": 33024,
+                "Plan": 12,
+                "SortedLinks": 33024,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_count",
+            "source": "kernel.1.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "Aux": 20,
+                "Data": 1560,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_sweep_0",
+            "source": "kernel.2.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "Aux": 16,
+                "Data": 20,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux1",
+              "Data": "Aux0",
+              "Stride": "Stride1"
+            },
+            "name": "prefix_sweep_1",
+            "source": "kernel.3.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "Aux": 20,
+                "Data": 1560,
+                "Stride": 8
+              },
+              "buffers": [
+                "Aux",
+                "Data",
+                "Stride"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Data",
+                "Aux",
+                "Stride"
+              ],
+              "threads": 256
+            },
+            "buffer_map": {
+              "Aux": "Aux0",
+              "Data": "Buckets",
+              "Stride": "Stride0"
+            },
+            "name": "prefix_add_0",
+            "source": "kernel.4.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 2,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1560,
+                "Colors": 2064,
+                "Indices": 2064,
+                "Indirect": 36,
+                "Links": 33024,
+                "Plan": 12,
+                "SortedLinks": 33024,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Colors",
+                "Indices",
+                "Links",
+                "Plan",
+                "SortedLinks"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_scatter",
+            "source": "kernel.5.ascend"
+          },
+          {
+            "bindings": {
+              "blocks": 1,
+              "buffer_bytes": {
+                "BatchIds": 100,
+                "Buckets": 1560,
+                "Colors": 2064,
+                "Indices": 2064,
+                "Indirect": 36,
+                "Links": 33024,
+                "Plan": 12,
+                "SortedLinks": 33024,
+                "Stats": 528
+              },
+              "buffers": [
+                "BatchIds",
+                "Buckets",
+                "Indirect",
+                "Stats"
+              ],
+              "entry": "kernel_kernel",
+              "iterations": 1,
+              "schema": 1,
+              "storage_buffers": [
+                "Colors",
+                "Links",
+                "Plan",
+                "Buckets",
+                "BatchIds",
+                "SortedLinks",
+                "Indices",
+                "Stats",
+                "Indirect"
+              ],
+              "threads": 64
+            },
+            "buffer_map": {
+              "BatchIds": "BatchIds",
+              "Buckets": "Buckets",
+              "Colors": "Colors",
+              "Indices": "Indices",
+              "Indirect": "Indirect",
+              "Links": "Links",
+              "Plan": "Plan",
+              "SortedLinks": "SortedLinks",
+              "Stats": "Stats"
+            },
+            "name": "bucket_dispatch",
+            "source": "kernel.6.ascend"
+          }
+        ],
+        "storage_buffers": [
+          "Colors",
+          "Links",
+          "Plan",
+          "Buckets",
+          "BatchIds",
+          "SortedLinks",
+          "Indices",
+          "Stats",
+          "Indirect",
+          "Aux0",
+          "Aux1",
+          "Aux2",
+          "Aux3",
+          "Stride0",
+          "Stride1",
+          "Stride2",
+          "Stride3"
+        ]
+      },
+      "count": 513,
+      "files": {
+        "Aux0.bin": "22c0d43d16384dba19bdaada10a3577ec8d92a6f39c403ab77078bc23a3bcaaf",
+        "Aux0.expected.bin": "eb4dc5a5ba3a7b78c67f26aded1a4ca2f8f506fe009fce6e0854b9280a0cb75a",
+        "Aux1.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux1.expected.bin": "e2f84777524831c4beb69742546d5331652d2581bd1bf4b284ba352e76146e4d",
+        "Aux2.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux2.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "Aux3.expected.bin": "0394a378f4ee73319859ffd797872ecc99adb3e07c62f7293abbfd1d84563c3d",
+        "BatchIds.bin": "2510c8aac3df2f15dc58d7f3152de9c7c880afd339611e65d9f24dd864dd0f9c",
+        "Buckets.bin": "b3e65e40ab4c82f73b5b26c15f047c9a4eb2e3897faaaa00c2729e02d6647f39",
+        "Buckets.expected.bin": "dfb5f102bcef70041d3b4e4741ce0c18458227eff6cba6387bb0dabf123c8e03",
+        "Colors.bin": "a50650e13c3f22d8ccb49108912794c610e43037dcf4359bf5a607dfa57c6365",
+        "Indices.bin": "b798be6b785f2365950b19a5aba44f807706ca28254ee79e927b4d2ff11d441b",
+        "Indices.expected.bin": "b658ecacbd3977d770c025f6e65877fe18298b02c8e6d7a2524031aec31eb94f",
+        "Indirect.bin": "d4809db6079e9c05d583a16b065b1c87e3056d7ae0da2952221e819e64109399",
+        "Indirect.expected.bin": "f4dd4a5ffa39450367164cddb95c60d98b85ed68935a3d314c650813e000ba1a",
+        "Links.bin": "b5ecd0e70dbe92fb26631f8054a59c282a3b976ee0029d20143946d7664312b3",
+        "Plan.bin": "8b52b2371ff40dfa896f7e4bb938e1f49a84d0396bcfdc2867516f2e2f661b88",
+        "SortedLinks.bin": "d0d90b09c17770ade7eebc6ce02838e011c832b9c6009cbf8a8d406a78c57d45",
+        "SortedLinks.expected.bin": "d63aae072a1675357564ff273882d61ce7bad56a31ffccda3730ed485a72cd50",
+        "Stats.bin": "f30ead39aba8dd4d7804629267f4bd2b459ce2d5acbce6a27eac6c7fb04e0541",
+        "Stats.expected.bin": "60f9357c7277be5ba5149bf89fbcd56845c47ce97c10d9ff52e37f8f0d539d7c",
+        "Stride0.bin": "9afeb8338cdfe24777040834300df13651c9d21eb1e66da44ab13bc6267a92bb",
+        "Stride1.bin": "0a914e5246a85d678441925e470d2467ac92d567609026f44fcc624f98354eb6",
+        "Stride2.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "Stride3.bin": "f4d9fa35c4353af746824f397dcaf9bc3209d175c148d4877a28ded638ae550e",
+        "bindings.json": "2f9f123796a1a2ca85fd4d49355a602d1fc8e3d7980ee8decc7e8eb6b57b7fda",
+        "kernel.1.ascend": "b9c29c58359b038401af3c45a2c778840874ef550aa8d8e282e23cdf4011a652",
+        "kernel.2.ascend": "37e83806f6dbd56eb925eecbdb55ebcbfa37312d94b218b6bf37633a7393d87e",
+        "kernel.3.ascend": "9623a6748f6716c9c5558e14acd42c43704d42447a4a3c0d4d4bf3d48e414807",
+        "kernel.4.ascend": "0eb2c0b1dab63bb7058b5be72227300dbe13a722bcbf48b1d8070b2eafe07068",
+        "kernel.5.ascend": "c32c5527d1b1e218d0378ea079ea4c9d7279eb7b44f882eb82d809cf4a2aef67",
+        "kernel.6.ascend": "85c0a4a852b2f7b05e1098076405bc2b3750674b0beefbb5e99bfa90018e8979",
+        "kernel.ascend": "27419b603e957fe951b5596cecffb22665f8abaa0e2f8c20c77a1abfa896d881"
+      },
+      "fixture": {
+        "batches": 3,
+        "bucket_count": 390,
+        "buffer_words": {
+          "Aux0": 5,
+          "Aux1": 4,
+          "Aux2": 4,
+          "Aux3": 4,
+          "BatchIds": 25,
+          "Buckets": 390,
+          "Colors": 516,
+          "Indices": 516,
+          "Indirect": 9,
+          "Links": 8256,
+          "Plan": 3,
+          "SortedLinks": 8256,
+          "Stats": 132,
+          "Stride0": 2,
+          "Stride1": 2,
+          "Stride2": 2,
+          "Stride3": 2
+        },
+        "clip": false,
+        "color_stride": 130,
+        "count": 513,
+        "groups": 2,
+        "iterations": 1,
+        "kind": "bucket_build",
+        "levels": 2,
+        "name": "n513-b3-s130-g2",
+        "storage": 516,
+        "strides": [
+          390,
+          2,
+          1,
+          1
+        ]
+      },
+      "name": "n513-b3-s130-g2",
+      "source_sha256": "27419b603e957fe951b5596cecffb22665f8abaa0e2f8c20c77a1abfa896d881",
+      "status": "passed"
+    }
+  ],
+  "compiler_libraries": {
+    "libstub_ascendcl.dylib": "e5890380df954b0b76c925bd275248014e66d92d2fe49fa56dba40a9e46d2329",
+    "libtilelang.dylib": "a7cc6680fca4363cb5b9caf9944db5582e38c18c66b57afb18d6075387b871df",
+    "libtvm_compiler.dylib": "0421323d1ecd11e49ad92348d8669398c68b9fb1b6e28e90ee133305e9f54259",
+    "libtvm_runtime.dylib": "9daa08d53d775b3d9a60f962fb04a57448149e33d8ea26953f9f9addf4386fef",
+    "tilelang_ascend_npu_exchange.abi3.so": "39e2377f67ec4d6cd27f38d82fc6973cfe59fa5b718fb21e7017fd4070ed7557",
+    "tilelang_cython_wrapper.abi3.so": "98d91b288e70391e7a6032f2901f0d209a821f5a242008e9628f8ba2b6811b8f",
+    "tilelang_deepgemm_heuristics.abi3.so": "066b72cf440188b89bbabd582f04fc7aa0e897d9318ee87c2cc4a3bb3bbae86c",
+    "tilelang_pto_wrapper.abi3.so": "83b99353e35af428e7024e9ceea28b5e36103671838ff6779112d6d7d3e28b8e"
+  },
+  "environment": {
+    "cpu_oracle": {
+      "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+      "mutable_reference_noalias": false,
+      "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+      "profile": "khal-cpu-noalias-disabled-v1",
+      "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+      "rustc_bootstrap": "1",
+      "rustflags": [
+        "-Zmutable-noalias=no"
+      ],
+      "shared_reference_noalias": true
+    },
+    "numpy": "2.2.6",
+    "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "python": "3.13.11",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "rustflags": [
+      "-Zmutable-noalias=no"
+    ],
+    "tilelang": "0.1.15+git8944978d",
+    "torch": "2.9.1",
+    "tvm_ffi": "0.1.12",
+    "z3": "4.15.4.0"
+  },
+  "feature": "rbd.scheduling.bucket_build3d",
+  "inputs": {
+    "implementation": {
+      ".github/workflows/tilelang.yml": "65c1b585d37388eb0bdf40f9d4230406a4e8b44388f3e079519b2e46bd80e169",
+      "AGENTS.md": "5fb95e93ac8a5360463e47d0db9afc08f2c7ad13f1e302053a6b5e26947fa677",
+      "ports/tilelang/AGENTS.md": "13fb3655092847e9350c0180d0caf80fec46c7aecb1c5f1215a28ac6f340a2a1",
+      "ports/tilelang/COMPLETION.md": "80d72382dda3037c2db2188c808865a24f0c8c18c1984e0ee9f3113084b4c131",
+      "ports/tilelang/HANDOFF.md": "b96f16fffc3382c7070a01c18b4ec7acffcebdbe237d360d31b9f308b152cecb",
+      "ports/tilelang/body_kernels.py": "58a2187f6201cbccf9f49166cd391bc9e6b6e749b461a3c39a743cf2003f78a7",
+      "ports/tilelang/body_replay.py": "53e01f94404afc200a99b48917feed8e3e01267e9d7dc5039b24bfb84082376f",
+      "ports/tilelang/body_validation.py": "135e06d8977b5ed4292c63c133848d93a53473579cdd298d33311948d84cf817",
+      "ports/tilelang/bucket_kernels.py": "b8ae949db9ae847cc005370012e7aab5ecd8b6b99ed9706708594bffce4c01fd",
+      "ports/tilelang/bucket_replay.py": "090c84c5200cbf7283506e847f7b17324dd47c88b1fd5f67582f693c68e76125",
+      "ports/tilelang/compiler.lock.json": "328632f9962f548b5597970c76b126139f8295bbecf504a47066288ccc195cfe",
+      "ports/tilelang/compiler.py": "67beeed0b138e7c77f3171060cc3f572066df5ab10e6a5ef3c955d229a728ea6",
+      "ports/tilelang/contact_kernels.py": "ea217273614d3b4424a6212e4d4c958456e7a4563648633267b66f6abc63f59f",
+      "ports/tilelang/contact_replay.py": "e7751f53e71e0c3cdb20a9400826dfb4ec5338ea3090b67dfc2de4c66f1be6f6",
+      "ports/tilelang/contract.json": "fb0d8703d98f687fc806100eaad819dd386eacc14185a15f0b088937a980de23",
+      "ports/tilelang/contracts/adjacency_build.json": "1c6b86c37da95124dffc3444d5d8b236c17224922b76fb6dc06c9bca224c31ba",
+      "ports/tilelang/contracts/adjacency_count.json": "4f2a6bd3d4b7da1f1d427f08cbc09cd407c4a74b5f2ecb92b531748e804d8022",
+      "ports/tilelang/contracts/adjacency_scatter.json": "390b84739a618e348e674d55f24332bedc2097fe71b92b1246e6ff7ea91fcd0a",
+      "ports/tilelang/contracts/apply_increments.json": "c92a7e5d6be9148e457844502fbc15ce56d4497e25eebb9a56a70560bb5ffd76",
+      "ports/tilelang/contracts/bucket_build.json": "667ffd1b0e26e5d3e1db452e48e445b69f6615db94d3535fb6023b63425c15fb",
+      "ports/tilelang/contracts/bucket_count.json": "4b57967c939e51ebc28c4db17c5bd6b5b9875cb7e745757b4b4ce75169c41478",
+      "ports/tilelang/contracts/bucket_dispatch.json": "6d9beddbb43850b603d607bc65937dec116c6fd2a9f5cc74e8a68a5d5980ffbc",
+      "ports/tilelang/contracts/bucket_reset.json": "912329ca121bbb1ea67feaa9415f4fb0ae8c52be21a98f32bbda433ab9810c26",
+      "ports/tilelang/contracts/bucket_scatter.json": "d7f7a4fe1e829bad53e1f42f4136fae554cb7d9ae15877e9bd0439cda3d50cfb",
+      "ports/tilelang/contracts/cleanup.json": "eb6c769756c16b270af58aa6826c5a6e05a9aa80343b85e88e87faa14019bdf7",
+      "ports/tilelang/contracts/contact_persistence.json": "3cc765d53b0ef3a6c4b0ea9d6c9fd80be5d3bae88f984c619947022027f54ca4",
+      "ports/tilelang/contracts/effective_mass.json": "fb80c9138d02c1d99a63acf35c17d249fae4ce0f5ce8a5a6cab28461f3db6971",
+      "ports/tilelang/contracts/finalize.json": "3f09c7f585302b4d6c012fa5908fce7ec580934b102d21f949e5adb568232ef4",
+      "ports/tilelang/contracts/free_step.json": "f318cf931fee2d8bed3153bce962befac595fc473c539e678560424607505c30",
+      "ports/tilelang/contracts/gather_warmstart.json": "40424f2d69a3f18ecf4d55fee201719a297459ed6f99a659bb245ee2c886fd88",
+      "ports/tilelang/contracts/hub_assign.json": "760cc27021fd1cbed4b010f0b5f12ea29ad091f58d0ab8a700ba4aaf64af98a3",
+      "ports/tilelang/contracts/hub_average.json": "650b64741a35aab48fb954dc263d6a4863dcf024301064b24d826fa16ce9886c",
+      "ports/tilelang/contracts/hub_dispatch.json": "dd4531eb14a17b7181a88662c949ae83283869ab994284db202bccd680a21555",
+      "ports/tilelang/contracts/hub_scatter.json": "7773135baf2e2f1c7b011ceab59862f851b6b9571b5c3e90036499e6d11d0a4e",
+      "ports/tilelang/contracts/hub_split.json": "2babcfc2c3e9dc344028ed88b58cc436d1f3ff57e5b70e931b09abf9101848e7",
+      "ports/tilelang/contracts/hub_warmstart.json": "037f945bdd2b6084c8837b6d23f0976107f642658b37d6d21e00c9141bc72d9e",
+      "ports/tilelang/contracts/init_bodies.json": "de6ecefe84c1f8b6109ef7418c83dcf05dcb4088548b410f0963d1bd8f1dcaad",
+      "ports/tilelang/contracts/init_increments.json": "0ff963b98a43f23d4f895525d19792a0a2c24d65d24d54b9e065bea17cfeac50",
+      "ports/tilelang/contracts/init_links.json": "ad30b8db0412132f68c2522d87f9680e7d5c21967f281e8ccca044fad8d161fb",
+      "ports/tilelang/contracts/integrate.json": "f92d44634b5f93f146d45f864e020fd5b9b2c8d5b050f94c735c2a0f1d567b0f",
+      "ports/tilelang/contracts/match_links.json": "48c4347c26f70dcb6e4da12fb90e23bfd7f1bbe86a765697de41172e3016f086",
+      "ports/tilelang/contracts/prefix_add.json": "5402ce9bfbfa16d6beb56d6dc5633e2b6381bb9cf75bb44343749ea8560e2c95",
+      "ports/tilelang/contracts/prefix_scan.json": "5ff915511fda508c03132bb972dc6d77a314a13808c6255b28a91e49fd930932",
+      "ports/tilelang/contracts/prefix_sweep.json": "aad60a4f71c87d8b51e3bd8717524ca575121913215892725c2db68dc3420f20",
+      "ports/tilelang/contracts/prepare.json": "7c552c1f3b2ca8b468979dd0f2a9d10f540d5b7c83becd936668e1912ead1b8d",
+      "ports/tilelang/contracts/scale_impulses.json": "7b36b4daf5c1db904c9cbf12ba6e7feb9f6bede4edcdd83b4fb4f21444cbd0c9",
+      "ports/tilelang/contracts/seed_colors.json": "27f77c67d59d456b102be738671fe135c79a3df51f28e17a78fdfd3af5a53fee",
+      "ports/tilelang/contracts/stabilize.json": "0de028da2dc381f2011a35767b90ef51c74386d5af7f627853964d0615547a14",
+      "ports/tilelang/contracts/sync_colliders.json": "2dffb1d209a68e8938bca05b238736b3e5ff07773335e8f231278afbc95b9a2c",
+      "ports/tilelang/contracts/update_mprops.json": "51b6f84c084ae3c0c2bdd79576873ec63f817ddb7eb435326f4dcad6f1c5a11c",
+      "ports/tilelang/contracts/warmstart.json": "384861217604cd84e74e8a421112054f2f32a95f92eadf866659ab066240afeb",
+      "ports/tilelang/cpu_oracle.py": "32a8237ddbfc60b4b33d7425380eac496a30ddcc78a2607cf7135d9a61ef6a80",
+      "ports/tilelang/graph_kernels.py": "4d3afd6624779384083827c5517a849feab7f725be3d91fbae031c70e25db048",
+      "ports/tilelang/graph_replay.py": "1125ea9978a0eed59485313be7b1bbe9b98a8fcdc13fc27a18758f1462783dcf",
+      "ports/tilelang/handoff.py": "8d91bb4169182b71f4ec700236e4f291c8f8855200d1a9b7669f8464babd53c3",
+      "ports/tilelang/hub_kernels.py": "ff57fd23ddc5245fb4eeb220e9d76288101686e3566fc56e36db9800a7e82441",
+      "ports/tilelang/hub_replay.py": "d8e1547f30a81ca6d00b1cce35c6877961f67a5a8f1c289ae9fff726de520adc",
+      "ports/tilelang/inventory.json": "68b4e1b2966ccfc711d98a21612fc8eb4bc3caca408f86d8c1f14c73b989fd0d",
+      "ports/tilelang/inventory.py": "646aa275c28b6fd17424f8d32c64d74a31f75376fe75496916e43e09b3052ce5",
+      "ports/tilelang/kernel_support.py": "c9172e85861f530652d73057990268524d94935680a1d882651055162406c093",
+      "ports/tilelang/kernels.py": "02172893f5f1601d42cd7cd9b7dbb786dcc9d1842227524ae0c053c194eb6ce5",
+      "ports/tilelang/link_kernels.py": "0749d2034a910dda5645256fc4633089f72e519e720b5362616192344189c857",
+      "ports/tilelang/link_replay.py": "ca48ef26fc4e7013de6fc560241c5171305a0ae74741c1c6fad43dca334d148f",
+      "ports/tilelang/native/Cargo.lock": "3d66d537a41d3386978a535f40529556165fe26a4209caf0aa9054d85463b064",
+      "ports/tilelang/native/Cargo.toml": "4f7f72e257241414c654826c44e8b00f7d770652802d25d4add657b84ceaaad0",
+      "ports/tilelang/native/rust-toolchain.toml": "5e7517b95a2b4e810124f84091dd4a6e3f2192523fcac7b6d52abc7fc6aff91d",
+      "ports/tilelang/native/src/bin/native-replay.rs": "bc54f5c388957d3be82d983783defd9f7204af4ec307dc2b4725975fa241a86d",
+      "ports/tilelang/native/src/bin/rust-reference.rs": "5e3826d7c404fa61277f0c32d1fcfbed4fcf36e0a113a0212fc38f967f2b630c",
+      "ports/tilelang/native/src/lib.rs": "9ce2529d4b893961a852654241e18f2c44f33ba819fb12dd712081479712cbf7",
+      "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
+      "ports/tilelang/numerics.py": "22dbc8ef3c9abc652257cde5f6ee1f531d3c40d6cd6a66d4fe0b761a8befec4e",
+      "ports/tilelang/ordered.py": "208c6773e42f3e5a08e4d1f4186935bb6c9e176214b6ff276c013c80332c3f48",
+      "ports/tilelang/parity.json": "6be466b454e7d9b2703eb253dec3fec03904da9a643947d29728a58feb2227ae",
+      "ports/tilelang/parity.py": "1ce2534d5a8e2c88b81fea6498a2da253de663f2b8a3ad1436c6269f803b4b95",
+      "ports/tilelang/pose_kernels.py": "cec2d4d0ddcfb2cf6dfe7d9c719d1bcafbf8c92b57e67271a2528c6be0edac75",
+      "ports/tilelang/pose_replay.py": "74ae707c0bd45e29bb82f61c08307fdc6af79f6ca592456c4187985f929e8c2b",
+      "ports/tilelang/primitive_kernels.py": "63edee78b75f8cfb4aef8ad320ad7a329cee9772fb79a4a9f4e1340dd857dac1",
+      "ports/tilelang/primitives.py": "08230822daacfe398e7febf17f8f3e65de649016c6edf928bd67a09913064886",
+      "ports/tilelang/reference/Cargo.lock": "dd3c9235708a1e2ef16c3cefbf85a3f56ef22145f503409663199ef4b2c8ad7d",
+      "ports/tilelang/reference/Cargo.toml": "f51f776af92f88aedf35d43f3bbd735edbe6198c8c45e43dc8e4107ea4a47a5d",
+      "ports/tilelang/reference/build.rs": "a707d175c57a4edccec3c77a52f766e51da6b13c60b9d9b7e9c57b865a23aa92",
+      "ports/tilelang/reference/noalias_probe.rs": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+      "ports/tilelang/reference/rust-toolchain.toml": "887f9be066a15585a2c583578e84b0fcb541126d81546276bad3d2ff00d61167",
+      "ports/tilelang/reference/src/bodies.rs": "1070d153a007844671940dcf94069d7c9153db6ed3efdbe4504bda959251023a",
+      "ports/tilelang/reference/src/buckets.rs": "a114c50ad9dd770e67817cac83115cdc448b65f373844448439d21ab283f45b2",
+      "ports/tilelang/reference/src/contacts.rs": "3fd0b5d20c5c0cfcc76b51152abc75d6e24daab4e4dde15aaa142c89095d04cd",
+      "ports/tilelang/reference/src/cpu_dispatch_check.rs": "7dacc203954ad4f60046de911e9b977a71beda8856c5e57a5a0d7d4f3ee363d2",
+      "ports/tilelang/reference/src/dispatch.rs": "6e9bc540b9c07ecdd926d66c89195c761df5ec81ae35d6b67c36f61ef8149440",
+      "ports/tilelang/reference/src/graphs.rs": "a72b6ff27034e6ae15230605d649841641517df2dad7c21a7ae9fedda7b07d23",
+      "ports/tilelang/reference/src/hubs.rs": "49108cd3fb86583915e4b3f7ac862941aa7625c30481964554ae6c6091ba4bd7",
+      "ports/tilelang/reference/src/links.rs": "0c48a85be8f9406b77b51d9c139efdf4e1855aeb9a0e5b76dbb07a2828c414cd",
+      "ports/tilelang/reference/src/main.rs": "59e71030dff875e576724e9424befb59c28f2de3788abd8d84c5eb753b784b3b",
+      "ports/tilelang/reference/src/operations.rs": "8e13c53e2c961213d39bbe0b8dd20194629d1954ee8c7940be7457cf7c72499a",
+      "ports/tilelang/reference/src/poses.rs": "5d077e03bcf61314d9f48190054278762ef8ac796e85483acd7af01428f5e708",
+      "ports/tilelang/reference/src/prefix_program.rs": "dff59db2b8c761c851c2b29215c841b295a1852a02ca615429902eaa239bed40",
+      "ports/tilelang/reference/src/primitives.rs": "4b5af489d1ec9408490427982c77d93dced5d2fb118ae62050a74e9dae7249eb",
+      "ports/tilelang/reference/src/scans.rs": "97ee1e7417237580251abe1f9a2a3db156929d10881c82f1f299b5fc63fb1840",
+      "ports/tilelang/reference/src/warmstarts.rs": "f3962cf8e71361657a68b451ca19dbf18cd613669002d4329f225ef4a31a29a4",
+      "ports/tilelang/replay.py": "a8f4469e00db7c785e5d1ddd0bab690afcd4b44688ad8aa5aff84199f84f21b1",
+      "ports/tilelang/requirements.txt": "8dba2741619f70e2f7c08d61350c8c2a0f105902b87e243b129e5410a3f8012c",
+      "ports/tilelang/scan_kernels.py": "b06b77f96dc382d4bf84e18e4cfddc3e57de7b85c50e2e40e72933ccdcd7a7f8",
+      "ports/tilelang/scan_replay.py": "4d6df9d1f64eb4498e668c9c42d73e7743c0e379966ef4ab74bc4e785fc568fb",
+      "ports/tilelang/session.schema.json": "e99950fc5331a03b2fc975bb5d9c68e434b702926d30e7921e8126b60e763822",
+      "ports/tilelang/shaders/__init__.py": "b49b0d4bdf369abaa2cff4a137163b6cdc9d5914d94cd0afd1600d99ac4a7cd4",
+      "ports/tilelang/shaders/dynamics/__init__.py": "7c14f6c45a11fb2603d327922a8823188d96f11836521a9db0f6eb0c6545004d",
+      "ports/tilelang/shaders/dynamics/body.py": "d880a0bf5c7915ed8eba3987883d0f1c9383ed95e052e45ea6493172c221e482",
+      "ports/tilelang/shaders/dynamics/canonical_order.py": "9fbb3fd6a12af2e26fee2960b49b617d90507442678842c03f014b29636ea774",
+      "ports/tilelang/shaders/dynamics/color_buckets.py": "4f0a0de2aedfe3e948bc14f3e72dc536d83dd6c0e51cea0f1964fed13b15017d",
+      "ports/tilelang/shaders/dynamics/constraint.py": "e70e7ac9dbe82fbcbac7b2737313b310cf5fcb55cda8fd9c63b439b5707c6ba8",
+      "ports/tilelang/shaders/dynamics/contact_links.py": "e49fbca03a85c1223f14ea387587c74da96f22390e54fc72d0e12d727bf6a2dc",
+      "ports/tilelang/shaders/dynamics/coulomb_tiles.py": "85c7e58d444a6c82c56f36624f9c8a21ec93a626b615a771fc8a3510a2fbe1a6",
+      "ports/tilelang/shaders/dynamics/mass_splitting.py": "5bbddfd4a43ab224466544ddfed8351c6a762809a70a50778c5286e18e9cfe96",
+      "ports/tilelang/shaders/dynamics/mprops_update.py": "b088a327949de45d3d7be4db4b8ecff194e52f69da6e34f8d51458305b6a02fc",
+      "ports/tilelang/shaders/dynamics/solver.py": "465c55a4c102453cfd206f2c96fe9e9f3a5400655df7ea393c6d5c16e991207e",
+      "ports/tilelang/shaders/dynamics/solver_utils.py": "0090d0e36f594a3f510fafc71e4a48dc7b9c336d81ba38628c94c28863e2eb38",
+      "ports/tilelang/shaders/dynamics/tile_kernels.py": "f30db9031235a227931e08e11bad3cf3e1567b1f41fac67bdc9853bcc997d725",
+      "ports/tilelang/shaders/utils/prefix_sum.py": "5c51da0e79840eee44abb35a5782eb2409a61713e2092d865ed87e466f03ad87",
+      "ports/tilelang/stage_replay.py": "dadfb5499870c21421c0c59102eaeb4997258c4b3f3210b9d917ec744473c610",
+      "ports/tilelang/tests/test_bodies.py": "ffd41418937f93499a7cfa56cc26d29c353830c90bad54dd185a952b117d2c95",
+      "ports/tilelang/tests/test_buckets.py": "c7c841235130bfebd5dad9c169d4b81bd234ae78b4b2a7927e11dec958e46cba",
+      "ports/tilelang/tests/test_contacts.py": "886e534a5a3e2049b3910e8940a79548ebb27d23f21c95b2e9d6999a8e096b70",
+      "ports/tilelang/tests/test_cpu_oracle.py": "992829a7c75bd7edf2a0e1d4a4e1ff8a9d9074385c79b2ae69f2e4c4a598abf9",
+      "ports/tilelang/tests/test_graphs.py": "4c6d358765e17b6203670f862b5e88ca8863d0fb25ddd54ea74a6de4b5af7822",
+      "ports/tilelang/tests/test_handoff.py": "3f1c8fd0684f6fb8d119979b58906033c6a208f00216639bc73b90c077158b67",
+      "ports/tilelang/tests/test_hubs.py": "22067602fa3ad0c75e7fa0ba5fd4914dfcdce47090cbb381af02c75daf4814d1",
+      "ports/tilelang/tests/test_inventory.py": "f3288b3793403e871908f1d7ff00544478c1dec0fbacb4c149c45d090b0dae79",
+      "ports/tilelang/tests/test_links.py": "dc4e644e4fb0976e95eebdef443136e44d28f8fb48ff35362b5cc5a16b5c41c5",
+      "ports/tilelang/tests/test_parity.py": "7a36a573f0116dc7fd6bc62dd00d031fb1e8ad4da5415383a172d9a4eb2373b8",
+      "ports/tilelang/tests/test_poses.py": "85c3e57fb391e12892427c9a5178636918e5fcd34ca7104acf0ac060fb4abb69",
+      "ports/tilelang/tests/test_primitives.py": "ebe5e90301f462ce563fc0ec7fb24b6bd73f61af997bd73b83ad2df19afec6ee",
+      "ports/tilelang/tests/test_replay.py": "6cabd50d01366dc999b8e213efbaae4f9d22d0dc63b51c92fb1319ce9619cfdc",
+      "ports/tilelang/tests/test_scans.py": "d4444258449466688ca67607c3878197012598bfe9f0707350e6eab06f96584c",
+      "ports/tilelang/tests/test_warmstarts.py": "cdf03aa8d2c351e9f20892846d396c7ff2a2892e01477d0fc2079e742b32b4bb",
+      "ports/tilelang/warmstart_kernels.py": "d1e7a479baa12707de7dabc1d445a6f0388afe2156a9fff7889376f45b44d626",
+      "ports/tilelang/warmstart_replay.py": "c21b664cca6c60f1f7400f59eec44f5d3d63f90e9b1c8ed4bc45c47fcefb4db7"
+    },
+    "reference": {
+      "Cargo.toml": "793417ef325c861841fb12ebd0ea5c769509704a2bb06dd29878682ca79daa1e",
+      "crates/nexus_rbd2d/Cargo.toml": "246f4805bef6a0e669980e865025abd607c61fac3df63da71b0b87b596f35d36",
+      "crates/nexus_rbd2d/build.rs": "bfefa1f5cf95fb7cd4883aa34ffb9bbe6423f1796955feac5851a13ffb34f57d",
+      "crates/nexus_rbd3d/Cargo.toml": "f1ee4d88d2308f83581db7b8a0f08df829b7db54eadcf87478bb4adada63b8e7",
+      "crates/nexus_rbd3d/build.rs": "53582ba2251053ec8f3ad716636e54999793df86d141856833c2a3afed66acb1",
+      "crates/nexus_rbd_shaders2d/Cargo.toml": "c08620f10c97a39a1ece775c061f04b553524dc7cbb31fb2053dfa46c968680d",
+      "crates/nexus_rbd_shaders2d/build.rs": "8a4aa3715afb062ba751f745ead972f1a1f52f21a35d63ba0474a0e8def4c181",
+      "crates/nexus_rbd_shaders3d/Cargo.toml": "c32f8d2fc600b971f578fccad6b3e4cb66ea56a7d4026542fa77870c228b056b",
+      "crates/nexus_rbd_shaders3d/build.rs": "8a4aa3715afb062ba751f745ead972f1a1f52f21a35d63ba0474a0e8def4c181",
+      "src_rbd/broad_phase/lbvh.rs": "5787bdbb9812de1c606304d0f8e2ae1ff4ac4a856e66babbac9a547b4ae69803",
+      "src_rbd/broad_phase/mod.rs": "df404b0ffae76af0ab4266d1eedfecbde4129ef365d86e386d5ae9d1fd071e14",
+      "src_rbd/broad_phase/narrow_phase.rs": "73cd820b1f8d70f9c96e00b22af3ab27203c6bec122686a7cb81fe02b774cc76",
+      "src_rbd/dynamics/body.rs": "d494211f7ccf70047be8c8104be4fde7509d5197f498db9817c0d2d4dcc154a9",
+      "src_rbd/dynamics/canonical_order.rs": "f44af3d9bb906af485ea876a059c556999cfacf1d5529547111286e0439221a5",
+      "src_rbd/dynamics/coloring.rs": "e44b241596159b82910d66cb9207593ae470e2cbc7757c1062a6d70fe82f9394",
+      "src_rbd/dynamics/contact_kernels.rs": "aa7030a2e346f3e61323f05826403ebcbd38558c44e8b5b774a911692719d0ed",
+      "src_rbd/dynamics/contact_recycling.rs": "5a1654cf927dab5de3c0bff0fac04f0c432969db6f7dd3f6bcff1eb186fdb247",
+      "src_rbd/dynamics/joint.rs": "37a7ceb3d41afbfb95568dbb949499148a64d58a90f2176ceccb70ccb3479850",
+      "src_rbd/dynamics/mass_splitting.rs": "78c28d14600839cf27776094508eb4f010a70279c1f150bb249a9d452bf10779",
+      "src_rbd/dynamics/mod.rs": "42d3cf75b6a06a13212177e4819ada0b5290d4533082911354859bd0595de79b",
+      "src_rbd/dynamics/mprops_update.rs": "2a363eca6e5b6b6e615269c419d81a65fe418f989be2a7beefc1429f3280c9a1",
+      "src_rbd/dynamics/multibody/env_reset.rs": "f90c6fbc10085547d013dc8fe72d33ede8b0cd20f5395239e3c5c8b2cf18c568",
+      "src_rbd/dynamics/multibody/loop_closing_joints.rs": "c7548e7a91bdf25575fbb3f9a69acbded384d2449daa92cb61aafbf8c65ec7b3",
+      "src_rbd/dynamics/multibody/mod.rs": "31b638e3eac9b528cac0532c8a7cbf47449fc78b73f442ab27fa3cab26bbf5e5",
+      "src_rbd/dynamics/multibody/multibody_from_rapier.rs": "21122c7ad6552cdbf1dd00c725d81e731be6d0c38432175091a5771ba63e690e",
+      "src_rbd/dynamics/multibody/multibody_set.rs": "16aa5356bec6599d5b4042d939db0a0383231a82079e0a3f920fd91a688c261c",
+      "src_rbd/dynamics/multibody/multibody_solver.rs": "cf9400e2df2fed22d53cab99c02096f2f5f8243aa9d6cb8ec6227eea548ef7b5",
+      "src_rbd/dynamics/prep_render.rs": "205b9ccaa9e6c24d662ab9a398a0437fbe9a1a49e4516e90f8a769df5866e5f3",
+      "src_rbd/dynamics/solver.rs": "b11284d144a7bde8c4d08e632d531f50bb0ea5a5e7aeceba82bb9a8499a43aaf",
+      "src_rbd/dynamics/warmstart.rs": "077da6a3411198ab9526464ad77e45b3a6abe5ae834e63536269a0074e46680a",
+      "src_rbd/lib.rs": "70d2ba01a43456d98c03235ebd38119adbbbdfd8699d885f0b31efd5acc4bec2",
+      "src_rbd/pipeline/bench_narrow_phase.rs": "15a0396dfd686338b14605d1e735c519f049111573fc48a83bf0337c615b602f",
+      "src_rbd/pipeline/insertion_removal.rs": "0cd3a9212c0cb940be91ec81af92eb8d3aa51550abddec8e4b7c3c28e8496dfd",
+      "src_rbd/pipeline/lbvh_validation.rs": "a42f53d0690c1746c5be6bfac43477f9e43ea46e7fe8e24cba3e77b286e54c17",
+      "src_rbd/pipeline/mod.rs": "bfa7c6ae63275617f65f6a67d863bacf3a10d04b111ffc2f8bb060e1ad57a458",
+      "src_rbd/pipeline/rbd_state.rs": "0520c529b236b48b919b939e48c338cbeddf25c7e6fe0c00134a69d957dec15a",
+      "src_rbd/pipeline/rbd_state_from_rapier.rs": "13942af59f6e3cc20192e9641765192c5e9ab76c9d64ef78707d35b22e35f396",
+      "src_rbd/pipeline/rbd_step.rs": "6b1edddd23071bb63f41599f7082c83b15b5a63e8f5d7371eaa4509309cae580",
+      "src_rbd/pipeline/test_batched_stacks.rs": "45d17014d5735d0a0672178ecadae070903732589e726217fec3bd3d4c59f6b2",
+      "src_rbd/pipeline/test_broad_phase_packing.rs": "d8d35d5ce87ff33c469978ae1ed32b5119b6d3103cd00a38c3bfc287b15febb7",
+      "src_rbd/pipeline/test_color_buckets.rs": "6521cd2e299a51cba4cdab7f84ebd57644a14f6a52238ff638b8074829b2defa",
+      "src_rbd/pipeline/test_large_warmstart.rs": "d87cc6de49253f7dea674ae104205caaa3f0041f1c8f2d6840439b4cc7d0ed16",
+      "src_rbd/pipeline/test_multibody_dynamics.rs": "f5da19e9568d2cd84eb7eb8369d8a4237fa00174f4d059811985ff645cf4e076",
+      "src_rbd/pipeline/test_multibody_factor.rs": "6ed04d12ac5670753f304ce6f6d3e77140974d39a31e293e8da4a088472d6d85",
+      "src_rbd/pipeline/test_multibody_layout.rs": "7d0b969d9ab2b18a566d66bf82078310a0a7f23a3e87f5e3618c48e662b65008",
+      "src_rbd/pipeline/test_polyline_warmstart.rs": "4731a024e114babb8a735d3f9a727342403fdc50b0fb23ee8cf2cfee6b4787b5",
+      "src_rbd/pipeline/test_small_multibody_solver.rs": "1d542759c9f19e08e6bdf52ff7cf4ff3e2f5790ceac12e47b3d0636e72de333f",
+      "src_rbd/pipeline/test_tail_colors.rs": "bf248085409223db690619eab83499dae467f42b876c3942af695d2739f7c57b",
+      "src_rbd/pipeline/test_twist_friction.rs": "5c6a58ba386fc0116b39054531a8e2b48994e4df144e17a2aee4e93738a7877c",
+      "src_rbd/pipeline/test_web_preparation.rs": "17ea7af257ef3c29b091c1019fab1145c55379166f6c309a15c41169bbfa42fb",
+      "src_rbd/queries/contact.rs": "582d974ccbe08846eac3b81468db3c436963cccf2cd6c26b034a81e73d04e642",
+      "src_rbd/queries/mod.rs": "8b2471eefeb176f0f3a3706f3882a95b1562624fdc57245944e3799cb82836d3",
+      "src_rbd/queries/projection.rs": "e808342b67afc050f29d7a3457e6f9b6a3ab4db5670d5077d269a1e08172bcb9",
+      "src_rbd/shapes/mod.rs": "bcaee49af15265c5b71c32d30f9c1e83a83fe46b6d7f186f48fa5ff3e64e4bf6",
+      "src_rbd/shapes/shape.rs": "7183b1350f4a118b50d36eb041ac2fe3867f6c1b4dbb1f2977d1fad892ec3fdf",
+      "src_rbd/utils/compute_graph.rs": "8e40449be6426d59363f98b527f48d07b3c15ad518e14ab0d02752135e161190",
+      "src_rbd/utils/mod.rs": "de557faa769398aa98a7578d6f59d8169393ebed325401c5b0df1e9ee8d83a07",
+      "src_rbd/utils/prefix_sum.rs": "b8d2e57c90fd1e11009760612683ede29ddcec71d308ae866f912f48ea9f7ffb",
+      "src_rbd/utils/radix_sort/mod.rs": "6045af58fa6d44b5cedc151455eb607616e5ff4f3f3de9ada481c34f32e574ab",
+      "src_rbd_shaders/bounding_volumes/aabb.rs": "15c34c04e1bcaae2f3dc4c93527bc205088a69bec0249fdd6dbedb94ef7b7112",
+      "src_rbd_shaders/bounding_volumes/mod.rs": "0b60013b45c265e8b272f0cbb9610fef1143bdcfb29e893e5ffd9c5b071138fc",
+      "src_rbd_shaders/broad_phase/brute_force.rs": "99febcd70a0aa08a6f8048d2d0ac6f6cd5bdf2ef9eb7580f5fc7759f6377eed1",
+      "src_rbd_shaders/broad_phase/lbvh.rs": "3bd8b5007852bd518b578cfa4abec256104160e7940a37fc147a66bd4e074f92",
+      "src_rbd_shaders/broad_phase/mod.rs": "a5852a8d012c47b4ccc26ffd4006a4dd279bccc5b6f893162666bb1a15d45406",
+      "src_rbd_shaders/broad_phase/narrow_phase.rs": "51f113b118726b65ceb6cee0ab7be1422b6bea70a80758d5213be898fd3e38e1",
+      "src_rbd_shaders/dynamics/body.rs": "7ea59932bfd7bb22b786429aa1f874db1423e2a0bddfb8194a90e4e33d3c3abf",
+      "src_rbd_shaders/dynamics/canonical_order.rs": "4a6aeeb29ab15524d0c09b772a8a90c3d8975a3a2a2eb8f53d95b7a20220d360",
+      "src_rbd_shaders/dynamics/color_buckets.rs": "1117d8276ff0a1a6bb9c602807831b51e9904930c7f27487a9c94bf7827ec03c",
+      "src_rbd_shaders/dynamics/coloring.rs": "b1b07b5ba478c4d04f9296bdfb50c27821ab612452c4892131adccaa573704e7",
+      "src_rbd_shaders/dynamics/constraint.rs": "ac9ccfdadfb02c28566aa9d400746374bd6f873c83fe52c756cf3c4461fb002d",
+      "src_rbd_shaders/dynamics/contact_links.rs": "38dc2fe13f11051e93cbf5f7fcb77f6ce5ef35c6282de884e89d4975dbb3e743",
+      "src_rbd_shaders/dynamics/contact_tiles.rs": "e6742c1dac0335f0794e43b9d599893cf00ec6cb764c484e1f56d3c77ff4b3fa",
+      "src_rbd_shaders/dynamics/coulomb_tiles.rs": "7fed9465a99fdecd46b6e31c33b9363cd6a9f42334ffd2085a0fb43805c4e8cd",
+      "src_rbd_shaders/dynamics/joint.rs": "a03b93016d8b4c328a835591c04aa10b38fa29f168715b09d3933afc92271d24",
+      "src_rbd_shaders/dynamics/joint_constraint.rs": "c51f4fbe5e52ced2e45e3d7cbd5e22fe654a5cab0e05af710a05e40985fcc02e",
+      "src_rbd_shaders/dynamics/joint_constraint_builder.rs": "70866f9a30880ed17d77e92dfd5db5aefe403b0746c7e30ffde67c1daf6aae24",
+      "src_rbd_shaders/dynamics/mass_splitting.rs": "a27f921323424fbbbb3554b83872bf76e49818e159f264bd2648837ec05bb657",
+      "src_rbd_shaders/dynamics/mod.rs": "ca9cbca76563a259905e9a8b4adb2d92025f83c4e154b7b22668c4174615349d",
+      "src_rbd_shaders/dynamics/mprops_update.rs": "991862f1a20c270c18e395f4a6974634be893cd874a7e6b1ab2ac8871955789e",
+      "src_rbd_shaders/dynamics/multibody/compute_dynamics_pre.rs": "ce9d9d176ec2bd554e4caebe0a06686128c352acefc041ec1cf49f92a84cbbfe",
+      "src_rbd_shaders/dynamics/multibody/contact_constraints.rs": "8dc57f4e10ae555bebd2dc6bb6b737052a0c42753fe5747511ab39d234a6ba83",
+      "src_rbd_shaders/dynamics/multibody/contact_sensor.rs": "9ac27b4365e5e238776bf8379a861766e77d57997fd7eae67fb734e6113bad80",
+      "src_rbd_shaders/dynamics/multibody/crba.rs": "32b09661d48bc3738e2cf796558d12e041a323fc1eff6268d4fc39753b3badcb",
+      "src_rbd_shaders/dynamics/multibody/env_reset.rs": "30b7f10022154229307d10120731fef901d08974fca81fd9b4865cd7fe5d6d16",
+      "src_rbd_shaders/dynamics/multibody/gravity_and_lu.rs": "90f47e27965358c38ebb177723cd48a4e2fb1ec91837a428ccd8816f5d733def",
+      "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/helper.rs": "9234cf2631e47de41b4a50c59c91843d98094a72c85e0c522d5870c12765dd98",
+      "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/jacobians.rs": "4e881ec8baeecadd4d80abf6d2dc051537ef9b3d804ed7697007f8d17110ebef",
+      "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/kernels.rs": "c027405b1989fafaefed1deef6e94a107a741dc1c16533c39f30c1444a40e644",
+      "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/mod.rs": "a16900a0f1f62571ba1f5327b6f9dbe19a0368d3d43e747621e3f2022ab15676",
+      "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/types.rs": "8ad56d89965bed1560df5eb1954c4255c16d2cd11dec8257d47aae8eb937bdc8",
+      "src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/update.rs": "57a61d13ddc8ee27cb859564d575920857d05dcf1a9be5f3b09dea776a40ac18",
+      "src_rbd_shaders/dynamics/multibody/integrate.rs": "522f096b618e4f52db6ce49d7d128c8843a2cf06524d391242cb99295464e604",
+      "src_rbd_shaders/dynamics/multibody/jacobian.rs": "389f1b531b88595dc23300c0a21642fe43623985dcaeaed7e389902703178615",
+      "src_rbd_shaders/dynamics/multibody/joint_columns_simd.rs": "dd8cdaec5bfbb4fc37d08b712fa96ed054b410dcbbe2f91855c43bd430992aed",
+      "src_rbd_shaders/dynamics/multibody/joint_constraints.rs": "900392572d4b1900be061cb21972b716db944475047cc86b698b64bef6cd1048",
+      "src_rbd_shaders/dynamics/multibody/link_static_soa.rs": "9e727b4dac6e233b92a9f79121654ff77eefb75f08facda5306105ef8c59ba00",
+      "src_rbd_shaders/dynamics/multibody/lu.rs": "283a626add721fa7e0e9b3625d8cf59530900bae2d598b747ed609d24e82bfa4",
+      "src_rbd_shaders/dynamics/multibody/lu_simd.rs": "107131044a42745a6dac44ec4f12b38e5a341d29d1a583d4a1bf9ce08fc36ef2",
+      "src_rbd_shaders/dynamics/multibody/mod.rs": "073148a6875a886dc90ac7eb7e3526b40e39377088a1cfec552ed8cb53aa5733",
+      "src_rbd_shaders/dynamics/multibody/recursive_forces.rs": "883e56c2e160b38e158f72a1bc5d3a6b276115d978b5d3335ad62442b5485fc7",
+      "src_rbd_shaders/dynamics/multibody/scatter_motor.rs": "0fb6432036e7914f6c6c924b566131cf7894e321ca316ebacdb783050b84eb9f",
+      "src_rbd_shaders/dynamics/multibody/solve_constraints.rs": "66228c22f880f6af374a14e42e5b5dee002823f4a8d654edb875629f9810c2fa",
+      "src_rbd_shaders/dynamics/multibody/solve_simd.rs": "507a1d836565d34fd5d673691db813771904cc3f1a3f6fb7667b8baa60f04329",
+      "src_rbd_shaders/dynamics/multibody/substeps_simd.rs": "06a5ff8263e96c55e294e52d27f01b4e2729a4ec3da0844bc375cc2a2408ef35",
+      "src_rbd_shaders/dynamics/multibody/types.rs": "6a4d21cfd4e6a0877580dfdd25855e3bc8b315715bae6ed132d5cd54d116614b",
+      "src_rbd_shaders/dynamics/multibody/unroll.rs": "cacdc3a848f79e26c7da93015cddc4bca2799844d968c1d04771c554e53204eb",
+      "src_rbd_shaders/dynamics/multibody/utils.rs": "a9642d4cc9d0cd35c577296fd403d87689724d11876b2b777aa1a1c123f16e93",
+      "src_rbd_shaders/dynamics/multibody/ws_soa.rs": "b1b3ea327fee92e3320b79a9cd65a55523c0828b0c026f6f5bb5718c1f71e898",
+      "src_rbd_shaders/dynamics/prep_render.rs": "bc51f858b9cc49f3459a560e2c9cf2347e2a4f234098b8565a5cbc49e42ed217",
+      "src_rbd_shaders/dynamics/sim_params.rs": "970e9f5a87386d1ac1db12b8ecd023608999e3f6644efab337cf6c9c3044d00a",
+      "src_rbd_shaders/dynamics/solver.rs": "d403037df49c24aa882647b1ff287a160d4f7797bd64229ca055097032beb2a8",
+      "src_rbd_shaders/dynamics/solver_utils.rs": "4019f3c801e206baeb1c5fa10299c27b5e8eabe06743a5507aeb06267efa3b1f",
+      "src_rbd_shaders/dynamics/tile_kernels.rs": "72c5f0d75c8b1a0e849e2bd16444a8172aaed50d950075689f02c852b469f3d9",
+      "src_rbd_shaders/dynamics/twist_friction.rs": "149b7f827fcf76cbe806cef8811905b99707706da8236406c3a42fb756d7962f",
+      "src_rbd_shaders/dynamics/twist_tiles.rs": "a18e992d09bee1ff91f50efa291035fa716745d93abd72566813192be7b4d871",
+      "src_rbd_shaders/lib.rs": "211aaa0b785c12a7a04a96fa926f6cda471d97af16751c2fba4ef0f88fc0bac8",
+      "src_rbd_shaders/queries/contact.rs": "7088d073ee8c3a9e27b4cc707fb06740f47bf0e34399194b0bfa85c11ed39e1b",
+      "src_rbd_shaders/queries/contact_manifold.rs": "dd3a719e74bd8a89c1fcb4ed5dbe2b4f863e0a4c0d79dc743996c6783a39654a",
+      "src_rbd_shaders/queries/contact_pfm_pfm.rs": "3d8411927bdcd4ecf045305b39299c0a0b93af15a5130e9f1ec8dbb16ef297d9",
+      "src_rbd_shaders/queries/gjk/cso_point.rs": "8d8cca777f2e66398102bab4e316cf22b93b51db4df370359ce20d919a5dc476",
+      "src_rbd_shaders/queries/gjk/epa2.rs": "4309793f0e3fb1f341631deb9dd50989c3070999cf4b3a46b3a1c959aaad1160",
+      "src_rbd_shaders/queries/gjk/epa3.rs": "82fad9a854a7d2eb225c81154d7dc70c9c1d026e902fe50ba32c7755f872265b",
+      "src_rbd_shaders/queries/gjk/gjk.rs": "e223214fd9c0d3b446e5259782c9525f259c42f18207e8c9d1d2c613418dab43",
+      "src_rbd_shaders/queries/gjk/mod.rs": "2afb18ab28296d22efbc0ae0ade7dd63cd2b8623e8a43465e8c824f6c54e8f3f",
+      "src_rbd_shaders/queries/gjk/voronoi_simplex2.rs": "a3c39aa9d6b03d32bc0a77be73f56afba35bce5c882fdfd3fecb3400ffc73b53",
+      "src_rbd_shaders/queries/gjk/voronoi_simplex3.rs": "46443d800ef101d80af8325b2cdd606d8e07df732d634b68476d0cd5c12c114f",
+      "src_rbd_shaders/queries/mod.rs": "b812cadf2d177d353aa5452cfb33e2c7fb82417dfe07c40f2c39bcd36caeee55",
+      "src_rbd_shaders/queries/polygonal_feature.rs": "e84d693773ca2f63f3b14ebd16817c2cfffe4e24dd34708d78ebcfe0a6274a33",
+      "src_rbd_shaders/queries/projection.rs": "6235b343ea44fd063c655fc32fdffabd2b2e3737fc3493d4428ef215ded76f80",
+      "src_rbd_shaders/queries/ray.rs": "75d8e33cc2a62c13a6e771a9a7c0f6bce3678d7d5ebf5223a64041fcfc72d0cf",
+      "src_rbd_shaders/queries/sat.rs": "d05c4bc7a353fe24010ba25b9537365301995b6bc8b5a4f765b3e985bf2b135e",
+      "src_rbd_shaders/shapes/capsule.rs": "c74e550d3cd00afe73db0508142d2fade3f3eb69a8ee0b9641f363402699328a",
+      "src_rbd_shaders/shapes/cone.rs": "2ef04b4552df9b7d46a95f3e887703aa4c529410eba4d4f5191a24c804989427",
+      "src_rbd_shaders/shapes/convex_polyhedron.rs": "c4d899dab91c87cfabf2ff33fd86afba75c57c7618cac7ddfccd1dbe3861cf14",
+      "src_rbd_shaders/shapes/cylinder.rs": "396c4451078ed295294163ed35fa7680bb81ec71161b368517646c968fb50e3b",
+      "src_rbd_shaders/shapes/mod.rs": "6316b334009a11b5e73c46ff193a3202ad9a896ecc0f596d3c760b4b2839d6e6",
+      "src_rbd_shaders/shapes/polyline.rs": "49bcbe90ad0586cf65f3c5b21dcae2d15e7e3d8350ebfc25c87647661af2429f",
+      "src_rbd_shaders/shapes/segment.rs": "1ca63f9e03154393ac03f47929b886d4d8a5dfe25162d3c44b6c686ed6b297aa",
+      "src_rbd_shaders/shapes/shape.rs": "4110ded25f594f3fd15c344a052ed8b75887ee0bac8b3159123bcb25ffdc523c",
+      "src_rbd_shaders/shapes/tetrahedron.rs": "4f851b47d40100683d30995ed64e7b9424c529353fa8db418015f9b3c50d1f19",
+      "src_rbd_shaders/shapes/triangle.rs": "612ecef836a2f9dc8bb989e8396bdae77f50a0bc58438eb5cdc115eedf1969f0",
+      "src_rbd_shaders/shapes/trimesh.rs": "b1ed7f35137d161076d94a32a31d8a571405f8529ecbf9bf6db7b08917d7869e",
+      "src_rbd_shaders/tests/coloring.rs": "8f5e077df462ce90a7883cf0a04ff4c945634f635a6a6408dd2b94d68f0decbc",
+      "src_rbd_shaders/tests/contact_constraints.rs": "d9b0a68143c5ee76bd285696e5ae4f4a96358bdd53980ba506d97995e23316f5",
+      "src_rbd_shaders/tests/contact_solver.rs": "a0ba922e79cbc957ebcb2d4ddc08b2536b0fbce9b05964518d0ffac1293dc160",
+      "src_rbd_shaders/tests/epa.rs": "324ebd8da1c1ea31e77298460904d42f26d66c4767a0aa7c7fcc657368c75294",
+      "src_rbd_shaders/tests/gjk.rs": "92c17f2974e886dad4527057d3c5d28772cb6ead160d313692271116d7ad51d3",
+      "src_rbd_shaders/tests/hub_split.rs": "99ae53f2c81035f198f5b8a6258a30c003e5c63573fad14021d3b263d31f765a",
+      "src_rbd_shaders/tests/linalg.rs": "120899f1ad4933ccb99d8d2c4d1ac37b9802ae7cb9c9ba7aa63d814bf3525e01",
+      "src_rbd_shaders/tests/mod.rs": "c34bafb01cfa59a442d724efe0a9138d557f2dfcf39e8a0ed53c465adb5891c5",
+      "src_rbd_shaders/tests/pfm_pfm.rs": "b60d857a290270980c2d48b09ca9770a679d01b2cc9ce8157a863dcd1c818116",
+      "src_rbd_shaders/tests/twist_friction.rs": "2be4e997207afbdedd0de8a9a18e55867240f229004432a825f7e31a90c201cf",
+      "src_rbd_shaders/utils/basis.rs": "f2ddfc18615ecd1ea087ac3bd1cf7714022e7b2e643987c5d971bd215996d04a",
+      "src_rbd_shaders/utils/indices.rs": "0ac1e6f48bdacafb9da8e2427954c9527045699914e47af765839cbe996508f5",
+      "src_rbd_shaders/utils/linalg.rs": "e9d2dde388c86429f435ab22205c0efede4f0920ec156d9237b55987065f3317",
+      "src_rbd_shaders/utils/mod.rs": "3caaed140a24d271e1caa938d36d6a113d51f792f37a6da045172bfbd46e87e3",
+      "src_rbd_shaders/utils/prefix_sum.rs": "d2e858a3d1aa5bde74e4e16dca8997e4cf38388e2ddde648e4e19b6b1db370e2",
+      "src_rbd_shaders/utils/radix_sort/init_batch_ids.rs": "bc7aeca70a5d8d3686494c580dd15f07ddfb968efa271a890f94765e3d8cd3d3",
+      "src_rbd_shaders/utils/radix_sort/init_indirect_dispatches.rs": "06f245c2310d7934c6a0f6b07f60c78065ac3ec2ad1909241aae6e17b0f7b96e",
+      "src_rbd_shaders/utils/radix_sort/mod.rs": "e1539ce921161102e768ab6cb6d20fe2be95621fe651f481380655d18c2c0230",
+      "src_rbd_shaders/utils/radix_sort/sort_count.rs": "0d57b417063617fb499494758e240920021f3e2fe6a5a933bed9cd2362ebf3d3",
+      "src_rbd_shaders/utils/radix_sort/sort_reduce.rs": "34b2637185ff32d1757c4e405580b38a6a6593d5d0dea22868d76bd30f977297",
+      "src_rbd_shaders/utils/radix_sort/sort_scan.rs": "45049d8de9ebab1cbea0c2c6da207ac0d906366863daa3dc89b925392403413d",
+      "src_rbd_shaders/utils/radix_sort/sort_scan_add.rs": "12444c45e986374ff7808b3f1b74a98c46620a21eea1f674b512c9ae3d31dc18",
+      "src_rbd_shaders/utils/radix_sort/sort_scatter.rs": "01267330baf37ae7b0a48e57a9e05c31946a94775907c1f4084f0f67a8331d59",
+      "src_rbd_shaders/utils/radix_sort/sorting.rs": "f096809ba969737c0642cb646163e5d7796e7ef3fa544f8f4f4d358b53afe9b8",
+      "src_rbd_shaders/utils/slice.rs": "c699c94b728228af16a2edfbca3125d86400eb1969927d93b3a37407804863e1"
+    }
+  },
+  "layout_sha256": "730ab8c29f52a8fd10e1a5d649ec366999df46b9bc2a5aae039e88061a386d4f",
+  "level": "source_lowered",
+  "reference_commit": "4512cdaaf3e2b2a23644ef3d2d3a93b75c2cf2a1",
+  "schema": 1,
+  "status": "passed",
+  "suite": "portable",
+  "target": "ascend"
+}

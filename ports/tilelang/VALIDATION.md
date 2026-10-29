@@ -436,3 +436,30 @@ and match normal CPU bytes. Source reconciliation and the CPU/Metal gate pass.
 Articulated multibodies remain deferred; filtering their contacts does not claim
 support for solving them. Color construction, production solver scheduling,
 collision detection, joints and full-scene physical validation remain in progress.
+
+## Color buckets and solver dispatch sizing — 2026-10-29
+
+All four color-bucket entry points and the ordered reset/count/scan/scatter/dispatch
+program are ported. Buckets are color-major across batches. Zero-length slots are
+excluded before reading stale body IDs; active uncolored/out-of-range colors go
+to the final unsolved bucket so their warmstart data retains a destination.
+Every copied link word and inverse index is checked, while legal atomic insertion
+orders may differ. Solved-color statistics exclude the unsolved bucket, include
+colors above 63 in the global reduction and clamp the dispatch at 256 groups.
+
+Count and scatter currently use the original generic global-atomic algorithm for
+all cases. The single-batch local-histogram optimization is explicitly deferred;
+the live Rust oracle executes that original fast path when eligible, including
+its shared-memory barriers. This is an intentional performance difference, not a
+change to bucket membership or copied bits. The prefix oracle is shared by the
+adjacency and bucket fixture exporters without changing its arithmetic.
+
+All 358 cases across 37 operations pass freshly rebuilt Rust comparisons on CPU
+and native Metal. All 358 lower to Ascend source only. The 191 Python regressions,
+Rust formatting/strict Clippy and Ruff F checks pass. Ten UBSan runs cover all five
+new operations using histogram-eligible and multi-batch/multi-block fixtures;
+all pass and match regular CPU bytes. The source/evidence gate passes.
+
+Full graph-coloring control, production solver iterations, collision detection,
+joints and full-scene physical validation remain in progress. Ascend CANN builds,
+NPU execution and hardware synchronization remain unvalidated.
