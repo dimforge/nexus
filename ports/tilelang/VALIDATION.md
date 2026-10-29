@@ -351,3 +351,29 @@ Results are in `results-numerics-noalias/`. Disabling noalias does not resolve t
 existing zero-distance branch sensitivity; the scene/stability assessment and
 release block remain. This is a backend workaround, not a proof of Rust aliasing
 soundness or full-port completion.
+
+## Hub mass splitting and reduction — 2026-10-29
+
+All five mass-splitting entry points now have mirrored TileLang implementations.
+The 61 added cases exercise atomic allocation, capacity overflow and zero pools,
+both contact sides, batch capacity versus active length, shared hubs, padding,
+clipped indirect dispatch, and the exact 64-lane reduction tree. Atomic order is
+compared by legal membership and reservations; integer fields remain exact.
+
+After the CPU grid correction, all 239 registered cases across 26 operations pass
+fresh Rust comparisons on C++ CPU and native Metal. All 239 lower to Ascend source
+only. The 148 Python tests, Rust debug/release cooperative dispatch regressions,
+formatting and strict Clippy pass. Eight additional C++ UBSan runs cover assignment,
+splitting, scatter and average with overflow and many hubs; all pass and match
+the normal CPU result bytes. The source reconciliation and CPU/Metal gate pass.
+
+The original CPU infrastructure test used an array where khal expects thread
+counts. It therefore launched fewer workgroups than its reported count, although
+the shader's grid-stride loop still computed the same averages. An explicit
+DispatchGrid::Grid helper now preserves workgroup counts. A real 128-slot scatter
+regression verifies that the second of two workgroups executes, in debug and
+release builds. The earlier noalias section's grid-coverage claim is superseded
+by these corrected runs. CPU oracle noalias enforcement remains in effect.
+
+These operations still require production graph/color/solver orchestration and
+full-scene validation. Ascend CANN compilation and NPU execution remain unavailable.
