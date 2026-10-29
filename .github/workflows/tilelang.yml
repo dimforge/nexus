@@ -55,6 +55,7 @@ jobs:
           --evidence ports/tilelang/results/effective_mass/c/report.json
           --evidence ports/tilelang/results/warmstart/c/report.json
           --evidence ports/tilelang/results/integrate/c/report.json
+          --evidence ports/tilelang/results/stabilize/c/report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

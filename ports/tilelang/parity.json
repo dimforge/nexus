@@ -84,6 +84,19 @@
       "contract": "ports/tilelang/contracts/integrate.json",
       "test_command": "python ports/tilelang/replay.py --operation integrate --target c",
       "operation": "integrate"
+    },
+    {
+      "id": "rbd.scheduling.stabilize_body_constraint_ids",
+      "operation": "stabilize",
+      "runner": "primitives.py",
+      "coverage": "Exact per-body deterministic constraint-ID sort; other canonical ordering operations remain unported",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/canonical_order.rs::gpu_stabilize_body_constraint_ids"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/canonical_order.py::gpu_stabilize_body_constraint_ids",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/stabilize.json",
+      "test_command": "python ports/tilelang/primitives.py --target c"
     }
   ],
   "targets": [

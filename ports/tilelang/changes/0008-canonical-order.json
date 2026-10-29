@@ -1,0 +1,30 @@
+{
+  "id": "0008-canonical-order",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids"
+  ],
+  "kinds": [
+    "port",
+    "tooling",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port deterministic body constraint-list sorting as a real irregular integer kernel, preserving its Rust module and live entry-point oracle.",
+  "regressions": [
+    "Empty rows and inputs",
+    "31/32/33/63/64/65/127/129 entry boundaries",
+    "Duplicate IDs with original-position tie break",
+    "High unsigned IDs and highly skewed 513-entry row",
+    "Out-of-range and nonmonotone row ends",
+    "Untouched input and output sentinels"
+  ],
+  "differences": [
+    "Uses the same one-group-per-body, 64-lane ranking algorithm as Rust; comparison is bitwise, with no float conversion.",
+    "This establishes indexed gather, bounded variable loops and unique scatter for one real operation. It does not validate atomics, collective scans, BVH traversal or the complete collision pipeline.",
+    "Handoff packaging and returned-buffer comparison now select buffer names and comparison rules from each operation contract."
+  ]
+}

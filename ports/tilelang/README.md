@@ -3,6 +3,8 @@
 This is an experimental port of four isolated 3D solver operations: effective
 mass calculation, warmstarting, Coulomb solving, and clamped pose integration.
 They use the existing Rust buffer layouts and live Rust reference functions.
+A fifth operation ports deterministic per-body constraint-ID sorting, exercising
+indexed reads, variable-length loops and unique scatter with exact integer parity.
 The contact operations require one prepared, conflict-free color. This is not
 yet selectable as a full Nexus simulation backend. Complete contact preparation,
 collision detection, production coloring, joints, twist friction, 2D, and Ascend
@@ -27,6 +29,7 @@ and their module boundaries wherever practical:
 | `solver_utils.rs` | `solver_utils.py` | `solve_points`, `warmstart_constraint` |
 | `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation |
 | `tile_kernels.rs` | `tile_kernels.py` | prepared-color entry adapters |
+| `canonical_order.rs` | `canonical_order.py` | `gpu_stabilize_body_constraint_ids` |
 
 A counterpart file does not imply the whole Rust module is ported. Launch-target
 wrappers and scalar compiler utilities live in `kernel_support.py`; build-time
@@ -51,7 +54,8 @@ python3 ports/tilelang/parity.py check --require c \
   --evidence ports/tilelang/results/c/report.json \
   --evidence ports/tilelang/results/effective_mass/c/report.json \
   --evidence ports/tilelang/results/warmstart/c/report.json \
-  --evidence ports/tilelang/results/integrate/c/report.json
+  --evidence ports/tilelang/results/integrate/c/report.json \
+  --evidence ports/tilelang/results/stabilize/c/report.json
 ```
 
 On Linux, install the pinned CPU-only PyTorch wheel before the requirements to
@@ -85,7 +89,14 @@ The default `results/` directory is ignored by Git.
 
 ## What is tested
 
-There are 32 required cases across four operations. The three new operations each
+There are 38 required cases across five operations. Six integer sorting cases
+cover empty/skewed rows, duplicates, high unsigned IDs, workgroup boundaries and
+a 513-entry row. Inputs and trailing sentinels remain bitwise unchanged.
+`primitives.py` compares the exact Rust entry-point results without floating-point
+conversion or tolerance. Atomics, collective scans and BVH traversal remain
+unvalidated.
+
+The four solver operations have 32 required cases. The three new operations each
 cover 0/1/32/65/129 items and three sequential passes. Effective-mass fixtures
 poison the output fields before recomputation. Integration includes zero and
 capped velocities, quaternion normalization, and sentinel bodies. Warmstart
@@ -140,7 +151,12 @@ It preserves all comparison failures in `results-numerics/report.json` and exits
 nonzero when they occur. Two unbiased/no-friction cases are explicitly unavailable
 in the production GPU kernel, which has only three modes; they remain required
 in the portable suite. Same-GPU adversarial comparisons still fail, so a numerical
-policy and scene-level validation remain necessary. Run:
+policy and scene-level validation remain necessary. The additional `--portable`
+three-way diagnostic also finds disagreements with production Rust Metal in nine
+cases (six pass; two modes are unavailable), even though TileLang C/Metal agree
+with Rust CPU on all 17. Zero local anchors avoid rotated-point cancellation but
+leave translation/dot-product cancellation; the original GPU compiler can evaluate
+that expression differently. These diagnostic failures remain visible. Run:
 
 ```sh
 ports/tilelang/.venv/bin/python ports/tilelang/numerics.py
@@ -375,7 +391,7 @@ reruns to avoid consuming paid device time on unrelated setup or repeated cases.
 
 Continue to require source-impact review and classified change records for Rust
 changes, new features, bug fixes, optimizations, numerical changes, and intentional
-differences. The registry now supports per-feature, per-target evidence for all four
+differences. The registry now supports per-feature, per-target evidence for all five
 implemented operations. `inventory.json` separately lists every Rust shader module and 19 capability
 groups, with explicit partial/unported dispositions. `inventory.py` checks mirrored
 paths and mapped symbols without importing TileLang. New or removed Rust modules

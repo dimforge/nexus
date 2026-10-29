@@ -24,7 +24,8 @@ and case. Every file has a SHA-256 receipt in `manifest.json`. Input buffers and
 Rust expected outputs are little-endian raw words; `layouts/` gives the actual
 Rust strides/offsets. `bindings.json` records generated argument order, launch
 sizes, and sequential iteration count. Unbound storage buffers must still be
-preserved; empty kernels may have no arguments. The six-float `Params` replay ABI
+preserved; empty kernels may have no arguments. Integer sorting has three `uint32` buffers and exact comparison; solver operations
+have four buffers and operation-specific floating-point masks. The six-float `Params` replay ABI
 is distinct from the full production `RbdSimParams` struct.
 
 ## Device session stages
@@ -44,7 +45,7 @@ is distinct from the full production `RbdSimParams` struct.
 4. Implement/review the native adapter's allocation, byte sizes, binding order,
    device ownership and ordered dispatch contracts. Initialize every storage
    buffer from its `.bin`, run exactly the listed iterations in order, wait for
-   completion, and save **all four** buffers as `<Name>.actual.bin`. Never use an
+   completion, and save **all storage** buffers as `<Name>.actual.bin`. Never use an
    expected output as an input. Do not substitute the CPU interpreter on errors.
 5. Return the environment, compiler and runtime logs, exact binary/source hashes,
    and outputs in the same `cases/<operation>/<case>/` hierarchy. Keep failed

@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "feature": "rbd.scheduling.stabilize_body_constraint_ids",
+  "scope": "Sort each body constraint-ID adjacency segment with the original ID/position tie break",
+  "comparison": "exact_u32",
+  "inputs": [
+    "Counts",
+    "Ids",
+    "Sorted"
+  ],
+  "outputs": [
+    "Sorted"
+  ],
+  "required_cases": [
+    "empty",
+    "empty-rows",
+    "single",
+    "boundaries",
+    "duplicates",
+    "skewed"
+  ],
+  "preconditions": [
+    "Monotone cumulative row ends within buffer length",
+    "One group per body, at most 65535 bodies per dispatch",
+    "Disjoint output segments; trailing sentinel storage remains unchanged",
+    "Storage and indices fit signed 32-bit indexing with 64-lane rounding headroom"
+  ],
+  "outside_scope": [
+    "Contact sort keys",
+    "Contact permutation",
+    "Multibody index sorting",
+    "Floating-point reductions",
+    "Atomics",
+    "Collective scan",
+    "Broadphase traversal",
+    "Production scene scheduling",
+    "Ascend execution"
+  ],
+  "known_gaps": []
+}

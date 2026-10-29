@@ -51,12 +51,11 @@ def verify_bundle(root):
         if digest(safe_file(root, relative)) != expected:
             raise ValueError(f"Modified handoff artifact: {relative}")
     for case in bundle["cases"]:
-        safe_file(root, case["directory"] + "/Tiles.bin")
         contract = read_json(safe_file(root, case["contract"]))
         required = {case["layout"], case["contract"]} | {
             case["directory"] + "/" + name
             for name in (
-                [f"{n}.bin" for n in ("Tiles", "Velocities", "Poses", "Params")]
+                [f"{n}.bin" for n in contract["inputs"]]
                 + [f"{n}.expected.bin" for n in contract["outputs"]]
                 + ["bindings.json", "kernel.ascend"]
             )
@@ -137,6 +136,7 @@ def build(root, output, results):
             copy(layout, f"layouts/{op}.json")
             contract_path = feature.get("contract", str(PORT / "contract.json"))
             copy(root / contract_path, f"contracts/{op}.json")
+            contract = feature_contract(root, feature)
             for outcome in report["cases"]:
                 case = outcome["fixture"]
                 case_root = (
@@ -145,10 +145,7 @@ def build(root, output, results):
                 relative = f"cases/{op}/{case['name']}"
                 required = (
                     {"bindings.json", "kernel.ascend"}
-                    | {
-                        f"{name}.bin"
-                        for name in ("Tiles", "Velocities", "Poses", "Params")
-                    }
+                    | {f"{name}.bin" for name in contract["inputs"]}
                     | {
                         f"{name}.expected.bin"
                         for name in feature_contract(root, feature)["outputs"]
@@ -240,7 +237,8 @@ def probe(output):
 def verify_results(bundle_root, returned, output, root=ROOT):
     """Check returned files; never launch device code or treat missing cases as skips."""
     import numpy as np
-    from replay import BUFFERS, check_outputs
+    from replay import check_outputs
+    from primitives import check_outputs as check_integer_outputs
 
     result = {
         "schema": 1,
@@ -288,16 +286,22 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                 actual_dir = returned / item["directory"]
                 contract = read_json(safe_file(bundle_root, item["contract"]))
                 layout = read_json(safe_file(bundle_root, item["layout"]))
+                buffers = contract["inputs"]
+                compare = (
+                    check_integer_outputs
+                    if contract.get("comparison") == "exact_u32"
+                    else check_outputs
+                )
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)
-                    for n in BUFFERS
+                    for n in buffers
                 }
                 actual = {
                     n: np.fromfile(
                         safe_file(returned, f"{item['directory']}/{n}.actual.bin"),
                         dtype=np.uint32,
                     )
-                    for n in BUFFERS
+                    for n in buffers
                 }
                 expected = {
                     n: np.fromfile(
@@ -305,24 +309,24 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     )
                     if n in contract["outputs"]
                     else before[n]
-                    for n in BUFFERS
+                    for n in buffers
                 }
                 if any(
                     (actual_dir / f"{n}.actual.bin").stat().st_size != before[n].nbytes
-                    for n in BUFFERS
+                    for n in buffers
                 ):
                     raise ValueError(
                         "Returned byte sizes differ from compiled specialization"
                     )
-                if any(actual[n].shape != before[n].shape for n in BUFFERS):
+                if any(actual[n].shape != before[n].shape for n in buffers):
                     raise ValueError(
                         "Returned buffer sizes differ from compiled specialization"
                     )
-                outcome["max_absolute_errors"] = check_outputs(
+                outcome["max_absolute_errors"] = compare(
                     layout, case, before, actual, expected, contract
                 )
                 outcome["output_sha256"] = {
-                    n: digest(actual_dir / f"{n}.actual.bin") for n in BUFFERS
+                    n: digest(actual_dir / f"{n}.actual.bin") for n in buffers
                 }
                 outcome["status"] = "passed"
             except (ValueError, KeyError, OSError, AssertionError) as error:

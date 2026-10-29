@@ -22,3 +22,7 @@ vortx-shaders = { git = "https://github.com/dimforge/vortx", tag = "v0.5.0" }
 [[bin]]
 name = "operations"
 path = "src/operations.rs"
+
+[[bin]]
+name = "primitives"
+path = "src/primitives.rs"

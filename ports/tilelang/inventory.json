@@ -65,10 +65,14 @@
     {
       "reference": "src_rbd_shaders/dynamics/canonical_order.rs",
       "implementation": "ports/tilelang/shaders/dynamics/canonical_order.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.scheduling.stabilize_body_constraint_ids"
+      ],
+      "symbols": [
+        "gpu_stabilize_body_constraint_ids"
+      ],
+      "remaining": "Only per-body constraint-ID sorting; contact keys/permutation and multibody ordering remain unported."
     },
     {
       "reference": "src_rbd_shaders/dynamics/color_buckets.rs",
@@ -1010,9 +1014,11 @@
     {
       "id": "rbd.determinism",
       "description": "Canonical ordering and deterministic schedules",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.scheduling.stabilize_body_constraint_ids"
+      ],
+      "remaining": "Per-body constraint-ID sorting only; other canonical ordering and production deterministic schedules remain unported."
     },
     {
       "id": "rbd.pipeline",

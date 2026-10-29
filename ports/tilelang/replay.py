@@ -328,7 +328,7 @@ def main():
         for feature in registry["features"]:
             command = [
                 sys.executable,
-                str(Path(__file__).resolve()),
+                str(HERE / feature.get("runner", "replay.py")),
                 "--target",
                 args.target,
                 "--operation",
