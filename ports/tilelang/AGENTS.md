@@ -58,3 +58,11 @@ mirrored target path. Run `inventory.py` after adding or moving either language'
 files. Update the exact module, implemented symbols, operation IDs and remaining
 scope; do not mark an entire module or capability complete merely because one
 function passed. `parity.py check` enforces inventory consistency.
+
+The Rust CPU oracle requires mutable-reference noalias disabled. Use
+`cpu_oracle.py` for Cargo build/run/test/clippy commands; it selects the pinned
+1.98.1 compiler and enforces `RUSTC_BOOTSTRAP=1` plus `-Zmutable-noalias=no`.
+Do not remove the build guard or LLVM attribute probe to accommodate a compiler
+upgrade. The probe and effective configuration are required evidence, including
+for source-only lowering because its expected outputs still come from Rust CPU.
+The native Metal adapter uses a separate toolchain and does not need this flag.

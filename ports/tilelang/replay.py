@@ -18,6 +18,8 @@ import shlex
 import subprocess
 import sys
 
+from cpu_oracle import export_fixtures
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 BUFFERS = ("Tiles", "Velocities", "Poses", "Params")
@@ -356,20 +358,10 @@ def main():
         {"schema": 1, "target": args.target, "status": "preparing"},
     )
     # Always regenerate fixtures from the current Rust source. Do not accept stale golden files.
-    run(
-        [
-            "cargo",
-            "run",
-            "--locked",
-            "--manifest-path",
-            HERE / "reference/Cargo.toml",
-            "--bin",
-            "nexus-tilelang-reference" if args.operation == "solve" else "operations",
-            "--",
-            output / "fixtures",
-        ]
-        + (["--boundary-stress"] if args.boundary_stress else []),
-        cwd=HERE / "reference",
+    oracle_profile = export_fixtures(
+        "nexus-tilelang-reference" if args.operation == "solve" else "operations",
+        output / "fixtures",
+        ["--boundary-stress"] if args.boundary_stress else [],
     )
     fixture_dir = output / "fixtures"
     layout = json.loads((fixture_dir / "layout.json").read_text())
@@ -400,8 +392,9 @@ def main():
         "environment": {
             "python": platform.python_version(),
             "os": platform.platform(),
-            "rustc": run(["rustc", "--version"], cwd=HERE / "reference"),
-            "rustflags": os.environ.get("RUSTFLAGS", ""),
+            "rustc": oracle_profile["rustc"],
+            "rustflags": oracle_profile["rustflags"],
+            "cpu_oracle": oracle_profile,
             "torch": importlib.metadata.version("torch"),
             "tilelang": importlib.metadata.version("tilelang"),
             "numpy": np.__version__,

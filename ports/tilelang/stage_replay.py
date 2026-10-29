@@ -5,10 +5,10 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
-import os
 from pathlib import Path
 import platform
 
+from cpu_oracle import export_fixtures
 from parity import evidence_inputs
 from replay import (
     HERE,
@@ -60,20 +60,7 @@ def run_stage(
     inputs = evidence_inputs(ROOT)
     report = {"schema": 1, "status": "preparing", "target": args.target}
     write_json(output / "report.json", report)
-    run(
-        [
-            "cargo",
-            "run",
-            "--locked",
-            "--manifest-path",
-            HERE / "reference/Cargo.toml",
-            "--bin",
-            oracle,
-            "--",
-            output / "fixtures",
-        ],
-        cwd=HERE / "reference",
-    )
+    oracle_profile = export_fixtures(oracle, output / "fixtures")
     layout = json.loads((output / "fixtures/layout.json").read_text())
     fixtures = output / f"fixtures/{args.operation}"
     suite = json.loads((fixtures / "suite.json").read_text())
@@ -92,8 +79,9 @@ def run_stage(
         environment={
             "python": platform.python_version(),
             "os": platform.platform(),
-            "rustflags": os.environ.get("RUSTFLAGS", ""),
-            "rustc": run(["rustc", "--version"], cwd=HERE / "reference"),
+            "rustflags": oracle_profile["rustflags"],
+            "rustc": oracle_profile["rustc"],
+            "cpu_oracle": oracle_profile,
             **{
                 key: importlib.metadata.version(package)
                 for key, package in [

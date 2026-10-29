@@ -9,7 +9,9 @@ default-run = "nexus-tilelang-reference"
 [workspace]
 
 [dependencies]
-nexus_rbd_shaders3d = { path = "../../../crates/nexus_rbd_shaders3d", default-features = false, features = ["dim3"] }
+nexus_rbd_shaders3d = { path = "../../../crates/nexus_rbd_shaders3d", default-features = false, features = ["dim3", "cpu"] }
+khal = { version = "0.4", default-features = false, features = ["cpu", "derive"] }
+khal-std = { version = "0.4", features = ["cpu"] }
 bytemuck = "1"
 serde_json = "1"
 
@@ -46,3 +48,7 @@ path = "src/links.rs"
 [[bin]]
 name = "warmstarts"
 path = "src/warmstarts.rs"
+
+[[bin]]
+name = "cpu-dispatch-check"
+path = "src/cpu_dispatch_check.rs"

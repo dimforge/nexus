@@ -20,7 +20,12 @@ python ports/tilelang/handoff.py verify /tmp/nexus-ascend-handoff
 
 The bundle includes `nexus-source.tar` from the exact Git commit, compiler pins,
 contracts, module/capability inventory, reports, and one directory per operation
-and case. Every file has a SHA-256 receipt in `manifest.json`. Input buffers and
+and case. `cpu_oracles` binds each feature's report to its LLVM attribute probe;
+the builder and verifier check the probe hash and require mutable-reference
+`noalias` disabled. Expected outputs come from the pinned Rust 1.98.1 CPU oracle
+through `cpu_oracle.py`. Historical bundles without this provenance need to be
+rebuilt. This requirement does not apply to the generated Ascend code.
+Every file has a SHA-256 receipt in `manifest.json`. Input buffers and
 Rust expected outputs are little-endian raw words; `layouts/` gives the actual
 Rust strides/offsets. `bindings.json` records generated argument order, launch
 sizes, and sequential iteration count. Unbound storage buffers must still be

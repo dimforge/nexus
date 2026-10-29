@@ -50,10 +50,26 @@ and evidence tracking stay outside `shaders/`.
 
 ## Run locally
 
-Use Python 3.13, a C++17 compiler, and Rust 1.99.1. The reference toolchain and Cargo
+Use Python 3.13, a C++17 compiler, and Rust 1.98.1 for the CPU oracle (the native
+Metal adapter retains Rust 1.99.1). The reference toolchain and Cargo
 lockfile are pinned separately from Nexus's general workspace. The Rust exporter
 calls the current `TwoBodyConstraint::solve_constraint_gauss_seidel`; it contains
 no copied solver arithmetic and does not require cargo-gpu or a GPU runtime.
+
+The khal CPU backend requires mutable-reference `noalias` disabled. Every fixture
+export goes through `cpu_oracle.py`, which sets `RUSTC_BOOTSTRAP=1` and the exact
+Cargo encoded flags `-Zmutable-noalias=no`, builds the live Rust sources, and checks
+LLVM IR to confirm that mutable references lack `noalias` while shared references
+retain it. Rust 1.99.1 removed this option, so only the CPU oracle is pinned back
+to 1.98.1. Custom flags and compiler wrappers are rejected; effective settings and
+probe hashes are recorded in each report. The build script rejects direct builds
+missing the required flags. This is a required backend workaround, not a proof of
+Rust aliasing soundness or a replacement for GPU validation.
+
+For direct exporter checks, use `python3 ports/tilelang/cpu_oracle.py clippy --locked
+--all-targets -- -D warnings` and `python3 ports/tilelang/cpu_oracle.py test --locked
+--release --bin cpu-dispatch-check`. The latter runs the actual Rust shared-memory
+hub reduction, including more hubs than workgroups and repeated dispatches.
 
 From the repository root:
 

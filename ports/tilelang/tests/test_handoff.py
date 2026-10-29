@@ -33,6 +33,7 @@ class HandoffTests(unittest.TestCase):
             / ("" if self.operation == "solve" else self.operation)
             / "c/fixtures"
         )
+        run_root = fixtures.parent
         layout = fixtures / "layout.json"
         if self.operation != "solve":
             fixtures = fixtures / self.operation
@@ -67,6 +68,10 @@ class HandoffTests(unittest.TestCase):
         (dest / "kernel.ascend").write_text("// test fixture; not executed")
         shutil.copyfile(layout, self.bundle / "layout.json")
         shutil.copyfile(contract_path, self.bundle / "contract.json")
+        shutil.copyfile(run_root / "report.json", self.bundle / "oracle-report.json")
+        shutil.copyfile(
+            run_root / "cpu-oracle-noalias.ll", self.bundle / "oracle-noalias.ll"
+        )
         for file in self.bundle.rglob("*"):
             if file.is_file():
                 files[file.relative_to(self.bundle).as_posix()] = handoff.digest(file)
@@ -75,6 +80,12 @@ class HandoffTests(unittest.TestCase):
             "qualification": "test_fixture",
             "inputs": handoff.evidence_inputs(handoff.ROOT),
             "files": files,
+            "cpu_oracles": {
+                contract["feature"]: {
+                    "report": "oracle-report.json",
+                    "llvm_ir": "oracle-noalias.ll",
+                }
+            },
             "cases": [
                 {
                     "feature": contract["feature"],
@@ -129,6 +140,19 @@ class HandoffTests(unittest.TestCase):
         del self.manifest["files"]["layout.json"]
         self.save_manifest()
         with self.assertRaisesRegex(ValueError, "missing from handoff"):
+            handoff.verify_bundle(self.bundle)
+
+    def test_missing_or_modified_cpu_oracle_is_rejected(self):
+        oracles = self.manifest.pop("cpu_oracles")
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, "oracle provenance"):
+            handoff.verify_bundle(self.bundle)
+        self.manifest["cpu_oracles"] = oracles
+        probe = self.bundle / "oracle-noalias.ll"
+        probe.write_text(probe.read_text() + "\n; modified after fixture export\n")
+        self.manifest["files"]["oracle-noalias.ll"] = handoff.digest(probe)
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, "Modified CPU oracle LLVM"):
             handoff.verify_bundle(self.bundle)
 
     def test_missing_corrupt_and_padded_returned_buffers_fail(self):

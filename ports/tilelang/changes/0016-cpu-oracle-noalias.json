@@ -1,0 +1,45 @@
+{
+  "id": "0016-cpu-oracle-noalias",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d",
+    "rbd.contact.coulomb.scale_impulses3d",
+    "rbd.contact.coulomb.gather_warmstart3d",
+    "rbd.contact.coulomb.hub_warmstart3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "tooling",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Enforce the user-required noalias-disabled Rust CPU oracle and verify compiler attributes before exporting fixtures.",
+  "regressions": [
+    "Reject missing, conflicting or unverified oracle settings in executed and source-only reports",
+    "Probe actual optimized LLVM IR for mutable and shared reference attributes",
+    "Run original cooperative hub reduction at 0/1/33/63/64/65/129 slots, empty groups, repeated dispatches and 257 hubs in 256 workgroups, in debug and release",
+    "Rebuild all registered fixtures under the enforced oracle and rerun C, Metal and Ascend source lowering"
+  ],
+  "differences": [
+    "Pin only the CPU reference to Rust 1.98.1 because 1.99.1 removed -Zmutable-noalias; use RUSTC_BOOTSTRAP=1 with the exact recorded flag for the oracle and its dependencies. Native Metal stays on 1.99.1.",
+    "Enable the pinned khal cooperative CPU runtime to exercise original Rust shared-memory shaders; this does not claim a TileLang hub port yet.",
+    "No Rust physics edits or tolerance changes. Disabling a compiler attribute is a required CPU backend workaround, not a claim of language-level aliasing soundness.",
+    "Previous evidence without the required configuration is historical and cannot certify current parity. Ascend vendor compilation/execution remain unavailable."
+  ]
+}

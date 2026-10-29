@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 
+from cpu_oracle import verify_probe_file
 from parity import (
     ROOT,
     PORT,
@@ -50,6 +51,16 @@ def verify_bundle(root):
     for relative, expected in bundle["files"].items():
         if digest(safe_file(root, relative)) != expected:
             raise ValueError(f"Modified handoff artifact: {relative}")
+    oracles = bundle.get("cpu_oracles", {})
+    if set(oracles) != {case["feature"] for case in bundle["cases"]}:
+        raise ValueError("Missing CPU oracle provenance in handoff")
+    for oracle in oracles.values():
+        if not {oracle["report"], oracle["llvm_ir"]}.issubset(bundle["files"]):
+            raise ValueError("CPU oracle files missing from handoff hash inventory")
+        report = read_json(safe_file(root, oracle["report"]))
+        verify_probe_file(
+            safe_file(root, oracle["llvm_ir"]), report["environment"]["cpu_oracle"]
+        )
     for case in bundle["cases"]:
         contract = read_json(safe_file(root, case["contract"]))
         required = {case["layout"], case["contract"]} | {
@@ -117,6 +128,7 @@ def build(root, output, results):
             )
         files["nexus-source.tar"] = digest(source_archive)
         cases = []
+        oracles = {}
         for feature in config["features"]:
             op = feature["operation"]
             run_root = results / ("" if op == "solve" else op) / "ascend"
@@ -130,6 +142,13 @@ def build(root, output, results):
                     f"Current Ascend source report required: {feature['id']}"
                 )
             copy(run_root / "report.json", f"reports/{op}.json")
+            probe = run_root / "cpu-oracle-noalias.ll"
+            verify_probe_file(probe, report["environment"]["cpu_oracle"])
+            copy(probe, f"reports/{op}-noalias.ll")
+            oracles[feature["id"]] = {
+                "report": f"reports/{op}.json",
+                "llvm_ir": f"reports/{op}-noalias.ll",
+            }
             layout = run_root / "fixtures/layout.json"
             if digest(layout) != report["layout_sha256"]:
                 raise ValueError(f"Modified layout: {op}")
@@ -190,6 +209,7 @@ def build(root, output, results):
             "runtime_adapter": "not_implemented; requires selected CANN SDK",
             "known_gaps": current["known_gaps"],
             "cases": cases,
+            "cpu_oracles": oracles,
             "files": dict(sorted(files.items())),
         }
         write_json(stage / "manifest.json", bundle)

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import parity
+import cpu_oracle
 
 
 class ParityTests(unittest.TestCase):
@@ -19,6 +20,8 @@ class ParityTests(unittest.TestCase):
         (self.root / "src").mkdir()
         (self.root / "src/solver.rs").write_text("fn solve() { normal_impulse(); }\n")
         self.port.mkdir(parents=True)
+        (self.port / "reference").mkdir()
+        (self.port / "reference/noalias_probe.rs").write_text("// test probe\n")
         (self.port / "kernel.py").write_text("# Implementation\n")
         (self.port / "requirements.txt").write_text("tilelang==0.1.15\n")
         parity.write_json(self.port / "contract.json", {"required_cases": ["case"]})
@@ -59,7 +62,23 @@ class ParityTests(unittest.TestCase):
             "status": "passed",
             "level": "executed",
             "suite": "portable",
-            "environment": {"tilelang": "0.1.15"},
+            "environment": {
+                "tilelang": "0.1.15",
+                "rustc": "rustc test",
+                "rustflags": list(cpu_oracle.FLAGS),
+                "cpu_oracle": {
+                    "profile": cpu_oracle.PROFILE,
+                    "rustc": "rustc test",
+                    "rustflags": list(cpu_oracle.FLAGS),
+                    "rustc_bootstrap": "1",
+                    "mutable_reference_noalias": False,
+                    "shared_reference_noalias": True,
+                    "probe_source_sha256": parity.digest(
+                        self.port / "reference/noalias_probe.rs"
+                    ),
+                    "llvm_ir_sha256": "a" * 64,
+                },
+            },
             "inputs": parity.evidence_inputs(self.root),
             "cases": [
                 {
@@ -165,6 +184,33 @@ class ParityTests(unittest.TestCase):
                 parity.write_json(self.evidence, {**self.report, **mutation})
                 with self.assertRaises(ValueError):
                     parity.reconcile(self.root, self.change, [self.evidence])
+
+    def test_missing_or_unsafe_cpu_oracle_is_rejected(self):
+        for mutation in (
+            {},
+            {"mutable_reference_noalias": True},
+            {"shared_reference_noalias": False},
+            {"rustflags": []},
+            {"rustc": "different"},
+            {"rustc_bootstrap": "0"},
+            {"probe_source_sha256": "b" * 64},
+            {"llvm_ir_sha256": "bad"},
+        ):
+            with self.subTest(mutation=mutation):
+                env = dict(self.report["environment"])
+                env["cpu_oracle"] = (
+                    {**env["cpu_oracle"], **mutation} if mutation else {}
+                )
+                report = {**self.report, "environment": env}
+                for level in ("executed", "source_lowered"):
+                    self.assertEqual(
+                        parity.evidence_state(
+                            self.root,
+                            {**report, "level": level},
+                            parity.evidence_inputs(self.root),
+                        ),
+                        "oracle_configuration_mismatch",
+                    )
 
     def test_modifying_accepted_evidence_or_change_record_is_visible(self):
         self.accept()

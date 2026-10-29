@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import sys
 
+from cpu_oracle import export_fixtures
 from parity import evidence_inputs
 from replay import (
     BUFFERS,
@@ -81,22 +82,12 @@ def main():
     write_json(output / "report.json", report)
     try:
         fixtures = output / "fixtures"
-        run(
-            [
-                "cargo",
-                "run",
-                "--locked",
-                "--manifest-path",
-                HERE / "reference/Cargo.toml",
-                "--",
-                fixtures,
-            ]
-            + (
-                ["--zero-frame"]
-                if args.zero_frame
-                else ([] if args.portable else ["--boundary-stress"])
-            ),
-            cwd=HERE / "reference",
+        report["cpu_oracle"] = export_fixtures(
+            "nexus-tilelang-reference",
+            fixtures,
+            ["--zero-frame"]
+            if args.zero_frame
+            else ([] if args.portable else ["--boundary-stress"]),
         )
         original = build_native(reference=True)
         generated = build_native()

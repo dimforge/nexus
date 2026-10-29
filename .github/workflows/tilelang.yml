@@ -22,7 +22,7 @@ jobs:
           python-version: "3.13"
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.99.1"
+          toolchain: "1.98.1"
           components: rustfmt, clippy
       - uses: actions/cache@v4
         with:
@@ -34,7 +34,9 @@ jobs:
       - name: Check Rust exporter
         run: |
           cargo fmt --manifest-path ports/tilelang/reference/Cargo.toml -- --check
-          cargo clippy --locked --manifest-path ports/tilelang/reference/Cargo.toml --all-targets -- -D warnings
+          python ports/tilelang/cpu_oracle.py clippy --locked --all-targets -- -D warnings
+          python ports/tilelang/cpu_oracle.py test --locked --bin cpu-dispatch-check
+          python ports/tilelang/cpu_oracle.py test --locked --release --bin cpu-dispatch-check
       - name: Test change tracking without an accelerator
         run: |
           python -m unittest discover -s ports/tilelang/tests -p test_parity.py -v

@@ -31,7 +31,9 @@
     "ports/tilelang/inventory.json",
     "ports/tilelang/HANDOFF.md",
     "ports/tilelang/session.schema.json",
-    "ports/tilelang/COMPLETION.md"
+    "ports/tilelang/COMPLETION.md",
+    "ports/tilelang/reference/build.rs",
+    "ports/tilelang/reference/noalias_probe.rs"
   ],
   "features": [
     {

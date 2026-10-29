@@ -135,6 +135,25 @@ def evidence_state(root, report, inputs):
             .startswith(f"rustc {rust_version} ")
         ):
             return "toolchain_mismatch"
+    from cpu_oracle import FLAGS, PROFILE
+
+    env = report.get("environment", {})
+    oracle = env.get("cpu_oracle", {})
+    probe = root / PORT / "reference/noalias_probe.rs"
+    if (
+        oracle.get("profile") != PROFILE
+        or oracle.get("rustflags") != list(FLAGS)
+        or env.get("rustflags") != list(FLAGS)
+        or oracle.get("rustc") != env.get("rustc")
+        or oracle.get("rustc_bootstrap") != "1"
+        or oracle.get("mutable_reference_noalias") is not False
+        or oracle.get("shared_reference_noalias") is not True
+        or not probe.is_file()
+        or oracle.get("probe_source_sha256") != digest(probe)
+        or len(oracle.get("llvm_ir_sha256", "")) != 64
+        or any(c not in "0123456789abcdef" for c in oracle.get("llvm_ir_sha256", ""))
+    ):
+        return "oracle_configuration_mismatch"
     if report.get("level") == "source_lowered":
         return "source_lowered"
     if report.get("level") != "executed" or any(

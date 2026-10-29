@@ -10,6 +10,8 @@ use nexus_rbd_shaders3d::{
 };
 use serde_json::json;
 use std::{fs, path::Path};
+// Rust 1.98 Clippy suggests a generic const expression that stable Rust rejects.
+#[allow(clippy::chunks_exact_to_as_chunks)]
 fn read<T: bytemuck::Pod>(path: &Path) -> Vec<T> {
     fs::read(path)
         .unwrap()
