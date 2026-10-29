@@ -32,7 +32,10 @@ Remaining implementation sequence:
    connecting shared static bodies and hubs to the production iteration order. Wire native generated kernels into Rust simulation stepping;
    the existing reference collision path may be retained only for an explicitly
    labeled intermediate hybrid milestone.
-3. Port collision detection and shapes, contact creation/removal, broad-phase
+3. Native world bounds for every 3D shape tag and brute-force candidate-pair
+   kernels are implemented, including an ordered bounds/pairs program. LBVH,
+   scene integration and narrow-phase contact generation remain.
+   Port collision detection and shapes, contact creation/removal, broad-phase
    schedules, rigid-body joints, queries, deterministic ordering and other required
    inventory capabilities. Do not introduce CPU physics fallbacks and call them
    completed TileLang features.

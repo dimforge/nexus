@@ -5,10 +5,18 @@
     {
       "reference": "src_rbd_shaders/bounding_volumes/aabb.rs",
       "implementation": "ports/tilelang/shaders/bounding_volumes/aabb.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.brute_pairs3d",
+        "rbd.broadphase.brute_pairs_serial3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "symbols": [
+        "transform_by",
+        "intersects"
+      ],
+      "remaining": "Transform/intersection used by broad-phase contracts; other AABB operations remain unported."
     },
     {
       "reference": "src_rbd_shaders/bounding_volumes/mod.rs",
@@ -21,18 +29,34 @@
     {
       "reference": "src_rbd_shaders/broad_phase/brute_force.rs",
       "implementation": "ports/tilelang/shaders/broad_phase/brute_force.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.brute_pairs3d",
+        "rbd.broadphase.brute_pairs_serial3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "symbols": [
+        "gpu_bf_compute_aabbs",
+        "gpu_bf_find_pairs",
+        "gpu_bf_find_pairs_serial"
+      ],
+      "remaining": "All three native entry points and ordered bounds/pairs composition are ported. Production scene integration and hardware qualification remain."
     },
     {
       "reference": "src_rbd_shaders/broad_phase/lbvh.rs",
       "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.brute_pairs3d",
+        "rbd.broadphase.brute_pairs_serial3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "symbols": [
+        "scratch_start"
+      ],
+      "remaining": "Only shared batch-major scratch indexing; LBVH algorithms remain unported."
     },
     {
       "reference": "src_rbd_shaders/broad_phase/mod.rs",
@@ -748,10 +772,15 @@
     {
       "reference": "src_rbd_shaders/shapes/convex_polyhedron.rs",
       "implementation": "ports/tilelang/shaders/shapes/convex_polyhedron.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "symbols": [
+        "aabb"
+      ],
+      "remaining": "Only vertex-range local bounds; support maps and polygonal geometry remain unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/cylinder.rs",
@@ -788,10 +817,15 @@
     {
       "reference": "src_rbd_shaders/shapes/shape.rs",
       "implementation": "ports/tilelang/shaders/shapes/shape.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "symbols": [
+        "compute_aabb"
+      ],
+      "remaining": "All native 3D compute_aabb branches; shape support maps, queries and contacts remain unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
@@ -804,10 +838,15 @@
     {
       "reference": "src_rbd_shaders/shapes/triangle.rs",
       "implementation": "ports/tilelang/shaders/shapes/triangle.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "symbols": [
+        "aabb"
+      ],
+      "remaining": "Only local triangle bounds; other geometry remains unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/trimesh.rs",
@@ -1085,9 +1124,14 @@
     {
       "id": "rbd.broadphase.brute_force",
       "description": "Brute-force broad phase",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.brute_pairs3d",
+        "rbd.broadphase.brute_pairs_serial3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "remaining": "All native brute-force kernels and ordered AABB/pair dispatch are implemented; scene integration and performance validation remain."
     },
     {
       "id": "rbd.broadphase.lbvh",
@@ -1099,23 +1143,32 @@
     {
       "id": "rbd.collision.primitives",
       "description": "Primitive shape bounds, support maps and contact generation",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },
     {
       "id": "rbd.collision.convex",
       "description": "GJK, EPA, SAT and polygonal contact manifolds",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },
     {
       "id": "rbd.collision.composite",
       "description": "Triangle meshes, polylines and composite traversal",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.world_aabbs3d",
+        "rbd.broadphase.pairs_program3d"
+      ],
+      "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },
     {
       "id": "rbd.queries",

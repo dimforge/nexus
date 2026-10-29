@@ -764,6 +764,64 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/tgs_frame.json",
       "test_command": "python ports/tilelang/tgs_replay.py --operation tgs_frame --target c"
+    },
+    {
+      "id": "rbd.broadphase.world_aabbs3d",
+      "operation": "world_aabbs",
+      "runner": "broadphase_replay.py",
+      "coverage": "World AABBs for all native 3D shape tags, from interleaved poses/shapes into batch-major scratch",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/brute_force.rs::gpu_bf_compute_aabbs",
+        "src_rbd_shaders/broad_phase/lbvh.rs::scratch_start",
+        "src_rbd_shaders/shapes/shape.rs::Shape::compute_aabb"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/brute_force.py::gpu_bf_compute_aabbs",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/world_aabbs.json",
+      "test_command": "python ports/tilelang/broadphase_replay.py --operation world_aabbs --target c"
+    },
+    {
+      "id": "rbd.broadphase.brute_pairs3d",
+      "operation": "brute_pairs",
+      "runner": "broadphase_replay.py",
+      "coverage": "Native parallel brute-force candidate pairs with interaction groups, body/adjacency filters and bounded atomic append",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/brute_force.rs::gpu_bf_find_pairs",
+        "src_rbd_shaders/broad_phase/lbvh.rs::scratch_start"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/brute_force.py::gpu_bf_find_pairs",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/brute_pairs.json",
+      "test_command": "python ports/tilelang/broadphase_replay.py --operation brute_pairs --target c"
+    },
+    {
+      "id": "rbd.broadphase.brute_pairs_serial3d",
+      "operation": "brute_pairs_serial",
+      "runner": "broadphase_replay.py",
+      "coverage": "Native serial-per-collider brute-force candidate pairs with bounded atomic append",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/brute_force.rs::gpu_bf_find_pairs_serial",
+        "src_rbd_shaders/broad_phase/lbvh.rs::scratch_start"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/brute_force.py::gpu_bf_find_pairs_serial",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/brute_pairs_serial.json",
+      "test_command": "python ports/tilelang/broadphase_replay.py --operation brute_pairs_serial --target c"
+    },
+    {
+      "id": "rbd.broadphase.pairs_program3d",
+      "operation": "broadphase_pairs",
+      "runner": "broadphase_replay.py",
+      "coverage": "Ordered native world-AABB construction and brute-force candidate pairs; no host geometry",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/brute_force.rs::gpu_bf_find_pairs",
+        "src_rbd_shaders/broad_phase/lbvh.rs::scratch_start",
+        "src_rbd_shaders/shapes/shape.rs::Shape::compute_aabb"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/brute_force.py::gpu_bf_find_pairs",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/broadphase_pairs.json",
+      "test_command": "python ports/tilelang/broadphase_replay.py --operation broadphase_pairs --target c"
     }
   ],
   "targets": [

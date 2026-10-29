@@ -297,3 +297,8 @@ class TgsHandoffTests(ScanHandoffTests):
 class BodyUniformHandoffTests(HandoffTests):
     operation = "body_coefficients"
     mutable_buffer = "Params"
+
+
+class BroadPhaseHandoffTests(ScanHandoffTests):
+    operation = "broadphase_pairs"
+    mutable_buffer = "PairCount"
