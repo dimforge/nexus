@@ -410,3 +410,29 @@ Ordered handoffs require every stage source and mapping. Their verifier rejects
 missing later-stage hashes and replacement of a program with its first kernel.
 Full adjacency/color/solver schedules, collision detection, joints and scene-level
 physical validation remain in progress; this is not full-backend completion.
+
+## Contact adjacency construction — 2026-10-29
+
+The mirrored solver now includes `gpu_solver_count_constraints` and
+`gpu_solver_sort_constraints`. An ordered native program combines counting,
+hierarchical prefix scan and atomic scatter on persistent GPU buffers. It produces
+the cumulative row ends and per-body constraint IDs consumed by mass splitting,
+warmstart gathering and coloring, without a host graph-construction fallback.
+
+The 33 new cases cover empty scenes/rows, tile and workgroup boundaries, scans
+across multiple blocks, interleaved batches and grid-stride iterations. They retain
+empty slots with stale maximum body IDs, whole-vector inverse-mass tests (including
+an unlocked Y axis with locked X), static bodies, multibody filtering and repeated
+self-contact contributions. Counts, scratch, copied inputs and unused words remain
+exact. Active IDs compare as exact per-body multisets, allowing only the ordering
+variation inherent in atomic insertion. Missing, duplicated and misplaced IDs fail.
+
+All 302 cases across 32 operations pass freshly generated Rust comparisons on CPU
+and native Metal, and source-only Ascend lowering. All 177 Python tests, Rust format
+and strict Clippy, and Ruff F checks pass. Six generated C++ UBSan runs cover count,
+scatter and the full program with grid-stride and multiple-batch inputs; all pass
+and match normal CPU bytes. Source reconciliation and the CPU/Metal gate pass.
+
+Articulated multibodies remain deferred; filtering their contacts does not claim
+support for solving them. Color construction, production solver scheduling,
+collision detection, joints and full-scene physical validation remain in progress.
