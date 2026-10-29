@@ -42,6 +42,24 @@ def safe_file(root, relative):
     return path
 
 
+def ordered_sources(directory, contract):
+    """An ordered contract cannot be packaged as its first kernel alone."""
+    from ordered import validate_program
+
+    bindings = read_json(safe_file(directory, "bindings.json"))
+    if contract.get("execution") == "ordered_kernels" or bindings.get("schema") == 2:
+        validate_program(bindings)
+        if set(bindings["storage_buffers"]) != set(contract["inputs"]):
+            raise ValueError("Ordered storage differs from contract")
+        sources = {stage["source"] for stage in bindings["stages"]}
+        if bindings["stages"][0]["source"] != "kernel.ascend" or any(
+            not source.endswith(".ascend") for source in sources
+        ):
+            raise ValueError("Ordered handoff requires Ascend stage sources")
+        return sources
+    return set()
+
+
 def verify_bundle(root):
     bundle = read_json(root / "manifest.json")
     if bundle.get("schema") != 1:
@@ -71,6 +89,10 @@ def verify_bundle(root):
                 + ["bindings.json", "kernel.ascend"]
             )
         }
+        required.update(
+            case["directory"] + "/" + source
+            for source in ordered_sources(root / case["directory"], contract)
+        )
         if not required.issubset(bundle["files"]):
             raise ValueError("Case artifacts missing from handoff hash inventory")
     keys = [(c["feature"], c["case"]["name"]) for c in bundle["cases"]]
@@ -170,6 +192,7 @@ def build(root, output, results):
                         for name in feature_contract(root, feature)["outputs"]
                     }
                 )
+                required.update(ordered_sources(case_root, contract))
                 if not required.issubset(outcome["files"]):
                     raise ValueError(f"Incomplete fixture receipt: {op}/{case['name']}")
                 for name, expected in outcome["files"].items():
@@ -265,6 +288,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from link_replay import check_outputs as check_link_outputs
     from warmstart_replay import check_outputs as check_warmstart_outputs
     from hub_replay import check_outputs as check_hub_outputs
+    from scan_replay import check_outputs as check_scan_outputs
 
     result = {
         "schema": 1,
@@ -322,6 +346,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "link_fields": check_link_outputs,
                     "warmstart_fields": check_warmstart_outputs,
                     "hub_fields": check_hub_outputs,
+                    "scan_fields": check_scan_outputs,
                 }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)

@@ -50,6 +50,7 @@ def run_stage(
     check_outputs,
     launch,
     extra_files=(),
+    make_program=None,
 ):
     """Shared evidence/runtime path; operation modules own their ABI and comparisons."""
     import numpy as np
@@ -106,40 +107,53 @@ def run_stage(
                 n: np.fromfile(directory / f"{n}.bin", dtype=np.uint32) for n in buffers
             }
             validate_case(layout, case, before)
-            requested = (
-                {"kind": "cuda", "arch": "sm_80"}
-                if args.target == "cuda"
-                else args.target
-            )
-            artifact = tilelang.lower(
-                make_kernel(layout, case, args.target),
-                target=requested,
-                enable_host_codegen=False,
-                enable_device_compile=False,
-            )
-            functions = list(artifact.device_mod.functions.values())
-            if len(functions) != 1:
-                raise ValueError("Expected one stage entry point")
-            function = functions[0]
-            order = [str(param.name) for param in function.params]
-            if len(set(order)) != len(order) or not set(order).issubset(buffers):
-                raise ValueError("Unexpected stage bindings")
-            source = artifact.kernel_source
-            if args.target == "metal":
-                source = "#pragma clang fp contract(off)\n" + source
-            blocks, threads, iterations = launch(case)
-            bindings = {
-                "schema": 1,
-                "entry": str(function.attrs["global_symbol"]),
-                "buffers": order,
-                "storage_buffers": list(buffers),
-                "buffer_bytes": {n: a.nbytes for n, a in before.items()},
-                "blocks": blocks,
-                "threads": threads,
-                "iterations": iterations,
-            }
+            if make_program is not None:
+                from ordered import lower_program
+
+                sources, bindings = lower_program(
+                    make_program(layout, case, args.target),
+                    before,
+                    args.target,
+                    iterations=case["iterations"],
+                )
+                source = sources[f"kernel.{args.target}"]
+            else:
+                requested = (
+                    {"kind": "cuda", "arch": "sm_80"}
+                    if args.target == "cuda"
+                    else args.target
+                )
+                artifact = tilelang.lower(
+                    make_kernel(layout, case, args.target),
+                    target=requested,
+                    enable_host_codegen=False,
+                    enable_device_compile=False,
+                )
+                functions = list(artifact.device_mod.functions.values())
+                if len(functions) != 1:
+                    raise ValueError("Expected one stage entry point")
+                function = functions[0]
+                order = [str(param.name) for param in function.params]
+                if len(set(order)) != len(order) or not set(order).issubset(buffers):
+                    raise ValueError("Unexpected stage bindings")
+                source = artifact.kernel_source
+                if args.target == "metal":
+                    source = "#pragma clang fp contract(off)\n" + source
+                blocks, threads, iterations = launch(case)
+                bindings = {
+                    "schema": 1,
+                    "entry": str(function.attrs["global_symbol"]),
+                    "buffers": order,
+                    "storage_buffers": list(buffers),
+                    "buffer_bytes": {n: a.nbytes for n, a in before.items()},
+                    "blocks": blocks,
+                    "threads": threads,
+                    "iterations": iterations,
+                }
+                sources = {f"kernel.{args.target}": source}
             write_json(directory / "bindings.json", bindings)
-            (directory / f"kernel.{args.target}").write_text(source)
+            for filename, content in sources.items():
+                (directory / filename).write_text(content)
             outcome = {
                 "name": case["name"],
                 "count": case["count"],
@@ -151,9 +165,15 @@ def run_stage(
             if not args.compile_only:
                 actual = {n: a.copy() for n, a in before.items()}
                 if args.target == "c":
-                    report["environment"].update(
-                        execute_c(source, bindings, directory, actual)
-                    )
+                    if make_program is not None:
+                        from ordered import execute_c_program
+
+                        execution = execute_c_program(
+                            sources, bindings, directory, actual
+                        )
+                    else:
+                        execution = execute_c(source, bindings, directory, actual)
+                    report["environment"].update(execution)
                 else:
                     report["environment"].update(json.loads(run([runner, directory])))
                     actual = {
@@ -174,8 +194,8 @@ def run_stage(
             names = (
                 {
                     "bindings.json",
-                    f"kernel.{args.target}",
                 }
+                | set(sources)
                 | {f"{n}.bin" for n in buffers}
                 | {f"{n}.expected.bin" for n in contract["outputs"]}
                 | set(extra_files)

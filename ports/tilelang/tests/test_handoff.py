@@ -66,6 +66,16 @@ class HandoffTests(unittest.TestCase):
             shutil.copyfile(expected, self.actual / f"{name}.actual.bin")
         (dest / "bindings.json").write_text("{}")
         (dest / "kernel.ascend").write_text("// test fixture; not executed")
+        if contract.get("execution") == "ordered_kernels":
+            program = json.loads(
+                (fixtures / case["name"] / "bindings.json").read_text()
+            )
+            for stage in program["stages"]:
+                stage["source"] = stage["source"].removesuffix(".c") + ".ascend"
+                (dest / stage["source"]).write_text(
+                    "// TEST ONLY: source receipt fixture"
+                )
+            (dest / "bindings.json").write_text(json.dumps(program))
         shutil.copyfile(layout, self.bundle / "layout.json")
         shutil.copyfile(contract_path, self.bundle / "contract.json")
         shutil.copyfile(run_root / "report.json", self.bundle / "oracle-report.json")
@@ -224,3 +234,26 @@ if __name__ == "__main__":
 class HubHandoffTests(HandoffTests):
     operation = "hub_average"
     fixture_index = 8
+
+
+class ScanHandoffTests(HandoffTests):
+    operation = "prefix_scan"
+    mutable_buffer = "Data"
+
+    def test_unhashed_later_stage_is_rejected(self):
+        directory = self.manifest["cases"][0]["directory"]
+        del self.manifest["files"][directory + "/kernel.1.ascend"]
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, "missing from handoff"):
+            handoff.verify_bundle(self.bundle)
+
+    def test_first_kernel_alone_cannot_replace_program(self):
+        directory = self.manifest["cases"][0]["directory"]
+        path = self.bundle / directory / "bindings.json"
+        path.write_text(
+            json.dumps(json.loads(path.read_text())["stages"][0]["bindings"])
+        )
+        self.manifest["files"][directory + "/bindings.json"] = handoff.digest(path)
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, "ordered program"):
+            handoff.verify_bundle(self.bundle)

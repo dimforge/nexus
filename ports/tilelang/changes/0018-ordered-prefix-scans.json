@@ -1,0 +1,55 @@
+{
+  "id": "0018-ordered-prefix-scans",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d",
+    "rbd.contact.coulomb.scale_impulses3d",
+    "rbd.contact.coulomb.gather_warmstart3d",
+    "rbd.contact.coulomb.hub_warmstart3d",
+    "rbd.scheduling.hub_assign3d",
+    "rbd.scheduling.hub_split3d",
+    "rbd.scheduling.hub_dispatch3d",
+    "rbd.scheduling.hub_scatter3d",
+    "rbd.scheduling.hub_average3d",
+    "rbd.utils.prefix_sweep",
+    "rbd.utils.prefix_add",
+    "rbd.utils.prefix_scan"
+  ],
+  "kinds": [
+    "port",
+    "feature",
+    "tooling",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Add ordered native kernel programs and the Rust-mirrored batched prefix-sum hierarchy.",
+  "regressions": [
+    "Native two-stage dependent-buffer dispatch across repeated iterations; reject missing, aliased and incorrectly sized mappings",
+    "Thirty integer cases cover empty and partial blocks, multiple batches, and a 65537-element three-level scan",
+    "Every scratch buffer and guard word compared; full scans also checked against independent exclusive sums",
+    "Ordered handoffs require every referenced stage and its hashes; removing a stage source is rejected",
+    "Explicitly expand the eight tree stages before Ascend thread-sync analysis; generated source preserves group-uniform barriers without the pragma-loop barrier-hoisting warning."
+  ],
+  "differences": [
+    "No Rust arithmetic or physics changes. CPU serializes the same 256-lane tree phases; GPU uses actual shared memory barriers.",
+    "Empty scans execute an explicit no-op, avoiding the Rust host workspace reserve loop for zero stride.",
+    "No CPU physics or readback between native stages; synchronous queue completion is a correctness implementation, not optimized scheduling.",
+    "Contracts currently exclude u32 overflow to retain checked debug Rust oracle execution. Ascend source lowering remains distinct from vendor compilation and NPU execution."
+  ]
+}

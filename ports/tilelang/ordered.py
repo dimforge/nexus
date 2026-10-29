@@ -1,0 +1,135 @@
+"""Compiler/export helpers for ordered kernels over persistent native buffers."""
+
+import re
+
+
+def validate_program(program):
+    """Validate the export ABI without importing a compiler or executing code."""
+
+    def positive(value):
+        return type(value) is int and 0 < value <= (1 << 64) - 1
+
+    def storage(manifest):
+        names = manifest.get("storage_buffers", [])
+        sizes = manifest.get("buffer_bytes", {})
+        if (
+            not names
+            or len(names) != len(set(names))
+            or set(names) != set(sizes)
+            or any(not re.fullmatch(r"[A-Za-z0-9_]+", n) for n in names)
+            or any(not positive(n) or n % 4 for n in sizes.values())
+        ):
+            raise ValueError("Invalid program storage")
+        if (
+            not positive(manifest.get("iterations"))
+            or manifest["iterations"] > 0xFFFFFFFF
+        ):
+            raise ValueError("Invalid program iteration count")
+        return sizes
+
+    if program.get("schema") != 2 or not program.get("stages"):
+        raise ValueError("Unsupported or empty ordered program")
+    physical = storage(program)
+    names = set()
+    for stage in program["stages"]:
+        name = stage.get("name")
+        source = stage.get("source", "")
+        if (
+            not isinstance(name, str)
+            or not name
+            or name in names
+            or not re.fullmatch(r"[A-Za-z0-9_.-]+", source)
+            or source in (".", "..")
+        ):
+            raise ValueError("Invalid program stage name or source")
+        names.add(name)
+        bindings = stage["bindings"]
+        local = storage(bindings)
+        order = bindings.get("buffers", [])
+        if (
+            bindings.get("schema") != 1
+            or not bindings.get("entry")
+            or len(order) != len(set(order))
+            or not set(order).issubset(local)
+            or not positive(bindings.get("blocks"))
+            or not positive(bindings.get("threads"))
+            or bindings["blocks"] * bindings["threads"] > (1 << 64) - 1
+        ):
+            raise ValueError("Invalid program kernel ABI")
+        mapping = stage["buffer_map"]
+        if (
+            set(mapping) != set(local)
+            or len(set(mapping.values())) != len(mapping)
+            or any(physical.get(p) != local[n] for n, p in mapping.items())
+        ):
+            raise ValueError("Missing, invalid or aliased program buffer mapping")
+    return program
+
+
+def lower_program(plans, arrays, target, iterations=1):
+    import tilelang
+
+    program = {
+        "schema": 2,
+        "storage_buffers": list(arrays),
+        "buffer_bytes": {n: a.nbytes for n, a in arrays.items()},
+        "iterations": iterations,
+        "stages": [],
+    }
+    sources = {}
+    requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
+    for i, plan in enumerate(plans):
+        artifact = tilelang.lower(
+            plan["kernel"],
+            target=requested,
+            enable_host_codegen=False,
+            enable_device_compile=False,
+        )
+        functions = list(artifact.device_mod.functions.values())
+        if len(functions) != 1:
+            raise ValueError("Expected one entry point per ordered stage")
+        function = functions[0]
+        mapping = plan["buffer_map"]
+        order = [str(p.name) for p in function.params]
+        source = artifact.kernel_source
+        if target == "metal":
+            source = "#pragma clang fp contract(off)\n" + source
+        filename = f"kernel{'.' + str(i) if i else ''}.{target}"
+        sources[filename] = source
+        bindings = {
+            "schema": 1,
+            "entry": str(function.attrs["global_symbol"]),
+            "buffers": order,
+            "storage_buffers": list(mapping),
+            "buffer_bytes": {n: arrays[p].nbytes for n, p in mapping.items()},
+            "blocks": plan["blocks"],
+            "threads": plan["threads"],
+            "iterations": 1,
+        }
+        program["stages"].append(
+            {
+                "name": plan["name"],
+                "source": filename,
+                "bindings": bindings,
+                "buffer_map": mapping,
+            }
+        )
+    return sources, validate_program(program)
+
+
+def execute_c_program(sources, program, directory, arrays):
+    from replay import execute_c
+
+    validate_program(program)
+    environment = {}
+    # All stages receive views of the same physical arrays. No CPU arithmetic or
+    # intermediate readback substitutes for generated kernels.
+    for _ in range(program["iterations"]):
+        for i, stage in enumerate(program["stages"]):
+            stage_dir = directory / f"stage-{i}"
+            stage_dir.mkdir(exist_ok=True)
+            local = {n: arrays[p] for n, p in stage["buffer_map"].items()}
+            environment.update(
+                execute_c(sources[stage["source"]], stage["bindings"], stage_dir, local)
+            )
+    return environment

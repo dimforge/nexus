@@ -877,10 +877,17 @@
     {
       "reference": "src_rbd_shaders/utils/prefix_sum.rs",
       "implementation": "ports/tilelang/shaders/utils/prefix_sum.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.utils.prefix_sweep",
+        "rbd.utils.prefix_add",
+        "rbd.utils.prefix_scan"
+      ],
+      "symbols": [
+        "gpu_prefix_sum_sweep",
+        "gpu_add_data_grp"
+      ],
+      "remaining": "Both entry points and ordered hierarchy covered for bounded non-overflowing counts; native production call sites and Ascend hardware qualification remain pending."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/init_batch_ids.rs",
@@ -1101,9 +1108,13 @@
     {
       "id": "rbd.utils",
       "description": "Scan, reduction, sorting and compaction",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.utils.prefix_sweep",
+        "rbd.utils.prefix_add",
+        "rbd.utils.prefix_scan"
+      ],
+      "remaining": "Prefix sum kernels and ordered hierarchy ported; radix sort and other utility algorithms remain."
     },
     {
       "id": "rbd.determinism",
@@ -1119,7 +1130,7 @@
       "description": "Public API, production scene stepping and runtime integration",
       "coverage": "unported",
       "operations": [],
-      "remaining": "Native buffer adapter exists; simulation backend is unimplemented."
+      "remaining": "Native Metal supports ordered kernels on persistent buffers; full simulation backend and scene stepping remain incomplete."
     },
     {
       "id": "rbd.dim2",

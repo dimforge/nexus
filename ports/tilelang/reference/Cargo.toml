@@ -56,3 +56,7 @@ path = "src/cpu_dispatch_check.rs"
 [[bin]]
 name = "hubs"
 path = "src/hubs.rs"
+
+[[bin]]
+name = "scans"
+path = "src/scans.rs"

@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "feature": "rbd.utils.prefix_add",
+  "scope": "Add scanned block offsets to per-workgroup scans",
+  "inputs": [
+    "Data",
+    "Aux0",
+    "Aux1",
+    "Aux2",
+    "Aux3",
+    "Stride0",
+    "Stride1",
+    "Stride2",
+    "Stride3"
+  ],
+  "outputs": [
+    "Data",
+    "Aux0",
+    "Aux1",
+    "Aux2",
+    "Aux3"
+  ],
+  "comparison": "scan_fields",
+  "execution": "ordered_kernels",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "All prefix values, uniforms and guard words compare exactly as u32.",
+  "preconditions": [
+    "Batched contiguous non-overflowing u32 counts with recorded strides and hierarchy",
+    "Distinct physical buffers, sufficient initialized storage and ordered dispatch completion",
+    "Bounded signed address intermediates; empty batches execute an explicit no-op"
+  ],
+  "invariants": [
+    "Rust 256-lane tree and partial-block zero padding preserved",
+    "Full scan agrees with independent exclusive prefix sums in every batch",
+    "Unused scratch and guard words remain unchanged"
+  ],
+  "outside_scope": [
+    "Overflowing u32 scan totals",
+    "Ascend vendor compilation and execution",
+    "Production scene integration"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-mixed",
+    "n0-b3-mixed",
+    "n1-b1-mixed",
+    "n31-b2-mixed",
+    "n255-b3-mixed",
+    "n256-b1-mixed",
+    "n257-b2-mixed",
+    "n513-b3-spikes",
+    "n1025-b2-zero",
+    "n65537-b2-mixed"
+  ]
+}

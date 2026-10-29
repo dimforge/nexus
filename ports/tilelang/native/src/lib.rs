@@ -129,6 +129,147 @@ impl NativeKernel {
     }
 }
 
+/// Ordered kernels over persistent caller-owned storage. Each stage has its own
+/// compiler-selected ABI; buffer_map maps those local names onto physical buffers.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProgramStage {
+    pub name: String,
+    pub source: String,
+    pub bindings: Manifest,
+    pub buffer_map: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProgramManifest {
+    pub schema: u32,
+    pub storage_buffers: Vec<String>,
+    pub buffer_bytes: BTreeMap<String, u64>,
+    pub iterations: u32,
+    pub stages: Vec<ProgramStage>,
+}
+
+impl ProgramManifest {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.schema != 2 || self.stages.is_empty() {
+            return Err("Unsupported or empty ordered program".into());
+        }
+        // Reuse the storage-name, size and iteration checks of a kernel manifest.
+        Manifest {
+            schema: 1,
+            storage_buffers: self.storage_buffers.clone(),
+            buffer_bytes: self.buffer_bytes.clone(),
+            buffers: vec![],
+            entry: "program".into(),
+            blocks: 1,
+            threads: 1,
+            iterations: self.iterations,
+        }
+        .validate()?;
+        let mut names = BTreeSet::new();
+        for stage in &self.stages {
+            stage.bindings.validate()?;
+            if stage.name.is_empty()
+                || !names.insert(&stage.name)
+                || stage.source.is_empty()
+                || !stage
+                    .source
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-')
+                || stage.source == "."
+                || stage.source == ".."
+            {
+                return Err("Invalid stage name or source filename".into());
+            }
+            if stage.buffer_map.keys().collect::<BTreeSet<_>>()
+                != stage
+                    .bindings
+                    .storage_buffers
+                    .iter()
+                    .collect::<BTreeSet<_>>()
+                || stage.buffer_map.values().collect::<BTreeSet<_>>().len()
+                    != stage.buffer_map.len()
+            {
+                return Err("Missing or aliased stage buffer mapping".into());
+            }
+            for (local, physical) in &stage.buffer_map {
+                if self.buffer_bytes.get(physical) != stage.bindings.buffer_bytes.get(local) {
+                    return Err(format!(
+                        "Invalid stage buffer mapping {local} -> {physical}"
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// A correctness-first native schedule: no CPU physics, readback or repacking
+/// between stages. Completed dispatches establish dependencies for later kernels.
+pub struct NativeProgram {
+    manifest: ProgramManifest,
+    kernels: Vec<NativeKernel>,
+}
+impl NativeProgram {
+    pub fn new(
+        backend: &Metal,
+        manifest: ProgramManifest,
+        sources: &BTreeMap<String, String>,
+    ) -> Result<Self, String> {
+        manifest.validate()?;
+        let kernels = manifest
+            .stages
+            .iter()
+            .map(|stage| {
+                NativeKernel::new(
+                    backend,
+                    sources
+                        .get(&stage.source)
+                        .ok_or_else(|| format!("Missing source {}", stage.source))?,
+                    stage.bindings.clone(),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self { manifest, kernels })
+    }
+
+    /// Execute the full schedule on persistent native buffers.
+    ///
+    /// # Safety
+    /// The caller must meet NativeKernel::dispatch's requirements for every stage,
+    /// including scratch initialization and dependencies between stages. Distinct
+    /// physical names must refer to distinct allocations, not aliased buffers.
+    pub unsafe fn dispatch(
+        &self,
+        backend: &Metal,
+        buffers: &BTreeMap<String, &BufferRef>,
+    ) -> Result<(), String> {
+        // Validate all physical storage before the first stage can mutate anything.
+        for name in &self.manifest.storage_buffers {
+            let buffer = buffers
+                .get(name)
+                .ok_or_else(|| format!("Missing buffer {name}"))?;
+            if buffer.length() != self.manifest.buffer_bytes[name]
+                || buffer.device().registry_id() != backend.device().registry_id()
+            {
+                return Err(format!("Invalid buffer {name}"));
+            }
+        }
+        for _ in 0..self.manifest.iterations {
+            for (stage, kernel) in self.manifest.stages.iter().zip(&self.kernels) {
+                let local = stage
+                    .buffer_map
+                    .iter()
+                    .map(|(name, physical)| (name.clone(), buffers[physical]))
+                    .collect();
+                unsafe {
+                    kernel.dispatch(backend, &local)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,5 +323,79 @@ mod tests {
         m = valid();
         m.schema = 9;
         assert!(m.validate().is_err());
+    }
+    fn program() -> ProgramManifest {
+        let mut local = valid();
+        local.threads = 1;
+        local.entry = "stage".into();
+        ProgramManifest {
+            schema: 2,
+            storage_buffers: vec!["X".into(), "Y".into()],
+            buffer_bytes: BTreeMap::from([("X".into(), 4), ("Y".into(), 4)]),
+            iterations: 2,
+            stages: vec![ProgramStage {
+                name: "first".into(),
+                source: "first.metal".into(),
+                bindings: local,
+                buffer_map: BTreeMap::from([("A".into(), "X".into())]),
+            }],
+        }
+    }
+    #[test]
+    fn rejects_invalid_program_dependencies() {
+        assert!(program().validate().is_ok());
+        let mut m = program();
+        m.stages.clear();
+        assert!(m.validate().is_err());
+        let mut m = program();
+        m.stages[0].source = "../bad".into();
+        assert!(m.validate().is_err());
+        let mut m = program();
+        m.stages[0].buffer_map.clear();
+        assert!(m.validate().is_err());
+        let mut m = program();
+        m.stages[0].buffer_map.insert("A".into(), "missing".into());
+        assert!(m.validate().is_err());
+        let mut m = program();
+        m.buffer_bytes.insert("X".into(), 8);
+        assert!(m.validate().is_err());
+        let mut m = program();
+        m.stages.push(m.stages[0].clone());
+        assert!(m.validate().is_err());
+        let mut m = program();
+        m.stages[0].bindings.storage_buffers.push("B".into());
+        m.stages[0].bindings.buffer_bytes.insert("B".into(), 4);
+        m.stages[0].buffer_map.insert("B".into(), "X".into());
+        assert!(m.validate().is_err());
+    }
+    #[test]
+    fn ordered_native_stages_share_storage_across_iterations() {
+        let backend = Metal::new().unwrap();
+        let mut m = program();
+        let mut second = m.stages[0].clone();
+        second.name = "second".into();
+        second.source = "second.metal".into();
+        second.bindings.storage_buffers.push("B".into());
+        second.bindings.buffers.push("B".into());
+        second.bindings.buffer_bytes.insert("B".into(), 4);
+        second.buffer_map.insert("B".into(), "Y".into());
+        m.stages.push(second);
+        let sources = BTreeMap::from([
+            ("first.metal".into(), "#include <metal_stdlib>\nusing namespace metal;\nkernel void stage(device uint* a [[buffer(0)]]) { a[0] += 1; }".into()),
+            ("second.metal".into(), "#include <metal_stdlib>\nusing namespace metal;\nkernel void stage(device uint* a [[buffer(0)]], device uint* b [[buffer(1)]]) { b[0] += a[0]; }".into()),
+        ]);
+        let program = NativeProgram::new(&backend, m, &sources).unwrap();
+        let usage = khal::BufferUsages::STORAGE | khal::BufferUsages::COPY_SRC;
+        let x = backend.init_buffer(&[0u32], usage).unwrap();
+        let y = backend.init_buffer(&[0u32], usage).unwrap();
+        let buffers = BTreeMap::from([
+            ("X".into(), x.raw().as_ref()),
+            ("Y".into(), y.raw().as_ref()),
+        ]);
+        unsafe {
+            program.dispatch(&backend, &buffers).unwrap();
+            assert_eq!(*x.raw().contents().cast::<u32>(), 2);
+            assert_eq!(*y.raw().contents().cast::<u32>(), 3);
+        }
     }
 }

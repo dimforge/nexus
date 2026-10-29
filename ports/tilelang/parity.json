@@ -393,6 +393,46 @@
       "dependency_policy": "Conservative: all watched Rust and port files invalidate evidence.",
       "contract": "ports/tilelang/contracts/hub_average.json",
       "test_command": "python ports/tilelang/hub_replay.py --operation hub_average --target c"
+    },
+    {
+      "id": "rbd.utils.prefix_sweep",
+      "operation": "prefix_sweep",
+      "runner": "scan_replay.py",
+      "coverage": "Per-workgroup exclusive prefix scan and block totals",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/prefix_sum.rs::gpu_prefix_sum_sweep"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/prefix_sum.py::gpu_prefix_sum_sweep",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/prefix_sweep.json",
+      "test_command": "python ports/tilelang/scan_replay.py --operation prefix_sweep --target c"
+    },
+    {
+      "id": "rbd.utils.prefix_add",
+      "operation": "prefix_add",
+      "runner": "scan_replay.py",
+      "coverage": "Add scanned block offsets to per-workgroup scans",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/prefix_sum.rs::gpu_add_data_grp"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/prefix_sum.py::gpu_add_data_grp",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/prefix_add.json",
+      "test_command": "python ports/tilelang/scan_replay.py --operation prefix_add --target c"
+    },
+    {
+      "id": "rbd.utils.prefix_scan",
+      "operation": "prefix_scan",
+      "runner": "scan_replay.py",
+      "coverage": "Full batched exclusive prefix scan with ordered hierarchical dispatch",
+      "reference_symbols": [
+        "src_rbd_shaders/utils/prefix_sum.rs::gpu_prefix_sum_sweep",
+        "src_rbd/utils/prefix_sum.rs::GpuPrefixSum::launch"
+      ],
+      "implementation": "ports/tilelang/shaders/utils/prefix_sum.py::gpu_prefix_sum_sweep",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/prefix_scan.json",
+      "test_command": "python ports/tilelang/scan_replay.py --operation prefix_scan --target c"
     }
   ],
   "targets": [

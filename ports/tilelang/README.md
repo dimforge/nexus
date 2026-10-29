@@ -507,3 +507,8 @@ Runtime correctness, synchronization, numerical behavior, resource limits, and
 useful performance may still require changes at that point. The architecture,
 contracts, and replay package should keep those changes identifiable and testable;
 no amount of local testing guarantees a fixed amount of remaining NPU work.
+
+Ordered native programs (bindings schema 2) preserve caller-owned buffers across
+multiple generated kernels. The batched prefix scan exercises the complete
+sweep/coarse-scan/add hierarchy, including three levels. This runtime is synchronous
+and currently validated on Metal; full scene stepping is still being implemented.

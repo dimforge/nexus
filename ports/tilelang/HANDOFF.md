@@ -36,6 +36,17 @@ separate body/solver state, mass properties and cleanup counters. Copied fields,
 integer counters, padding and inactive words compare exactly; computed float
 fields use the contract tolerances.
 
+Bindings schema 2 denotes an **ordered program**. Allocate its physical
+`storage_buffers` once. For every program iteration, execute every `stages` entry
+in order: compile the named `source`, use that stage's `bindings` for argument order
+and launch dimensions, and map local buffer names through `buffer_map`. Complete
+writes before the next dependent dispatch. Preserve shared allocations between
+stages and iterations; do not reinitialize, read back or replace intermediate
+results with host calculations. Stage-local iteration counts apply inside each
+program iteration. Every referenced source is required in the hash inventory;
+`kernel.ascend` alone does not implement a multi-stage case. Prefix scans exercise
+this with partial blocks, independent batches and multiple hierarchy levels.
+
 The six-float `Params` replay ABI is distinct from `RbdSimParams`. Body lifecycle
 contracts name its fields: dt, linear/angular speed caps, and gravity xyz. The
 corresponding full Rust uniforms are included for reproduction. Batch counts and
