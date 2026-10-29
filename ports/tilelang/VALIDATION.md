@@ -305,3 +305,49 @@ Production graph/hub construction, color dispatch, solver variants, collisions,
 joints, native scene integration and physical stability evidence remain
 unfinished. The earlier zero-distance branch-sensitivity release block remains.
 Ascend vendor compilation, execution and performance remain unvalidated.
+
+## Required CPU noalias configuration — 2026-10-29
+
+The user identified a prerequisite for reliable khal/Nexus CPU execution:
+mutable-reference noalias must be disabled. The CPU oracle now uses pinned
+Rust 1.98.1 with `RUSTC_BOOTSTRAP=1` and `-Zmutable-noalias=no` for the exporter
+and its Cargo dependencies. A real compilation confirmed that Rust 1.99.1 rejects
+this option; the separate native Metal adapter retains 1.99.1. No production
+physics code or floating-point tolerance was changed.
+
+Every fixture export checks optimized frontend LLVM IR before LLVM optimization:
+mutable reference parameters must lack `noalias`, while shared references retain
+it. Effective settings, compiler version, probe source hash and LLVM IR hash are
+in every report. A Cargo build guard rejects missing flags. Custom flags and
+compiler wrappers are rejected to prevent unrecorded oracle configurations.
+Previously accepted reports without this information cannot certify current parity.
+
+Validation after the correction:
+
+- All 178 cases across 21 operations passed generated C++ execution and native
+  Metal execution against freshly regenerated Rust outputs.
+- All 178 cases passed Ascend source lowering only; CANN binary compilation and
+  NPU execution remain unavailable.
+- All 131 Python regressions passed, including noalias attribute checks,
+  rejection of unsafe/missing oracle provenance, and handoff probe integrity.
+- The original Rust cooperative hub-average shader passed in debug and optimized
+  release builds. Cases use varying per-slot velocities, lengths
+  0/1/33/63/64/65/129, inactive workgroups, reversed hub order, 257 hubs in 256
+  workgroups, three repeated dispatches and bitwise preservation of padding.
+  These tests validate the CPU oracle infrastructure; they do not claim a
+  TileLang hub-average implementation.
+- A direct Cargo build without the required flag was rejected. Rust format,
+  strict Clippy and Python Ruff F checks passed. Rust 1.98 Clippy incorrectly
+  suggests an unsupported generic const expression for the existing typed-buffer
+  reader; a documented local lint allowance preserves its implementation.
+- Source reconciliation and the CPU/Metal evidence gate passed.
+
+The retained 17-case stress diagnostic was regenerated with this oracle. Of the
+15 cases supported by the original Rust GPU entry point, TileLang Metal versus
+Rust CPU passed 12; original Rust Metal versus Rust CPU passed 3. Maximum errors
+remain approximately 0.0157851 and 0.0318184 respectively. The other two cases use
+a mode absent from that Rust GPU entry point and remain explicitly unavailable.
+Results are in `results-numerics-noalias/`. Disabling noalias does not resolve the
+existing zero-distance branch sensitivity; the scene/stability assessment and
+release block remain. This is a backend workaround, not a proof of Rust aliasing
+soundness or full-port completion.
