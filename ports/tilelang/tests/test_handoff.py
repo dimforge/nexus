@@ -302,3 +302,8 @@ class BodyUniformHandoffTests(HandoffTests):
 class BroadPhaseHandoffTests(ScanHandoffTests):
     operation = "broadphase_pairs"
     mutable_buffer = "PairCount"
+
+
+class NarrowPhaseHandoffTests(HandoffTests):
+    operation = "analytic_contacts"
+    mutable_buffer = "Contacts"

@@ -294,6 +294,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from coloring_replay import check_outputs as check_coloring_outputs
     from colored_replay import check_outputs as check_colored_outputs
     from coefficient_replay import check_outputs as check_coefficient_outputs
+    from narrow_replay import check_outputs as check_narrow_outputs
     from broadphase_replay import check_outputs as check_broadphase_outputs
     from tgs_replay import check_outputs as check_tgs_outputs
     from body_uniform_replay import check_outputs as check_body_uniform_outputs
@@ -362,6 +363,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "coefficient_fields": check_coefficient_outputs,
                     "tgs_fields": check_tgs_outputs,
                     "broadphase_fields": check_broadphase_outputs,
+                    "narrow_fields": check_narrow_outputs,
                     "body_uniform_fields": check_body_uniform_outputs,
                 }[contract.get("comparison")]
                 before = {

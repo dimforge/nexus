@@ -822,6 +822,25 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/broadphase_pairs.json",
       "test_command": "python ports/tilelang/broadphase_replay.py --operation broadphase_pairs --target c"
+    },
+    {
+      "id": "rbd.collision.analytic_contacts3d",
+      "operation": "analytic_contacts",
+      "runner": "narrow_replay.py",
+      "coverage": "Native analytic narrow-phase first pass: ball-ball, ball with cuboid/capsule/cone/cylinder in both orders, cuboid-cuboid, materials, parent IDs and inert deferred slots",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_narrow_phase_shape_shape",
+        "src_rbd_shaders/queries/contact.rs::ball_ball",
+        "src_rbd_shaders/queries/contact.rs::convex_ball",
+        "src_rbd_shaders/queries/contact.rs::ball_convex",
+        "src_rbd_shaders/queries/contact.rs::cuboid_cuboid",
+        "src_rbd_shaders/queries/contact.rs::combine_coefficient",
+        "src_rbd_shaders/shapes/capsule.rs::Capsule::project_local_point_on_boundary"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_narrow_phase_shape_shape",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/analytic_contacts.json",
+      "test_command": "python ports/tilelang/narrow_replay.py --target c"
     }
   ],
   "targets": [

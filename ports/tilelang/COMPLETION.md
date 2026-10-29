@@ -34,7 +34,10 @@ Remaining implementation sequence:
    labeled intermediate hybrid milestone.
 3. Native world bounds for every 3D shape tag and brute-force candidate-pair
    kernels are implemented, including an ordered bounds/pairs program. LBVH,
-   scene integration and narrow-phase contact generation remain.
+   scene integration and deferred contact generation remain. The complete native
+   analytic first pass now handles ball/primitive and box/box contacts, including
+   material combination and positional inert-slot writes. Generic PFM, meshes,
+   polylines and contact-plan publication remain.
    Port collision detection and shapes, contact creation/removal, broad-phase
    schedules, rigid-body joints, queries, deterministic ordering and other required
    inventory capabilities. Do not introduce CPU physics fallbacks and call them

@@ -69,10 +69,14 @@
     {
       "reference": "src_rbd_shaders/broad_phase/narrow_phase.rs",
       "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "gpu_narrow_phase_shape_shape"
+      ],
+      "remaining": "Native analytic first pass implemented; plan/reset, PFM lists, deferred geometry, sort keys and composite reduction remain unported."
     },
     {
       "reference": "src_rbd_shaders/dynamics/body.rs",
@@ -636,10 +640,18 @@
     {
       "reference": "src_rbd_shaders/queries/contact.rs",
       "implementation": "ports/tilelang/shaders/queries/contact.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "combine_coefficient",
+        "ball_ball",
+        "convex_ball",
+        "ball_convex",
+        "cuboid_cuboid"
+      ],
+      "remaining": "All native analytic contact functions and material combination; PFM generic convex contact remains unported."
     },
     {
       "reference": "src_rbd_shaders/queries/contact_manifold.rs",
@@ -724,10 +736,18 @@
     {
       "reference": "src_rbd_shaders/queries/polygonal_feature.rs",
       "implementation": "ports/tilelang/shaders/queries/polygonal_feature.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "is_outside",
+        "closest_points_line2d",
+        "push_candidate",
+        "manifold_reduction",
+        "contacts_face_face"
+      ],
+      "remaining": "Unflipped face clipping/reduction used by cuboid-cuboid. Edge-edge, flipped and generic feature paths remain unported."
     },
     {
       "reference": "src_rbd_shaders/queries/projection.rs",
@@ -748,26 +768,42 @@
     {
       "reference": "src_rbd_shaders/queries/sat.rs",
       "implementation": "ports/tilelang/shaders/queries/sat.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "cuboid_cuboid_compute_separation_wrt_local_line",
+        "cuboid_cuboid_find_local_separating_normal_oneway",
+        "cuboid_cuboid_find_local_separating_edge_twoway"
+      ],
+      "remaining": "All 3D cuboid SAT functions used by the native analytic contract; 2D is deferred."
     },
     {
       "reference": "src_rbd_shaders/shapes/capsule.rs",
       "implementation": "ports/tilelang/shaders/shapes/capsule.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "project_local_point_on_boundary",
+        "orthonormal_basis3",
+        "any_orthogonal_vector"
+      ],
+      "remaining": "Boundary projection and its basis helpers, including shared native near-axis/zero-length fix. Solid projection and support maps remain unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/cone.rs",
       "implementation": "ports/tilelang/shaders/shapes/cone.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "project_local_point_on_boundary"
+      ],
+      "remaining": "Only boundary projection for analytic ball contacts; support maps and other queries remain unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/convex_polyhedron.rs",
@@ -785,10 +821,14 @@
     {
       "reference": "src_rbd_shaders/shapes/cylinder.rs",
       "implementation": "ports/tilelang/shaders/shapes/cylinder.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "project_local_point_on_boundary"
+      ],
+      "remaining": "Only boundary projection for analytic ball contacts; support maps and other queries remain unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/mod.rs",
@@ -809,10 +849,14 @@
     {
       "reference": "src_rbd_shaders/shapes/segment.rs",
       "implementation": "ports/tilelang/shaders/shapes/segment.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "project_local_point"
+      ],
+      "remaining": "Only segment point projection used by capsule/cone; support and location queries remain unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/shape.rs",
@@ -820,12 +864,18 @@
       "coverage": "partial",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
-        "rbd.broadphase.pairs_program3d"
+        "rbd.broadphase.pairs_program3d",
+        "rbd.collision.analytic_contacts3d"
       ],
       "symbols": [
-        "compute_aabb"
+        "compute_aabb",
+        "primitive_local_extent",
+        "project_local_point_on_boundary",
+        "project_cuboid_boundary",
+        "cuboid_support_point",
+        "cuboid_support_face"
       ],
-      "remaining": "All native 3D compute_aabb branches; shape support maps, queries and contacts remain unported."
+      "remaining": "All world bounds, primitive recycling extents and boundary projection for cuboid/capsule/cone/cylinder. Pinned Parry cuboid projection/support adapters sit here beside Shape callers. Generic point queries and support maps remain unported."
     },
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
@@ -939,10 +989,14 @@
     {
       "reference": "src_rbd_shaders/utils/basis.rs",
       "implementation": "ports/tilelang/shaders/utils/basis.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.collision.analytic_contacts3d"
+      ],
+      "symbols": [
+        "orthonormal_basis3"
+      ],
+      "remaining": "The complete 3D basis helper is used by box-face clipping."
     },
     {
       "reference": "src_rbd_shaders/utils/indices.rs",
@@ -1146,9 +1200,10 @@
       "coverage": "partial",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
-        "rbd.broadphase.pairs_program3d"
+        "rbd.broadphase.pairs_program3d",
+        "rbd.collision.analytic_contacts3d"
       ],
-      "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
+      "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
     {
       "id": "rbd.collision.convex",
@@ -1156,9 +1211,10 @@
       "coverage": "partial",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
-        "rbd.broadphase.pairs_program3d"
+        "rbd.broadphase.pairs_program3d",
+        "rbd.collision.analytic_contacts3d"
       ],
-      "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
+      "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
     },
     {
       "id": "rbd.collision.composite",

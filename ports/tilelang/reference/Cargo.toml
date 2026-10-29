@@ -88,3 +88,7 @@ path = "src/tgs.rs"
 [[bin]]
 name = "broadphase"
 path = "src/broadphase.rs"
+
+[[bin]]
+name = "narrow"
+path = "src/narrow.rs"

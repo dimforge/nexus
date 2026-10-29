@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "feature": "rbd.collision.analytic_contacts3d",
+  "scope": "Native analytic narrow-phase first pass: ball-ball, ball with cuboid/capsule/cone/cylinder in both orders, cuboid-cuboid, materials, parent IDs and inert deferred slots",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Pairs",
+    "Plan",
+    "Poses",
+    "Shapes",
+    "Contacts",
+    "Parents",
+    "Materials",
+    "RbdParams"
+  ],
+  "outputs": [
+    "Contacts"
+  ],
+  "comparison": "narrow_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Existing f32 tolerances apply to generated contact coordinates, normals, separation, materials and extents. Only near-axis interior ball/capsule/cone/cylinder contacts permit a different symmetry direction; both outputs must independently satisfy the surface, closest-distance, unit-normal and normal-direction checks. Distance/materials remain tolerance-compared and all integer fields remain exact.",
+  "preconditions": [
+    "Valid flat collider-pair list, global parent IDs, unit finite poses and native Rust-derived layouts",
+    "Finite nonnegative primitive dimensions, finite materials and nonnegative prediction distance; zero-length capsules are supported",
+    "Analytic-only ContactPlan with pfm_base == bound and pfm_len == 0; deferred slots are cleared but not otherwise generated"
+  ],
+  "invariants": [
+    "Every pair owns its positional manifold slot; a miss, same-body pair or deferred shape changes only its len to zero",
+    "Written collider/body IDs and unused manifold storage remain exact; active point count agrees with Rust",
+    "All native material combine rules, stronger-rule priority and unknown-rule Average fallback follow Rust",
+    "Box SAT axes, support-face order, clipping candidate order and four-point reduction follow Rust",
+    "Axial symmetry is a geometric equivalence exception, not a wider global float tolerance; invalid Rust geometry is rejected too",
+    "All input buffers and inactive capacity remain unchanged"
+  ],
+  "outside_scope": [
+    "Deferred PFM/GJK/EPA, triangle mesh and polyline manifold generation",
+    "Contact plan publication, reduction of multiple composite manifolds and sort schedules",
+    "Full scene integration, long-run stability and the separate zero-distance Coulomb numerical block",
+    "Ascend vendor compilation, execution and performance"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-g1-mixed",
+    "n1-g1-mixed",
+    "n31-g1-mixed",
+    "n32-g2-mixed",
+    "n33-g1-mixed",
+    "n63-g2-mixed",
+    "n64-g1-mixed",
+    "n65-g1-mixed",
+    "n129-g1-mixed",
+    "n96-g1-coincident",
+    "n96-g1-negative-zero",
+    "n96-g1-axis",
+    "n96-g1-boundary",
+    "n96-g1-inside",
+    "n96-g1-far",
+    "n96-g1-threshold",
+    "n96-g1-rotated",
+    "n96-g1-scaled",
+    "n96-g1-same-body",
+    "n36-g1-materials",
+    "n96-g1-degenerate-capsule",
+    "n96-g1-zero-radius-capsule",
+    "n32-g1-shape-0",
+    "n32-g1-shape-1",
+    "n32-g1-shape-2",
+    "n32-g1-shape-3",
+    "n32-g1-shape-4",
+    "n32-g1-shape-5",
+    "n96-g1-boxes",
+    "n96-g1-boxes-coincident",
+    "n96-g1-boxes-far",
+    "n96-g1-boxes-rotated",
+    "n96-g1-boxes-degenerate",
+    "n96-g1-boxes-thin",
+    "n96-g1-boxes-touching",
+    "n96-g1-boxes-prediction",
+    "n96-g1-boxes-edge"
+  ],
+  "numerical_policies": [
+    {
+      "id": "axial-interior-symmetry",
+      "classification": "geometry_equivalence",
+      "scope": "Single-point ball contact on the interior axis of a capsule, cone or cylinder within 32 f32 eps times shape scale",
+      "checks": [
+        "Unchanged pair/parent IDs, len, materials and separation",
+        "Finite unit normal and actual closest boundary point for both Rust and TileLang",
+        "Contact normal follows the boundary direction, including ball-first frame conversion"
+      ],
+      "source": "ports/tilelang/narrow_symmetry.py"
+    }
+  ]
+}
