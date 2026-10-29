@@ -44,8 +44,12 @@ ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target metal
 ```
 
 Python and TileLang compile the kernel. The Metal execution process uses generated
-MSL directly, with no Python, PyTorch, or TVM runtime. This small Swift runner is a
-replay harness; production Rust/khal integration remains a separate milestone.
+MSL directly through `native/`, a pinned Rust/khal adapter with no Python, PyTorch,
+or TVM runtime. It accepts existing native buffers and flushes prior khal writes
+before each synchronous execution sequence. The runner validates binding names,
+dispatch dimensions and device identity; callers must uphold the shader memory
+safety contract. It is not yet selectable in the full Nexus simulation pipeline.
+The original Swift harness remains available as a historical independent runner.
 The CPU runner similarly calls compiled generated C++ through a native function.
 Native Windows replay is not implemented by these POSIX compiler commands.
 
@@ -97,8 +101,17 @@ host; it may differ by compiler/device. It is never accepted as parity evidence,
 even if a particular configuration passes. The contract exposes this unresolved
 gap, and `parity.py check --release` fails while it is present. Do not remove the
 case, widen a global tolerance, or modify Rust silently to get a green report.
-The next numerical milestone should compare both implementations on the same GPU
-and define how branch-boundary equivalence is evaluated across devices.
+The `numerics.py` diagnostic now compares the Rust CPU oracle, the unchanged
+production Rust Metal kernel, and TileLang Metal on identical input buffers.
+It preserves all comparison failures in `results-numerics/report.json` and exits
+nonzero when they occur. Two unbiased/no-friction cases are explicitly unavailable
+in the production GPU kernel, which has only three modes; they remain required
+in the portable suite. Same-GPU adversarial comparisons still fail, so a numerical
+policy and scene-level validation remain necessary. Run:
+
+```sh
+ports/tilelang/.venv/bin/python ports/tilelang/numerics.py
+```
 
 CPU parity compilation uses `-ffp-contract=off`. Metal additionally needs
 `#pragma clang fp contract(off)`; `fastMathEnabled=false` alone did not prevent the

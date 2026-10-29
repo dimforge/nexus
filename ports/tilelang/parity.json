@@ -20,7 +20,11 @@
     ".github/workflows/tilelang.yml",
     "ports/tilelang/reference/rust-toolchain.toml",
     "ports/tilelang/AGENTS.md",
-    "AGENTS.md"
+    "AGENTS.md",
+    "ports/tilelang/native/src/**/*.rs",
+    "ports/tilelang/native/Cargo.toml",
+    "ports/tilelang/native/Cargo.lock",
+    "ports/tilelang/native/rust-toolchain.toml"
   ],
   "features": [
     {

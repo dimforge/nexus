@@ -1,0 +1,24 @@
+{
+  "id": "0002-native-metal",
+  "features": [
+    "rbd.contact.coulomb.solve3d"
+  ],
+  "kinds": [
+    "port",
+    "tooling",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Execute TileLang kernels through native Rust/khal Metal buffers and add same-GPU production Rust diagnostics.",
+  "regressions": [
+    "all 17 existing portable cases through native Rust buffer loading",
+    "invalid or duplicate binding names, dispatch overflow and empty compiler bindings",
+    "unchanged adversarial suite compared with original Rust Metal solver"
+  ],
+  "differences": [
+    "Replaces the Swift replay process with a pinned Rust/khal adapter; the Python compiler remains build tooling. Dispatch is synchronous and flushes khal pending writes; this is not yet a selectable whole-scene backend.",
+    "Exports full Rust simulation parameters for original GPU reference replay without duplicating their arithmetic.",
+    "The production kernel cannot express the unbiased/no-friction combination; two cases are explicitly unavailable only in the diagnostic, and remain required in portable replay.",
+    "Same-GPU diagnostic failures remain failures. No tolerances or Rust physics were changed; the numerical release blocker remains."
+  ]
+}

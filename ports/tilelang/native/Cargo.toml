@@ -1,0 +1,32 @@
+[package]
+name = "nexus-tilelang-native"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[features]
+rust-reference = ["dep:nexus_rbd3d", "dep:vortx", "dep:futures"]
+
+[dependencies]
+khal = { version = "0.4", default-features = false, features = ["metal", "derive", "webgpu"] }
+metal = "0.33"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bytemuck = "1"
+nexus_rbd3d = { path = "../../../crates/nexus_rbd3d", default-features = false, features = ["dim3", "f32", "metal"], optional = true }
+vortx = { version = "0.5", optional = true }
+futures = { version = "0.3", optional = true }
+
+[[bin]]
+name = "rust-reference"
+required-features = ["rust-reference"]
+
+[patch.crates-io]
+khal = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
+khal-derive = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
+khal-std = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
+khal-builder = { git = "https://github.com/dimforge/khal", tag = "v0.4.0" }
+vortx = { git = "https://github.com/dimforge/vortx", tag = "v0.5.0" }
+vortx-shaders = { git = "https://github.com/dimforge/vortx", tag = "v0.5.0" }

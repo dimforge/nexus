@@ -210,6 +210,7 @@ fn fixture(
     write_buffer(&dir, "Velocities.bin", &velocities);
     write_buffer(&dir, "Poses.bin", &poses);
     write_buffer(&dir, "Params.bin", &coefficients);
+    write_buffer(&dir, "RbdParams.bin", &[params]);
     for _ in 0..iterations {
         for i in 0..n {
             let tile = &mut tiles[i / TILE_LEN];

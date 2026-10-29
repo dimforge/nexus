@@ -202,6 +202,25 @@ def execute_c(source, bindings, directory, arrays):
     }
 
 
+def build_native(reference=False):
+    """Build pinned Rust execution adapters; the returned process needs no Python."""
+    target = ROOT / "target"
+    command = [
+        "cargo",
+        "build",
+        "--locked",
+        "--manifest-path",
+        HERE / "native/Cargo.toml",
+        "--target-dir",
+        target,
+    ]
+    command += (
+        ["--features", "rust-reference"] if reference else ["--bin", "native-replay"]
+    )
+    run(command, cwd=HERE / "native")
+    return target / "debug" / ("rust-reference" if reference else "native-replay")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -254,9 +273,9 @@ def main():
     contract = json.loads((HERE / "contract.json").read_text())
     if evidence_inputs(ROOT) != inputs:
         raise RuntimeError("Sources changed during Rust fixture export")
-    runner = output / "native_metal"
+    runner = None
     if args.target == "metal" and not args.compile_only:
-        run(["swiftc", HERE / "native_metal.swift", "-o", runner])
+        runner = build_native()
     result = {
         "schema": 1,
         "feature": suite["feature"],

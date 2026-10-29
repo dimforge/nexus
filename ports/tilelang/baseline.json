@@ -1,16 +1,16 @@
 {
   "change": {
-    "path": "ports/tilelang/changes/0001-coulomb-pilot.json",
-    "sha256": "0bb7999286690c2b80482aa262b362262b3f19d9475aed885ba62ac3d0646bcd"
+    "path": "ports/tilelang/changes/0002-native-metal.json",
+    "sha256": "4342a2459897158e46e68a69f07039cc5613389bbe61ce2f04f424878acffbb3"
   },
   "evidence": {
     "c": {
       "path": "ports/tilelang/evidence/c.json",
-      "sha256": "f4a867a1acc0f4b9915ab93162f3d3887a7a9811c24e797742990da14f310476"
+      "sha256": "d24f017b2a1ac46a85cb82ec2572d44742b37e3804a52cde8a76a3a8fa5107e2"
     },
     "metal": {
       "path": "ports/tilelang/evidence/metal.json",
-      "sha256": "f0256624cdce060f6cc7d16d5ce034ff2d83d4379b91f609fee3245911f15762"
+      "sha256": "dbef4d9b42202729d81b6470b5393ed55814599c9182c5ab612351889b61af99"
     }
   },
   "inputs": {
@@ -20,14 +20,21 @@
       "ports/tilelang/AGENTS.md": "c3d499507c73319d6602a959371d1c10f1864259fa0c526413cb4839d0ace065",
       "ports/tilelang/contract.json": "bac7a7b37fbc0cc52de7660be3490831549cbbd3cae968f3de1927c1c18456fd",
       "ports/tilelang/coulomb.py": "7a8e3edbcc2615c8223749d046066b499385c59214b3063a32962b6693869ccb",
+      "ports/tilelang/native/Cargo.lock": "3d66d537a41d3386978a535f40529556165fe26a4209caf0aa9054d85463b064",
+      "ports/tilelang/native/Cargo.toml": "4f7f72e257241414c654826c44e8b00f7d770652802d25d4add657b84ceaaad0",
+      "ports/tilelang/native/rust-toolchain.toml": "5e7517b95a2b4e810124f84091dd4a6e3f2192523fcac7b6d52abc7fc6aff91d",
+      "ports/tilelang/native/src/bin/native-replay.rs": "3cf29698f4568be49c75e342032d1de64d7207c10e5c9f893c943c88d4c626f5",
+      "ports/tilelang/native/src/bin/rust-reference.rs": "5e3826d7c404fa61277f0c32d1fcfbed4fcf36e0a113a0212fc38f967f2b630c",
+      "ports/tilelang/native/src/lib.rs": "25705bd9187a8f2b5e6cc3c94f963b6e548e4df0a4d1a1c18647a4df59ebfdd4",
       "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
-      "ports/tilelang/parity.json": "3e0c2789556c96d9f7cae9ef6fdb439b4ece04a733eb0f16af2869fd3572972b",
+      "ports/tilelang/numerics.py": "1ee5c998e19750294162d94aedb87928010b3b524ac53338e6badfdaec9d4652",
+      "ports/tilelang/parity.json": "ceab6dfd8df023265662cd174c5ba62db5e58f7b8c4164cde6939157b94571a8",
       "ports/tilelang/parity.py": "082105db6892a8e8702f514b985bc0ba915e78cbfa76003a5ad4f7a751af2392",
       "ports/tilelang/reference/Cargo.lock": "f30132799c20433c709af9df85a357dc328d5f973cfed3289c97e6139dde615b",
       "ports/tilelang/reference/Cargo.toml": "c2d6db79191afd99ebae0e0a9b5c3243efcf75233273712f7fcf8b0b6a10c5d3",
       "ports/tilelang/reference/rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33",
-      "ports/tilelang/reference/src/main.rs": "446b37676005ec5f4839ebdb02f5ffadb87ec12550930b6e152064c38735aef3",
-      "ports/tilelang/replay.py": "fa6807c75dae4e8cbd2aaed964c105a0606458c16b1a46959d753583cb0f7fb7",
+      "ports/tilelang/reference/src/main.rs": "4eb354f53bd5159801a6c6a2d051916d634896bf1d6df996abf91b0936f42f40",
+      "ports/tilelang/replay.py": "479f72577fe66195f5e6de0f864d51fd0450eec2cb2cb035dd2e6dc21cda2810",
       "ports/tilelang/requirements.txt": "8dba2741619f70e2f7c08d61350c8c2a0f105902b87e243b129e5410a3f8012c",
       "ports/tilelang/tests/test_parity.py": "30928b8d128e5fb0a0dbabc7c5fd3b4528d4eb4cd168894b5b3930e576fd71a5",
       "ports/tilelang/tests/test_replay.py": "5d5685e3bff806e0da5aa89dfd5293dec431ad2538174d79af4965281461a800"

@@ -2,3 +2,5 @@
 results/
 !reference/Cargo.lock
 results-*/
+native/target/
+!native/Cargo.lock

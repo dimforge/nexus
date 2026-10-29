@@ -54,3 +54,20 @@ report. The Linux CPU CI workflow has been added but has not been run remotely.
 Production runtime integration, same-GPU Rust-kernel comparison, full-scene tests,
 Ascend toolkit compilation/execution, and performance measurements remain future
 milestones.
+
+## Native Rust execution milestone
+
+The default Metal replay now uses the native Rust/khal adapter. All 17 portable
+cases pass through its existing-device/queue/buffer API. Strict native Clippy
+checks and two binding/dispatch contract tests pass; the 19 Python regressions
+also pass. Execution is synchronous and not yet wired into the simulation step.
+
+`numerics.py` runs the original production Rust Metal solver on the same input
+buffers and records all three pairwise comparisons. The retained adversarial
+suite has 3 cases passing all comparisons and 12 failing at least one comparison.
+Two additional cases cannot be expressed by the production kernel's three-mode
+interface and are reported unavailable, not passed. TileLang/Rust CPU disagree in
+3 cases; TileLang/Rust Metal and Rust Metal/Rust CPU each disagree in 12.
+`evidence/numerics.json` preserves these diagnostic results and exact input hashes.
+The numerical gap is unresolved; no tolerance was widened and no Rust physics
+was changed. This diagnostic is not accepted portable or release evidence.
