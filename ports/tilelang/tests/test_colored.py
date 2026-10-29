@@ -57,6 +57,55 @@ class ColoredTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "overlap"):
             colored.validate_case(l, c, b)
 
+    def test_shared_static_velocity_bits_are_not_writable(self):
+        for op in colored.OPERATIONS:
+            l, c, b, e, k = self.fixture(op, "w65-b1-m2-s42-shared-static")
+            floats, _, _ = colored.validate_case(l, c, b)
+            for key in ("velocity_linear", "velocity_angular"):
+                index = l[key]
+                self.assertFalse(floats["Velocities"][index : index + 3].any())
+                self.assertEqual(
+                    list(b["Velocities"][index : index + 3]), [0x80000000] * 3
+                )
+                bad = {n: v.copy() for n, v in e.items()}
+                bad["Velocities"][index] = (
+                    0  # Numerically equal, still an illegal store.
+                )
+                with (
+                    self.subTest(operation=op, field=key),
+                    self.assertRaises(AssertionError),
+                ):
+                    colored.check_outputs(l, c, b, bad, e, k)
+
+    def test_static_read_dynamic_write_alias_is_rejected_in_both_orders(self):
+        for earlier_write in (False, True):
+            l, c, b, _, _ = self.fixture(
+                "colored_program", "w33-b1-m2-s42-shared-static"
+            )
+            h = l["header"]
+            # Every A reads slot zero. Making either first or last A writable
+            # tests both insertion orders in the per-color ownership check.
+            i = 0 if earlier_write else c["width"] - 1
+            base = i // 32 * l["tile_words"] + i % 32 * 4
+            b["Tiles"][base + h["body_a"]] = np.float32(1).view(np.uint32)
+            with (
+                self.subTest(earlier_write=earlier_write),
+                self.assertRaisesRegex(ValueError, "overlap"),
+            ):
+                colored.validate_case(l, c, b)
+
+    def test_angular_only_endpoint_is_writable(self):
+        for member in ("diag_a", "off_a"):
+            l, c, b, _, _ = self.fixture(
+                "colored_program", "w33-b1-m2-s42-shared-static"
+            )
+            b["Tiles"][l["header"][member]] = np.float32(1).view(np.uint32)
+            with (
+                self.subTest(inertia=member),
+                self.assertRaisesRegex(ValueError, "overlap"),
+            ):
+                colored.validate_case(l, c, b)
+
     def test_input_uniform_guard_and_unsolved_tiles_are_preserved(self):
         for name, index in [
             ("Mode", 0),

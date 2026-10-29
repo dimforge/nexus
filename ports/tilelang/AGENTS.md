@@ -8,8 +8,10 @@
    features are implemented in TileLang.
 3. Preserve normal-row order followed by friction-row order. Keep integer IDs
    integer. Derive offsets from Rust; never copy literal byte offsets into Python.
-   Solving or applying direct scatter warmstart requires disjoint velocity slots
-   under those contracts. Cached gather writes one ordinary body per invocation;
+   Solving or applying direct scatter warmstart requires disjoint writable velocity
+   slots under those contracts. Colored dispatch permits shared read-only static
+   slots only when both inverse mass and inverse inertia are zero; any read/write
+   alias remains invalid. Cached gather writes one ordinary body per invocation;
    hub warmstart writes one split slot per invocation. Preparation only reads body
    inputs, so shared indices are allowed there. Fused colors and barriers remain
    outside the contracts.

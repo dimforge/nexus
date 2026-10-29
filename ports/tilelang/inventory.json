@@ -591,7 +591,9 @@
         "contact_to_constraint_points",
         "recycle_from",
         "warmstart_delta",
-        "scale_impulses"
+        "scale_impulses",
+        "writes_velocity_a",
+        "writes_velocity_b"
       ],
       "remaining": "Listed solve, preparation, warmstart and scaling methods are ported; unlisted helpers, other solver variants and production integration remain."
     },

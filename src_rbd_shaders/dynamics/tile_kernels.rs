@@ -223,8 +223,8 @@ macro_rules! tile_solver_kernel {
                             use_bias,
                             solve_friction,
                         );
-                        solver_vels.write(h.vel_slot_a as usize, a);
-                        solver_vels.write(h.vel_slot_b as usize, b);
+                        if h.writes_velocity_a() { solver_vels.write(h.vel_slot_a as usize, a); }
+                        if h.writes_velocity_b() { solver_vels.write(h.vel_slot_b as usize, b); }
                         if $cache {
                             let warmstart = tile_warmstart(tiles, index, &h);
                             write_warmstart(tiles, index, warmstart);
@@ -346,8 +346,8 @@ macro_rules! fused_tile_solver_kernel {
                             use_bias,
                             solve_friction,
                         );
-                        solver_vels.write(h.vel_slot_a as usize, a);
-                        solver_vels.write(h.vel_slot_b as usize, b);
+                        if h.writes_velocity_a() { solver_vels.write(h.vel_slot_a as usize, a); }
+                        if h.writes_velocity_b() { solver_vels.write(h.vel_slot_b as usize, b); }
                         if $cache {
                             let warmstart = tile_warmstart(tiles, index, &h);
                             write_warmstart(tiles, index, warmstart);
@@ -374,8 +374,12 @@ fn apply_warmstart(tiles: &[ContactTile], solver_vels: &mut [Velocity], index: u
     a.angular += da.angular;
     b.linear += db.linear;
     b.angular += db.angular;
-    solver_vels.write(h.vel_slot_a as usize, a);
-    solver_vels.write(h.vel_slot_b as usize, b);
+    if h.writes_velocity_a() {
+        solver_vels.write(h.vel_slot_a as usize, a);
+    }
+    if h.writes_velocity_b() {
+        solver_vels.write(h.vel_slot_b as usize, b);
+    }
 }
 
 model_kernel! {
@@ -494,5 +498,130 @@ model_kernel! {
             vel.angular += d.angular;
             solver_vels.write(vel_slot as usize, vel);
         }
+    }
+}
+
+#[cfg(all(test, feature = "dim3"))]
+mod static_velocity_write_tests {
+    use super::*;
+    use crate::dynamics::SymInertia;
+    use crate::glamx::Vec3;
+
+    #[test]
+    fn shared_static_endpoint_keeps_velocity_bits() {
+        for static_a in [true, false] {
+            for operation in 0..3 {
+                let mut tiles = [ContactTile::default()];
+                for i in 0..2 {
+                    let mut c = TwoBodyConstraint {
+                        len: 1,
+                        dir_a: Vec3::Y,
+                        tangent_a: Vec3::X,
+                        im_b: Vec3::ONE,
+                        ii_b: SymInertia {
+                            diag: Vec3::ONE,
+                            ..Default::default()
+                        },
+                        solver_body_b: i + 1,
+                        vel_slot_b: i + 1,
+                        ..Default::default()
+                    };
+                    if !static_a {
+                        c.im_a = c.im_b;
+                        c.ii_a = c.ii_b;
+                        c.solver_body_a = c.solver_body_b;
+                        c.vel_slot_a = c.vel_slot_b;
+                        c.im_b = Vec3::ZERO;
+                        c.ii_b = SymInertia::default();
+                        c.solver_body_b = 0;
+                        c.vel_slot_b = 0;
+                    }
+                    c.points[0].normal_impulse = 1.0;
+                    c.points[0].dist = -0.02;
+                    c.compute_effective_masses();
+                    tiles[0].write_constraint(i as usize, &c);
+                }
+                let mut velocities = [Velocity::default(); 3];
+                velocities[0] = Velocity {
+                    linear: Vec3::splat(-0.0),
+                    angular: Vec3::splat(-0.0),
+                    padding0: 0xdeadbeef,
+                    padding1: 0xabcdef12,
+                };
+                let initial = velocities[0];
+                let ids = BatchIndices {
+                    num_batches: 1,
+                    solver_color_buckets_stride: 2,
+                    ..Default::default()
+                };
+                for i in 0..2 {
+                    let gid = UVec3::new(i, 0, 0);
+                    match operation {
+                        0 => gpu_warmstart_constraints(
+                            gid,
+                            UVec3::ONE,
+                            &tiles,
+                            &mut velocities,
+                            &[0, 2],
+                            &1,
+                            &ids,
+                        ),
+                        1 => gpu_solve_constraints(
+                            gid,
+                            UVec3::ONE,
+                            &mut tiles,
+                            &mut velocities,
+                            &[0, 2],
+                            &[Pose::IDENTITY; 3],
+                            &1,
+                            &ids,
+                            &1,
+                            &RbdSimParams::tgs_soft(),
+                        ),
+                        _ => gpu_solve_constraints_unbiased_cached(
+                            gid,
+                            UVec3::ONE,
+                            &mut tiles,
+                            &mut velocities,
+                            &[0, 2],
+                            &[Pose::IDENTITY; 3],
+                            &1,
+                            &ids,
+                            &0,
+                            &RbdSimParams::tgs_soft(),
+                        ),
+                    }
+                }
+                assert_eq!(
+                    bytemuck::bytes_of(&initial),
+                    bytemuck::bytes_of(&velocities[0])
+                );
+                if operation < 2 {
+                    assert_ne!(velocities[1].linear, Vec3::ZERO);
+                    assert_eq!(velocities[1].linear, velocities[2].linear);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn velocity_write_guard_includes_angular_response() {
+        let mut tiles = [ContactTile::default()];
+        let mut c = TwoBodyConstraint::default();
+        tiles[0].write_constraint(0, &c);
+        let h = header(&tiles, 0);
+        assert!(!h.writes_velocity_a() && !h.writes_velocity_b());
+        c.ii_a.off = Vec3::X;
+        c.ii_b.diag = Vec3::Z;
+        tiles[0].write_constraint(0, &c);
+        let h = header(&tiles, 0);
+        assert!(h.writes_velocity_a() && h.writes_velocity_b());
+        c.ii_a = SymInertia::default();
+        c.ii_b = SymInertia::default();
+        c.im_a = Vec3::X;
+        c.im_b = Vec3::Z;
+        tiles[0].write_constraint(0, &c);
+        let h = header(&tiles, 0);
+        assert!(h.writes_velocity_a() && h.writes_velocity_b());
     }
 }

@@ -26,7 +26,7 @@
   "tolerance_reason": "Existing Coulomb f32 tolerances, unchanged. Only impulse, velocity and cached-delta floats use tolerance; native tags, padding, untouched color ranges, uniforms and guard words remain exact.",
   "preconditions": [
     "Native Rust tile, pose, velocity, parameter and batch layouts; monotone cumulative bucket ends within capacity",
-    "All velocity slots in each color are disjoint; successive colors may share slots and execute in order",
+    "Writable velocity slots in each color are disjoint and cannot alias another endpoint read; zero inverse mass and inertia permit shared read-only static slots; successive colors execute in order",
     "Valid finite active physics inputs and unit rotations; positive damping, nonnegative timestep/frequency, finite derived coefficients",
     "Current color is a solved bucket; unsolved final-bucket contacts remain outside the dispatch"
   ],
@@ -35,12 +35,12 @@
     "Native RbdSimParams coefficients are computed by generated device code using Rust-exported constant bits",
     "The selected bucket range crosses arbitrary tile/workgroup boundaries and preserves all other tile lanes",
     "Each program stage keeps original buffers; no CPU graph or physics fallback occurs between dependent colors",
-    "Cached deltas are tagged with body IDs and zero padding, including empty manifolds"
+    "Cached deltas are tagged with body IDs and zero padding, including empty manifolds",
+    "Endpoints with zero inverse mass and inverse inertia never write their velocity slot; signed zeros and padding are preserved exactly."
   ],
   "outside_scope": [
     "Production frame and topology integration",
     "Fused/tail single-workgroup optimizations",
-    "Shared static velocity writes within one color",
     "Twist friction, rigid-body joints and collision generation",
     "Dense-graph unsolved contacts remain unsolved as in Rust",
     "Ascend vendor compilation and execution"
@@ -53,6 +53,10 @@
     "w32-b2-m0-s20",
     "w33-b3-m1-s21",
     "w65-b2-m2-s22",
-    "w129-b1-m99-s23"
+    "w129-b1-m99-s23",
+    "w1-b1-m2-s42-shared-static",
+    "w33-b1-m2-s42-shared-static",
+    "w65-b1-m2-s42-shared-static",
+    "w129-b1-m2-s42-shared-static"
   ]
 }

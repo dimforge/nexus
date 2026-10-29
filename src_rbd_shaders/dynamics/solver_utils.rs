@@ -358,6 +358,26 @@ impl ContactPointAccess for [ContactPoint; MAX_CONSTRAINTS_PER_MANIFOLD] {
 }
 
 impl ContactSolverData {
+    /// Static endpoints can share a color. They must never receive a scatter write,
+    /// even when adding a mathematically zero impulse would preserve their value.
+    #[inline(always)]
+    pub(crate) fn writes_velocity_a(&self) -> bool {
+        #[cfg(feature = "dim3")]
+        return self.im_a != Vector::ZERO
+            || self.ii_a.diag != Vector::ZERO
+            || self.ii_a.off != Vector::ZERO;
+        #[cfg(feature = "dim2")]
+        return self.im_a != Vector::ZERO || self.ii_a != 0.0;
+    }
+    #[inline(always)]
+    pub(crate) fn writes_velocity_b(&self) -> bool {
+        #[cfg(feature = "dim3")]
+        return self.im_b != Vector::ZERO
+            || self.ii_b.diag != Vector::ZERO
+            || self.ii_b.off != Vector::ZERO;
+        #[cfg(feature = "dim2")]
+        return self.im_b != Vector::ZERO || self.ii_b != 0.0;
+    }
     #[inline(always)]
     pub(crate) fn from_constraint(c: &TwoBodyConstraint) -> Self {
         Self {

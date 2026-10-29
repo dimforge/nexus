@@ -53,7 +53,16 @@ pub(crate) fn layout() -> Value {
     );
     l
 }
-fn fixture(root: &Path, width: usize, batches: usize, mode: u32, op: &str, seed: u64) -> Value {
+#[allow(clippy::too_many_arguments)]
+fn fixture(
+    root: &Path,
+    width: usize,
+    batches: usize,
+    mode: u32,
+    op: &str,
+    seed: u64,
+    shared_static: bool,
+) -> Value {
     let n = width * batches * 4;
     let old = pilot::fixture(
         root,
@@ -64,7 +73,10 @@ fn fixture(root: &Path, width: usize, batches: usize, mode: u32, op: &str, seed:
         seed,
         pilot::FixtureGeometry::Portable,
     );
-    let name = format!("w{width}-b{batches}-m{mode}-s{seed}");
+    let name = format!(
+        "w{width}-b{batches}-m{mode}-s{seed}{}",
+        if shared_static { "-shared-static" } else { "" }
+    );
     let directory = root.join(&name);
     // Refresh only the seed files, retaining generated kernels and replay artifacts.
     let seed_directory = root.join(old["name"].as_str().unwrap());
@@ -88,6 +100,12 @@ fn fixture(root: &Path, width: usize, batches: usize, mode: u32, op: &str, seed:
         params.normalized_max_corrective_velocity = nexus_rbd_shaders3d::MAX_FLT;
         params.length_unit = 2.;
     }
+    if shared_static {
+        for velocity in velocities.iter_mut().take(batches) {
+            velocity.linear = Vec3::splat(-0.0);
+            velocity.angular = Vec3::splat(-0.0);
+        }
+    }
     let mut buckets = vec![0u32; 5 * batches];
     for color in 1..5 {
         for batch in 0..batches {
@@ -97,8 +115,16 @@ fn fixture(root: &Path, width: usize, batches: usize, mode: u32, op: &str, seed:
             for lane in 0..width {
                 let index = start + lane;
                 let mut c = tiles[index / 32].constraint(index % 32);
-                let a = 2 * lane * batches + batch;
-                let b = (2 * lane + 1) * batches + batch;
+                let a = if shared_static {
+                    batch
+                } else {
+                    2 * lane * batches + batch
+                };
+                let b = if shared_static {
+                    (lane + 1) * batches + batch
+                } else {
+                    (2 * lane + 1) * batches + batch
+                };
                 c.solver_body_a = a as u32;
                 c.solver_body_b = b as u32;
                 c.vel_slot_a = a as u32;
@@ -112,7 +138,7 @@ fn fixture(root: &Path, width: usize, batches: usize, mode: u32, op: &str, seed:
                 c.im_b = Vec3::splat(0.4);
                 c.ii_a = inertia;
                 c.ii_b = inertia;
-                if lane % 5 == 1 {
+                if shared_static || lane % 5 == 1 {
                     c.im_a = Vec3::ZERO;
                     c.ii_a = SymInertia::default();
                 }
@@ -214,7 +240,7 @@ fn fixture(root: &Path, width: usize, batches: usize, mode: u32, op: &str, seed:
     w!("Velocities.expected.bin", &velocities);
     let l = layout();
     let sizes = json!({"Tiles":tiles.len()*l["tile_words"].as_u64().unwrap() as usize,"Velocities":velocities.len()*l["velocity_words"].as_u64().unwrap() as usize,"Poses":poses.len()*l["pose_words"].as_u64().unwrap() as usize,"RbdParams":l["rbd_params_words"],"Buckets":buckets.len(),"BatchIds":l["batch_words"],"Color":2,"Color1":2,"Color2":2,"Color3":2,"Mode":2});
-    json!({"name":name,"kind":op,"count":n,"width":width,"batches":batches,"mode":mode,"groups":groups,"iterations":repeats,"bodies":velocities.len(),"tiles":tiles.len(),"seed":seed,"buffer_words":sizes})
+    json!({"name":name,"kind":op,"count":n,"width":width,"batches":batches,"mode":mode,"groups":groups,"iterations":repeats,"bodies":velocities.len(),"tiles":tiles.len(),"seed":seed,"shared_static":shared_static,"buffer_words":sizes})
 }
 fn main() {
     let output = std::env::args().nth(1).expect("output directory");
@@ -239,7 +265,10 @@ fn main() {
             (65, 2, 2, 22),
             (129, 1, 99, 23),
         ] {
-            cases.push(fixture(&dir, width, batches, mode, op, seed));
+            cases.push(fixture(&dir, width, batches, mode, op, seed, false));
+        }
+        for width in [1, 33, 65, 129] {
+            cases.push(fixture(&dir, width, 1, 2, op, 42, true));
         }
         pilot::write_json(dir.join("suite.json"), &json!({"cases":cases}));
     }
@@ -260,7 +289,7 @@ mod tests {
             std::process::id()
         ));
         fs::create_dir_all(&root).unwrap();
-        let first = fixture(&root, 1, 1, 1, "colored_program", 18);
+        let first = fixture(&root, 1, 1, 1, "colored_program", 18, false);
         let directory = root.join(first["name"].as_str().unwrap());
         let expected: Vec<_> = fs::read_dir(&directory)
             .unwrap()
@@ -272,7 +301,7 @@ mod tests {
             .collect();
         let artifact = directory.join("keep.note");
         fs::write(&artifact, b"replay artifact").unwrap();
-        assert_eq!(fixture(&root, 1, 1, 1, "colored_program", 18), first);
+        assert_eq!(fixture(&root, 1, 1, 1, "colored_program", 18, false), first);
         for (path, bytes) in expected {
             assert_eq!(fs::read(path).unwrap(), bytes);
         }

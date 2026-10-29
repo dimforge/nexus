@@ -562,3 +562,9 @@ contacts reset to the Rust default. The current adapter uses eight radix passes
 per field and independent batch grids; Rust's variable-bit and flattened-batch
 host optimizations remain pending. These operations still need connection to the
 general scene solver.
+
+Native and TileLang contact scatter skips endpoints whose inverse mass and inverse
+inertia are both zero. Static endpoints may therefore share a color without
+concurrent writes to the same velocity slot. The color contracts reject both
+write/write and read/write aliasing and preserve static velocity bits exactly;
+regressions include negative zero and workgroup tails through 129 constraints.

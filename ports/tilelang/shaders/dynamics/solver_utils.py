@@ -8,8 +8,36 @@ import tilelang.language as T
 from kernel_support import dot, f32, relative_velocity
 
 
+def writes_velocity(layout, side):
+    """ContactSolverData write guard; zero inverse mass and inertia are read-only."""
+    h = layout["header"]
+    mass, diagonal, off = h[f"body_{side}"], h[f"diag_{side}"], h[f"off_{side}"]
+
+    @T.macro
+    def one(Tiles, base, writable):
+        writable[0] = T.uint32(0)
+        for d in T.serial(3):
+            if (
+                (f32(Tiles, base + mass + d) != 0.0)
+                | (f32(Tiles, base + diagonal + d) != 0.0)
+                | (f32(Tiles, base + off + d) != 0.0)
+            ):
+                writable[0] = T.uint32(1)
+
+    return one
+
+
+def writes_velocity_a(layout):
+    return writes_velocity(layout, "a")
+
+
+def writes_velocity_b(layout):
+    return writes_velocity(layout, "b")
+
+
 def solve_points(layout, case):
     n = case["count"]
+    writable_a, writable_b = writes_velocity_a(layout), writes_velocity_b(layout)
     tile_words = layout["tile_words"]
     h, p = layout["header"], layout["point"]
     use_bias, solve_friction = case["use_bias"], case["solve_friction"]
@@ -208,19 +236,25 @@ def solve_points(layout, case):
                             va[d + 3] += response_a[d]
                             vb[d] -= linear * im_b[d]
                             vb[d + 3] += response_b[d]
+            write_a = T.alloc_local((1,), "uint32")
+            write_b = T.alloc_local((1,), "uint32")
+            writable_a(Tiles, base + lane4, write_a)
+            writable_b(Tiles, base + lane4, write_b)
             for d in T.serial(3):
-                Velocities[velocity_a + layout["velocity_linear"] + d] = T.reinterpret(
-                    va[d], "uint32"
-                )
-                Velocities[velocity_a + layout["velocity_angular"] + d] = T.reinterpret(
-                    va[d + 3], "uint32"
-                )
-                Velocities[velocity_b + layout["velocity_linear"] + d] = T.reinterpret(
-                    vb[d], "uint32"
-                )
-                Velocities[velocity_b + layout["velocity_angular"] + d] = T.reinterpret(
-                    vb[d + 3], "uint32"
-                )
+                if write_a[0] != 0:
+                    Velocities[velocity_a + layout["velocity_linear"] + d] = (
+                        T.reinterpret(va[d], "uint32")
+                    )
+                    Velocities[velocity_a + layout["velocity_angular"] + d] = (
+                        T.reinterpret(va[d + 3], "uint32")
+                    )
+                if write_b[0] != 0:
+                    Velocities[velocity_b + layout["velocity_linear"] + d] = (
+                        T.reinterpret(vb[d], "uint32")
+                    )
+                    Velocities[velocity_b + layout["velocity_angular"] + d] = (
+                        T.reinterpret(vb[d + 3], "uint32")
+                    )
 
     return solve_one
 
@@ -311,6 +345,7 @@ def warmstart_delta(layout):
 
 def warmstart_constraint(layout, case):
     n = case["count"]
+    writable_a, writable_b = writes_velocity_a(layout), writes_velocity_b(layout)
     h = layout["header"]
     delta = warmstart_delta(layout)
 
@@ -331,19 +366,25 @@ def warmstart_constraint(layout, case):
                 va[d + 3] = f32(Velocities, a + layout["velocity_angular"] + d)
                 vb[d + 3] = f32(Velocities, b + layout["velocity_angular"] + d)
             delta(Tiles, i, va, vb)
+            write_a = T.alloc_local((1,), "uint32")
+            write_b = T.alloc_local((1,), "uint32")
+            writable_a(Tiles, base, write_a)
+            writable_b(Tiles, base, write_b)
             for d in T.serial(3):
-                Velocities[a + layout["velocity_linear"] + d] = T.reinterpret(
-                    va[d], "uint32"
-                )
-                Velocities[b + layout["velocity_linear"] + d] = T.reinterpret(
-                    vb[d], "uint32"
-                )
-                Velocities[a + layout["velocity_angular"] + d] = T.reinterpret(
-                    va[d + 3], "uint32"
-                )
-                Velocities[b + layout["velocity_angular"] + d] = T.reinterpret(
-                    vb[d + 3], "uint32"
-                )
+                if write_a[0] != 0:
+                    Velocities[a + layout["velocity_linear"] + d] = T.reinterpret(
+                        va[d], "uint32"
+                    )
+                    Velocities[a + layout["velocity_angular"] + d] = T.reinterpret(
+                        va[d + 3], "uint32"
+                    )
+                if write_b[0] != 0:
+                    Velocities[b + layout["velocity_linear"] + d] = T.reinterpret(
+                        vb[d], "uint32"
+                    )
+                    Velocities[b + layout["velocity_angular"] + d] = T.reinterpret(
+                        vb[d + 3], "uint32"
+                    )
 
     return one
 

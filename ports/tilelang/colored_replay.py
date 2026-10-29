@@ -92,6 +92,7 @@ def validate_case(layout, case, arrays):
     active = []
     for color in selected:
         used = set()
+        readonly = set()
         start, end = map(int, (buckets[color * nb - 1], buckets[(color + 1) * nb - 1]))
         for i in range(start, end):
             base = i // 32 * layout["tile_words"] + i % 32 * 4
@@ -103,19 +104,29 @@ def validate_case(layout, case, arrays):
                 if index >= case["bodies"]:
                     raise ValueError("Invalid body or velocity slot")
                 if field in ("diag_a", "off_a"):
-                    if index in used:
+                    side = "a" if field == "diag_a" else "b"
+                    source = arrays["Tiles"].view(np.float32)
+                    writable = any(
+                        source[base + h[f"{member}_{side}"] + d] != 0
+                        for member in ("body", "diag", "off")
+                        for d in range(3)
+                    )
+                    if index in used or (writable and index in readonly):
                         raise ValueError("Velocity writes overlap within a color")
-                    used.add(index)
-                    for offset in (
-                        layout["velocity_linear"],
-                        layout["velocity_angular"],
-                    ):
-                        floats["Velocities"][
-                            index * layout["velocity_words"] + offset : index
-                            * layout["velocity_words"]
-                            + offset
-                            + 3
-                        ] = True
+                    if writable:
+                        used.add(index)
+                        for offset in (
+                            layout["velocity_linear"],
+                            layout["velocity_angular"],
+                        ):
+                            floats["Velocities"][
+                                index * layout["velocity_words"] + offset : index
+                                * layout["velocity_words"]
+                                + offset
+                                + 3
+                            ] = True
+                    else:
+                        readonly.add(index)
                 else:
                     q = index * layout["pose_words"] + layout["pose_rotation"]
                     quat = arrays["Poses"].view(np.float32)[q : q + 4]
