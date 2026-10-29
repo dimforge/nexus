@@ -158,39 +158,177 @@ replay on Linux; it does not pretend to run an NPU. Its first remote CI run is n
 part of local validation. Make the new CI job a required branch-protection check
 when adopting the port; this change does not modify GitHub settings.
 
-## Ascend handoff and next steps
+## Roadmap without Ascend access
+
+This roadmap assumes no Ascend device, emulator, or paid NPU VM is available
+throughout development. An early Ascend smoke test is **not a prerequisite** for
+expanding the port. The objective is to complete an explicitly inventoried
+rigid-body scope on available hardware, with reproducible evidence and an Ascend
+handoff package. Ascend execution and performance remain unvalidated until tested
+on a real device. The milestones below are planned work, not completed features.
+
+Keep Rust as the behavioral reference and retain its public API, scene/state
+ownership, and host scheduling. TileLang supplies generated native kernels. Keep
+backend launch, synchronization, memory, and artifact-loading details separate
+from shared physics, with explicit target capability requirements. Preserve the
+current ABI initially; any later packing/layout adaptation needs its own mapping,
+round-trip tests, and change record. Do not assume Metal-optimal layouts or launch
+sizes will be efficient on an NPU.
+
+### 1. Establish the checks we can run without an NPU
+
+Resolve the existing zero-distance numerical discrepancy by comparing the Rust
+CPU reference, the original Rust GPU kernel, and TileLang on the same available
+GPU. Preserve the failing stress case. Investigate transforms, contraction, and
+branch selection before deciding a scoped numerical policy; do not widen global
+tolerances or alter the Rust reference to obtain a passing port. Independent
+compiler/runtime work can continue while this gap remains release-blocking.
+
+In parallel, establish an ordinary Linux CPU build of a pinned TileLang revision
+with the Ascend code generator enabled, then lower the pilot and representative
+portability probes to Ascend source. Upstream's [Ascend build configuration](https://github.com/tile-ai/tilelang/blob/main/src/ascend/CMakeLists.txt)
+explicitly separates code generation from CANN and provides runtime stubs. This
+makes a hardware-free code-generation check a concrete next experiment; it has
+not yet succeeded for this pilot. A stub permits loading the compiler/runtime
+library; it does not emulate an NPU or validate the generated device program.
+
+The local macOS wheel lacks the required Ascend backend. Use a Linux environment
+or a separate source build rather than treating that wheel's missing backend as a
+kernel failure. Pin the compiler commit and submodules as well as package versions;
+replay C/Metal if adopting a different compiler. Do not silently compare reports
+from different compiler builds as if they certified the same configuration.
 
 The shared arithmetic has separate C, Metal/CUDA, and experimental Ascend SIMT
-launch wrappers. The latter two are **unvalidated** in this milestone. On a Linux
-TileLang build containing those backends, source lowering can be attempted with:
+launch wrappers. The CUDA and Ascend wrappers remain unvalidated. On a build
+containing those backends, source lowering can be attempted with:
 
 ```sh
 ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target cuda --compile-only
 ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target ascend --compile-only
 ```
 
-`--compile-only` here means *source lowering only*. It does not invoke the vendor
-toolkit, check device resources, or validate execution. The macOS wheel used for
-local tests lacks the required Ascend backend. Do not interpret this as a kernel
-failure on an Ascend device.
+Here `--compile-only` means **source lowering only**. Once established, repeat it
+for relevant kernels and specializations and archive generated source and binding
+metadata. Add vendor-toolkit binary compilation only if a compatible compiler is
+accessible and usable without a device; neither toolkit availability nor such a
+build is assumed. Neither check is execution evidence.
 
-For Huawei, first confirm the device/CANN/toolchain combination and build the
-pinned compiler with the required backend. Compile the generated source and add a
-native execution adapter consuming `bindings.json` and the exported buffers.
-Return results against the exact source fingerprint with device and CANN versions.
-Only then extend reconciliation requirements to include Ascend execution.
+Use the upstream [Ascend 950 backend](https://github.com/tile-ai/tilelang/blob/main/tilelang/ascend/README.md)
+as the provisional high-end capability profile. The actual device and CANN
+version remain undecided. This does not promise support for other Ascend
+architectures. Record required capabilities so a later target change exposes the
+operations that need rework.
 
-Before expanding to the next operation:
+### 2. Exercise difficult operations before broad translation
 
-1. Resolve the documented numerical boundary policy and compare the original
-   Rust GPU kernel with TileLang on the same device.
-2. Add native generated-kernel loading to the Rust runtime, retaining the existing
-   typed layout and host scheduling. No full-scene serialization/repacking path is
-   needed for this ABI.
-3. Obtain an early Ascend compile/execution result for this operation.
-4. Extend the same contract/replay/change-record pattern to preparation, warmstart,
-   integration and complete scene stepping, then joints and other contact models.
+Before translating large collision modules, extract small operations from the
+Rust pipeline: indexed gather/scatter, bounded variable-length loops, reductions,
+scan/compaction/sort, required atomics, and representative BVH traversal or convex
+contact control flow. Test their semantics on C/Metal and attempt Ascend lowering.
+Use real algorithm fragments rather than only dense matrix examples.
 
-Keep performance work separate from parity claims. This pilot does not measure
-throughput, tune launch sizes, fuse colors, or demonstrate a complete rigid-body
-simulation on Ascend.
+Keep dispatch ordering explicit. Do not rely on a fixed subgroup width, implicit
+warp synchronization, or a global in-kernel barrier. Initially prefer separate
+ordered dispatches and disjoint writes. When an operation needs atomics or shared
+memory, specify ownership, bounds, ordering, and synchronization in its contract.
+Host-side scheduling checks and mock runtime tests can test our assumptions; they
+cannot establish the Ascend memory model or driver behavior.
+
+If a probe fails, isolate the requirement, implement a portable alternative, or
+record a target-specific gap and a small reproducer. This need not stop unrelated
+features, but a required operation with no viable Ascend lowering path must stay
+visible when deciding whether to expand the affected subsystem. Preserve an
+escape hatch for a small native Ascend implementation with the same ABI/contract
+if the TileLang backend cannot express it; avoid creating a second physics spec.
+
+### 3. Integrate a complete stepping slice on available hardware
+
+Add native generated-kernel loading to Rust/khal, initially using Metal. Keep
+Python/TileLang in the build/export tooling. Add explicit buffer, binding,
+specialization, dispatch, lifetime, and error-handling contracts at the backend
+boundary, with a replaceable execution adapter for the future NPU runtime.
+
+Port contact preparation, warmstart, Coulomb solving, and integration using the
+same semantic-ID/replay pattern. Exercise the real color schedule, including
+shared static bodies; the pilot's disjoint-slot restriction is not sufficient for
+arbitrary production colors. Retain the existing collision pipeline for this
+first hybrid stepping milestone and make that dependency visible in reports.
+
+Validate free motion, impacts, stacks, friction, restitution, and contact
+creation/removal. Compare intermediate buffers and short-run checkpoints against
+Rust, then run longer stability/invariant regressions. Long-run trajectory
+agreement needs a separately justified policy; the pilot's per-operation
+thresholds do not automatically apply to full simulations. Benchmark unchanged
+physics settings with sleeping disabled, and report timings by stage plus state
+validation. Metal measurements describe Metal only.
+
+Metal is the primary accessible GPU. CUDA replay and benchmarks are useful
+additional evidence when a CUDA machine becomes available, but neither CUDA nor
+Ascend access blocks this milestone.
+
+### 4. Expand to the agreed rigid-body feature inventory
+
+Inventory Rust capabilities before claiming a full port. Add stable IDs and
+explicit dispositions for collision primitives, convex/mesh paths, broadphase,
+contact persistence, scheduling, joints, other contact models, and any remaining
+rigid-body features. Port the simple collision path first, then more complex
+geometry and constraints. Track unsupported capabilities explicitly and fail
+clearly if a scene requests them. A hybrid scene is not a complete TileLang port.
+
+Each addition needs a live Rust oracle where possible, replay fixtures,
+intermediate-state checks, integration regressions, and evidence for each target.
+Reuse this infrastructure for MPM later; MPM is outside this rigid-body milestone.
+Complete the chosen 3D scope on available hardware without waiting for an NPU.
+Any deferred Rust capabilities, including 2D if deferred, remain inventory gaps.
+
+### 5. Make the eventual Huawei session reproducible and short
+
+Prepare a versioned handoff containing source/compiler pins, capability
+requirements, generated sources, ABI/binding manifests, deterministic fixtures,
+expected outputs and tolerances, known failures, and a machine-readable results
+schema. Include a small environment probe followed by compile, kernel replay,
+scene regression, and timing stages. Each stage must fail clearly and preserve
+logs and a minimized failing input; environment failure must not become a passed
+or silently skipped device test.
+
+Prepare the native Ascend adapter against the selected SDK when available, and
+keep it explicitly unvalidated until it runs. Runtime mocks test allocation,
+binding, dispatch ordering, and failure handling, not device correctness. Keep
+hardware-specific tuning and resource-limit decisions behind the adapter.
+
+When Huawei or a paid VM becomes available, confirm the actual device/CANN
+combination, build/load the generated artifacts, replay kernels first, then run
+scenes and benchmarks. Return exact fingerprints, environment details, and outputs
+so most diagnosis can continue offline. Cache reusable builds and support targeted
+reruns to avoid consuming paid device time on unrelated setup or repeated cases.
+
+### Evidence and AI maintenance throughout
+
+Continue to require source-impact review and classified change records for Rust
+changes, new features, bug fixes, optimizations, numerical changes, and intentional
+differences. Extend the registry to support per-feature, per-target evidence as
+coverage grows. This is planned metadata work: the existing checker currently
+tracks the single pilot and must not be described as a complete capability matrix.
+
+Keep these evidence levels distinct, bound to exact inputs and toolchains:
+
+| Evidence | Meaning |
+| --- | --- |
+| C/Metal execution | The recorded cases passed on the recorded host/GPU |
+| Ascend source lowered | The pinned TileLang compiler generated source |
+| Ascend binary compiled | A recorded vendor toolkit built a device artifact |
+| Ascend execution | The recorded cases ran on the recorded NPU |
+| Ascend performance | Specified workloads were timed and validated on that NPU |
+
+Missing evidence remains unvalidated; old evidence becomes stale after relevant
+changes. Development acceptance uses current C/Metal evidence for the implemented
+scope and, once established, source-generation checks. An unavailable NPU is not a
+development blocker. Ascend release acceptance requires actual NPU execution and
+workload validation. The existing numerical release block remains in force; this
+roadmap does not relax the contract or advance any evidence level.
+
+The point at which hardware is unavoidable is Ascend qualification and tuning.
+Runtime correctness, synchronization, numerical behavior, resource limits, and
+useful performance may still require changes at that point. The architecture,
+contracts, and replay package should keep those changes identifiable and testable;
+no amount of local testing guarantees a fixed amount of remaining NPU work.
