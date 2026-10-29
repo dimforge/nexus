@@ -1,0 +1,47 @@
+//! Shared live-Rust multi-dispatch prefix oracle for composed programs.
+use crate::dispatch;
+use khal::backend::{GpuBackend, GpuBuffer, GpuPass};
+use nexus_rbd_shaders3d::utils::prefix_sum::{GpuAddDataGrp, GpuPrefixSumSweep};
+
+pub(crate) fn scan(counts: &mut Vec<u32>, aux: &mut [Vec<u32>], strides: &[u32; 5], levels: usize) {
+    if strides[0] == 0 {
+        return;
+    }
+    let sweep =
+        GpuPrefixSumSweep::from_bytes(&GpuBackend::Cpu, &[], GpuPrefixSumSweep::ENTRY_POINT)
+            .unwrap();
+    let add = GpuAddDataGrp::from_bytes(&GpuBackend::Cpu, &[], GpuAddDataGrp::ENTRY_POINT).unwrap();
+    let mut all: Vec<_> = std::iter::once(std::mem::take(counts))
+        .chain(aux.iter_mut().map(std::mem::take))
+        .map(GpuBuffer::Cpu)
+        .collect();
+    for level in 0..levels {
+        let (left, right) = all.split_at_mut(level + 1);
+        sweep
+            .call(
+                &mut GpuPass::Cpu(None),
+                dispatch::workgroups([strides[level + 1], 1, 1]),
+                &mut left[level],
+                &mut right[0],
+                &GpuBuffer::Cpu(vec![strides[level]]),
+            )
+            .unwrap();
+    }
+    for level in (0..levels - 1).rev() {
+        let (left, right) = all.split_at_mut(level + 1);
+        add.call(
+            &mut GpuPass::Cpu(None),
+            dispatch::workgroups([strides[level + 1], 1, 1]),
+            &mut left[level],
+            &right[0],
+            &GpuBuffer::Cpu(vec![strides[level]]),
+        )
+        .unwrap();
+    }
+    for (dst, src) in std::iter::once(counts).chain(aux.iter_mut()).zip(all) {
+        let GpuBuffer::Cpu(v) = src else {
+            unreachable!()
+        };
+        *dst = v;
+    }
+}

@@ -18,7 +18,8 @@ Remaining implementation sequence:
    and split-slot application. Connect these to changing scene topology and
    production frame stepping.
 2. Ordered native dispatch, hierarchical prefix scan and composed contact
-   adjacency construction are implemented; connect color-bucket construction to them. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
+   adjacency and color-bucket construction are implemented. Add conflict-resolution
+   coloring and connect the solver dispatches to the production frame sequence. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
    in isolation. Implement actual color schedules and the contact solver variants,
    connecting shared static bodies and hubs to the production iteration order. Wire native generated kernels into Rust simulation stepping;
    the existing reference collision path may be retained only for an explicitly

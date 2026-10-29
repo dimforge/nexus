@@ -79,10 +79,22 @@
     {
       "reference": "src_rbd_shaders/dynamics/color_buckets.rs",
       "implementation": "ports/tilelang/shaders/dynamics/color_buckets.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.scheduling.bucket_reset3d",
+        "rbd.scheduling.bucket_count3d",
+        "rbd.scheduling.bucket_scatter3d",
+        "rbd.scheduling.bucket_dispatch3d",
+        "rbd.scheduling.bucket_build3d"
+      ],
+      "symbols": [
+        "bucket_color",
+        "gpu_color_buckets_reset",
+        "gpu_color_buckets_count",
+        "gpu_color_buckets_scatter",
+        "gpu_color_dispatch_grid"
+      ],
+      "remaining": "All entry-point behaviors and ordered bucket construction ported; generic global atomics replace the single-batch local-histogram optimization. Production scene integration and hardware qualification remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/coloring.rs",
@@ -887,7 +899,8 @@
         "rbd.utils.prefix_sweep",
         "rbd.utils.prefix_add",
         "rbd.utils.prefix_scan",
-        "rbd.scheduling.adjacency_build3d"
+        "rbd.scheduling.adjacency_build3d",
+        "rbd.scheduling.bucket_build3d"
       ],
       "symbols": [
         "gpu_prefix_sum_sweep",
@@ -1072,9 +1085,14 @@
         "rbd.scheduling.seed_colors3d",
         "rbd.scheduling.adjacency_count3d",
         "rbd.scheduling.adjacency_scatter3d",
-        "rbd.scheduling.adjacency_build3d"
+        "rbd.scheduling.adjacency_build3d",
+        "rbd.scheduling.bucket_reset3d",
+        "rbd.scheduling.bucket_count3d",
+        "rbd.scheduling.bucket_scatter3d",
+        "rbd.scheduling.bucket_dispatch3d",
+        "rbd.scheduling.bucket_build3d"
       ],
-      "remaining": "Adjacency construction and previous-frame color seeding are ported; conflict resolution, bucket construction and production dispatch remain."
+      "remaining": "Adjacency, previous-frame seeding, color buckets and dispatch sizing are ported; conflict-resolution coloring and production scheduling remain."
     },
     {
       "id": "rbd.scheduling.hubs",

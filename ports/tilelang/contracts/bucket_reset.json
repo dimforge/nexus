@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "feature": "rbd.scheduling.bucket_reset3d",
+  "scope": "Reset color-major bucket counters",
+  "inputs": [
+    "Colors",
+    "Links",
+    "Plan",
+    "Buckets",
+    "BatchIds",
+    "SortedLinks",
+    "Indices",
+    "Stats",
+    "Indirect",
+    "Aux0",
+    "Aux1",
+    "Aux2",
+    "Aux3",
+    "Stride0",
+    "Stride1",
+    "Stride2",
+    "Stride3"
+  ],
+  "outputs": [
+    "Buckets",
+    "SortedLinks",
+    "Indices",
+    "Stats",
+    "Indirect",
+    "Aux0",
+    "Aux1",
+    "Aux2",
+    "Aux3"
+  ],
+  "comparison": "bucket_fields",
+  "execution": "ordered_kernels",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "All integers, copied link words, statistics and unused storage are exact. Active link order may vary with atomic insertion and is checked through exact bucket membership and inverse indices.",
+  "preconditions": [
+    "Color stride at least three, nonzero batches, bounded u32 counts and valid active body IDs",
+    "Reset counters for count; exclusive bucket starts for scatter; cumulative bucket ends for dispatch",
+    "Reset deliberately covers the entire bucket buffer; all other inactive words are preserved"
+  ],
+  "invariants": [
+    "Zero-length links have no bucket; active uncolored or out-of-range colors go to the final unsolved bucket",
+    "Buckets are color-major with batch from solver_body_a modulo num_batches",
+    "Every active link is copied bitwise exactly once and its inverse index identifies that copy",
+    "Dispatch statistics exclude the unsolved bucket, record colors 0 through 63 and reduce over every solved color",
+    "Dispatch x is ceil(max solved color size / 64), capped at 256"
+  ],
+  "outside_scope": [
+    "Single-batch shared-memory histogram optimization",
+    "Graph coloring conflict resolution",
+    "Production scene scheduling",
+    "Ascend vendor compilation and execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-s3-g1",
+    "n1-b1-s5-g1",
+    "n31-b1-s65-g1",
+    "n32-b2-s66-g1",
+    "n33-b3-s67-g1",
+    "n63-b1-s128-g1",
+    "n64-b1-s129-g1",
+    "n65-b1-s65-g2",
+    "n65-b2-s130-g1",
+    "n257-b1-s67-g1",
+    "n513-b3-s130-g2"
+  ]
+}

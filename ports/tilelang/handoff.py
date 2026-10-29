@@ -290,6 +290,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from hub_replay import check_outputs as check_hub_outputs
     from scan_replay import check_outputs as check_scan_outputs
     from graph_replay import check_outputs as check_graph_outputs
+    from bucket_replay import check_outputs as check_bucket_outputs
 
     result = {
         "schema": 1,
@@ -349,6 +350,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "hub_fields": check_hub_outputs,
                     "scan_fields": check_scan_outputs,
                     "graph_fields": check_graph_outputs,
+                    "bucket_fields": check_bucket_outputs,
                 }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)

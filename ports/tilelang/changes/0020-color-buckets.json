@@ -1,0 +1,61 @@
+{
+  "id": "0020-color-buckets",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d",
+    "rbd.contact.coulomb.scale_impulses3d",
+    "rbd.contact.coulomb.gather_warmstart3d",
+    "rbd.contact.coulomb.hub_warmstart3d",
+    "rbd.scheduling.hub_assign3d",
+    "rbd.scheduling.hub_split3d",
+    "rbd.scheduling.hub_dispatch3d",
+    "rbd.scheduling.hub_scatter3d",
+    "rbd.scheduling.hub_average3d",
+    "rbd.utils.prefix_sweep",
+    "rbd.utils.prefix_add",
+    "rbd.utils.prefix_scan",
+    "rbd.scheduling.adjacency_count3d",
+    "rbd.scheduling.adjacency_scatter3d",
+    "rbd.scheduling.adjacency_build3d",
+    "rbd.scheduling.bucket_reset3d",
+    "rbd.scheduling.bucket_count3d",
+    "rbd.scheduling.bucket_scatter3d",
+    "rbd.scheduling.bucket_dispatch3d",
+    "rbd.scheduling.bucket_build3d"
+  ],
+  "kinds": [
+    "port",
+    "test",
+    "tooling"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port color-major bucket construction and dispatch sizing as an ordered native program.",
+  "regressions": [
+    "56 cases cover empty and partial workgroups, histogram-eligible Rust fixtures, generic strided loops, multiple batches and bucket scans over multiple blocks",
+    "Inactive slots with stale body IDs, zero/MAX/out-of-range colors, copied link bits and inverse-index permutations",
+    "Statistics cover colors above 63, exclude unsolved contacts, preserve unused buffers, and clamp synthetic large dispatches at 256 groups",
+    "Both legal atomic permutations and corruption rejection are checked; original Rust histogram shaders execute through the cooperative CPU oracle"
+  ],
+  "differences": [
+    "Count/scatter use Rust generic global atomics on every target; the single-batch shared-memory histogram optimization is explicitly deferred. This changes allocation order and cost, not bucket membership or copied link bits.",
+    "The ordered program follows the original reset/count/scan/scatter/dispatch sequence with no host physics/readback between kernels.",
+    "No floating point arithmetic or tolerance changes. Full frame scheduling and Ascend hardware execution remain unvalidated.",
+    "Reuse the existing cooperative Rust prefix helper for bucket fixtures without changing its arithmetic."
+  ]
+}

@@ -517,3 +517,8 @@ Contact adjacency now composes count, hierarchical scan and atomic scatter in
 that runtime. It skips empty/stale and multibody-owned manifolds, tests the whole
 inverse-mass vector, and validates exact per-body ID membership independently of
 atomic order. Coloring and production scene scheduling remain in progress.
+
+Color bucket construction now composes reset, count, prefix scan, link scatter and
+solver dispatch sizing. Generic global atomics preserve bucket membership while
+the Rust single-batch histogram optimization remains deferred. Statistics exclude
+the unsolved bucket; inverse indices identify every copied contact link.

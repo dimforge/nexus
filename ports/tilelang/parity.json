@@ -475,6 +475,74 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/adjacency_build.json",
       "test_command": "python ports/tilelang/graph_replay.py --operation adjacency_build --target c"
+    },
+    {
+      "id": "rbd.scheduling.bucket_reset3d",
+      "operation": "bucket_reset",
+      "runner": "bucket_replay.py",
+      "coverage": "Reset color-major bucket counters",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/color_buckets.rs::gpu_color_buckets_reset"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/color_buckets.py::gpu_color_buckets_reset",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/bucket_reset.json",
+      "test_command": "python ports/tilelang/bucket_replay.py --operation bucket_reset --target c"
+    },
+    {
+      "id": "rbd.scheduling.bucket_count3d",
+      "operation": "bucket_count",
+      "runner": "bucket_replay.py",
+      "coverage": "Count contacts by color and batch and invalidate sorted links",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/color_buckets.rs::gpu_color_buckets_count"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/color_buckets.py::gpu_color_buckets_count",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/bucket_count.json",
+      "test_command": "python ports/tilelang/bucket_replay.py --operation bucket_count --target c"
+    },
+    {
+      "id": "rbd.scheduling.bucket_scatter3d",
+      "operation": "bucket_scatter",
+      "runner": "bucket_replay.py",
+      "coverage": "Copy contact links into color-major buckets and publish inverse indices",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/color_buckets.rs::gpu_color_buckets_scatter"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/color_buckets.py::gpu_color_buckets_scatter",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/bucket_scatter.json",
+      "test_command": "python ports/tilelang/bucket_replay.py --operation bucket_scatter --target c"
+    },
+    {
+      "id": "rbd.scheduling.bucket_dispatch3d",
+      "operation": "bucket_dispatch",
+      "runner": "bucket_replay.py",
+      "coverage": "Compute per-color statistics and bounded solver dispatch sizes",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/color_buckets.rs::gpu_color_dispatch_grid"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/color_buckets.py::gpu_color_dispatch_grid",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/bucket_dispatch.json",
+      "test_command": "python ports/tilelang/bucket_replay.py --operation bucket_dispatch --target c"
+    },
+    {
+      "id": "rbd.scheduling.bucket_build3d",
+      "operation": "bucket_build",
+      "runner": "bucket_replay.py",
+      "coverage": "Build color buckets with ordered reset, count, scan, scatter and dispatch sizing",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/color_buckets.rs::gpu_color_buckets_scatter",
+        "src_rbd/dynamics/coloring.rs::GpuColoring::dispatch_build_color_buckets",
+        "src_rbd_shaders/utils/prefix_sum.rs::gpu_prefix_sum_sweep",
+        "src_rbd_shaders/utils/prefix_sum.rs::gpu_add_data_grp"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/color_buckets.py::gpu_color_buckets_scatter",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/bucket_build.json",
+      "test_command": "python ports/tilelang/bucket_replay.py --operation bucket_build --target c"
     }
   ],
   "targets": [

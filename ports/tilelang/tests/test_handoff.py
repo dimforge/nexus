@@ -262,3 +262,8 @@ class ScanHandoffTests(HandoffTests):
 class GraphHandoffTests(HandoffTests):
     operation = "adjacency_build"
     mutable_buffer = "Counts"
+
+
+class BucketHandoffTests(HandoffTests):
+    operation = "bucket_build"
+    mutable_buffer = "Buckets"
