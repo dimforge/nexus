@@ -257,3 +257,8 @@ class ScanHandoffTests(HandoffTests):
         self.save_manifest()
         with self.assertRaisesRegex(ValueError, "ordered program"):
             handoff.verify_bundle(self.bundle)
+
+
+class GraphHandoffTests(HandoffTests):
+    operation = "adjacency_build"
+    mutable_buffer = "Counts"

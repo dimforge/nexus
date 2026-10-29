@@ -184,3 +184,52 @@ def gpu_solver_finalize(layout, case):
             prepend(SolverPoses, LocalMass, Poses, i)
 
     return one
+
+
+def _adjacency(layout, scatter):
+    """Shared filtering of the two Rust graph construction entry points."""
+    cw, wm = layout["contact_words"], layout["world_mass_words"]
+    body = layout["contact"]["bodies"]
+    length = layout["contact"]["contact"] + layout["manifold"]["len"]
+    mass = layout["world_mass"]["inv_mass"]
+
+    @T.macro
+    def one(Contacts, Counts, Ids, WorldMass, IsMultibody, Plan, i, groups):
+        total = T.Cast("int32", Plan[layout["plan"]["bound"]])
+        for chunk in T.serial(T.ceildiv(total, groups * 64)):
+            contact = chunk * groups * 64 + i
+            if contact < total:
+                # Gaps may contain stale, out-of-range body IDs. Filter length
+                # before even reading body-owned state, matching the Rust shader.
+                if Contacts[contact * cw + length] != 0:
+                    a = T.Cast("int32", Contacts[contact * cw + body])
+                    b = T.Cast("int32", Contacts[contact * cw + body + 1])
+                    if (IsMultibody[a] == 0) & (IsMultibody[b] == 0):
+                        for side in T.unroll(2, explicit=True):
+                            owner = T.if_then_else(side == 0, a, b)
+                            active = (
+                                (f32(WorldMass, owner * wm + mass) != 0.0)
+                                | (f32(WorldMass, owner * wm + mass + 1) != 0.0)
+                                | (f32(WorldMass, owner * wm + mass + 2) != 0.0)
+                            )
+                            if active:
+                                if scatter:
+                                    slot = T.Cast(
+                                        "int32",
+                                        T.atomic_add(
+                                            Counts[owner], T.uint32(1), return_prev=True
+                                        ),
+                                    )
+                                    Ids[slot] = T.Cast("uint32", contact)
+                                else:
+                                    T.atomic_add(Counts[owner], T.uint32(1))
+
+    return one
+
+
+def gpu_solver_count_constraints(layout):
+    return _adjacency(layout, False)
+
+
+def gpu_solver_sort_constraints(layout):
+    return _adjacency(layout, True)

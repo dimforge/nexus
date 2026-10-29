@@ -512,3 +512,8 @@ Ordered native programs (bindings schema 2) preserve caller-owned buffers across
 multiple generated kernels. The batched prefix scan exercises the complete
 sweep/coarse-scan/add hierarchy, including three levels. This runtime is synchronous
 and currently validated on Metal; full scene stepping is still being implemented.
+
+Contact adjacency now composes count, hierarchical scan and atomic scatter in
+that runtime. It skips empty/stale and multibody-owned manifolds, tests the whole
+inverse-mass vector, and validates exact per-body ID membership independently of
+atomic order. Coloring and production scene scheduling remain in progress.

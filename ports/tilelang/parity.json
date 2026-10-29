@@ -433,6 +433,48 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/prefix_scan.json",
       "test_command": "python ports/tilelang/scan_replay.py --operation prefix_scan --target c"
+    },
+    {
+      "id": "rbd.scheduling.adjacency_count3d",
+      "operation": "adjacency_count",
+      "runner": "graph_replay.py",
+      "coverage": "Count active rigid-body contacts per body",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_count_constraints"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_solver_count_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/adjacency_count.json",
+      "test_command": "python ports/tilelang/graph_replay.py --operation adjacency_count --target c"
+    },
+    {
+      "id": "rbd.scheduling.adjacency_scatter3d",
+      "operation": "adjacency_scatter",
+      "runner": "graph_replay.py",
+      "coverage": "Scatter constraint IDs into exclusive per-body adjacency ranges",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_sort_constraints"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_solver_sort_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/adjacency_scatter.json",
+      "test_command": "python ports/tilelang/graph_replay.py --operation adjacency_scatter --target c"
+    },
+    {
+      "id": "rbd.scheduling.adjacency_build3d",
+      "operation": "adjacency_build",
+      "runner": "graph_replay.py",
+      "coverage": "Build per-body adjacency through ordered count, hierarchical scan and scatter dispatches",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_sort_constraints",
+        "src_rbd_shaders/dynamics/solver.rs::gpu_solver_count_constraints",
+        "src_rbd_shaders/utils/prefix_sum.rs::gpu_prefix_sum_sweep",
+        "src_rbd_shaders/utils/prefix_sum.rs::gpu_add_data_grp"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver.py::gpu_solver_sort_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/adjacency_build.json",
+      "test_command": "python ports/tilelang/graph_replay.py --operation adjacency_build --target c"
     }
   ],
   "targets": [

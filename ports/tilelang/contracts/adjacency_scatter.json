@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "feature": "rbd.scheduling.adjacency_scatter3d",
+  "scope": "Scatter constraint IDs into exclusive per-body adjacency ranges",
+  "inputs": [
+    "Contacts",
+    "Counts",
+    "Ids",
+    "WorldMass",
+    "IsMultibody",
+    "Plan",
+    "Aux0",
+    "Aux1",
+    "Aux2",
+    "Aux3",
+    "Stride0",
+    "Stride1",
+    "Stride2",
+    "Stride3"
+  ],
+  "outputs": [
+    "Counts",
+    "Ids",
+    "Aux0",
+    "Aux1",
+    "Aux2",
+    "Aux3"
+  ],
+  "comparison": "graph_fields",
+  "execution": "ordered_kernels",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "Counts, IDs, scratch and untouched words are integer-exact. Atomic ID ordering is validated as exact per-body multisets.",
+  "preconditions": [
+    "Valid active contact body IDs and finite inverse mass; zero-length gaps may contain stale body IDs",
+    "Counts reset for counting/building or exact exclusive row starts for scatter",
+    "Enough ID/scratch storage and no u32 count overflow; ordered kernels share persistent buffers"
+  ],
+  "invariants": [
+    "Empty manifolds and manifolds touching multibodies are filtered before adjacency insertion",
+    "Whole-vector inverse mass controls graph membership, including partially locked bodies",
+    "Every active dynamic side contributes exactly one ID, preserving self-contact multiplicity",
+    "Copied inputs, guard words and inactive storage remain unchanged"
+  ],
+  "outside_scope": [
+    "Articulated multibody solving",
+    "Scene scheduling",
+    "Ascend vendor compilation and execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-r0-b1",
+    "n0-r16-b2",
+    "n1-r8-b1",
+    "n31-r30-b3",
+    "n32-r32-b1",
+    "n33-r66-b2",
+    "n63-r128-b2",
+    "n64-r256-b2",
+    "n65-r258-b3",
+    "n257-r514-b2",
+    "n513-r1026-b3"
+  ]
+}

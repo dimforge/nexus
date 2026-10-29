@@ -474,7 +474,10 @@
         "rbd.body.init_increments3d",
         "rbd.body.apply_increments3d",
         "rbd.body.finalize3d",
-        "rbd.body.free_step3d"
+        "rbd.body.free_step3d",
+        "rbd.scheduling.adjacency_count3d",
+        "rbd.scheduling.adjacency_scatter3d",
+        "rbd.scheduling.adjacency_build3d"
       ],
       "symbols": [
         "gpu_integrate_linearized",
@@ -482,9 +485,11 @@
         "gpu_init_solver_bodies",
         "gpu_init_solver_vels_inc",
         "gpu_apply_solver_vels_inc",
-        "gpu_solver_finalize"
+        "gpu_solver_finalize",
+        "gpu_solver_count_constraints",
+        "gpu_solver_sort_constraints"
       ],
-      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+      "remaining": "Body lifecycle and adjacency count/scatter are ported, including an ordered count/scan/scatter program; remaining solver entry points and full scene schedules are pending."
     },
     {
       "reference": "src_rbd_shaders/dynamics/solver_utils.rs",
@@ -881,7 +886,8 @@
       "operations": [
         "rbd.utils.prefix_sweep",
         "rbd.utils.prefix_add",
-        "rbd.utils.prefix_scan"
+        "rbd.utils.prefix_scan",
+        "rbd.scheduling.adjacency_build3d"
       ],
       "symbols": [
         "gpu_prefix_sum_sweep",
@@ -1063,9 +1069,12 @@
       "description": "Coloring, buckets and production color dispatch",
       "coverage": "partial",
       "operations": [
-        "rbd.scheduling.seed_colors3d"
+        "rbd.scheduling.seed_colors3d",
+        "rbd.scheduling.adjacency_count3d",
+        "rbd.scheduling.adjacency_scatter3d",
+        "rbd.scheduling.adjacency_build3d"
       ],
-      "remaining": "Previous-frame color seeding only; conflict resolution, bucket construction and production dispatch remain unported."
+      "remaining": "Adjacency construction and previous-frame color seeding are ported; conflict resolution, bucket construction and production dispatch remain."
     },
     {
       "id": "rbd.scheduling.hubs",

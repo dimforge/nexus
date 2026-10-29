@@ -1,0 +1,55 @@
+{
+  "id": "0019-contact-adjacency",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d",
+    "rbd.contact.coulomb.scale_impulses3d",
+    "rbd.contact.coulomb.gather_warmstart3d",
+    "rbd.contact.coulomb.hub_warmstart3d",
+    "rbd.scheduling.hub_assign3d",
+    "rbd.scheduling.hub_split3d",
+    "rbd.scheduling.hub_dispatch3d",
+    "rbd.scheduling.hub_scatter3d",
+    "rbd.scheduling.hub_average3d",
+    "rbd.utils.prefix_sweep",
+    "rbd.utils.prefix_add",
+    "rbd.utils.prefix_scan",
+    "rbd.scheduling.adjacency_count3d",
+    "rbd.scheduling.adjacency_scatter3d",
+    "rbd.scheduling.adjacency_build3d"
+  ],
+  "kinds": [
+    "port",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port rigid-body contact adjacency counting and atomic ID scatter, composed with the native ordered prefix hierarchy.",
+  "regressions": [
+    "33 cases cover empty inputs, contact/workgroup/body-scan boundaries, multiple interleaved batches and grid-stride loops",
+    "Zero-length gaps with stale maximum body IDs; static, partially locked, multibody and self-contact membership",
+    "Exact row counts and ID multisets reject missing, duplicate or misplaced contributions while allowing legal atomic reorderings",
+    "Ordered count/scan/scatter uses persistent GPU buffers; guards, input fields and inactive scratch are checked"
+  ],
+  "differences": [
+    "No Rust physics changes or float tolerance changes. Atomic scatter order is intentionally not compared byte-for-byte inside active rows.",
+    "The multibody flag is honored as a filter; articulated multibody solving remains explicitly deferred.",
+    "The composed program receives reset counts as the production cleanup stage provides; complete production frame and color scheduling remain pending.",
+    "Ascend checks certify source lowering only, not CANN compilation or device execution."
+  ]
+}

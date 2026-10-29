@@ -60,3 +60,7 @@ path = "src/hubs.rs"
 [[bin]]
 name = "scans"
 path = "src/scans.rs"
+
+[[bin]]
+name = "graphs"
+path = "src/graphs.rs"
