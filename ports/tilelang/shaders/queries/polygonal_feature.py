@@ -53,11 +53,11 @@ def closest_points_line2d(a0, a1, b0, b1, out):
         if e <= T.float32(1.1920929e-7):
             out[0], out[1] = -c / a, T.float32(0)
         else:
-            b = x1 * x2 + y1 * y2
-            denom = a * e - b * b
-            if denom > T.float32(1.1920929e-7):
-                s = (b * f - c * e) / denom
-                out[0], out[1] = s, (b * s + f) / e
+            # Match Rust's stable 2D determinant and Cramer's rule.
+            det = x1 * y2 - y1 * x2
+            if det * det > T.float32(1.1920929e-7):
+                out[0] = (x2 * ry - y2 * rx) / det
+                out[1] = (x1 * ry - y1 * rx) / det
             else:
                 out[0], out[1] = T.float32(1e18), T.float32(1e18)
 

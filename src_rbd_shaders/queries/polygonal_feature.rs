@@ -385,17 +385,16 @@ mod dim3 {
             if e <= EPSILON {
                 Vec2::new(-c / a, 0.0)
             } else {
-                let b = dir1.dot(dir2);
-                let ae = a * e;
-                let bb = b * b;
-                let denom = ae - bb;
-
-                // Use absolute and ulps error to test collinearity.
-                let parallel = denom <= EPSILON;
+                // In 2D, |dir1|^2 * |dir2|^2 - dot(dir1, dir2)^2 is
+                // cross(dir1, dir2)^2. Computing it by subtraction loses most
+                // significant bits for shallow crossings, moving contacts off
+                // the other edge. Cramer's rule avoids that cancellation.
+                let det = dir1.perp_dot(dir2);
+                let parallel = det * det <= EPSILON;
 
                 if !parallel {
-                    let s = (b * f - c * e) / denom;
-                    let t = (b * s + f) / e;
+                    let s = dir2.perp_dot(r) / det;
+                    let t = dir1.perp_dot(r) / det;
                     Vec2::new(s, t)
                 } else {
                     Vec2::new(MAX_FLT, MAX_FLT)
@@ -975,5 +974,40 @@ pub fn contacts(
         dim3::contacts_edge_edge(pose12, feature1, sep_axis1, feature2, prediction, flipped)
     } else {
         dim3::contacts_face_face(pose12, feature1, sep_axis1, feature2, prediction, flipped)
+    }
+}
+
+#[cfg(all(test, feature = "dim3"))]
+mod line_intersection_tests {
+    use super::dim3::closest_points_line2d;
+    use glamx::Vec2;
+    #[test]
+    fn shallow_crossing_keeps_intersection_on_both_lines() {
+        for scale in [1.0f32, 3.0, 100.0] {
+            let a0 = Vec2::ZERO;
+            let a1 = Vec2::new(scale, 0.0);
+            let b0 = Vec2::new(0.0, 0.0005 * scale);
+            let b1 = Vec2::new(scale, -0.0005 * scale);
+            let uv = closest_points_line2d(a0, a1, b0, b1);
+            assert!(
+                (uv.x - 0.5).abs() < 1.0e-5 && (uv.y - 0.5).abs() < 1.0e-5,
+                "scale={scale} uv={uv:?}"
+            );
+            let pa = a0 + (a1 - a0) * uv.x;
+            let pb = b0 + (b1 - b0) * uv.y;
+            assert!((pa - pb).length() < 1.0e-6 * scale);
+        }
+    }
+    #[test]
+    fn line_degeneracies_keep_existing_semantics() {
+        let z = Vec2::ZERO;
+        let x = Vec2::X;
+        assert_eq!(closest_points_line2d(z, z, x, x), z);
+        assert_eq!(
+            closest_points_line2d(z, x, Vec2::Y, Vec2::ONE),
+            Vec2::splat(crate::MAX_FLT)
+        );
+        assert_eq!(closest_points_line2d(z, z, -x, x), Vec2::new(0.0, 0.5));
+        assert_eq!(closest_points_line2d(-x, x, z, z), Vec2::new(0.5, 0.0));
     }
 }
