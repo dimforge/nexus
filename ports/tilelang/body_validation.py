@@ -20,6 +20,7 @@ OPERATIONS = (
     "apply_increments",
     "finalize",
     "free_step",
+    "update_mprops",
 )
 
 
@@ -58,8 +59,19 @@ def validate_case(layout, case, arrays):
     groups = {
         "velocity": [("velocity_linear", 3), ("velocity_angular", 3)],
         "pose": [("pose_translation", 3), ("pose_rotation", 4), ("pose_padding", 1)],
-        "local": [("local_com", 3)],
-        "world": [("world_inv_mass", 3)],
+        "local": [
+            ("local_com", 3),
+            ("local_inertia_frame", 4),
+            ("local_inv_inertia", 3),
+            ("local_inv_mass", 3),
+        ],
+        "world": [
+            ("world_inv_mass", 3),
+            ("world_inertia", 16),
+            ("world_com", 3),
+            ("world_padding0", 1),
+            ("world_padding1", 1),
+        ],
         "hub": [("hub_hubs", 1), ("hub_slots", 1)],
     }
     for group, fields in groups.items():
@@ -108,7 +120,7 @@ def validate_case(layout, case, arrays):
     ):
         data = arrays[name].view(np.float32).reshape(storage, layout[f"{group}_words"])
         for field, width in groups[group]:
-            if field == "pose_padding":
+            if field in ("pose_padding", "world_padding0", "world_padding1"):
                 continue
             if not np.isfinite(data[:, layout[field] : layout[field] + width]).all():
                 raise ValueError("Non-finite body input")
@@ -116,6 +128,18 @@ def validate_case(layout, case, arrays):
             q = data[:, layout["pose_rotation"] : layout["pose_rotation"] + 4]
             if np.any(np.abs(np.linalg.norm(q, axis=1) - 1) > 2e-6):
                 raise ValueError("Non-unit input rotation")
+    if case["kind"] == "update_mprops":
+        local = (
+            arrays["LocalMass"].view(np.float32).reshape(storage, layout["local_words"])
+        )
+        q = local[:, layout["local_inertia_frame"] : layout["local_inertia_frame"] + 4]
+        principal = local[
+            :, layout["local_inv_inertia"] : layout["local_inv_inertia"] + 3
+        ]
+        if np.any(np.abs(np.linalg.norm(q, axis=1) - 1) > 2e-6) or np.any(
+            principal < 0
+        ):
+            raise ValueError("Invalid local mass properties")
     return write_masks(layout, case, arrays)
 
 
@@ -139,6 +163,15 @@ def write_masks(layout, case, arrays):
         )
         data[:n, layout["pose_padding"]] = 2
 
+    if kind == "update_mprops":
+        data = masks["WorldMass"].reshape(case["storage"], layout["world_words"])
+        data[:n, :] = 2
+        for c in range(3):
+            data[
+                :n,
+                layout["world_inertia"] + c * 4 : layout["world_inertia"] + c * 4 + 3,
+            ] = 1
+        data[:n, layout["world_com"] : layout["world_com"] + 3] = 1
     if kind in ("cleanup", "free_step"):
         velocities("SolverVelocities", slots, 2)
         masks["Counts"][:slots] = 2

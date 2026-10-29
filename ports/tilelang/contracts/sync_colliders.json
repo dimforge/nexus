@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "feature": "rbd.body.sync_collider_poses3d",
+  "scope": "Propagate body world poses through indexed body-local collider transforms",
+  "inputs": [
+    "BodyPoses",
+    "LocalPoses",
+    "WorldPoses",
+    "Parents"
+  ],
+  "outputs": [
+    "WorldPoses"
+  ],
+  "comparison": "pose_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Same f32 limits as existing body integration; copied fields, counters, padding and inactive storage compare bitwise.",
+  "preconditions": [
+    "Finite unit input poses",
+    "Valid active parent IDs, including multiple colliders sharing one body",
+    "Rust-derived Pose ABI and non-overlapping input/output allocations"
+  ],
+  "outside_scope": [
+    "Collision detection",
+    "Contact and joint solving",
+    "2D",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-p1",
+    "n1-b1-p1",
+    "n63-b1-p7",
+    "n64-b1-p5",
+    "n65-b1-p3",
+    "n33-b3-p5",
+    "n129-b0-p7"
+  ]
+}

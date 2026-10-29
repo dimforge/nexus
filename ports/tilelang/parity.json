@@ -30,7 +30,8 @@
     "ports/tilelang/shaders/**/*.py",
     "ports/tilelang/inventory.json",
     "ports/tilelang/HANDOFF.md",
-    "ports/tilelang/session.schema.json"
+    "ports/tilelang/session.schema.json",
+    "ports/tilelang/COMPLETION.md"
   ],
   "features": [
     {
@@ -180,6 +181,33 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/free_step.json",
       "test_command": "python ports/tilelang/body_replay.py --operation free_step --target c"
+    },
+    {
+      "id": "rbd.body.update_mprops3d",
+      "operation": "update_mprops",
+      "runner": "body_replay.py",
+      "coverage": "Update world inverse inertia, inverse mass and COM from local mass properties and body poses",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/mprops_update.rs::gpu_update_mprops",
+        "src_rbd_shaders/dynamics/body.rs::LocalMassProperties::to_world"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/mprops_update.py::gpu_update_mprops",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/update_mprops.json",
+      "test_command": "python ports/tilelang/body_replay.py --operation update_mprops --target c"
+    },
+    {
+      "id": "rbd.body.sync_collider_poses3d",
+      "operation": "sync_colliders",
+      "runner": "pose_replay.py",
+      "coverage": "Propagate body world poses through indexed body-local collider transforms",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/mprops_update.rs::gpu_sync_collider_poses"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/mprops_update.py::gpu_sync_collider_poses",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/sync_colliders.json",
+      "test_command": "python ports/tilelang/pose_replay.py --target c"
     }
   ],
   "targets": [

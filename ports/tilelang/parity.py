@@ -235,7 +235,12 @@ def status(root, extra_evidence=()):
             for gap in feature_contract(root, f).get("known_gaps", [])
         ]
         + [
-            {"id": c["id"], "description": c["remaining"], "blocks_release": True}
+            {
+                "id": c["id"],
+                "description": c["remaining"],
+                "blocks_release": c.get("required_for_completion", True),
+                "scope_reason": c.get("scope_reason"),
+            }
             for c in inventory["capabilities"]
             if c["coverage"] != "complete"
         ],

@@ -55,10 +55,12 @@
       "implementation": "ports/tilelang/shaders/dynamics/body.py",
       "coverage": "partial",
       "operations": [
-        "rbd.body.integrate_linearized3d"
+        "rbd.body.integrate_linearized3d",
+        "rbd.body.update_mprops3d"
       ],
       "symbols": [
-        "integrate_linearized"
+        "integrate_linearized",
+        "to_world"
       ],
       "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
     },
@@ -173,10 +175,16 @@
     {
       "reference": "src_rbd_shaders/dynamics/mprops_update.rs",
       "implementation": "ports/tilelang/shaders/dynamics/mprops_update.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.body.update_mprops3d",
+        "rbd.body.sync_collider_poses3d"
+      ],
+      "symbols": [
+        "gpu_update_mprops",
+        "gpu_sync_collider_poses"
+      ],
+      "remaining": "Both 3D entry points are ported and individually contracted; 2D remains outside the agreed scope. Full-capacity launches replace grid-stride loops."
     },
     {
       "reference": "src_rbd_shaders/dynamics/multibody/compute_dynamics_pre.rs",
@@ -922,9 +930,11 @@
         "rbd.body.init_increments3d",
         "rbd.body.apply_increments3d",
         "rbd.body.finalize3d",
-        "rbd.body.free_step3d"
+        "rbd.body.free_step3d",
+        "rbd.body.update_mprops3d",
+        "rbd.body.sync_collider_poses3d"
       ],
-      "remaining": "Partial: body velocity/pose lifecycle and repeated no-contact steps; force/torque accumulation, world inertia updates and production runtime integration remain unported."
+      "remaining": "Body lifecycle, world inertia and free-body composition are ported; production scene integration remains incomplete."
     },
     {
       "id": "rbd.contact.coulomb",
@@ -1012,7 +1022,9 @@
       "description": "Multibody dynamics, constraints, sensors and reset",
       "coverage": "unported",
       "operations": [],
-      "remaining": "Unported."
+      "remaining": "Unported.",
+      "required_for_completion": false,
+      "scope_reason": "Explicitly deferred by the user: initial port is 3D rigid bodies without articulated multibodies."
     },
     {
       "id": "rbd.contact.twist",
@@ -1049,7 +1061,9 @@
       "description": "2D rigid bodies",
       "coverage": "unported",
       "operations": [],
-      "remaining": "Deferred; initial target is 3D."
+      "remaining": "Deferred; initial target is 3D.",
+      "required_for_completion": false,
+      "scope_reason": "Explicitly deferred by the user: initial port is 3D rigid bodies without articulated multibodies."
     },
     {
       "id": "rbd.render",

@@ -240,6 +240,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from replay import check_outputs
     from primitives import check_outputs as check_integer_outputs
     from body_validation import check_outputs as check_body_outputs
+    from pose_replay import check_outputs as check_pose_outputs
 
     result = {
         "schema": 1,
@@ -288,13 +289,12 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                 contract = read_json(safe_file(bundle_root, item["contract"]))
                 layout = read_json(safe_file(bundle_root, item["layout"]))
                 buffers = contract["inputs"]
-                compare = (
-                    check_integer_outputs
-                    if contract.get("comparison") == "exact_u32"
-                    else check_body_outputs
-                    if contract.get("comparison") == "body_fields"
-                    else check_outputs
-                )
+                compare = {
+                    None: check_outputs,
+                    "exact_u32": check_integer_outputs,
+                    "body_fields": check_body_outputs,
+                    "pose_fields": check_pose_outputs,
+                }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)
                     for n in buffers

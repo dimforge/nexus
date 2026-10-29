@@ -2,11 +2,12 @@
 
 import tilelang.language as T
 from body_validation import dispatch_count
-from shaders.dynamics import solver
+from shaders.dynamics import solver, mprops_update
 
 
 def make_kernel(layout, case, target):
     kind = case["kind"]
+    update_mass = mprops_update.gpu_update_mprops(layout, case)
     cleanup = solver.gpu_solver_cleanup(layout, case)
     init_bodies = solver.gpu_init_solver_bodies(layout, case)
     init_inc = solver.gpu_init_solver_vels_inc(layout, case)
@@ -36,6 +37,8 @@ def make_kernel(layout, case, target):
         HubCounts,
         i,
     ):
+        if kind == "update_mprops":
+            update_mass(WorldMass, LocalMass, Poses, i)
         if kind == "cleanup" or kind == "free_step":
             cleanup(
                 Counts, SolverVelocities, Velocities, WorldMass, FirstSlot, HubCounts, i

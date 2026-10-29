@@ -1,8 +1,9 @@
 # TileLang rigid-body parity pilot
 
-This experimental port has eleven operation contracts: effective mass calculation,
+This experimental port has thirteen operation contracts: effective mass calculation,
 warmstarting, Coulomb solving, clamped integration, deterministic constraint-ID
-sorting, five body lifecycle entry points, and a composed no-contact body step.
+sorting, five body lifecycle entry points, world mass-property updates, collider
+pose propagation, and a composed no-contact body step.
 The body stages cover cleanup, COM pose initialization, gravity increments,
 increment application and final writeback. They use Rust buffer layouts and live
 Rust reference functions. The composed step reuses those ports for repeated frames
@@ -10,7 +11,8 @@ and substeps; it does not yet connect to Nexus's production simulation backend.
 
 Contact operations still require one prepared, conflict-free color. Complete
 contact preparation, collision detection, production coloring, joints, twist
-friction, 2D, and Ascend execution remain unimplemented.
+friction and Ascend execution remain unimplemented. Articulated multibodies, MPM
+and 2D are deferred by the user. See `COMPLETION.md` for the agreed completion scope.
 
 Rust remains the behavioral reference. `parity.json` maps stable operation IDs
 to reference symbols, implementations, contracts, and per-target evidence. Each
@@ -26,6 +28,7 @@ and their module boundaries wherever practical:
 | Rust file under `src_rbd_shaders/dynamics` | TileLang file under `ports/tilelang/shaders/dynamics` | Implemented subset |
 | --- | --- | --- |
 | `body.rs` | `body.py` | `Velocity::integrate_linearized` |
+| `mprops_update.rs` | `mprops_update.py` | world inertia/COM updates and indexed collider pose propagation (3D) |
 | `solver.rs` | `solver.py` | cleanup, COM pose initialization, gravity/increment application, integration, finalization |
 | `constraint.rs` | `constraint.py` | `compute_effective_masses` |
 | `solver_utils.rs` | `solver_utils.py` | `solve_points`, `warmstart_constraint` |
@@ -87,8 +90,8 @@ The default `results/` directory is ignored by Git.
 
 ## What is tested
 
-There are 80 required cases across eleven contracts. The six body lifecycle
-contracts have 42 cases, including empty/zero-batch launches, 63/64/65 boundaries,
+There are 94 required cases across thirteen contracts. The eight body/collider
+contracts added after the original pilot have 56 cases, including empty/zero-batch launches, 63/64/65 boundaries,
 multiple batches, capacity beyond active bodies, static and partially locked
 masses, nonzero local COMs, zero gravity, and up to 32 frames of four substeps.
 `body_replay.py` calls the actual Rust entry points in order; computed fields use
@@ -97,8 +100,9 @@ storage compare exactly. `free_step` fuses the per-body sequence because it has 
 cross-body dependencies; it is a validation composition, not a contact schedule.
 The cleanup port preserves Rust's full-capacity range, including unused slots.
 Gravity deliberately follows Rust's vector-wide static test rather than masking
-individual mass axes. World inertia updates and external force/torque accumulation
-remain unported.
+individual mass axes. World inertia updates include anisotropic and singular principal inertias and
+rotated mass frames. Collider propagation covers indexed parents and multiple
+colliders per body. Native scene integration remains incomplete.
 
 The original five contracts retain their 38 cases. Six integer sorting cases
 cover empty/skewed rows, duplicates, high unsigned IDs, workgroup boundaries and
@@ -409,8 +413,8 @@ reruns to avoid consuming paid device time on unrelated setup or repeated cases.
 
 Continue to require source-impact review and classified change records for Rust
 changes, new features, bug fixes, optimizations, numerical changes, and intentional
-differences. The registry now supports per-feature, per-target evidence for all five
-implemented operations. `inventory.json` separately lists every Rust shader module and 19 capability
+differences. The registry now supports per-feature, per-target evidence for every registered
+operation. `inventory.json` separately lists every Rust shader module and 19 capability
 groups, with explicit partial/unported dispositions. `inventory.py` checks mirrored
 paths and mapped symbols without importing TileLang. New or removed Rust modules
 require a disposition before reconciliation. These coverage groups are an audit

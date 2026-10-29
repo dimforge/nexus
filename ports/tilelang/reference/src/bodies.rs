@@ -7,7 +7,7 @@ use nexus_rbd_shaders3d::{
     dynamics::{
         HubCounts, LocalMassProperties, RbdSimParams, Velocity, WorldMassProperties,
         gpu_apply_solver_vels_inc, gpu_init_solver_bodies, gpu_init_solver_vels_inc,
-        gpu_integrate_linearized, gpu_solver_cleanup, gpu_solver_finalize,
+        gpu_integrate_linearized, gpu_solver_cleanup, gpu_solver_finalize, gpu_update_mprops,
     },
     glamx::{Quat, UVec3, Vec3, Vec4},
     utils::BatchIndices,
@@ -24,6 +24,31 @@ fn main() {
         ("pose_padding", offset_of!(Pose, padding) / 4),
         ("local_words", size_of::<LocalMassProperties>() / 4),
         ("local_com", offset_of!(LocalMassProperties, com) / 4),
+        (
+            "local_inertia_frame",
+            offset_of!(LocalMassProperties, inertia_ref_frame) / 4,
+        ),
+        (
+            "local_inv_inertia",
+            offset_of!(LocalMassProperties, inv_principal_inertia) / 4,
+        ),
+        (
+            "local_inv_mass",
+            offset_of!(LocalMassProperties, inv_mass) / 4,
+        ),
+        (
+            "world_inertia",
+            offset_of!(WorldMassProperties, inv_inertia) / 4,
+        ),
+        ("world_com", offset_of!(WorldMassProperties, com) / 4),
+        (
+            "world_padding0",
+            offset_of!(WorldMassProperties, padding0) / 4,
+        ),
+        (
+            "world_padding1",
+            offset_of!(WorldMassProperties, padding1) / 4,
+        ),
         ("world_words", size_of::<WorldMassProperties>() / 4),
         (
             "world_inv_mass",
@@ -43,6 +68,7 @@ fn main() {
         "apply_increments",
         "finalize",
         "free_step",
+        "update_mprops",
     ] {
         let root = output.join(kind);
         fs::create_dir_all(&root).unwrap();
@@ -119,6 +145,20 @@ fn main() {
                     _ => Vec3::ONE,
                 };
                 world[i] = local[i].to_world(&poses[i]);
+                if kind == "update_mprops" {
+                    local[i].inertia_ref_frame = Quat::from_scaled_axis(Vec3::new(0.3, -t, 0.6));
+                    local[i].inv_principal_inertia = match i % 4 {
+                        0 => Vec3::ZERO,
+                        1 => Vec3::new(0.0, 0.3, 2.1),
+                        _ => Vec3::new(0.2, 1.1, 3.4),
+                    };
+                    world[i].com = Vec3::splat(-17.0);
+                    world[i].inv_mass = Vec3::splat(-19.0);
+                    world[i].inv_inertia =
+                        nexus_rbd_shaders3d::glamx::Mat4::from_cols_array(&[-23.0; 16]);
+                    world[i].padding0 = 0x12345678;
+                    world[i].padding1 = 0x789abcde;
+                }
             }
             let mut params = RbdSimParams::tgs_soft();
             params.dt = 1.0 / (60.0 * substeps as f32);
@@ -137,6 +177,7 @@ fn main() {
             macro_rules! write {
                 ($suffix:expr) => {{
                     for (name, bytes) in [
+                        ("WorldMass", bytemuck::cast_slice(&world)),
                         ("Velocities", bytemuck::cast_slice(&velocities)),
                         ("SolverVelocities", bytemuck::cast_slice(&solver_vels)),
                         ("Increments", bytemuck::cast_slice(&increments)),
@@ -171,6 +212,18 @@ fn main() {
             pilot::write_buffer(&dir, "Gravity.bin", &[gravity]);
             let groups = slots.div_ceil(64).max(1);
             for _ in 0..iterations {
+                if kind == "update_mprops" {
+                    for i in 0..groups * 64 {
+                        gpu_update_mprops(
+                            UVec3::new(i, 0, 0),
+                            UVec3::new(groups, 1, 1),
+                            &mut world,
+                            &local,
+                            &poses,
+                            &ids,
+                        );
+                    }
+                }
                 if kind == "cleanup" || kind == "free_step" {
                     for i in 0..groups * 64 {
                         gpu_solver_cleanup(

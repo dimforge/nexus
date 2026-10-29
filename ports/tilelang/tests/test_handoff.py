@@ -17,6 +17,7 @@ from replay import HERE
 class HandoffTests(unittest.TestCase):
     operation = "solve"
     fixture_index = -1
+    mutable_buffer = "Velocities"
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -131,7 +132,7 @@ class HandoffTests(unittest.TestCase):
             handoff.verify_bundle(self.bundle)
 
     def test_missing_corrupt_and_padded_returned_buffers_fail(self):
-        file = self.actual / "Velocities.actual.bin"
+        file = self.actual / f"{self.mutable_buffer}.actual.bin"
         original = file.read_bytes()
         file.unlink()
         self.assertTrue(self.compare())
@@ -167,6 +168,12 @@ class HandoffTests(unittest.TestCase):
 class BodyHandoffTests(HandoffTests):
     operation = "free_step"
     fixture_index = 4
+
+
+class PoseHandoffTests(HandoffTests):
+    operation = "sync_colliders"
+    fixture_index = 4
+    mutable_buffer = "WorldPoses"
 
 
 if __name__ == "__main__":

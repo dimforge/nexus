@@ -1,0 +1,39 @@
+{
+  "id": "0012-world-mass-collider-poses",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d"
+  ],
+  "kinds": [
+    "port",
+    "refactor",
+    "tooling",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Complete the 3D mass-property update module and collider pose propagation; share body/integer/pose replay infrastructure and record the user-approved initial completion scope.",
+  "regressions": [
+    "Anisotropic, singular and zero inverse inertia, nonidentity inertia reference frames, static/locked mass axes and offset COMs",
+    "Collider parent gathers with multiple colliders per body, multi-batch interleaving, 63/64/65 boundaries, empty and zero-batch dispatches",
+    "Exact copied masses, homogeneous matrix constants, explicit padding, readonly inputs and inactive sentinels",
+    "Malformed parent indices, poses, dimensions, layouts, negative principal inverse inertia and truncated outputs are rejected",
+    "Body, pose and original Coulomb handoff return comparators exercised separately"
+  ],
+  "differences": [
+    "No Rust production arithmetic or existing floating tolerance changed. The shader tree mirrors mprops_update.rs and body.rs; shared quaternion primitives follow pinned glam expressions.",
+    "As with previous ports, full-count launches specialize Rust grid-stride loops; world mass update and collider propagation remain separate operations.",
+    "The user explicitly deferred articulated multibodies in addition to MPM and 2D. Deferred inventory entries remain unported and visible but no longer block completion of the agreed 3D scope.",
+    "The existing zero-distance numerical discrepancy remains under investigation using physical/stability evidence, as the user accepts finite-precision differences. It is not hidden by this change."
+  ]
+}

@@ -94,6 +94,11 @@ def audit(root, config):
         errors.append("Duplicate capability IDs")
     covered = set()
     for capability in capabilities:
+        required = capability.get("required_for_completion", True)
+        if type(required) is not bool or (
+            not required and not capability.get("scope_reason")
+        ):
+            errors.append(f"Invalid completion scope: {capability['id']}")
         if capability["coverage"] not in (
             "partial",
             "complete",

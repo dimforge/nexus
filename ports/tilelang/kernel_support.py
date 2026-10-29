@@ -77,3 +77,54 @@ def launch(one, layout, case, target, n):
     else:
         raise ValueError(f"Unsupported target {target}")
     return kernel
+
+
+@T.macro
+def quat_mul(a, b, result):
+    """glam 0.33.12 quaternion product (xyzw), with the Rust expression order."""
+    result[0] = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1]
+    result[1] = a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0]
+    result[2] = a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3]
+    result[3] = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]
+
+
+@T.macro
+def quat_rotate(q, v, result):
+    """glam 0.33.12 Quat::mul_vec3; input and output must not alias."""
+    scale = q[3] * q[3] - dot(q, q)
+    projection = dot(v, q) * 2.0
+    result[0] = (v[0] * scale + q[0] * projection) + (q[1] * v[2] - q[2] * v[1]) * (
+        q[3] * 2.0
+    )
+    result[1] = (v[1] * scale + q[1] * projection) + (q[2] * v[0] - q[0] * v[2]) * (
+        q[3] * 2.0
+    )
+    result[2] = (v[2] * scale + q[2] * projection) + (q[0] * v[1] - q[1] * v[0]) * (
+        q[3] * 2.0
+    )
+
+
+@T.macro
+def quat_to_mat3(q, result):
+    """glam 0.33.12 Mat3::from_quat; result indexed [column, row]."""
+    x2 = q[0] + q[0]
+    y2 = q[1] + q[1]
+    z2 = q[2] + q[2]
+    xx = q[0] * x2
+    xy = q[0] * y2
+    xz = q[0] * z2
+    yy = q[1] * y2
+    yz = q[1] * z2
+    zz = q[2] * z2
+    wx = q[3] * x2
+    wy = q[3] * y2
+    wz = q[3] * z2
+    result[0, 0] = 1.0 - (yy + zz)
+    result[0, 1] = xy + wz
+    result[0, 2] = xz - wy
+    result[1, 0] = xy - wz
+    result[1, 1] = 1.0 - (xx + zz)
+    result[1, 2] = yz + wx
+    result[2, 0] = xz + wy
+    result[2, 1] = yz - wx
+    result[2, 2] = 1.0 - (xx + yy)

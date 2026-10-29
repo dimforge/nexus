@@ -168,3 +168,31 @@ and remain release-blocking; no numerical policy was changed. The development
 CPU/Metal parity gate passes, while release and required-Ascend-execution gates
 still reject the port as intended. Ascend vendor compilation, execution and
 performance are unvalidated.
+
+
+## World mass properties and collider propagation
+
+The complete 3D `mprops_update.rs` module is now mirrored, including world-space
+inverse inertia/COM computation and indexed collider world-pose propagation.
+The body helper follows the pinned glam quaternion and matrix expressions. Tests
+cover anisotropic, singular and zero inertias, rotated inertia frames, multiple
+colliders per body, multi-batch parent indexing, empty inputs and dispatch tails.
+Computed inertia matrices are checked for symmetry and positive semidefiniteness;
+copied masses, homogeneous matrix constants, padding and untouched buffers remain
+bitwise checked. Invalid parent indices, mass properties, layouts and output sizes
+are rejected. Body, integer and pose replays now share one execution/provenance
+implementation while retaining separate operation validators.
+
+All 94 cases across thirteen contracts pass on C++ CPU and native Metal and lower
+to Ascend source. Maximum new-operation differences from the live Rust CPU oracle
+are `9.5367431640625e-7` for world mass properties and `2.384185791015625e-7` for
+collider poses on both tested backends. No existing tolerance changed. All 73
+Python regressions and three native tests pass, as do Rust formatting/strict
+Clippy and Ruff F checks. The user explicitly deferred articulated multibodies,
+MPM and 2D; these remain visible gaps rather than being marked implemented.
+
+This is another implementation batch within the ongoing full-port goal. Contact
+construction/persistence, complete scheduling, collisions, joints, native scene
+integration and scene stability validation remain unfinished. The contact
+rounding/branch sensitivity is still under investigation; this batch does not
+clear it or claim Ascend device qualification.

@@ -55,6 +55,16 @@ class InventoryTests(unittest.TestCase):
     def test_mapped_subset_passes(self):
         self.assertEqual(self.check(), [])
 
+    def test_deferred_scope_requires_explicit_reason_and_keeps_coverage(self):
+        capability = self.inventory["capabilities"][0]
+        capability["required_for_completion"] = False
+        self.assertIn("Invalid completion scope", ";".join(self.check()))
+        capability["scope_reason"] = "User deferred this capability"
+        self.assertEqual(self.check(), [])
+        self.assertEqual(capability["coverage"], "partial")
+        capability["required_for_completion"] = "false"
+        self.assertIn("Invalid completion scope", ";".join(self.check()))
+
     def test_new_and_removed_rust_modules_need_review(self):
         new = self.rs.with_name("new.rs")
         new.write_text("fn new_feature() {}")

@@ -50,3 +50,60 @@ def integrate_linearized(layout):
             )
 
     return integrate
+
+
+def to_world(layout):
+    """LocalMassProperties::to_world, including full Mat4 and explicit padding."""
+    from kernel_support import quat_mul, quat_rotate, quat_to_mat3
+
+    @T.macro
+    def one(LocalMass, Poses, WorldMass, i):
+        lp = i * layout["local_words"]
+        pp = i * layout["pose_words"]
+        wp = i * layout["world_words"]
+        q = T.alloc_local((4,), "float32")
+        frame = T.alloc_local((4,), "float32")
+        world_frame = T.alloc_local((4,), "float32")
+        com = T.alloc_local((3,), "float32")
+        rotated_com = T.alloc_local((3,), "float32")
+        inertia = T.alloc_local((3,), "float32")
+        rotation = T.alloc_local((3, 3), "float32")
+        scaled = T.alloc_local((3, 3), "float32")
+        for d in T.serial(4):
+            q[d] = f32(Poses, pp + layout["pose_rotation"] + d)
+            frame[d] = f32(LocalMass, lp + layout["local_inertia_frame"] + d)
+        for d in T.serial(3):
+            com[d] = f32(LocalMass, lp + layout["local_com"] + d)
+            inertia[d] = f32(LocalMass, lp + layout["local_inv_inertia"] + d)
+        quat_rotate(q, com, rotated_com)
+        quat_mul(q, frame, world_frame)
+        quat_to_mat3(world_frame, rotation)
+        for c in T.serial(3):
+            for r in T.serial(3):
+                scaled[c, r] = rotation[c, r] * inertia[c]
+        for c in T.serial(4):
+            for r in T.serial(4):
+                if c < 3 and r < 3:
+                    value = (
+                        scaled[0, r] * rotation[0, c] + scaled[1, r] * rotation[1, c]
+                    ) + scaled[2, r] * rotation[2, c]
+                    WorldMass[wp + layout["world_inertia"] + c * 4 + r] = T.reinterpret(
+                        value, "uint32"
+                    )
+                else:
+                    WorldMass[wp + layout["world_inertia"] + c * 4 + r] = T.reinterpret(
+                        T.if_then_else(c == 3 and r == 3, T.float32(1), T.float32(0)),
+                        "uint32",
+                    )
+        for d in T.serial(3):
+            WorldMass[wp + layout["world_inv_mass"] + d] = LocalMass[
+                lp + layout["local_inv_mass"] + d
+            ]
+            WorldMass[wp + layout["world_com"] + d] = T.reinterpret(
+                f32(Poses, pp + layout["pose_translation"] + d) + rotated_com[d],
+                "uint32",
+            )
+        WorldMass[wp + layout["world_padding0"]] = T.uint32(0)
+        WorldMass[wp + layout["world_padding1"]] = T.uint32(0)
+
+    return one

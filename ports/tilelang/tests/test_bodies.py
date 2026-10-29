@@ -57,6 +57,40 @@ class BodyTests(unittest.TestCase):
                     self.load(operation, index)
                     self.check()
 
+    def test_world_inertia_invariants_and_exact_fields(self):
+        self.load("update_mprops")
+        self.check()
+        world = (
+            self.actual["WorldMass"]
+            .view(np.float32)
+            .reshape(-1, self.layout["world_words"])
+        )
+        for row in world[: self.case["count"]]:
+            offset = self.layout["world_inertia"]
+            matrix = row[offset : offset + 16].reshape(4, 4).T
+            np.testing.assert_allclose(
+                matrix[:3, :3], matrix[:3, :3].T, atol=2e-6, rtol=2e-5
+            )
+            self.assertGreaterEqual(
+                float(np.linalg.eigvalsh(matrix[:3, :3]).min()), -2e-6
+            )
+            np.testing.assert_array_equal(matrix[3], np.array([0, 0, 0, 1]))
+            np.testing.assert_array_equal(matrix[:, 3], np.array([0, 0, 0, 1]))
+        for offset in (
+            self.layout["world_inv_mass"],
+            self.layout["world_padding0"],
+            self.layout["world_inertia"] + 15,
+        ):
+            self.actual["WorldMass"][offset] ^= np.uint32(1)
+            with self.assertRaises(AssertionError):
+                self.check()
+            self.actual["WorldMass"][offset] ^= np.uint32(1)
+        self.before["LocalMass"].view(np.float32)[
+            self.layout["local_inv_inertia"]
+        ] = -1.0
+        with self.assertRaises(ValueError):
+            self.check()
+
     def test_native_geometry_matches_specialized_active_range(self):
         root = Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
         for operation in OPERATIONS:

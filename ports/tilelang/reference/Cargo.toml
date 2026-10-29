@@ -30,3 +30,7 @@ path = "src/primitives.rs"
 [[bin]]
 name = "bodies"
 path = "src/bodies.rs"
+
+[[bin]]
+name = "poses"
+path = "src/poses.rs"
