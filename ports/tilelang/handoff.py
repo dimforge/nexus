@@ -292,6 +292,8 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from graph_replay import check_outputs as check_graph_outputs
     from bucket_replay import check_outputs as check_bucket_outputs
     from coloring_replay import check_outputs as check_coloring_outputs
+    from colored_replay import check_outputs as check_colored_outputs
+    from coefficient_replay import check_outputs as check_coefficient_outputs
 
     result = {
         "schema": 1,
@@ -353,6 +355,8 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "graph_fields": check_graph_outputs,
                     "bucket_fields": check_bucket_outputs,
                     "coloring_fields": check_coloring_outputs,
+                    "colored_fields": check_colored_outputs,
+                    "coefficient_fields": check_coefficient_outputs,
                 }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)

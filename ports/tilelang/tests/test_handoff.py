@@ -277,3 +277,13 @@ class ColoringHandoffTests(HandoffTests):
 class BoundedColoringHandoffTests(ScanHandoffTests):
     operation = "topo_bounded"
     mutable_buffer = "Colors"
+
+
+class ColoredSolverHandoffTests(ScanHandoffTests):
+    operation = "colored_program"
+    mutable_buffer = "Tiles"
+
+
+class CoefficientHandoffTests(HandoffTests):
+    operation = "contact_coefficients"
+    mutable_buffer = "Coefficients"

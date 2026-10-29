@@ -492,10 +492,18 @@
     {
       "reference": "src_rbd_shaders/dynamics/sim_params.rs",
       "implementation": "ports/tilelang/shaders/dynamics/sim_params.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.coulomb.colored_solve3d",
+        "rbd.contact.coulomb.colored_warmstart3d",
+        "rbd.contact.coulomb.colored_cached3d",
+        "rbd.contact.coulomb.colored_program3d",
+        "rbd.contact.coefficients3d"
+      ],
+      "symbols": [
+        "contact_coefficients"
+      ],
+      "remaining": "Six native contact coefficients are ported and tested directly; other parameter helpers and joint softness remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/solver.rs",
@@ -556,7 +564,11 @@
         "rbd.contact.coulomb.prepare3d",
         "rbd.contact.coulomb.scale_impulses3d",
         "rbd.contact.coulomb.gather_warmstart3d",
-        "rbd.contact.coulomb.hub_warmstart3d"
+        "rbd.contact.coulomb.hub_warmstart3d",
+        "rbd.contact.coulomb.colored_solve3d",
+        "rbd.contact.coulomb.colored_warmstart3d",
+        "rbd.contact.coulomb.colored_cached3d",
+        "rbd.contact.coulomb.colored_program3d"
       ],
       "symbols": [
         "gpu_solve_constraints",
@@ -565,9 +577,10 @@
         "transfer_contact_impulses",
         "gpu_scale_constraint_impulses",
         "gpu_gather_warmstart_velocities",
-        "gpu_hub_warmstart_constraints"
+        "gpu_hub_warmstart_constraints",
+        "gpu_solve_constraints_unbiased_cached"
       ],
-      "remaining": "Preparation, isolated direct solve/warmstart and cache scaling/gather/split-slot warmstart are ported; actual color dispatch, fused/tail solver variants and scene scheduling remain."
+      "remaining": "Native bucket-range solve, scatter warmstart, unbiased cached solve and ordered color passes are ported. Fused/tail optimizations, other models and production frame integration remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_friction.rs",
@@ -1056,9 +1069,14 @@
         "rbd.contact.coulomb.prepare3d",
         "rbd.contact.coulomb.scale_impulses3d",
         "rbd.contact.coulomb.gather_warmstart3d",
-        "rbd.contact.coulomb.hub_warmstart3d"
+        "rbd.contact.coulomb.hub_warmstart3d",
+        "rbd.contact.coulomb.colored_solve3d",
+        "rbd.contact.coulomb.colored_warmstart3d",
+        "rbd.contact.coulomb.colored_cached3d",
+        "rbd.contact.coulomb.colored_program3d",
+        "rbd.contact.coefficients3d"
       ],
-      "remaining": "Coulomb preparation, isolated solve, impulse scaling, cached gather and split-slot warmstart are ported; production color schedules and scene integration remain."
+      "remaining": "Coulomb preparation, cached warmstart, native color ranges and composed contact color passes are ported. Full frame/topology integration, shared static slot policy, fused/tail variants and scene validation remain."
     },
     {
       "id": "rbd.broadphase.brute_force",

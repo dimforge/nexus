@@ -19,8 +19,9 @@ Remaining implementation sequence:
    production frame stepping.
 2. Ordered native dispatch, hierarchical prefix scan and composed contact
    adjacency, bounded Topo coloring, and color-bucket construction are implemented.
-   Connect actual color ranges to contact solver dispatches and the production frame
-   sequence. Unbounded Luby scheduling remains. Palette/iteration exhaustion routes
+   Native Coulomb color ranges, cached unbiased solve and ordered contact iterations
+   are implemented with device-loaded coefficients. Connect these to the production
+   frame sequence. Unbounded Luby scheduling remains. Palette/iteration exhaustion routes
    unresolved contacts to the Rust unsolved bucket (retained for warmstart, not solved);
    preserve and explicitly assess that limitation in scene tests. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
    in isolation. Implement actual color schedules and the contact solver variants,

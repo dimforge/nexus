@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.coefficients3d",
+  "scope": "Compute six contact coefficients from native Rust simulation parameters",
+  "inputs": [
+    "RbdParams",
+    "Coefficients"
+  ],
+  "outputs": [
+    "Coefficients"
+  ],
+  "comparison": "coefficient_fields",
+  "atol": 1e-07,
+  "rtol": 2e-06,
+  "tolerance_reason": "Small scoped f32 expression tolerances. Nexus MAX_FLT sentinel output, zero-timestep coefficients, input bytes and guard words are exact.",
+  "preconditions": [
+    "Finite native parameter fields; nonnegative timestep/frequencies; positive damping and length unit; finite derived coefficients"
+  ],
+  "invariants": [
+    "Nexus MAX_FLT and TWO_PI are exported from Rust as bits, never confused with IEEE maximum or rounded decimal literals",
+    "Exactly the Nexus MAX_FLT sentinel suppresses length-unit scaling; adjacent-bit finite values are scaled normally",
+    "Zero timestep produces zero inverse timestep and zero CFM factors; zero frequency produces zero spring coefficients",
+    "Readonly parameters and output guards are bitwise preserved"
+  ],
+  "outside_scope": [
+    "Other simulation parameter helpers and joint coefficients",
+    "Ascend vendor compilation and execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "p0",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9"
+  ]
+}

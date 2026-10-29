@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.coulomb.colored_program3d",
+  "scope": "Ordered warmstart and contact iterations over multiple shared-body colors",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Tiles",
+    "Velocities",
+    "Poses",
+    "RbdParams",
+    "Buckets",
+    "BatchIds",
+    "Color",
+    "Color1",
+    "Color2",
+    "Color3",
+    "Mode"
+  ],
+  "outputs": [
+    "Tiles",
+    "Velocities"
+  ],
+  "comparison": "colored_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Existing Coulomb f32 tolerances, unchanged. Only impulse, velocity and cached-delta floats use tolerance; native tags, padding, untouched color ranges, uniforms and guard words remain exact.",
+  "preconditions": [
+    "Native Rust tile, pose, velocity, parameter and batch layouts; monotone cumulative bucket ends within capacity",
+    "All velocity slots in each color are disjoint; successive colors may share slots and execute in order",
+    "Valid finite active physics inputs and unit rotations; positive damping, nonnegative timestep/frequency, finite derived coefficients",
+    "Current color is a solved bucket; unsolved final-bucket contacts remain outside the dispatch"
+  ],
+  "invariants": [
+    "Runtime Mode uses Rust decode_bias_mode, including unknown nonzero values; fixed unbiased cached solve ignores Mode",
+    "Native RbdSimParams coefficients are computed by generated device code using Rust-exported constant bits",
+    "The selected bucket range crosses arbitrary tile/workgroup boundaries and preserves all other tile lanes",
+    "Each program stage keeps original buffers; no CPU graph or physics fallback occurs between dependent colors",
+    "Cached deltas are tagged with body IDs and zero padding, including empty manifolds"
+  ],
+  "outside_scope": [
+    "Production frame and topology integration",
+    "Fused/tail single-workgroup optimizations",
+    "Shared static velocity writes within one color",
+    "Twist friction, rigid-body joints and collision generation",
+    "Dense-graph unsolved contacts remain unsolved as in Rust",
+    "Ascend vendor compilation and execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "w0-b1-m0-s17",
+    "w1-b1-m1-s18",
+    "w31-b1-m2-s19",
+    "w32-b2-m0-s20",
+    "w33-b3-m1-s21",
+    "w65-b2-m2-s22",
+    "w129-b1-m99-s23"
+  ]
+}

@@ -115,10 +115,13 @@ def solve_points(layout, case):
                         + (world_a[1] - world_b[1]) * direction[1]
                         + (world_a[2] - world_b[2]) * direction[2]
                     )
+                    # Materialize a potentially bounds-guarded load before the
+                    # mutable scalar: Metal codegen must emit its branch first.
+                    normal_velocity = T.alloc_local((1,), "float32")
+                    normal_velocity[0] = f32(Tiles, pb + p["local_b"] + 3)
                     rhs = T.alloc_var(
                         "float32",
-                        init=f32(Tiles, pb + p["local_b"] + 3)
-                        + T.max(distance, 0.0) * Params[0],
+                        init=normal_velocity[0] + T.max(distance, 0.0) * Params[0],
                     )
                     cfm_row = T.alloc_var("float32", init=1.0)
                     if use_bias:

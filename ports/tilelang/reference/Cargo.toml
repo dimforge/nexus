@@ -72,3 +72,11 @@ path = "src/buckets.rs"
 [[bin]]
 name = "colorings"
 path = "src/colorings.rs"
+
+[[bin]]
+name = "colored"
+path = "src/colored.rs"
+
+[[bin]]
+name = "coefficients"
+path = "src/coefficients.rs"

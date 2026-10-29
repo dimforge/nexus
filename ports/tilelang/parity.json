@@ -664,6 +664,76 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/topo_bounded.json",
       "test_command": "python ports/tilelang/coloring_replay.py --operation topo_bounded --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.colored_solve3d",
+      "operation": "colored_solve",
+      "runner": "colored_replay.py",
+      "coverage": "Solve one native bucket-indexed color with runtime bias mode",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_solve_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/colored_solve.json",
+      "test_command": "python ports/tilelang/colored_replay.py --operation colored_solve --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.colored_warmstart3d",
+      "operation": "colored_warmstart",
+      "runner": "colored_replay.py",
+      "coverage": "Warmstart one native bucket-indexed color",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_warmstart_constraints"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_warmstart_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/colored_warmstart.json",
+      "test_command": "python ports/tilelang/colored_replay.py --operation colored_warmstart --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.colored_cached3d",
+      "operation": "colored_cached",
+      "runner": "colored_replay.py",
+      "coverage": "Solve one native color without bias and refresh warmstart cache",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints_unbiased_cached"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_solve_constraints_unbiased_cached",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/colored_cached.json",
+      "test_command": "python ports/tilelang/colored_replay.py --operation colored_cached --target c"
+    },
+    {
+      "id": "rbd.contact.coulomb.colored_program3d",
+      "operation": "colored_program",
+      "runner": "colored_replay.py",
+      "coverage": "Ordered warmstart and contact iterations over multiple shared-body colors",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_warmstart_constraints",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints_unbiased_cached"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_solve_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/colored_program.json",
+      "test_command": "python ports/tilelang/colored_replay.py --operation colored_program --target c"
+    },
+    {
+      "id": "rbd.contact.coefficients3d",
+      "operation": "contact_coefficients",
+      "runner": "coefficient_replay.py",
+      "coverage": "Native TGS contact coefficients and exact uncapped sentinel",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/sim_params.rs::inv_dt",
+        "src_rbd_shaders/dynamics/sim_params.rs::spring_erp_inv_dt",
+        "src_rbd_shaders/dynamics/sim_params.rs::spring_cfm_factor",
+        "src_rbd_shaders/dynamics/sim_params.rs::max_corrective_velocity"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/sim_params.py::contact_coefficients",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/contact_coefficients.json",
+      "test_command": "python ports/tilelang/coefficient_replay.py --target c"
     }
   ],
   "targets": [

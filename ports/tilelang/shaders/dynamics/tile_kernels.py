@@ -5,6 +5,8 @@ ordered body gathering and split-slot warmstart use runtime native graph buffers
 production color schedules and complete frame stepping remain separate work.
 """
 
+import tilelang.language as T
+
 from kernel_support import launch
 from .solver_utils import solve_points, warmstart_constraint
 from .coulomb_tiles import validate_layout
@@ -12,11 +14,19 @@ from .coulomb_tiles import validate_layout
 
 def gpu_solve_constraints(layout, case, target):
     validate_layout(layout)
+    if case.get("native_color_range"):
+        from colored_kernels import make_kernel
+
+        return make_kernel(layout, case, target, "colored_solve")
     return launch(solve_points(layout, case), layout, case, target, case["count"])
 
 
 def gpu_warmstart_constraints(layout, case, target):
     validate_layout(layout)
+    if case.get("native_color_range"):
+        from colored_kernels import make_kernel
+
+        return make_kernel(layout, case, target, "colored_warmstart")
     return launch(
         warmstart_constraint(layout, case), layout, case, target, case["count"]
     )
@@ -294,5 +304,65 @@ def gpu_hub_warmstart_constraints(layout):
                 Velocities[
                     vel_slot * layout["velocity_words"] + layout["velocity_angular"] + d
                 ] = T.reinterpret(angular, "uint32")
+
+    return one
+
+
+def gpu_solve_constraints_unbiased_cached(layout, case, target):
+    validate_layout(layout)
+    from colored_kernels import make_kernel
+
+    return make_kernel(layout, case, target, "colored_cached")
+
+
+def _colored_constraint_body(layout, case, operation):
+    """Native color_constraints range, runtime bias mode, and cached writeback."""
+    from .coulomb_tiles import constraint_warmstart
+    from .sim_params import contact_coefficients
+
+    if case["count"] == 0:
+
+        @T.macro
+        def empty(
+            Tiles, Velocities, Poses, RbdParams, Buckets, BatchIds, Color, Mode, gid
+        ):
+            pass
+
+        return empty
+    variants = [
+        solve_points(layout, dict(case, use_bias=bias, solve_friction=friction))
+        for bias, friction in [(False, True), (True, False), (True, True)]
+    ]
+    unbiased, biased, both = variants
+    warmstart = warmstart_constraint(layout, case)
+    cache = constraint_warmstart(layout)
+    coefficients = contact_coefficients(layout)
+    batch = layout["batch"]
+    groups = case["groups"]
+
+    @T.macro
+    def one(Tiles, Velocities, Poses, RbdParams, Buckets, BatchIds, Color, Mode, gid):
+        Params = T.alloc_local((6,), "float32")
+        coefficients(RbdParams, Params)
+        nb = T.Cast("int32", BatchIds[batch["num_batches"]])
+        color = T.Cast("int32", Color[0])
+        start = T.Cast("int32", Buckets[color * nb - 1])
+        end = T.Cast("int32", Buckets[(color + 1) * nb - 1])
+        index = T.alloc_local((1,), "int32")
+        for chunk in T.serial(T.ceildiv(end - start, groups * 64)):
+            index[0] = start + gid + chunk * groups * 64
+            if index[0] < end:
+                if operation == "colored_warmstart":
+                    warmstart(Tiles, Velocities, Poses, Params, index[0])
+                elif operation == "colored_cached":
+                    unbiased(Tiles, Velocities, Poses, Params, index[0])
+                    cache(Tiles, index[0])
+                else:
+                    if Mode[0] == T.uint32(0):
+                        unbiased(Tiles, Velocities, Poses, Params, index[0])
+                    elif Mode[0] == T.uint32(1):
+                        biased(Tiles, Velocities, Poses, Params, index[0])
+                    else:
+                        both(Tiles, Velocities, Poses, Params, index[0])
 
     return one
