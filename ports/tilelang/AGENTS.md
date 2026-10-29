@@ -66,3 +66,11 @@ Do not remove the build guard or LLVM attribute probe to accommodate a compiler
 upgrade. The probe and effective configuration are required evidence, including
 for source-only lowering because its expected outputs still come from Rust CPU.
 The native Metal adapter uses a separate toolchain and does not need this flag.
+
+Hub assignment has nondeterministic atomic allocation order. Its contract checks
+legal reservations, exact requested totals, capacity, membership and ownership;
+do not require identical slot/list order across devices or weaken integer checks
+elsewhere. Hub averaging preserves the Rust per-lane accumulation and six-step
+64-lane tree. Keep the cancellation fixture and both workgroup barriers between
+rounds. Serial CPU phase execution is not proof of GPU synchronization; run Metal
+and retain Ascend hardware synchronization as unvalidated until tested.

@@ -176,10 +176,22 @@
     {
       "reference": "src_rbd_shaders/dynamics/mass_splitting.rs",
       "implementation": "ports/tilelang/shaders/dynamics/mass_splitting.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.scheduling.hub_assign3d",
+        "rbd.scheduling.hub_split3d",
+        "rbd.scheduling.hub_dispatch3d",
+        "rbd.scheduling.hub_scatter3d",
+        "rbd.scheduling.hub_average3d"
+      ],
+      "symbols": [
+        "gpu_hub_assign",
+        "gpu_hub_split_constraints",
+        "gpu_hub_dispatch",
+        "gpu_hub_scatter",
+        "gpu_hub_average"
+      ],
+      "remaining": "Production orchestration, full contact/color integration and scene stability remain unvalidated."
     },
     {
       "reference": "src_rbd_shaders/dynamics/mod.rs",
@@ -1054,9 +1066,14 @@
       "coverage": "partial",
       "operations": [
         "rbd.contact.coulomb.hub_warmstart3d",
-        "rbd.contact.coulomb.gather_warmstart3d"
+        "rbd.contact.coulomb.gather_warmstart3d",
+        "rbd.scheduling.hub_assign3d",
+        "rbd.scheduling.hub_split3d",
+        "rbd.scheduling.hub_dispatch3d",
+        "rbd.scheduling.hub_scatter3d",
+        "rbd.scheduling.hub_average3d"
       ],
-      "remaining": "Warmstart consumes existing split-slot maps and skips original hubs; hub assignment, splitting, scatter/average and synchronized solver scheduling remain unported."
+      "remaining": "Hub entry points and warmstart are ported; production synchronized solver scheduling and scene stability remain."
     },
     {
       "id": "rbd.constraints.joints",

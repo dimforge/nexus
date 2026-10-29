@@ -219,3 +219,8 @@ class WarmstartHandoffTests(HandoffTests):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HubHandoffTests(HandoffTests):
+    operation = "hub_average"
+    fixture_index = 8

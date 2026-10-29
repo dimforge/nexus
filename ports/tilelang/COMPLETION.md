@@ -17,8 +17,9 @@ Remaining implementation sequence:
    are ported in isolation, along with cached warmstart scaling, body gathering
    and split-slot application. Connect these to changing scene topology and
    production frame stepping.
-2. Implement actual color schedules, shared static bodies, hubs and the contact
-   solver variants. Wire native generated kernels into Rust simulation stepping;
+2. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
+   in isolation. Implement actual color schedules and the contact solver variants,
+   connecting shared static bodies and hubs to the production iteration order. Wire native generated kernels into Rust simulation stepping;
    the existing reference collision path may be retained only for an explicitly
    labeled intermediate hybrid milestone.
 3. Port collision detection and shapes, contact creation/removal, broad-phase

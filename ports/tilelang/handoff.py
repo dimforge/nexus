@@ -264,6 +264,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from contact_replay import check_outputs as check_contact_outputs
     from link_replay import check_outputs as check_link_outputs
     from warmstart_replay import check_outputs as check_warmstart_outputs
+    from hub_replay import check_outputs as check_hub_outputs
 
     result = {
         "schema": 1,
@@ -320,6 +321,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "contact_fields": check_contact_outputs,
                     "link_fields": check_link_outputs,
                     "warmstart_fields": check_warmstart_outputs,
+                    "hub_fields": check_hub_outputs,
                 }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)

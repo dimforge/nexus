@@ -52,3 +52,7 @@ path = "src/warmstarts.rs"
 [[bin]]
 name = "cpu-dispatch-check"
 path = "src/cpu_dispatch_check.rs"
+
+[[bin]]
+name = "hubs"
+path = "src/hubs.rs"

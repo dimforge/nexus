@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "feature": "rbd.scheduling.hub_scatter3d",
+  "scope": "Copy hub velocities including padding to split slots",
+  "inputs": [
+    "Counts",
+    "Ids",
+    "WorldMass",
+    "BodyGroup",
+    "FirstSlots",
+    "HubList",
+    "HubCounts",
+    "Links",
+    "SlotBody",
+    "SlotConstraint",
+    "Velocities",
+    "SlotsIndirect",
+    "AverageIndirect",
+    "BatchIds"
+  ],
+  "outputs": [
+    "Velocities"
+  ],
+  "comparison": "hub_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Only averaged velocity components use f32 tolerance. All copied values, IDs, counters and padding are exact; allocation order is validated as a legal atomic reservation ordering.",
+  "preconditions": [
+    "Bounded complete adjacency, unique entries per body, separate ordinary/split velocity ranges",
+    "Assignment starts with reset counters and first slots; other stages receive consistent accepted hub ranges",
+    "Finite inputs and sufficient buffers; one writer per split side/velocity slot; group-uniform barriers"
+  ],
+  "invariants": [
+    "Assignment preserves the total requested slots and admits only a capacity-fitting prefix of some legal atomic reservation order",
+    "Rust reduction order and per-workgroup rounds preserved; unused storage and padding unchanged"
+  ],
+  "outside_scope": [
+    "Full contact color/solve schedule",
+    "Scene-level behavior",
+    "Articulated multibodies",
+    "2D",
+    "MPM",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-mixed",
+    "n1-mixed",
+    "n31-mixed",
+    "n32-mixed",
+    "n33-mixed",
+    "n63-mixed",
+    "n64-mixed",
+    "n65-mixed",
+    "n129-mixed",
+    "n65-short",
+    "n33-zero",
+    "n257-many"
+  ]
+}

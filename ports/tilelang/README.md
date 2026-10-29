@@ -1,11 +1,12 @@
 # TileLang rigid-body parity pilot
 
-This experimental port has twenty-one operation contracts: effective mass calculation,
+This experimental port has twenty-six operation contracts: effective mass calculation,
 warmstarting, Coulomb solving, clamped integration, deterministic constraint-ID
 sorting, five body lifecycle entry points, world mass-property updates, collider
 pose propagation, contact preparation, contact-link initialization/matching/color seeding, and
 composed no-contact body and contact-persistence steps, impulse scaling, cached
-body warmstart gathering and split-slot warmstart application.
+body warmstart gathering, split-slot warmstart application, and all five hub
+mass-splitting entry points.
 The body stages cover cleanup, COM pose initialization, gravity increments,
 increment application and final writeback. They use Rust buffer layouts and live
 Rust reference functions. The composed step reuses those ports for repeated frames
@@ -41,6 +42,7 @@ and their module boundaries wherever practical:
 | `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation, tagged cache and tiled warmstart deltas |
 | `tile_kernels.rs` | `tile_kernels.py` | prepared-color adapters, preparation/impulse transfer, scaling and body/hub warmstart |
 | `contact_links.rs` | `contact_links.py` | complete 3D link initialization, matching, recycling decisions and color seeding |
+| `mass_splitting.rs` | `mass_splitting.py` | hub assignment, splitting, dispatch sizes, scatter and 64-lane averaging |
 | `canonical_order.rs` | `canonical_order.py` | `gpu_stabilize_body_constraint_ids` |
 
 A counterpart file does not imply the whole Rust module is ported. Launch-target
@@ -119,10 +121,21 @@ cached deltas in list order; split slots recompute their constraint deltas. Test
 deliberately distinguish those values, exercise shared bodies, static bodies,
 empty points, fractional/zero/unit scaling, multiple batches, bounded hub capacity,
 exact cache tags and untouched padding. A cancellation-sensitive cache detects
-reassociation or reordering. Hub assignment, splitting, averaging and complete
-solver schedules remain separate work.
+reassociation or reordering.
 
-There are 178 required cases across twenty-one contracts. The eight body/collider
+The five hub contracts add 61 cases. They cover actual atomic slot reservations,
+shared constraints between hubs, overflow/zero pool capacity, runtime batches,
+capacity beyond active bodies, static and partially locked masses, exact copied
+velocity padding, counter clipping and 257 hubs sharing 256 workgroups. Averaging
+preserves each lane's accumulation and the six-step Rust reduction tree. A
+cancellation-sensitive fixture rejects a sequential or reassociated sum. CPU
+lowering serializes those phases; Metal uses shared memory and barriers. The
+Rust average oracle uses khal's cooperative CPU runtime with noalias disabled.
+Allocation outputs accept legal atomic orderings while requiring exact totals,
+valid membership, contiguous capacity-bounded reservations and untouched storage.
+Full solver/color scheduling and scene integration remain separate work.
+
+There are 239 required cases across twenty-six contracts. The eight body/collider
 contracts added after the original pilot have 56 cases, including empty/zero-batch launches, 63/64/65 boundaries,
 multiple batches, capacity beyond active bodies, static and partially locked
 masses, nonzero local COMs, zero gravity, and up to 32 frames of four substeps.

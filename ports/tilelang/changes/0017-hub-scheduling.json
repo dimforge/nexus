@@ -1,0 +1,51 @@
+{
+  "id": "0017-hub-scheduling",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d",
+    "rbd.scheduling.stabilize_body_constraint_ids",
+    "rbd.body.cleanup3d",
+    "rbd.body.init_bodies3d",
+    "rbd.body.init_increments3d",
+    "rbd.body.apply_increments3d",
+    "rbd.body.finalize3d",
+    "rbd.body.free_step3d",
+    "rbd.body.update_mprops3d",
+    "rbd.body.sync_collider_poses3d",
+    "rbd.contact.coulomb.prepare3d",
+    "rbd.contact.init_links3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.seed_colors3d",
+    "rbd.contact.persistence3d",
+    "rbd.contact.coulomb.scale_impulses3d",
+    "rbd.contact.coulomb.gather_warmstart3d",
+    "rbd.contact.coulomb.hub_warmstart3d",
+    "rbd.scheduling.hub_assign3d",
+    "rbd.scheduling.hub_split3d",
+    "rbd.scheduling.hub_dispatch3d",
+    "rbd.scheduling.hub_scatter3d",
+    "rbd.scheduling.hub_average3d"
+  ],
+  "kinds": [
+    "port",
+    "test",
+    "tooling"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Port all five mass-splitting entry points with native buffer layouts, atomic reservation semantics and the original 64-lane average reduction.",
+  "regressions": [
+    "61 cases across assignment, splitting, dispatch sizing, scatter and average with 0/1/31/32/33/63/64/65/129 body-count boundaries and 257 hubs",
+    "Overflow and zero-capacity pools, clipped counters, static and partially locked bodies, excluded groups, two batches, capacity beyond active body count, shared hub contacts and both contact sides",
+    "Exact padding/copied-field protection, duplicate/invalid adjacency and owner rejection, overlapping ranges and missing allocations rejected",
+    "Cancellation-sensitive reduction distinguishes the Rust tree order from sequential accumulation; native Metal tests workgroup barriers and reuse",
+    "Bounded signed indices avoid an unsigned interval-analysis failure without changing u32 storage/atomic counters; empty non-dispatch stages specialize no-op"
+  ],
+  "differences": [
+    "No Rust physics or tolerance changes. Nondeterministic hub list and slot allocation order is compared as a legal atomic ordering, with exact totals, capacity, membership and contiguous reservation ownership.",
+    "CPU lowering serializes the same per-lane accumulation and tree phases; GPU lowering uses actual workgroup shared memory and barriers. Rust expected averages execute the original shader through khal cooperative CPU dispatch with noalias disabled.",
+    "Rust scatters min(requested slots,pool) slots, including a possible unused tail after pool overflow; fixtures preserve its initialized tail mapping instead of silently changing that behavior.",
+    "These are isolated stages. Full solver/color scheduling, native frame integration, scene stability, remaining shapes and rigid-body joints are still required. Ascend source lowering does not certify vendor compilation or execution."
+  ]
+}

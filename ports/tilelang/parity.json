@@ -328,6 +328,71 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/hub_warmstart.json",
       "test_command": "python ports/tilelang/warmstart_replay.py --operation hub_warmstart --target c"
+    },
+    {
+      "id": "rbd.scheduling.hub_assign3d",
+      "operation": "hub_assign",
+      "runner": "hub_replay.py",
+      "coverage": "Allocate split bodies and private velocity ranges with capacity-bounded atomic reservations; isolated stage, not a full solver schedule",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_assign"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/mass_splitting.py::gpu_hub_assign",
+      "dependency_policy": "Conservative: all watched Rust and port files invalidate evidence.",
+      "contract": "ports/tilelang/contracts/hub_assign.json",
+      "test_command": "python ports/tilelang/hub_replay.py --operation hub_assign --target c"
+    },
+    {
+      "id": "rbd.scheduling.hub_split3d",
+      "operation": "hub_split",
+      "runner": "hub_replay.py",
+      "coverage": "Redirect hub constraints and scale inverse mass by each body degree; isolated stage, not a full solver schedule",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_split_constraints"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/mass_splitting.py::gpu_hub_split_constraints",
+      "dependency_policy": "Conservative: all watched Rust and port files invalidate evidence.",
+      "contract": "ports/tilelang/contracts/hub_split.json",
+      "test_command": "python ports/tilelang/hub_replay.py --operation hub_split --target c"
+    },
+    {
+      "id": "rbd.scheduling.hub_dispatch3d",
+      "operation": "hub_dispatch",
+      "runner": "hub_replay.py",
+      "coverage": "Compute bounded slot and average dispatch sizes; isolated stage, not a full solver schedule",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_dispatch"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/mass_splitting.py::gpu_hub_dispatch",
+      "dependency_policy": "Conservative: all watched Rust and port files invalidate evidence.",
+      "contract": "ports/tilelang/contracts/hub_dispatch.json",
+      "test_command": "python ports/tilelang/hub_replay.py --operation hub_dispatch --target c"
+    },
+    {
+      "id": "rbd.scheduling.hub_scatter3d",
+      "operation": "hub_scatter",
+      "runner": "hub_replay.py",
+      "coverage": "Copy hub velocities including padding to split slots; isolated stage, not a full solver schedule",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_scatter"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/mass_splitting.py::gpu_hub_scatter",
+      "dependency_policy": "Conservative: all watched Rust and port files invalidate evidence.",
+      "contract": "ports/tilelang/contracts/hub_scatter.json",
+      "test_command": "python ports/tilelang/hub_replay.py --operation hub_scatter --target c"
+    },
+    {
+      "id": "rbd.scheduling.hub_average3d",
+      "operation": "hub_average",
+      "runner": "hub_replay.py",
+      "coverage": "Average split velocities with the Rust 64-lane tree reduction and workgroup rounds; isolated stage, not a full solver schedule",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_average"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/mass_splitting.py::gpu_hub_average",
+      "dependency_policy": "Conservative: all watched Rust and port files invalidate evidence.",
+      "contract": "ports/tilelang/contracts/hub_average.json",
+      "test_command": "python ports/tilelang/hub_replay.py --operation hub_average --target c"
     }
   ],
   "targets": [
