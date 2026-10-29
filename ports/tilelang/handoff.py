@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+"""Build and verify a versioned, hardware-free Ascend kernel handoff.
+
+The bundle is an engineering input, not an Ascend runtime or qualification result.
+It contains source, bindings, fixtures, contracts and exact provenance. Executed
+outputs from an eventual device session can be checked offline with verify-results.
+"""
+
+import argparse
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+from parity import (
+    ROOT,
+    PORT,
+    digest,
+    evidence_inputs,
+    evidence_state,
+    feature_contract,
+    manifest,
+    read_json,
+    status,
+    write_json,
+)
+
+
+def safe_file(root, relative):
+    path = root / relative
+    if (
+        Path(relative).is_absolute()
+        or ".." in Path(relative).parts
+        or path.is_symlink()
+        or not path.resolve().is_relative_to(root.resolve())
+    ):
+        raise ValueError(f"Unsafe artifact path: {relative}")
+    if not path.is_file():
+        raise ValueError(f"Missing artifact: {relative}")
+    return path
+
+
+def verify_bundle(root):
+    bundle = read_json(root / "manifest.json")
+    if bundle.get("schema") != 1:
+        raise ValueError("Unsupported handoff schema")
+    if (root / "manifest.sha256").read_text().strip() != digest(root / "manifest.json"):
+        raise ValueError("Modified handoff manifest")
+    for relative, expected in bundle["files"].items():
+        if digest(safe_file(root, relative)) != expected:
+            raise ValueError(f"Modified handoff artifact: {relative}")
+    for case in bundle["cases"]:
+        safe_file(root, case["directory"] + "/Tiles.bin")
+        contract = read_json(safe_file(root, case["contract"]))
+        required = {case["layout"], case["contract"]} | {
+            case["directory"] + "/" + name
+            for name in (
+                [f"{n}.bin" for n in ("Tiles", "Velocities", "Poses", "Params")]
+                + [f"{n}.expected.bin" for n in contract["outputs"]]
+                + ["bindings.json", "kernel.ascend"]
+            )
+        }
+        if not required.issubset(bundle["files"]):
+            raise ValueError("Case artifacts missing from handoff hash inventory")
+    keys = [(c["feature"], c["case"]["name"]) for c in bundle["cases"]]
+    if not keys or len(keys) != len(set(keys)):
+        raise ValueError("Empty or duplicate handoff cases")
+    return bundle
+
+
+def build(root, output, results):
+    if output.exists():
+        raise ValueError("Choose a new output directory; handoffs are immutable")
+    if subprocess.check_output(
+        ["git", "-C", str(root), "status", "--porcelain"], text=True
+    ).strip():
+        raise ValueError(
+            "Commit source and accepted evidence before creating a handoff"
+        )
+    config = manifest(root)
+    inputs = evidence_inputs(root)
+    current = status(root)
+    if current["source_reconciliation"] != "current" or current["inventory"]["errors"]:
+        raise ValueError("Source/inventory reconciliation is required")
+    for feature in config["features"]:
+        if current["feature_backends"][feature["id"]]["c"]["state"] != "executed":
+            raise ValueError(f"Current CPU evidence required: {feature['id']}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix="nexus-handoff-", dir=output.parent
+    ) as temp:
+        stage = Path(temp) / "bundle"
+        stage.mkdir()
+        files = {}
+
+        def copy(source, relative):
+            target = stage / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            files[relative] = digest(target)
+
+        source_archive = stage / "nexus-source.tar"
+        with source_archive.open("wb") as stream:
+            subprocess.run(
+                ["git", "-C", str(root), "archive", "--format=tar", "HEAD"],
+                stdout=stream,
+                check=True,
+            )
+        files["nexus-source.tar"] = digest(source_archive)
+        cases = []
+        for feature in config["features"]:
+            op = feature["operation"]
+            run_root = results / ("" if op == "solve" else op) / "ascend"
+            report = read_json(run_root / "report.json")
+            if (
+                report.get("feature") != feature["id"]
+                or report.get("target") != "ascend"
+                or evidence_state(root, report, inputs) != "source_lowered"
+            ):
+                raise ValueError(
+                    f"Current Ascend source report required: {feature['id']}"
+                )
+            copy(run_root / "report.json", f"reports/{op}.json")
+            layout = run_root / "fixtures/layout.json"
+            if digest(layout) != report["layout_sha256"]:
+                raise ValueError(f"Modified layout: {op}")
+            copy(layout, f"layouts/{op}.json")
+            contract_path = feature.get("contract", str(PORT / "contract.json"))
+            copy(root / contract_path, f"contracts/{op}.json")
+            for outcome in report["cases"]:
+                case = outcome["fixture"]
+                case_root = (
+                    run_root / "fixtures" / ("" if op == "solve" else op) / case["name"]
+                )
+                relative = f"cases/{op}/{case['name']}"
+                required = (
+                    {"bindings.json", "kernel.ascend"}
+                    | {
+                        f"{name}.bin"
+                        for name in ("Tiles", "Velocities", "Poses", "Params")
+                    }
+                    | {
+                        f"{name}.expected.bin"
+                        for name in feature_contract(root, feature)["outputs"]
+                    }
+                )
+                if not required.issubset(outcome["files"]):
+                    raise ValueError(f"Incomplete fixture receipt: {op}/{case['name']}")
+                for name, expected in outcome["files"].items():
+                    path = safe_file(case_root, name)
+                    if digest(path) != expected:
+                        raise ValueError(
+                            f"Modified fixture: {op}/{case['name']}/{name}"
+                        )
+                    copy(path, f"{relative}/{name}")
+                cases.append(
+                    {
+                        "feature": feature["id"],
+                        "operation": op,
+                        "case": case,
+                        "directory": relative,
+                        "layout": f"layouts/{op}.json",
+                        "contract": f"contracts/{op}.json",
+                    }
+                )
+        for name in (
+            "compiler.lock.json",
+            "requirements.txt",
+            "inventory.json",
+            "contract.json",
+            "HANDOFF.md",
+            "session.schema.json",
+        ):
+            copy(root / PORT / name, name)
+        bundle = {
+            "schema": 1,
+            "git_commit": subprocess.check_output(
+                ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
+            ).strip(),
+            "inputs": inputs,
+            "target_profile": "provisional Ascend 950 SIMT; confirm actual device and CANN with Huawei",
+            "qualification": "source_lowered_only",
+            "runtime_adapter": "not_implemented; requires selected CANN SDK",
+            "known_gaps": current["known_gaps"],
+            "cases": cases,
+            "files": dict(sorted(files.items())),
+        }
+        write_json(stage / "manifest.json", bundle)
+        (stage / "manifest.sha256").write_text(digest(stage / "manifest.json") + "\n")
+        verify_bundle(stage)
+        if evidence_inputs(root) != inputs:
+            raise ValueError("Sources changed during packaging")
+        stage.rename(output)
+    return output / "manifest.json"
+
+
+def probe(output):
+    import platform
+    import os
+
+    tool = shutil.which("npu-smi")
+    result = {
+        "schema": 1,
+        "level": "environment_probe",
+        "os": platform.platform(),
+        "machine": platform.machine(),
+        "npu_smi": tool,
+        "ascend_home_path": os.environ.get("ASCEND_HOME_PATH"),
+        "status": "unavailable",
+    }
+    if tool:
+        try:
+            command = subprocess.run(
+                [tool, "info"], capture_output=True, text=True, timeout=15
+            )
+            result.update(
+                returncode=command.returncode,
+                stdout=command.stdout,
+                stderr=command.stderr,
+            )
+            result["status"] = (
+                "probe_succeeded" if command.returncode == 0 else "failed"
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            result.update(status="failed", error=str(error))
+    write_json(output, result)
+    return result["status"] != "probe_succeeded"
+
+
+def verify_results(bundle_root, returned, output, root=ROOT):
+    """Check returned files; never launch device code or treat missing cases as skips."""
+    import numpy as np
+    from replay import BUFFERS, check_outputs
+
+    result = {
+        "schema": 1,
+        "status": "failed",
+        "level": "external_output_comparison",
+        "cases": [],
+    }
+    try:
+        bundle = verify_bundle(bundle_root)
+        if bundle["inputs"] != evidence_inputs(root):
+            raise ValueError(
+                "Use the exact source snapshot from this handoff to compare device outputs"
+            )
+        receipt = read_json(returned / "session.json")
+        if receipt.get("schema") != 1 or receipt.get("bundle_sha256") != digest(
+            bundle_root / "manifest.json"
+        ):
+            raise ValueError("Returned session does not identify this bundle")
+        for field in (
+            "device_model",
+            "device_id",
+            "cann_version",
+            "driver_version",
+            "compiler_version",
+        ):
+            if (
+                not isinstance(receipt.get("environment", {}).get(field), str)
+                or not receipt["environment"][field].strip()
+            ):
+                raise ValueError(f"Missing actual device environment field: {field}")
+        result["environment"] = receipt["environment"]
+        result["bundle_sha256"] = receipt["bundle_sha256"]
+        result["qualification"] = (
+            "Numerical output comparison only; execution provenance and runtime adapter require review before parity acceptance"
+        )
+        for item in bundle["cases"]:
+            case = item["case"]
+            outcome = {
+                "feature": item["feature"],
+                "name": case["name"],
+                "status": "failed",
+            }
+            try:
+                directory = bundle_root / item["directory"]
+                actual_dir = returned / item["directory"]
+                contract = read_json(safe_file(bundle_root, item["contract"]))
+                layout = read_json(safe_file(bundle_root, item["layout"]))
+                before = {
+                    n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)
+                    for n in BUFFERS
+                }
+                actual = {
+                    n: np.fromfile(
+                        safe_file(returned, f"{item['directory']}/{n}.actual.bin"),
+                        dtype=np.uint32,
+                    )
+                    for n in BUFFERS
+                }
+                expected = {
+                    n: np.fromfile(
+                        safe_file(directory, f"{n}.expected.bin"), dtype=np.uint32
+                    )
+                    if n in contract["outputs"]
+                    else before[n]
+                    for n in BUFFERS
+                }
+                if any(
+                    (actual_dir / f"{n}.actual.bin").stat().st_size != before[n].nbytes
+                    for n in BUFFERS
+                ):
+                    raise ValueError(
+                        "Returned byte sizes differ from compiled specialization"
+                    )
+                if any(actual[n].shape != before[n].shape for n in BUFFERS):
+                    raise ValueError(
+                        "Returned buffer sizes differ from compiled specialization"
+                    )
+                outcome["max_absolute_errors"] = check_outputs(
+                    layout, case, before, actual, expected, contract
+                )
+                outcome["output_sha256"] = {
+                    n: digest(actual_dir / f"{n}.actual.bin") for n in BUFFERS
+                }
+                outcome["status"] = "passed"
+            except (ValueError, KeyError, OSError, AssertionError) as error:
+                outcome["error"] = str(error)
+            result["cases"].append(outcome)
+        result["status"] = (
+            "passed"
+            if all(c["status"] == "passed" for c in result["cases"])
+            else "failed"
+        )
+    except (ValueError, KeyError, OSError) as error:
+        result["error"] = str(error)
+    write_json(output, result)
+    return result["status"] != "passed"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    p = sub.add_parser("build")
+    p.add_argument("--output", type=Path, required=True)
+    p.add_argument(
+        "--results", type=Path, default=ROOT / PORT / "results-ascend-source"
+    )
+    p = sub.add_parser("verify")
+    p.add_argument("bundle", type=Path)
+    p = sub.add_parser("probe")
+    p.add_argument("--output", type=Path, required=True)
+    p = sub.add_parser("verify-results")
+    p.add_argument("bundle", type=Path)
+    p.add_argument("returned", type=Path)
+    p.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        if args.command == "build":
+            print(build(ROOT, args.output.resolve(), args.results.resolve()))
+        elif args.command == "verify":
+            bundle = verify_bundle(args.bundle.resolve())
+            print(
+                f"Verified {len(bundle['cases'])} fixture/source sets; qualification: {bundle['qualification']}"
+            )
+        elif args.command == "probe":
+            return int(probe(args.output))
+        else:
+            return int(
+                verify_results(
+                    args.bundle.resolve(), args.returned.resolve(), args.output
+                )
+            )
+        return 0
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+        print(f"handoff: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

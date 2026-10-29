@@ -1,0 +1,154 @@
+"""Exercise offline packaging and returned-output checks using real Rust fixtures."""
+
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import handoff
+from replay import BUFFERS, HERE
+
+
+class HandoffTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.bundle = self.root / "bundle"
+        self.bundle.mkdir()
+        self.returned = self.root / "returned"
+        self.returned.mkdir()
+        self.output = self.root / "comparison.json"
+        fixtures = (
+            Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+            / "c/fixtures"
+        )
+        case = json.loads((fixtures / "suite.json").read_text())["cases"][-1]
+        directory = f"cases/solve/{case['name']}"
+        dest = self.bundle / directory
+        dest.mkdir(parents=True)
+        self.actual = self.returned / directory
+        self.actual.mkdir(parents=True)
+        contract = json.loads((HERE / "contract.json").read_text())
+        files = {}
+        for name in BUFFERS:
+            shutil.copyfile(
+                fixtures / case["name"] / f"{name}.bin", dest / f"{name}.bin"
+            )
+            expected = (
+                fixtures / case["name"] / f"{name}.expected.bin"
+                if name in contract["outputs"]
+                else dest / f"{name}.bin"
+            )
+            if name in contract["outputs"]:
+                shutil.copyfile(expected, dest / f"{name}.expected.bin")
+            shutil.copyfile(expected, self.actual / f"{name}.actual.bin")
+        (dest / "bindings.json").write_text("{}")
+        (dest / "kernel.ascend").write_text("// test fixture; not executed")
+        shutil.copyfile(fixtures / "layout.json", self.bundle / "layout.json")
+        shutil.copyfile(HERE / "contract.json", self.bundle / "contract.json")
+        for file in self.bundle.rglob("*"):
+            if file.is_file():
+                files[file.relative_to(self.bundle).as_posix()] = handoff.digest(file)
+        self.manifest = {
+            "schema": 1,
+            "qualification": "test_fixture",
+            "inputs": handoff.evidence_inputs(handoff.ROOT),
+            "files": files,
+            "cases": [
+                {
+                    "feature": contract["feature"],
+                    "case": case,
+                    "directory": directory,
+                    "layout": "layout.json",
+                    "contract": "contract.json",
+                }
+            ],
+        }
+        self.save_manifest()
+        self.session = {
+            "schema": 1,
+            "bundle_sha256": handoff.digest(self.bundle / "manifest.json"),
+            "environment": {
+                field: "TEST ONLY"
+                for field in (
+                    "device_model",
+                    "device_id",
+                    "cann_version",
+                    "driver_version",
+                    "compiler_version",
+                )
+            },
+        }
+        handoff.write_json(self.returned / "session.json", self.session)
+
+    def save_manifest(self):
+        handoff.write_json(self.bundle / "manifest.json", self.manifest)
+        (self.bundle / "manifest.sha256").write_text(
+            handoff.digest(self.bundle / "manifest.json") + "\n"
+        )
+
+    def compare(self):
+        return handoff.verify_results(self.bundle, self.returned, self.output)
+
+    def test_bundle_and_return_round_trip(self):
+        self.assertEqual(handoff.verify_bundle(self.bundle)["schema"], 1)
+        self.assertFalse(self.compare())
+        self.assertEqual(
+            json.loads(self.output.read_text())["level"], "external_output_comparison"
+        )
+
+    def test_modified_manifest_or_artifact_is_rejected(self):
+        (self.bundle / "manifest.json").write_text("{}")
+        self.assertTrue(self.compare())
+        self.save_manifest()
+        (self.bundle / "layout.json").write_text("{}")
+        self.assertTrue(self.compare())
+
+    def test_unhashed_case_file_is_rejected(self):
+        del self.manifest["files"]["layout.json"]
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, "missing from handoff"):
+            handoff.verify_bundle(self.bundle)
+
+    def test_missing_corrupt_and_padded_returned_buffers_fail(self):
+        file = self.actual / "Velocities.actual.bin"
+        original = file.read_bytes()
+        file.unlink()
+        self.assertTrue(self.compare())
+        file.write_bytes(original + b"x")
+        self.assertTrue(self.compare())
+        file.write_bytes(bytes(len(original)))
+        self.assertTrue(self.compare())
+
+    def test_path_escape_and_symlink_are_rejected(self):
+        outside = self.root / "outside.bin"
+        outside.write_bytes(b"test")
+        with self.assertRaisesRegex(ValueError, "Unsafe"):
+            handoff.safe_file(self.bundle, "../outside.bin")
+        (self.bundle / "linked.bin").symlink_to(outside)
+        with self.assertRaisesRegex(ValueError, "Unsafe"):
+            handoff.safe_file(self.bundle, "linked.bin")
+
+    def test_wrong_session_and_missing_environment_are_rejected(self):
+        self.session["bundle_sha256"] = "0" * 64
+        handoff.write_json(self.returned / "session.json", self.session)
+        self.assertTrue(self.compare())
+        self.session["bundle_sha256"] = handoff.digest(self.bundle / "manifest.json")
+        del self.session["environment"]["cann_version"]
+        handoff.write_json(self.returned / "session.json", self.session)
+        self.assertTrue(self.compare())
+
+    def test_no_npu_is_unavailable_not_passed(self):
+        with patch.object(handoff.shutil, "which", return_value=None):
+            self.assertTrue(handoff.probe(self.output))
+        self.assertEqual(json.loads(self.output.read_text())["status"], "unavailable")
+
+
+if __name__ == "__main__":
+    unittest.main()

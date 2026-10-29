@@ -28,7 +28,9 @@
     "ports/tilelang/compiler.lock.json",
     "ports/tilelang/contracts/*.json",
     "ports/tilelang/shaders/**/*.py",
-    "ports/tilelang/inventory.json"
+    "ports/tilelang/inventory.json",
+    "ports/tilelang/HANDOFF.md",
+    "ports/tilelang/session.schema.json"
   ],
   "features": [
     {

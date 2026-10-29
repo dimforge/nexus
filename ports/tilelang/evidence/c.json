@@ -15,6 +15,31 @@
         "threads": 64
       },
       "count": 0,
+      "files": {
+        "Params.actual.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Params.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Poses.actual.bin": "585b95c50ffde35bce0feb4c021c8173bbae70eaa5c3ed64bd760315c6e93bc8",
+        "Poses.bin": "585b95c50ffde35bce0feb4c021c8173bbae70eaa5c3ed64bd760315c6e93bc8",
+        "RbdParams.bin": "1963b30b164804c857406bb5fce44a5bfd6419c82b3100e01864f1b98c222e34",
+        "Tiles.actual.bin": "f57511198cd295e9187ab5e6153bd837c4ee91d0217ea593d6b767ca37fa74c2",
+        "Tiles.bin": "f57511198cd295e9187ab5e6153bd837c4ee91d0217ea593d6b767ca37fa74c2",
+        "Tiles.expected.bin": "f57511198cd295e9187ab5e6153bd837c4ee91d0217ea593d6b767ca37fa74c2",
+        "Velocities.actual.bin": "134d98853b1acf4e51ae3c26b9384e73842aa2220bab3b28abbead37fec24f19",
+        "Velocities.bin": "134d98853b1acf4e51ae3c26b9384e73842aa2220bab3b28abbead37fec24f19",
+        "Velocities.expected.bin": "134d98853b1acf4e51ae3c26b9384e73842aa2220bab3b28abbead37fec24f19",
+        "bindings.json": "27a8649185e90dd7ea9bb4a0aeab6f4e02a7792a8d7507256a2599ba4f6cd99e",
+        "kernel.c": "bd603c2e7e4b085df979e0bbdf6a0e93e543457125667e7e56571521e0f1afda"
+      },
+      "fixture": {
+        "bodies": 5,
+        "count": 0,
+        "iterations": 1,
+        "name": "n0-b1-f1-i1-s20261029",
+        "seed": 20261029,
+        "solve_friction": true,
+        "tiles": 1,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -45,6 +70,31 @@
         "threads": 64
       },
       "count": 1,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "afed0061b73bb0f5cd9217ee0e4cc1aa1821bbe28c7a2bf6fcc5b1d46ec73e66",
+        "Poses.bin": "afed0061b73bb0f5cd9217ee0e4cc1aa1821bbe28c7a2bf6fcc5b1d46ec73e66",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "e35b515bcbdbb639762617b80fa6c811a67257124367d570e73cf5cd024f2b48",
+        "Tiles.bin": "5a13a4847aa80704e4c87495b1e7cc4d198e25814f7d47cebd21a953e003d3fb",
+        "Tiles.expected.bin": "e35b515bcbdbb639762617b80fa6c811a67257124367d570e73cf5cd024f2b48",
+        "Velocities.actual.bin": "8779237c64a6f735e71aa05b13d401be1a824be848712c2db61d940c1cc68ed2",
+        "Velocities.bin": "3df8b2779b55e8bef9994ae037993fdcde67bafe69e41a7b0bac8798af6013c6",
+        "Velocities.expected.bin": "8779237c64a6f735e71aa05b13d401be1a824be848712c2db61d940c1cc68ed2",
+        "bindings.json": "db4933f988b554bdac3096a704e8c69fdccd1368badf9b45c40c2489c7050e3a",
+        "kernel.c": "40454f436349f220f001921c41d74879182bea2e0adcf74e64cc05e1002f0036"
+      },
+      "fixture": {
+        "bodies": 5,
+        "count": 1,
+        "iterations": 1,
+        "name": "n1-b1-f1-i1-s20261030",
+        "seed": 20261030,
+        "solve_friction": true,
+        "tiles": 1,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -75,6 +125,31 @@
         "threads": 64
       },
       "count": 31,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "27926679650642d65e81a406562968ddbbbdf66516fc24dc463507d8d28ecca7",
+        "Poses.bin": "27926679650642d65e81a406562968ddbbbdf66516fc24dc463507d8d28ecca7",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "d3992586128aa53e67bb0cb2b64c61a55e080835c6b2ccb462a2ee6c22721b3d",
+        "Tiles.bin": "21a13c17a2559794d74a549868d18d7361af186e0de7248c4319639fdd9f1cb9",
+        "Tiles.expected.bin": "d3992586128aa53e67bb0cb2b64c61a55e080835c6b2ccb462a2ee6c22721b3d",
+        "Velocities.actual.bin": "b82c480cd41e61bd54daaac7e32eeed51ed670a64b3f5ccb32e7f6745842a3e9",
+        "Velocities.bin": "961e54ab18dfa1699832f1bbe0b1ac2c9b62ac3ca55fb56e549efe06c04c1f17",
+        "Velocities.expected.bin": "b82c480cd41e61bd54daaac7e32eeed51ed670a64b3f5ccb32e7f6745842a3e9",
+        "bindings.json": "db4933f988b554bdac3096a704e8c69fdccd1368badf9b45c40c2489c7050e3a",
+        "kernel.c": "2157f7005428fb2d0d32e8afc8db5fcc178f6c0a38f76866254b6ba51c4a59c8"
+      },
+      "fixture": {
+        "bodies": 65,
+        "count": 31,
+        "iterations": 1,
+        "name": "n31-b1-f1-i1-s20261060",
+        "seed": 20261060,
+        "solve_friction": true,
+        "tiles": 1,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -105,6 +180,31 @@
         "threads": 64
       },
       "count": 32,
+      "files": {
+        "Params.actual.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Params.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Poses.actual.bin": "110688bcc249e8cf1bc29c9affc009f78d31882b6b2c7100c399651b868c328a",
+        "Poses.bin": "110688bcc249e8cf1bc29c9affc009f78d31882b6b2c7100c399651b868c328a",
+        "RbdParams.bin": "1963b30b164804c857406bb5fce44a5bfd6419c82b3100e01864f1b98c222e34",
+        "Tiles.actual.bin": "89ff3dcc791a1d9d4a2b1cef8478dc1d86bc3fc5b0e328f664b1d7424e9daa84",
+        "Tiles.bin": "2907c882c84fc7ed0075c48cb814aed0ffe080fd87eb848a3e066fd78becfd6f",
+        "Tiles.expected.bin": "89ff3dcc791a1d9d4a2b1cef8478dc1d86bc3fc5b0e328f664b1d7424e9daa84",
+        "Velocities.actual.bin": "f03e65cf61f8cd7314e4c6187512c109d73ea9a8781fe1bb366e85d3d6606c1a",
+        "Velocities.bin": "6be2b0e03bcfb70b1a82c013218ab66119c11b60b309f12310dbe3fbd639e0c9",
+        "Velocities.expected.bin": "f03e65cf61f8cd7314e4c6187512c109d73ea9a8781fe1bb366e85d3d6606c1a",
+        "bindings.json": "db4933f988b554bdac3096a704e8c69fdccd1368badf9b45c40c2489c7050e3a",
+        "kernel.c": "6ab93035a0b67f20a6f53dab17bcc12911ead938de983dca07eec82f6bdcd1bf"
+      },
+      "fixture": {
+        "bodies": 67,
+        "count": 32,
+        "iterations": 1,
+        "name": "n32-b1-f1-i1-s20261061",
+        "seed": 20261061,
+        "solve_friction": true,
+        "tiles": 1,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -135,6 +235,31 @@
         "threads": 64
       },
       "count": 33,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "06230af9d458a907b19723d6ba617d9db47c95c67b23a7594e56577b64ef8bdd",
+        "Poses.bin": "06230af9d458a907b19723d6ba617d9db47c95c67b23a7594e56577b64ef8bdd",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "4e56b70d43b905039938967813e73d3d4a814682e0b3be121b9931428ad4e906",
+        "Tiles.bin": "5391e4659b5080f0bb908cdfafb0de5e09b576ad3a208dd283bfba16cab76fd1",
+        "Tiles.expected.bin": "4e56b70d43b905039938967813e73d3d4a814682e0b3be121b9931428ad4e906",
+        "Velocities.actual.bin": "158e3d49a50d0ddd59899ccab24508cc68639278ba51d1eb7fc8d7c51904fce7",
+        "Velocities.bin": "c30718847b1421f64229ca3be9c1e4c50259b4109dab7dc1504e9e5798faf732",
+        "Velocities.expected.bin": "158e3d49a50d0ddd59899ccab24508cc68639278ba51d1eb7fc8d7c51904fce7",
+        "bindings.json": "db4933f988b554bdac3096a704e8c69fdccd1368badf9b45c40c2489c7050e3a",
+        "kernel.c": "0b5c32e698b83767e0c2cd01a0d8cef8d63e4780b33ff441ea32e96ea7557ed7"
+      },
+      "fixture": {
+        "bodies": 69,
+        "count": 33,
+        "iterations": 1,
+        "name": "n33-b1-f1-i1-s20261062",
+        "seed": 20261062,
+        "solve_friction": true,
+        "tiles": 2,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -165,6 +290,31 @@
         "threads": 64
       },
       "count": 63,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "197c61c43ccc5eda5160f3c68eee55db7f8307006d18d5920e8cdba5ef3c8a19",
+        "Poses.bin": "197c61c43ccc5eda5160f3c68eee55db7f8307006d18d5920e8cdba5ef3c8a19",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "f238b1a4d28da4e801d92bd23e08e65ed51395035cf45fb74ac82c9a5457d043",
+        "Tiles.bin": "e6f3e9dfab5899fba7003ceb12059d6c2e2c7cc062212f849a033cb7a3ad4d2c",
+        "Tiles.expected.bin": "1910b581b39e51ee8656ff29f74064b8e593262d19ff712a6936c5ae3fc1e269",
+        "Velocities.actual.bin": "a2ca528dc84e467afe234dbb929ce11a999c24377c6f86d97c5e123d1fcaf913",
+        "Velocities.bin": "93dc861779833a8d053df10c5875550d7d503fdf44a1f6c8c7ff9167b633db04",
+        "Velocities.expected.bin": "03a787e3e6d1bda655b323c5fb51d1c5a24c6f79fd3b64d85b8efb109f719dbe",
+        "bindings.json": "db4933f988b554bdac3096a704e8c69fdccd1368badf9b45c40c2489c7050e3a",
+        "kernel.c": "a12cdcf1fd321e505a61cc8b52ff317f3005adfee13a438eb22d4c5b7a662870"
+      },
+      "fixture": {
+        "bodies": 129,
+        "count": 63,
+        "iterations": 1,
+        "name": "n63-b1-f1-i1-s20261092",
+        "seed": 20261092,
+        "solve_friction": true,
+        "tiles": 2,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -195,6 +345,31 @@
         "threads": 64
       },
       "count": 64,
+      "files": {
+        "Params.actual.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Params.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Poses.actual.bin": "c75716b26afb91e661fdd683584f451375d5dbbb2d3cf8aabf0ea0dc2ed1fafc",
+        "Poses.bin": "c75716b26afb91e661fdd683584f451375d5dbbb2d3cf8aabf0ea0dc2ed1fafc",
+        "RbdParams.bin": "1963b30b164804c857406bb5fce44a5bfd6419c82b3100e01864f1b98c222e34",
+        "Tiles.actual.bin": "ecababf95946d20afec83ae73db697ee5daff18a069f526fb4bc79ce508feefc",
+        "Tiles.bin": "69da940a89d38c5c20dd10534960d4d72882176818c100f7774e153d4b5de3ce",
+        "Tiles.expected.bin": "b1fbbbc3c663f1479d480551f6a37f4f90950ef2b64df407709595b2b28a9df1",
+        "Velocities.actual.bin": "9e5c8742c7791c212a9b6d94d5627917f1614642a673cde2d8dc8f9a700bc5dc",
+        "Velocities.bin": "3f241b2b7e784e2e69a87e9c8a26bde25ff0a8f3ec6cb30f0811a08ca636d2ac",
+        "Velocities.expected.bin": "b37f2b58d63185620f66a0a5252d6ccd064cee6b85587c6c708670f2edebf52b",
+        "bindings.json": "db4933f988b554bdac3096a704e8c69fdccd1368badf9b45c40c2489c7050e3a",
+        "kernel.c": "0ce4055bb081507c350ffd86796dcfdff4660f7b51af5d51121aed1876cd945e"
+      },
+      "fixture": {
+        "bodies": 131,
+        "count": 64,
+        "iterations": 1,
+        "name": "n64-b1-f1-i1-s20261093",
+        "seed": 20261093,
+        "solve_friction": true,
+        "tiles": 2,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -225,6 +400,31 @@
         "threads": 64
       },
       "count": 65,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "4e7dada0d4e885b04222460772f5d3ccc61353bc36762764a411fc54a0ecbdba",
+        "Poses.bin": "4e7dada0d4e885b04222460772f5d3ccc61353bc36762764a411fc54a0ecbdba",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "f814f1286a24605b1a491126ebd4928e737f0d1150b218ef1140afd0eee39f1f",
+        "Tiles.bin": "33035dd05d635a7be284297fb01b2bde4d516e862960aa1727a38c509ad02bb4",
+        "Tiles.expected.bin": "d79cb862023d1987cd747a823cb54c3bf14b3403804bf0db1673747165c0cbfc",
+        "Velocities.actual.bin": "1e8cc93e5ecaf1fe50382e74bd2b68aaaf9ec1e3acccfe309270dda8adf022b3",
+        "Velocities.bin": "a49bf9644ec6542ee0d124995fa2d5d8d6701cd4038c2a13a393f87fe0c68d96",
+        "Velocities.expected.bin": "5380b81b06191af1720e3d91ab7965d42f34c75320147cc0c1e680ec01ad3a27",
+        "bindings.json": "47d784a5b933163d57476f3d5e74fc1a5b800bf3cc06f027602a4ec83b86f7d4",
+        "kernel.c": "8028c190a5f1af5aef99b1ff4c3aa83be6570b46b85f8688f938cfe528341cf3"
+      },
+      "fixture": {
+        "bodies": 133,
+        "count": 65,
+        "iterations": 1,
+        "name": "n65-b1-f1-i1-s20261094",
+        "seed": 20261094,
+        "solve_friction": true,
+        "tiles": 3,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -255,6 +455,31 @@
         "threads": 64
       },
       "count": 127,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "005ff57cf08aba5fc511599ccebe3baeed8502b324fa43c80174cf016c9f8953",
+        "Poses.bin": "005ff57cf08aba5fc511599ccebe3baeed8502b324fa43c80174cf016c9f8953",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "7fa944eb0d9dfd472807f44683b74445412ee754f5363db29b84fc2be8af10c6",
+        "Tiles.bin": "069518f6a03a0a91666f534c495e6df7c59405dee7cd96e0db4458efcb6bf228",
+        "Tiles.expected.bin": "bc1c477dd345862b4d77287d23281c31c9e61f78bd5d37bd6ab7aa11611dd492",
+        "Velocities.actual.bin": "a1e160c0ff09879f2e990fa29bb712d62dd17728035b72c51bf56558d9adeba8",
+        "Velocities.bin": "9515b5e9179a8ea9f45e5b12fae83037246a10f71ef7090f124f5b9eddc23a8f",
+        "Velocities.expected.bin": "d0e2441a59fcf7113d7d682d9294a0f23167d7e901e72946b7d7375bc92027b8",
+        "bindings.json": "47d784a5b933163d57476f3d5e74fc1a5b800bf3cc06f027602a4ec83b86f7d4",
+        "kernel.c": "30ac1685614a20d245f802cac52814d0e31e74ca8ebe1f690e05707e90f4098e"
+      },
+      "fixture": {
+        "bodies": 257,
+        "count": 127,
+        "iterations": 1,
+        "name": "n127-b1-f1-i1-s20261156",
+        "seed": 20261156,
+        "solve_friction": true,
+        "tiles": 4,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -285,6 +510,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Params.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Poses.actual.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "Poses.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "RbdParams.bin": "1963b30b164804c857406bb5fce44a5bfd6419c82b3100e01864f1b98c222e34",
+        "Tiles.actual.bin": "0044b24fd4842610c333b387e694bafb58494a5a81f0c525fbc50fc2f0af6f3b",
+        "Tiles.bin": "e6d026a4199f8c4ac14d7428992b618a099f51c910fda39b591de2e60af9f305",
+        "Tiles.expected.bin": "0044b24fd4842610c333b387e694bafb58494a5a81f0c525fbc50fc2f0af6f3b",
+        "Velocities.actual.bin": "98f593fb07cfae51615e9e5c24c3b626b24012100f3adf232d5ac95da60afb22",
+        "Velocities.bin": "8422cd379d9d313f07dcd5deac1d5545c0ff72305882895e28e5220ac82558ad",
+        "Velocities.expected.bin": "98f593fb07cfae51615e9e5c24c3b626b24012100f3adf232d5ac95da60afb22",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "da7c4f26cd9338185f99698ff910ca9377dd0f698603977423a3bc3477f4a7a8"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b0-f0-i3-s17",
+        "seed": 17,
+        "solve_friction": false,
+        "tiles": 5,
+        "use_bias": false
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -315,6 +565,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "Poses.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "144540c3190c7d46e230e08cbf793a39d714ea415cb8f2a6c2b5f107bd83560d",
+        "Tiles.bin": "3f3833cfcede265c2aed81d740d0f63af745c1371d79746b1e6b58d5ffa8b0c4",
+        "Tiles.expected.bin": "144540c3190c7d46e230e08cbf793a39d714ea415cb8f2a6c2b5f107bd83560d",
+        "Velocities.actual.bin": "e01f25ca2f3b4c4ef0f19482cd63ea65c6915c4aa7ccfd47176726eb91e867ef",
+        "Velocities.bin": "f2bb7742958233ee0c4d359d6b74f0c818ad0e61520aa222ec9674f9d6e69389",
+        "Velocities.expected.bin": "e01f25ca2f3b4c4ef0f19482cd63ea65c6915c4aa7ccfd47176726eb91e867ef",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "da7c4f26cd9338185f99698ff910ca9377dd0f698603977423a3bc3477f4a7a8"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b0-f0-i3-s42",
+        "seed": 42,
+        "solve_friction": false,
+        "tiles": 5,
+        "use_bias": false
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -345,6 +620,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Params.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Poses.actual.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "Poses.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "RbdParams.bin": "1963b30b164804c857406bb5fce44a5bfd6419c82b3100e01864f1b98c222e34",
+        "Tiles.actual.bin": "9f1b5b82c3da51ecdc95efd085ccc04138fe90b4a3bb18e6e9d22e683ee38ec7",
+        "Tiles.bin": "e6d026a4199f8c4ac14d7428992b618a099f51c910fda39b591de2e60af9f305",
+        "Tiles.expected.bin": "9f1b5b82c3da51ecdc95efd085ccc04138fe90b4a3bb18e6e9d22e683ee38ec7",
+        "Velocities.actual.bin": "7f6135024b66b24619fafc8ccf3c3e822daad979b48c5e750d59f210c8da6fa3",
+        "Velocities.bin": "8422cd379d9d313f07dcd5deac1d5545c0ff72305882895e28e5220ac82558ad",
+        "Velocities.expected.bin": "7f6135024b66b24619fafc8ccf3c3e822daad979b48c5e750d59f210c8da6fa3",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "6502a6343e3edd4d9df27801a35f0fce0e0e0ca61168a6a1cc4f9c8cd8eadd03"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b0-f1-i3-s17",
+        "seed": 17,
+        "solve_friction": true,
+        "tiles": 5,
+        "use_bias": false
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -375,6 +675,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "Poses.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "56ce0d53622775ded4a5a34bb14e0d1060583178cf8c73595c01fb00f73653c4",
+        "Tiles.bin": "3f3833cfcede265c2aed81d740d0f63af745c1371d79746b1e6b58d5ffa8b0c4",
+        "Tiles.expected.bin": "56ce0d53622775ded4a5a34bb14e0d1060583178cf8c73595c01fb00f73653c4",
+        "Velocities.actual.bin": "2f9850dbf2eea43c20e91f235a3c3b240adb0fc12f7c73fc07efa45c49c6ead5",
+        "Velocities.bin": "f2bb7742958233ee0c4d359d6b74f0c818ad0e61520aa222ec9674f9d6e69389",
+        "Velocities.expected.bin": "2f9850dbf2eea43c20e91f235a3c3b240adb0fc12f7c73fc07efa45c49c6ead5",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "6502a6343e3edd4d9df27801a35f0fce0e0e0ca61168a6a1cc4f9c8cd8eadd03"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b0-f1-i3-s42",
+        "seed": 42,
+        "solve_friction": true,
+        "tiles": 5,
+        "use_bias": false
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -405,6 +730,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Params.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Poses.actual.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "Poses.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "RbdParams.bin": "1963b30b164804c857406bb5fce44a5bfd6419c82b3100e01864f1b98c222e34",
+        "Tiles.actual.bin": "dfbdbfcfc8e704f9a493a1b0fe16127d97e757230227be53b08ee6bbaf2b0150",
+        "Tiles.bin": "e6d026a4199f8c4ac14d7428992b618a099f51c910fda39b591de2e60af9f305",
+        "Tiles.expected.bin": "cae11f5b393bdb69ca88525ccd9c880b829dc8a0859d1559fb870eb4c8e6b7e2",
+        "Velocities.actual.bin": "e89c47a4e3df41e336777f82cde40a3e9f4ce9e6ec0362207ddf6f79bd048d8b",
+        "Velocities.bin": "8422cd379d9d313f07dcd5deac1d5545c0ff72305882895e28e5220ac82558ad",
+        "Velocities.expected.bin": "88f6d59535ae0efcb83b81b20a40b359e723e3e04e5f61ec2dcef9d4d1838361",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "7711add852b7f087226c63181fdd9c7148bffb4e1085d2ad7e0cc86962451c7c"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b1-f0-i3-s17",
+        "seed": 17,
+        "solve_friction": false,
+        "tiles": 5,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -435,6 +785,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "Poses.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "5c9fe0f7a1f89768803e2638eb0e513f40a727b8160ae42e36fef05a00979cef",
+        "Tiles.bin": "3f3833cfcede265c2aed81d740d0f63af745c1371d79746b1e6b58d5ffa8b0c4",
+        "Tiles.expected.bin": "5c9fe0f7a1f89768803e2638eb0e513f40a727b8160ae42e36fef05a00979cef",
+        "Velocities.actual.bin": "faaf0ee85d8dbf3c34dd17a0905056c6ca5e43bd5922394799b9bde5f9c6b739",
+        "Velocities.bin": "f2bb7742958233ee0c4d359d6b74f0c818ad0e61520aa222ec9674f9d6e69389",
+        "Velocities.expected.bin": "80ed9fdeaac46329e23d4181648fad3d584f4e7e4d7560d40e4233c5ed13a97b",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "7711add852b7f087226c63181fdd9c7148bffb4e1085d2ad7e0cc86962451c7c"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b1-f0-i3-s42",
+        "seed": 42,
+        "solve_friction": false,
+        "tiles": 5,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -465,6 +840,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Params.bin": "26199db11a6d16838ad2b81762254eaa4fb9445160ff7b3fbe8dbaa4e472fd7c",
+        "Poses.actual.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "Poses.bin": "3c35d4cda4bb5c9957b729860ea4ee9b09f4036e209d3b23fe859c01c63dfa97",
+        "RbdParams.bin": "1963b30b164804c857406bb5fce44a5bfd6419c82b3100e01864f1b98c222e34",
+        "Tiles.actual.bin": "ff6f143e0a26704e9434d8b4183f1485fff7bc0e7ea7d21f06d7d01041d6e923",
+        "Tiles.bin": "e6d026a4199f8c4ac14d7428992b618a099f51c910fda39b591de2e60af9f305",
+        "Tiles.expected.bin": "1755c5c32e40a38eca7b4b4aea8fff7953a0d47586f9c44feba852b94fc6dbe8",
+        "Velocities.actual.bin": "53e9aa38bb91a122394e83a9cd9649d05a7aa1e486b10096d725908998e19480",
+        "Velocities.bin": "8422cd379d9d313f07dcd5deac1d5545c0ff72305882895e28e5220ac82558ad",
+        "Velocities.expected.bin": "e9022450cfc749d4b6f45c827c4ee93eed69446f36aec4bf068d68fcbef1366f",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "919f73d6e249c605d06f2a622871b13327451ee2e68540fd281e0c4ad3442a5b"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b1-f1-i3-s17",
+        "seed": 17,
+        "solve_friction": true,
+        "tiles": 5,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -495,6 +895,31 @@
         "threads": 64
       },
       "count": 129,
+      "files": {
+        "Params.actual.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Params.bin": "04fec403c67913a8995a10a8672af01f4229c89577fdcfca33039b32f469cfc0",
+        "Poses.actual.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "Poses.bin": "8791ffbbf942bc2dd51957a8c31902db99bf6f55aa856d8d8fb4e0f4a2dd5dd8",
+        "RbdParams.bin": "72427caeafbeed9833b50a414bc59e3acccea366213d5b1c5973d2d1d3f35013",
+        "Tiles.actual.bin": "502926abbe3e0683a4fcc1ac21e97e25ba4aa4874b06a24bc3551a9e51b33ac8",
+        "Tiles.bin": "3f3833cfcede265c2aed81d740d0f63af745c1371d79746b1e6b58d5ffa8b0c4",
+        "Tiles.expected.bin": "7cbb07e7d9f6129ca2d3fc54b27592e2431a52a81371072d182f56634bd11a9c",
+        "Velocities.actual.bin": "d318643f0c4c18ea2f4ee8e506ef3c4b96b86c7897fc750367ce95e9ea05ad07",
+        "Velocities.bin": "f2bb7742958233ee0c4d359d6b74f0c818ad0e61520aa222ec9674f9d6e69389",
+        "Velocities.expected.bin": "626527ae66f514429e81ba7bee13430f8b7d74b3c887bc2bb9ed2a39a26dd254",
+        "bindings.json": "49ca24725522d6991a11d57eab372a343678f7859ce86e41db567c0af0f3daac",
+        "kernel.c": "919f73d6e249c605d06f2a622871b13327451ee2e68540fd281e0c4ad3442a5b"
+      },
+      "fixture": {
+        "bodies": 261,
+        "count": 129,
+        "iterations": 3,
+        "name": "n129-b1-f1-i3-s42",
+        "seed": 42,
+        "solve_friction": true,
+        "tiles": 5,
+        "use_bias": true
+      },
       "max_absolute_errors": {
         "Params": 0.0,
         "Poses": 0.0,
@@ -531,15 +956,17 @@
   "feature": "rbd.contact.coulomb.solve3d",
   "inputs": {
     "implementation": {
-      ".github/workflows/tilelang.yml": "6bbf1a0682616aa7400160ffb057d85b25a4d338aebe76a152774f4db5d9fcb6",
+      ".github/workflows/tilelang.yml": "adfe96dff9d12f28e722a2a2b8ff1163d2993a8eb614da51778ce88630505ff1",
       "AGENTS.md": "5fb95e93ac8a5360463e47d0db9afc08f2c7ad13f1e302053a6b5e26947fa677",
       "ports/tilelang/AGENTS.md": "03dadb5b3e9af4582c0854f9ee15936ec669dd0c9607602ad39d426169b95358",
+      "ports/tilelang/HANDOFF.md": "e45c74cb78c7bb9c883f08ab15a5d714fda675603e0308022ccaa83ffce6efb6",
       "ports/tilelang/compiler.lock.json": "328632f9962f548b5597970c76b126139f8295bbecf504a47066288ccc195cfe",
       "ports/tilelang/compiler.py": "67beeed0b138e7c77f3171060cc3f572066df5ab10e6a5ef3c955d229a728ea6",
       "ports/tilelang/contract.json": "bac7a7b37fbc0cc52de7660be3490831549cbbd3cae968f3de1927c1c18456fd",
       "ports/tilelang/contracts/effective_mass.json": "fb80c9138d02c1d99a63acf35c17d249fae4ce0f5ce8a5a6cab28461f3db6971",
       "ports/tilelang/contracts/integrate.json": "f92d44634b5f93f146d45f864e020fd5b9b2c8d5b050f94c735c2a0f1d567b0f",
       "ports/tilelang/contracts/warmstart.json": "384861217604cd84e74e8a421112054f2f32a95f92eadf866659ab066240afeb",
+      "ports/tilelang/handoff.py": "a28e3c61b71ea0a9d3141eba4e47e001b7c833564480812c1365d1a5278a75ff",
       "ports/tilelang/inventory.json": "986e4ae8fa55437860aaef909c1b76fdd7f7d8a6498319d9649e0ae05c43182e",
       "ports/tilelang/inventory.py": "d036a86212533db798bc0a7b0d59da3774fc9bb304e36e8caa10913e47b88400",
       "ports/tilelang/kernel_support.py": "c35ab6b77ab828cf99997f7f689ce33e5cfe9c8130eb9eb25066a38ae92e58fc",
@@ -552,15 +979,16 @@
       "ports/tilelang/native/src/lib.rs": "25705bd9187a8f2b5e6cc3c94f963b6e548e4df0a4d1a1c18647a4df59ebfdd4",
       "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
       "ports/tilelang/numerics.py": "1ee5c998e19750294162d94aedb87928010b3b524ac53338e6badfdaec9d4652",
-      "ports/tilelang/parity.json": "cb4259a6ba5a38d5eb47f8eaf0c5e9fe43ad548040331cadce1f8a1c5557bfee",
+      "ports/tilelang/parity.json": "ae1dc593f28d6431648c991d914746ff212b8a85ca84bb69192702708f08c6f4",
       "ports/tilelang/parity.py": "342646bb2443e350145f8eba37de2490da3e845a649028a27ab34b6780d836cc",
       "ports/tilelang/reference/Cargo.lock": "f30132799c20433c709af9df85a357dc328d5f973cfed3289c97e6139dde615b",
       "ports/tilelang/reference/Cargo.toml": "866556f7f2415974a4685dc9036768aef3b2fc8bb7d05469da110af6c3933fb1",
       "ports/tilelang/reference/rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33",
       "ports/tilelang/reference/src/main.rs": "484046a409871dc401f9efcca3c16345a424b9391a783fc8580c07a89087dd8e",
       "ports/tilelang/reference/src/operations.rs": "811b604b2f9c7b017538dd09c7df0f5f915784d569975aa30b2b918823ebbec7",
-      "ports/tilelang/replay.py": "d936cd45df0e6a9a6016d10006d3a70e7bf91b47ac842f512ed0194d6827f54e",
+      "ports/tilelang/replay.py": "c5aa9e5ba4093d9c0f9b977726aa51fcf1366a4c48fd147345a9ab076d6f4829",
       "ports/tilelang/requirements.txt": "8dba2741619f70e2f7c08d61350c8c2a0f105902b87e243b129e5410a3f8012c",
+      "ports/tilelang/session.schema.json": "e99950fc5331a03b2fc975bb5d9c68e434b702926d30e7921e8126b60e763822",
       "ports/tilelang/shaders/__init__.py": "b49b0d4bdf369abaa2cff4a137163b6cdc9d5914d94cd0afd1600d99ac4a7cd4",
       "ports/tilelang/shaders/dynamics/__init__.py": "7c14f6c45a11fb2603d327922a8823188d96f11836521a9db0f6eb0c6545004d",
       "ports/tilelang/shaders/dynamics/body.py": "64c9f7757e3cd1baa754f918df279ff00557a915d8c232b830e12ea909a469ab",
@@ -569,6 +997,7 @@
       "ports/tilelang/shaders/dynamics/solver.py": "ade7d5903dbf4d4a13a020d305df1319e4e0895c382e6050be36562913379156",
       "ports/tilelang/shaders/dynamics/solver_utils.py": "82468301dd6728c33fb2cc177ec7971e3b39342d8efee8b79cb52d75f3437df9",
       "ports/tilelang/shaders/dynamics/tile_kernels.py": "a3d374572a8f28acb643ca5e738fd08611d96e412adce335ddce9df4a9a0e479",
+      "ports/tilelang/tests/test_handoff.py": "12f3e0a2bdcca04be74c86c22f452aa2821c4db25b72f12470ff80d6029013d7",
       "ports/tilelang/tests/test_inventory.py": "9e1ce6bee76c8c76f36f4a9a514f74380324f54ceae26a78a31d01135ab603f9",
       "ports/tilelang/tests/test_parity.py": "cd1e85d9601dc81c57808b9cbb94eb64cac553f354df64e88e0bc5922a757474",
       "ports/tilelang/tests/test_replay.py": "6cabd50d01366dc999b8e213efbaae4f9d22d0dc63b51c92fb1319ce9619cfdc"
@@ -745,7 +1174,7 @@
   },
   "layout_sha256": "cf4764a73717b9d19cf3488e173172b0d1cd422e450f0423a52ffd0a2d15c92c",
   "level": "executed",
-  "reference_commit": "1c3acb3595708b207fd946b6f9457f2cf64ab146",
+  "reference_commit": "4dddf90d52b8698e9997db6bf772f60e32922f43",
   "schema": 1,
   "status": "passed",
   "suite": "portable",

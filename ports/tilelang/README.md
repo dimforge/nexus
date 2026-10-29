@@ -344,6 +344,14 @@ Any deferred Rust capabilities, including 2D if deferred, remain inventory gaps.
 
 ### 5. Make the eventual Huawei session reproducible and short
 
+The kernel handoff tooling is implemented in `handoff.py`; see `HANDOFF.md` for
+its stages and return protocol. It packages a clean committed source snapshot,
+current Ascend source reports, hash-bound fixtures/bindings/contracts, explicit
+gaps and a machine-readable return schema. `verify-results` checks all returned
+buffers offline and preserves missing/failing cases. It does not itself certify
+execution provenance. The SDK adapter, scene and timing stages remain outstanding.
+
+
 Prepare a versioned handoff containing source/compiler pins, capability
 requirements, generated sources, ABI/binding manifests, deterministic fixtures,
 expected outputs and tolerances, known failures, and a machine-readable results

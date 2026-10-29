@@ -46,8 +46,8 @@ jobs:
           python -m pip install -r ports/tilelang/requirements.txt
       - name: Replay the current Rust reference
         run: python ports/tilelang/replay.py --operation all --target c
-      - name: Test replay corruption and race detection
-        run: python -m unittest discover -s ports/tilelang/tests -p test_replay.py -v
+      - name: Test replay guards and handoff validation
+        run: python -m unittest discover -s ports/tilelang/tests -v
       - name: Require reconciled source and fresh CPU execution evidence
         run: >-
           python ports/tilelang/parity.py check --require c

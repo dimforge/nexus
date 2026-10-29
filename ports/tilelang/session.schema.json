@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Nexus TileLang returned device session",
+  "type": "object",
+  "required": ["schema", "bundle_sha256", "environment"],
+  "properties": {
+    "schema": {"const": 1},
+    "bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "environment": {
+      "type": "object",
+      "required": ["device_model", "device_id", "cann_version", "driver_version", "compiler_version"],
+      "additionalProperties": {"type": "string"},
+      "properties": {
+        "device_model": {"type": "string", "minLength": 1},
+        "device_id": {"type": "string", "minLength": 1},
+        "cann_version": {"type": "string", "minLength": 1},
+        "driver_version": {"type": "string", "minLength": 1},
+        "compiler_version": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

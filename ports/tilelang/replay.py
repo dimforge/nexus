@@ -452,6 +452,18 @@ def main():
                 outcome["max_absolute_errors"] = check_outputs(
                     layout, case, before, arrays, expected, contract
                 )
+            outcome["fixture"] = case
+            artifact_names = {"bindings.json", f"kernel.{args.target}", "RbdParams.bin"}
+            artifact_names.update(f"{name}.bin" for name in BUFFERS)
+            artifact_names.update(
+                f"{name}.expected.bin" for name in contract["outputs"]
+            )
+            if not args.compile_only:
+                artifact_names.update(f"{name}.actual.bin" for name in BUFFERS)
+            outcome["files"] = {
+                name: hashlib.sha256((directory / name).read_bytes()).hexdigest()
+                for name in sorted(artifact_names)
+            }
             result["cases"].append(outcome)
             print(f"{args.target}: {case['name']}: passed", flush=True)
         if evidence_inputs(ROOT) != inputs:

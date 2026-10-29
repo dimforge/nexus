@@ -1,0 +1,25 @@
+{
+  "id": "0006-offline-handoff",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d"
+  ],
+  "kinds": [
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Bind replay artifacts to exact hashes and package immutable source/Ascend/fixture handoffs with offline returned-buffer validation.",
+  "regressions": [
+    "Modified, missing and path-escaping bundle artifacts fail",
+    "Missing or corrupt returned outputs fail independently for each case",
+    "Mismatched bundle/session or source revision fails",
+    "Missing device probe is unavailable, never passed"
+  ],
+  "differences": [
+    "No physics arithmetic changes. Returned buffers are numerical comparison evidence only until native execution provenance and the SDK adapter are reviewed.",
+    "No Ascend SDK build, runtime implementation, scene run or performance result is claimed."
+  ]
+}
