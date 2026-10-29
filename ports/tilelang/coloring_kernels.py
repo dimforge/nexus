@@ -6,6 +6,7 @@ from shaders.dynamics import coloring as C
 
 def make_kernel(layout, case, target):
     op = case["kind"]
+    indirect = case.get("guard_indirect", False)
     groups = case["groups"]
     threads = case["threads"]
     sizes = case["buffer_words"]
@@ -35,6 +36,7 @@ def make_kernel(layout, case, target):
     topo_completion = C.gpu_reset_completion_flag_topo_gc()
     topo_step = C.gpu_step_graph_coloring_topo_gc(layout)
     topo_fix = C.gpu_fix_conflicts_topo_gc(layout)
+    topo_finalize = C.gpu_finalize_topo_gc(layout)
 
     @T.macro
     def one(
@@ -79,35 +81,39 @@ def make_kernel(layout, case, target):
             if i == 0:
                 topo_completion(NumColors, ContactsIndirect, ColoringIndirect)
         elif op == "topo_step":
-            topo_step(
-                Counts,
-                Ids,
-                Links,
-                Colors,
-                Colored,
-                NumColors,
-                Plan,
-                BodyGroup,
-                BatchIds,
-                Pending,
-                i,
-                groups,
-            )
+            if not indirect or ColoringIndirect[0] != 0:
+                topo_step(
+                    Counts,
+                    Ids,
+                    Links,
+                    Colors,
+                    Colored,
+                    NumColors,
+                    Plan,
+                    BodyGroup,
+                    BatchIds,
+                    Pending,
+                    i,
+                    groups,
+                )
+        elif op == "topo_fix":
+            if not indirect or ColoringIndirect[0] != 0:
+                topo_fix(
+                    Counts,
+                    Ids,
+                    Links,
+                    Colors,
+                    Colored,
+                    NumColors,
+                    Plan,
+                    BodyGroup,
+                    BatchIds,
+                    Pending,
+                    i,
+                    groups,
+                )
         else:
-            topo_fix(
-                Counts,
-                Ids,
-                Links,
-                Colors,
-                Colored,
-                NumColors,
-                Plan,
-                BodyGroup,
-                BatchIds,
-                Pending,
-                i,
-                groups,
-            )
+            topo_finalize(Colors, Colored, Plan, i, groups)
 
     if target == "c":
 
@@ -225,3 +231,50 @@ def make_kernel(layout, case, target):
                 )
 
     return kernel
+
+
+def make_program(layout, case, target):
+    from coloring_replay import BUFFERS
+
+    stages = []
+    kernels = {}
+
+    def stage(op, name=None, guarded=False):
+        scalar = op in ("topo_clear", "topo_completion")
+        groups = (
+            1
+            if scalar
+            else max((case["count"] + 63) // 64, 1)
+            if op == "topo_reset"
+            else case["groups"]
+        )
+        local = dict(
+            case,
+            kind=op,
+            groups=groups,
+            threads=1 if scalar else 64,
+            guard_indirect=guarded,
+        )
+        key = (op, groups, guarded)
+        if key not in kernels:
+            kernels[key] = make_kernel(layout, local, target)
+        stages.append(
+            {
+                "name": name or op,
+                "kernel": kernels[key],
+                "blocks": groups,
+                "threads": local["threads"],
+                "buffer_map": {n: n for n in BUFFERS},
+            }
+        )
+
+    if not case["seeded"]:
+        stage("topo_reset")
+    stage("topo_clear")
+    for i in range(max(case["rounds"], 2)):
+        if i:
+            stage("topo_completion", f"completion_{i}")
+        stage("topo_step", f"step_{i}", True)
+        stage("topo_fix", f"fix_{i}", True)
+    stage("topo_finalize")
+    return stages

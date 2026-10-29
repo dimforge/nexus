@@ -18,8 +18,11 @@ Remaining implementation sequence:
    and split-slot application. Connect these to changing scene topology and
    production frame stepping.
 2. Ordered native dispatch, hierarchical prefix scan and composed contact
-   adjacency and color-bucket construction are implemented. Add conflict-resolution
-   coloring and connect the solver dispatches to the production frame sequence. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
+   adjacency, bounded Topo coloring, and color-bucket construction are implemented.
+   Connect actual color ranges to contact solver dispatches and the production frame
+   sequence. Unbounded Luby scheduling remains. Palette/iteration exhaustion routes
+   unresolved contacts to the Rust unsolved bucket (retained for warmstart, not solved);
+   preserve and explicitly assess that limitation in scene tests. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
    in isolation. Implement actual color schedules and the contact solver variants,
    connecting shared static bodies and hubs to the production iteration order. Wire native generated kernels into Rust simulation stepping;
    the existing reference collision path may be retained only for an explicitly

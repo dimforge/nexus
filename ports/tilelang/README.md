@@ -530,3 +530,13 @@ first-free observation witness. Luby priorities are independently checked agains
 immutable round inputs. Rust fixes and port changes are recorded separately in
 changes 0021 and 0022. Full bounded scheduling and palette exhaustion are the next
 implementation step; isolated primitive parity is not complete coloring coverage.
+
+Bounded Topo coloring now runs as an ordered native program: reset (or supplied
+seeds), convergence flags, pick/fix rounds, and finalization. It handles exhausted
+palettes and clears unresolved seed colors before bucket construction. Changes
+0023 and 0024 separate the Rust correctness fixes from the matching port. Sparse
+completion fixtures use eight rounds, backed by a maximum component size of seven;
+dense and seeded 65-contact cliques keep a two-round budget to test safe exhaustion.
+The existing Rust policy stores unresolved contacts in the last bucket for warmstart
+but does not solve them. The port preserves this policy; safe classification does
+not imply every dense-graph contact was solved. Full scene validation remains pending.

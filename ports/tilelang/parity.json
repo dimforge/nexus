@@ -637,6 +637,33 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/topo_fix.json",
       "test_command": "python ports/tilelang/coloring_replay.py --operation topo_fix --target c"
+    },
+    {
+      "id": "rbd.scheduling.topo_finalize3d",
+      "operation": "topo_finalize",
+      "runner": "coloring_replay.py",
+      "coverage": "Publish safe bounded colors",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_finalize_topo_gc"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_finalize_topo_gc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/topo_finalize.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation topo_finalize --target c"
+    },
+    {
+      "id": "rbd.scheduling.topo_bounded3d",
+      "operation": "topo_bounded",
+      "runner": "coloring_replay.py",
+      "coverage": "Ordered bounded Topo graph coloring",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_finalize_topo_gc",
+        "src_rbd/dynamics/coloring.rs::dispatch_topo_gc_iterations"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_finalize_topo_gc",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/topo_bounded.json",
+      "test_command": "python ports/tilelang/coloring_replay.py --operation topo_bounded --target c"
     }
   ],
   "targets": [

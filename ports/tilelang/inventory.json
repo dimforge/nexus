@@ -107,7 +107,9 @@
         "rbd.scheduling.topo_clear3d",
         "rbd.scheduling.topo_completion3d",
         "rbd.scheduling.topo_step3d",
-        "rbd.scheduling.topo_fix3d"
+        "rbd.scheduling.topo_fix3d",
+        "rbd.scheduling.topo_finalize3d",
+        "rbd.scheduling.topo_bounded3d"
       ],
       "symbols": [
         "hash",
@@ -119,9 +121,10 @@
         "gpu_clear_completion_flag_topo_gc",
         "gpu_reset_completion_flag_topo_gc",
         "gpu_step_graph_coloring_topo_gc",
-        "gpu_fix_conflicts_topo_gc"
+        "gpu_fix_conflicts_topo_gc",
+        "gpu_finalize_topo_gc"
       ],
-      "remaining": "Coloring entry points are ported for bounded palettes; full convergence scheduling, palette exhaustion and production integration remain."
+      "remaining": "All Topo entry points and bounded scheduling, including exhaustion safety, are ported; unbounded Luby scheduling and production solver integration remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/constraint.rs",
@@ -1132,7 +1135,9 @@
         "rbd.scheduling.topo_clear3d",
         "rbd.scheduling.topo_completion3d",
         "rbd.scheduling.topo_step3d",
-        "rbd.scheduling.topo_fix3d"
+        "rbd.scheduling.topo_fix3d",
+        "rbd.scheduling.topo_finalize3d",
+        "rbd.scheduling.topo_bounded3d"
       ],
       "remaining": "Adjacency, seeding, coloring entry points, buckets and dispatch sizing are ported; full convergence scheduling, palette exhaustion and production integration remain."
     },

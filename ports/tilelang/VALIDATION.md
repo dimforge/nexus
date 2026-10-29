@@ -475,3 +475,18 @@ Full-source reconciliation remains pending the bounded-coloring correctness fixe
 separate Rust reproductions show an overflowing shift on a 65-contact clique and
 conflicting retained seed colors after the two-round iteration budget. These are
 implementation work, not accepted numerical deviations or certified runtime behavior.
+
+### Bounded Topo coloring (changes 0023 and 0024)
+
+The 18 composed schedule, 28 finalization and 30 picking fixtures passed on CPU
+and native Metal; all 76 lowered to Ascend source. The Rust host plus generated
+shader bindings compile with the new finalization dispatch. Shared Rust regressions
+pass in debug and release with mutable noalias disabled; strict oracle Clippy passes.
+All 221 Python maintenance tests pass, including real repeated-stage C++ execution,
+full-loop corruption checks and ordered handoff receipts. Sparse completion fixtures
+use eight rounds because their largest connected component has seven contacts;
+a four-round Metal run correctly retained unresolved contacts and did not pass the
+completion assertion. Dense fixtures intentionally exhaust a two-round budget.
+Repeated source lowering and CPU compilation are reused within one program without
+removing any dispatch or changing its physical-buffer mapping. Full-source matrix
+refresh and reconciliation follow this implementation commit.

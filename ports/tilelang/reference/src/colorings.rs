@@ -3,7 +3,6 @@
 #[path = "contacts.rs"]
 mod contacts;
 use contacts::pilot;
-#[cfg(test)]
 use nexus_rbd_shaders3d::dynamics::gpu_finalize_topo_gc;
 use nexus_rbd_shaders3d::{
     broad_phase::ContactPlan,
@@ -49,7 +48,7 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
         .collect();
     let mut rows = vec![Vec::<u32>::new(); bodies];
     for (i, link) in links.iter_mut().take(n).enumerate() {
-        link.len = if i % 11 == 0 && mode != "clique" {
+        link.len = if i % 11 == 0 && !matches!(mode, "clique" | "dense" | "seeded" | "palette") {
             0
         } else {
             (i % 4 + 1) as u32
@@ -58,14 +57,14 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
             u32::MAX
         } else if mode == "body-zero" {
             0
-        } else if mode == "split" || mode == "clique" {
+        } else if matches!(mode, "split" | "clique" | "dense" | "seeded" | "palette") {
             1
         } else {
             (i + 1) as u32
         };
         link.solver_body_b = if link.len == 0 {
             u32::MAX
-        } else if mode == "clique" || i % 7 == 0 {
+        } else if matches!(mode, "clique" | "dense" | "seeded" | "palette") || i % 7 == 0 {
             0
         } else {
             (i + 2) as u32
@@ -122,7 +121,7 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
         if op == "luby_step" {
             colors[i] = if !active {
                 0
-            } else if i % 4 == 0 && mode != "clique" {
+            } else if i % 4 == 0 && !matches!(mode, "clique" | "dense" | "seeded" | "palette") {
                 2
             } else {
                 u32::MAX
@@ -132,6 +131,29 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
             colors[i] = guard;
             colored[i] = guard;
             pending[i] = guard;
+        }
+    }
+    let seeded = mode == "seeded";
+    let rounds = if matches!(mode, "dense" | "seeded") {
+        2u32
+    } else {
+        // Sparse fixtures have conflict components of at most seven contacts;
+        // one winner per round plus a convergence pass fits in eight rounds.
+        8u32
+    };
+    if mode == "palette" {
+        for i in 0..n {
+            colors[i] = if i < 63 { i as u32 + 1 } else { 0 };
+            colored[i] = u32::from(i < 63);
+            pending[i] = u32::MAX;
+        }
+    }
+    if op == "topo_bounded" {
+        for i in 0..n {
+            let active = links[i].len != 0;
+            colors[i] = if seeded { u32::from(active) } else { guard };
+            colored[i] = if seeded { 1 } else { guard };
+            pending[i] = if seeded { u32::MAX } else { guard };
         }
     }
     let mut num_colors = [
@@ -209,80 +231,177 @@ fn fixture(root: &Path, n: usize, mode: &str, deterministic: u32, op: &str) -> V
         }};
     }
     write_all!(false);
-    for i in 0..groups * threads {
-        let id = UVec3::new(i, 0, 0);
-        let grid = UVec3::new(groups, 1, 1);
-        match op {
-            "luby_reset" => gpu_reset_luby(id, &mut colors, &mut rands, &links, &plan),
-            "luby_step" => gpu_step_graph_coloring_luby(
-                id,
-                grid,
-                &counts,
-                &ids,
-                &links,
-                &mut colors,
-                &rands,
-                &mut num_colors[0],
-                &body_group,
-                &current[0],
-                &plan,
-            ),
-            "topo_reset" => gpu_reset_topo_gc(
-                id,
-                &mut colors,
-                &mut colored,
-                &links,
-                &plan,
-                &mut num_colors[0],
-                &mut pending,
-            ),
-            "topo_clear" => gpu_clear_completion_flag_topo_gc(
-                id,
-                &mut num_colors[0],
-                &contacts_indirect,
-                &mut coloring_indirect,
-            ),
-            "topo_completion" => gpu_reset_completion_flag_topo_gc(
-                id,
-                &mut num_colors[0],
-                &contacts_indirect,
-                &mut coloring_indirect,
-            ),
-            "topo_step" => gpu_step_graph_coloring_topo_gc(
-                id,
-                grid,
-                &counts,
-                &ids,
-                &links,
-                &mut colors,
-                &mut colored,
-                &mut num_colors[0],
-                &plan,
-                &body_group,
-                &batch,
-                &mut pending,
-            ),
-            "topo_fix" => gpu_fix_conflicts_topo_gc(
-                id,
-                grid,
-                &counts,
-                &ids,
-                &links,
-                &mut colors,
-                &mut colored,
-                &mut num_colors[0],
-                &plan,
-                &body_group,
-                &batch,
-                &pending,
-            ),
-            _ => unreachable!(),
+    if op == "topo_bounded" {
+        bounded(
+            &counts,
+            &ids,
+            &links,
+            &mut colors,
+            &mut colored,
+            &mut pending,
+            &mut num_colors[0],
+            &plan,
+            &body_group,
+            &batch,
+            &contacts_indirect,
+            &mut coloring_indirect,
+            groups,
+            rounds,
+            seeded,
+        );
+    } else {
+        for i in 0..groups * threads {
+            let id = UVec3::new(i, 0, 0);
+            let grid = UVec3::new(groups, 1, 1);
+            match op {
+                "topo_finalize" => gpu_finalize_topo_gc(id, grid, &mut colors, &colored, &plan),
+                "luby_reset" => gpu_reset_luby(id, &mut colors, &mut rands, &links, &plan),
+                "luby_step" => gpu_step_graph_coloring_luby(
+                    id,
+                    grid,
+                    &counts,
+                    &ids,
+                    &links,
+                    &mut colors,
+                    &rands,
+                    &mut num_colors[0],
+                    &body_group,
+                    &current[0],
+                    &plan,
+                ),
+                "topo_reset" => gpu_reset_topo_gc(
+                    id,
+                    &mut colors,
+                    &mut colored,
+                    &links,
+                    &plan,
+                    &mut num_colors[0],
+                    &mut pending,
+                ),
+                "topo_clear" => gpu_clear_completion_flag_topo_gc(
+                    id,
+                    &mut num_colors[0],
+                    &contacts_indirect,
+                    &mut coloring_indirect,
+                ),
+                "topo_completion" => gpu_reset_completion_flag_topo_gc(
+                    id,
+                    &mut num_colors[0],
+                    &contacts_indirect,
+                    &mut coloring_indirect,
+                ),
+                "topo_step" => gpu_step_graph_coloring_topo_gc(
+                    id,
+                    grid,
+                    &counts,
+                    &ids,
+                    &links,
+                    &mut colors,
+                    &mut colored,
+                    &mut num_colors[0],
+                    &plan,
+                    &body_group,
+                    &batch,
+                    &mut pending,
+                ),
+                "topo_fix" => gpu_fix_conflicts_topo_gc(
+                    id,
+                    grid,
+                    &counts,
+                    &ids,
+                    &links,
+                    &mut colors,
+                    &mut colored,
+                    &mut num_colors[0],
+                    &plan,
+                    &body_group,
+                    &batch,
+                    &pending,
+                ),
+                _ => unreachable!(),
+            }
         }
     }
     write_all!(true);
     let l = layout();
     let sizes = json!({"Counts":counts.len(),"Ids":ids.len(),"Links":storage*l["link_words"].as_u64().unwrap() as usize,"Colors":storage,"Rands":storage,"Colored":storage,"Pending":storage,"NumColors":2,"BodyGroup":bodies,"Plan":l["plan_words"],"BatchIds":l["batch_words"],"ContactsIndirect":9,"ColoringIndirect":9,"CurrentColor":2});
-    json!({"name":name,"kind":op,"count":n,"storage":storage,"bodies":bodies,"active_ids":active_ids,"groups":groups,"threads":threads,"mode":mode,"static_groups":if mode=="body-zero" {vec![]}else{vec![0u32]},"deterministic":deterministic,"iterations":1,"buffer_words":sizes})
+    json!({"name":name,"kind":op,"count":n,"storage":storage,"bodies":bodies,"active_ids":active_ids,"groups":groups,"threads":threads,"mode":mode,"static_groups":if mode=="body-zero" {vec![]}else{vec![0u32]},"deterministic":deterministic,"iterations":1,"buffer_words":sizes,"seeded":seeded,"rounds":rounds,"expect_complete":!matches!(mode,"dense"|"seeded"|"body-zero")})
+}
+#[allow(clippy::too_many_arguments)]
+fn bounded(
+    counts: &[u32],
+    ids: &[u32],
+    links: &[ContactLink],
+    colors: &mut [u32],
+    colored: &mut [u32],
+    pending: &mut [u32],
+    flag: &mut u32,
+    plan: &ContactPlan,
+    body_groups: &[u32],
+    batch: &BatchIndices,
+    contacts: &[[u32; 3]],
+    indirect: &mut [[u32; 3]],
+    groups: u32,
+    rounds: u32,
+    seeded: bool,
+) {
+    if !seeded {
+        for i in 0..plan.bound.max(1) {
+            gpu_reset_topo_gc(
+                UVec3::new(i, 0, 0),
+                colors,
+                colored,
+                links,
+                plan,
+                flag,
+                pending,
+            );
+        }
+    }
+    gpu_clear_completion_flag_topo_gc(UVec3::ZERO, flag, contacts, indirect);
+    let grid = UVec3::new(groups, 1, 1);
+    for round in 0..rounds.max(2) {
+        if round > 0 {
+            gpu_reset_completion_flag_topo_gc(UVec3::ZERO, flag, contacts, indirect);
+        }
+        if indirect[0][0] != 0 {
+            for i in 0..groups * 64 {
+                gpu_step_graph_coloring_topo_gc(
+                    UVec3::new(i, 0, 0),
+                    grid,
+                    counts,
+                    ids,
+                    links,
+                    colors,
+                    colored,
+                    flag,
+                    plan,
+                    body_groups,
+                    batch,
+                    pending,
+                );
+            }
+            for i in 0..groups * 64 {
+                gpu_fix_conflicts_topo_gc(
+                    UVec3::new(i, 0, 0),
+                    grid,
+                    counts,
+                    ids,
+                    links,
+                    colors,
+                    colored,
+                    flag,
+                    plan,
+                    body_groups,
+                    batch,
+                    pending,
+                );
+            }
+        }
+    }
+    for i in 0..groups * 64 {
+        gpu_finalize_topo_gc(UVec3::new(i, 0, 0), grid, colors, colored, plan);
+    }
 }
 fn main() {
     let path = std::env::args().nth(1).expect("Expected output directory");
@@ -297,6 +416,8 @@ fn main() {
         "topo_completion",
         "topo_step",
         "topo_fix",
+        "topo_finalize",
+        "topo_bounded",
     ] {
         let dir = root.join(op);
         fs::create_dir_all(&dir).unwrap();
@@ -318,7 +439,32 @@ fn main() {
                 (4, "clique"),
                 (33, "converged"),
             ] {
-                cases.push(fixture(&dir, n, mode, deterministic, op));
+                if op != "topo_bounded"
+                    || matches!(
+                        (n, mode),
+                        (0, "chain")
+                            | (33, "chain")
+                            | (65, "chain")
+                            | (129, "chain")
+                            | (33, "grouped")
+                            | (65, "split")
+                            | (4, "clique")
+                    )
+                {
+                    cases.push(fixture(&dir, n, mode, deterministic, op));
+                }
+            }
+        }
+        if op == "topo_bounded" {
+            for deterministic in [0, 1] {
+                for mode in ["dense", "seeded"] {
+                    cases.push(fixture(&dir, 65, mode, deterministic, op));
+                }
+            }
+        }
+        if op == "topo_step" {
+            for deterministic in [0, 1] {
+                cases.push(fixture(&dir, 65, "palette", deterministic, op));
             }
         }
         if matches!(op, "topo_clear" | "topo_completion") {

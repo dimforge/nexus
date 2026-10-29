@@ -229,7 +229,7 @@ def lower(layout, case, target):
     }
 
 
-def execute_c(source, bindings, directory, arrays):
+def compile_c(source, bindings, directory):
     import tilelang
 
     source_path = directory / "kernel.cpp"
@@ -256,15 +256,25 @@ def execute_c(source, bindings, directory, arrays):
     function = getattr(native, bindings["entry"])
     function.argtypes = [ctypes.c_void_p] * len(bindings["buffers"])
     function.restype = ctypes.c_int32
+    return (
+        native,
+        function,
+        {
+            "device": platform.machine(),
+            "runtime": "native TileLang C++",
+            "compiler": run(compiler + ["--version"]).splitlines()[0],
+        },
+    )
+
+
+def execute_c(source, bindings, directory, arrays, *, compiled=None):
+    # Keep the CDLL handle alive while its entry point is in use.
+    native, function, environment = compiled or compile_c(source, bindings, directory)
     for _ in range(bindings["iterations"]):
         result = function(*(arrays[name].ctypes.data for name in bindings["buffers"]))
         if result != 0:
             raise RuntimeError(f"Generated CPU kernel failed: {result}")
-    return {
-        "device": platform.machine(),
-        "runtime": "native TileLang C++",
-        "compiler": run(compiler + ["--version"]).splitlines()[0],
-    }
+    return environment
 
 
 def compiler_libraries():

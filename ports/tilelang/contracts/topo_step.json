@@ -32,7 +32,7 @@
   "tolerance_reason": "All integer fields are exact except nondeterministic Topo picks. Each such pick must have a legal first-free witness from immutable neighbors and before/after values of concurrently changing neighbors; fixed colors and every other field remain exact.",
   "preconditions": [
     "Complete cumulative adjacency with explicit static-group metadata; valid active link bodies/groups, zero-length gaps premarked inert for Topo steps",
-    "Topo input palette is 0 through 63; pending values are valid colors or MAX; fixtures do not exhaust the palette",
+    "Topo inputs are colors 0 through 63; pending values are valid colors or MAX; exhausted masks publish zero, never 64",
     "Reset grids cover all slots; scalar flags use one thread; finite bounded u32 counters and no overflowing addresses"
   ],
   "invariants": [
@@ -43,10 +43,10 @@
     "Input fields, fixed colors, sentinel slots and unused dispatch triples are preserved exactly"
   ],
   "outside_scope": [
-    "Full graph-coloring convergence schedule",
-    "Palette exhaustion beyond 63 Topo colors",
+    "Unbounded Luby convergence schedule",
     "Production solver/frame integration",
-    "Ascend vendor compilation and execution"
+    "Ascend vendor compilation and execution",
+    "Full graph-coloring convergence schedule"
   ],
   "known_gaps": [],
   "required_cases": [
@@ -77,6 +77,8 @@
     "n33-body-zero-d1",
     "n65-split-d1",
     "n4-clique-d1",
-    "n33-converged-d1"
+    "n33-converged-d1",
+    "n65-palette-d0",
+    "n65-palette-d1"
   ]
 }

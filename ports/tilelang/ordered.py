@@ -77,14 +77,20 @@ def lower_program(plans, arrays, target, iterations=1):
         "stages": [],
     }
     sources = {}
+    lowered = {}
     requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
     for i, plan in enumerate(plans):
-        artifact = tilelang.lower(
-            plan["kernel"],
-            target=requested,
-            enable_host_codegen=False,
-            enable_device_compile=False,
-        )
+        # Repeated stages may deliberately share the same immutable PrimFunc.
+        # Reuse lowering only within this program, by object identity.
+        key = id(plan["kernel"])
+        if key not in lowered:
+            lowered[key] = tilelang.lower(
+                plan["kernel"],
+                target=requested,
+                enable_host_codegen=False,
+                enable_device_compile=False,
+            )
+        artifact = lowered[key]
         functions = list(artifact.device_mod.functions.values())
         if len(functions) != 1:
             raise ValueError("Expected one entry point per ordered stage")
@@ -118,10 +124,11 @@ def lower_program(plans, arrays, target, iterations=1):
 
 
 def execute_c_program(sources, program, directory, arrays):
-    from replay import execute_c
+    from replay import compile_c, execute_c
 
     validate_program(program)
     environment = {}
+    compiled = {}
     # All stages receive views of the same physical arrays. No CPU arithmetic or
     # intermediate readback substitutes for generated kernels.
     for _ in range(program["iterations"]):
@@ -129,7 +136,11 @@ def execute_c_program(sources, program, directory, arrays):
             stage_dir = directory / f"stage-{i}"
             stage_dir.mkdir(exist_ok=True)
             local = {n: arrays[p] for n, p in stage["buffer_map"].items()}
+            source, bindings = sources[stage["source"]], stage["bindings"]
+            key = (source, bindings["entry"], tuple(bindings["buffers"]))
+            if key not in compiled:
+                compiled[key] = compile_c(source, bindings, stage_dir)
             environment.update(
-                execute_c(sources[stage["source"]], stage["bindings"], stage_dir, local)
+                execute_c(source, bindings, stage_dir, local, compiled=compiled[key])
             )
     return environment

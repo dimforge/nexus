@@ -272,3 +272,8 @@ class BucketHandoffTests(HandoffTests):
 class ColoringHandoffTests(HandoffTests):
     operation = "topo_step"
     mutable_buffer = "Pending"
+
+
+class BoundedColoringHandoffTests(ScanHandoffTests):
+    operation = "topo_bounded"
+    mutable_buffer = "Colors"

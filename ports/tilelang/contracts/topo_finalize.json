@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "feature": "rbd.scheduling.topo_finalize3d",
+  "scope": "Publish safe bounded colors",
+  "inputs": [
+    "Counts",
+    "Ids",
+    "Links",
+    "Colors",
+    "Rands",
+    "Colored",
+    "Pending",
+    "NumColors",
+    "BodyGroup",
+    "Plan",
+    "BatchIds",
+    "ContactsIndirect",
+    "ColoringIndirect",
+    "CurrentColor"
+  ],
+  "outputs": [
+    "Colors",
+    "Rands",
+    "Colored",
+    "Pending",
+    "NumColors",
+    "ColoringIndirect"
+  ],
+  "comparison": "coloring_fields",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "All integer fields are exact except nondeterministic Topo picks. Each such pick must have a legal first-free witness from immutable neighbors and before/after values of concurrently changing neighbors; fixed colors and every other field remain exact.",
+  "preconditions": [
+    "Complete cumulative adjacency with explicit static-group metadata; valid active link bodies/groups, zero-length gaps premarked inert for Topo steps",
+    "Topo inputs are colors 0 through 63; pending values are valid colors or MAX; exhausted masks publish zero, never 64",
+    "Reset grids cover all slots; scalar flags use one thread; finite bounded u32 counters and no overflowing addresses"
+  ],
+  "invariants": [
+    "Luby priorities use modulo-2^32 hashing and current-round winners still block lower-priority neighbors",
+    "Split hub velocity slots remove their conflicts in Topo; Luby preserves its original graph traversal",
+    "Deterministic picks only update pending values; conflict pruning preserves the highest-index winner",
+    "Nondeterministic choices must be first-free for a legal observation of each neighbor, not merely an arbitrary valid color",
+    "Input fields, fixed colors, sentinel slots and unused dispatch triples are preserved exactly"
+  ],
+  "outside_scope": [
+    "Unbounded Luby convergence schedule",
+    "Production solver/frame integration",
+    "Ascend vendor compilation and execution",
+    "Full graph-coloring convergence schedule"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-chain-d0",
+    "n1-chain-d0",
+    "n31-chain-d0",
+    "n32-chain-d0",
+    "n33-chain-d0",
+    "n63-chain-d0",
+    "n64-chain-d0",
+    "n65-chain-d0",
+    "n129-chain-d0",
+    "n33-grouped-d0",
+    "n33-body-zero-d0",
+    "n65-split-d0",
+    "n4-clique-d0",
+    "n33-converged-d0",
+    "n0-chain-d1",
+    "n1-chain-d1",
+    "n31-chain-d1",
+    "n32-chain-d1",
+    "n33-chain-d1",
+    "n63-chain-d1",
+    "n64-chain-d1",
+    "n65-chain-d1",
+    "n129-chain-d1",
+    "n33-grouped-d1",
+    "n33-body-zero-d1",
+    "n65-split-d1",
+    "n4-clique-d1",
+    "n33-converged-d1"
+  ]
+}

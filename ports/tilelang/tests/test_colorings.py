@@ -158,3 +158,65 @@ class ColoringTests(unittest.TestCase):
                 c["static_groups"] = [0, 0]
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                 coloring.validate_case(l, c, b)
+
+    def test_exhausted_mask_requires_all_63_colors(self):
+        self.assertTrue(coloring.possible_first_free(0, [{c} for c in range(1, 64)]))
+        self.assertFalse(coloring.possible_first_free(0, [{c} for c in range(1, 63)]))
+        self.assertFalse(coloring.possible_first_free(64, []))
+
+    def test_bounded_output_rejects_retained_conflicts_and_lost_components(self):
+        for mode in ("dense", "seeded"):
+            l, c, b, e, k = self.fixture("topo_bounded", f"n65-{mode}-d0")
+            for corruption in (
+                "conflict",
+                "discard",
+                "false-convergence",
+                "stale-color",
+            ):
+                bad = {n: a.copy() for n, a in e.items()}
+                if corruption == "conflict":
+                    bad["Colors"][:2] = 1
+                    bad["Colored"][:2] = 1
+                if corruption == "discard":
+                    bad["Colors"][: c["count"]] = 0
+                    bad["Colored"][: c["count"]] = 0
+                if corruption == "false-convergence":
+                    bad["Colors"][0] = 0
+                    bad["Colored"][0] = 0
+                    bad["NumColors"][0] = 1
+                if corruption == "stale-color":
+                    bad["Colors"][0] = 1
+                    bad["Colored"][0] = 0
+                with (
+                    self.subTest(mode=mode, corruption=corruption),
+                    self.assertRaises(AssertionError),
+                ):
+                    coloring.check_outputs(l, c, b, bad, bad, k)
+
+    def test_finalize_uses_final_flags_and_preserves_committed_colors(self):
+        l, c, b, e, k = self.fixture("topo_finalize", "n33-chain-d0")
+        i = next(i for i in range(c["count"]) if b["Colored"][i] == 0)
+        bad = {n: a.copy() for n, a in e.items()}
+        bad["Colors"][i] = b["Colors"][i]
+        with self.assertRaises(AssertionError):
+            coloring.check_outputs(l, c, b, bad, bad, k)
+
+    def test_sparse_budget_covers_each_conflict_component(self):
+        contract = json.loads((HERE / "contracts/topo_bounded.json").read_text())
+        for name in contract["required_cases"]:
+            l, c, b, _, _ = self.fixture("topo_bounded", name)
+            if not c["expect_complete"]:
+                continue
+            _, neighbors, active = coloring.validate_case(l, c, b)
+            remaining = set(active)
+            while remaining:
+                stack = [remaining.pop()]
+                count = 0
+                while stack:
+                    i = stack.pop()
+                    count += 1
+                    for j in neighbors[i]:
+                        if j in remaining:
+                            remaining.remove(j)
+                            stack.append(j)
+                self.assertGreater(c["rounds"], count)

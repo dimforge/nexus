@@ -25,6 +25,8 @@ OPERATIONS = (
     "topo_completion",
     "topo_step",
     "topo_fix",
+    "topo_finalize",
+    "topo_bounded",
 )
 
 
@@ -142,7 +144,19 @@ def validate_case(layout, case, arrays):
                 i in active and color != 0xFFFFFFFF and not 0 < color < current
             ):
                 raise ValueError("Invalid prior Luby color")
-    if op in ("topo_step", "topo_fix"):
+    if op == "topo_bounded":
+        if (
+            type(case["seeded"]) is not bool
+            or type(case["rounds"]) is not int
+            or not 2 <= case["rounds"] <= 64
+            or type(case["expect_complete"]) is not bool
+        ):
+            raise ValueError("Invalid bounded coloring schedule")
+        if list(arrays["ContactsIndirect"][:3]) != [case["groups"], 1, 1]:
+            raise ValueError("Invalid bounded coloring dispatch")
+    if op in ("topo_step", "topo_fix", "topo_finalize") or (
+        op == "topo_bounded" and case["seeded"]
+    ):
         if np.any(arrays["Colors"][:n] >= 64) or np.any(arrays["Colored"][:n] > 1):
             raise ValueError("Invalid Topo color or flag")
         for i in range(n):
@@ -179,6 +193,13 @@ def validate_case(layout, case, arrays):
         masks["Colored"][:n] = active_mask[:n]
         if case["deterministic"]:
             masks["Colors"][:n] = active_mask[:n]
+    if op == "topo_finalize":
+        masks["Colors"][:n] = arrays["Colored"][:n] != 1
+    if op == "topo_bounded":
+        for name in ("Colors", "Colored", "Pending"):
+            masks[name][:n] = True
+        masks["NumColors"][0] = True
+        masks["ColoringIndirect"][:3] = True
     return masks, neighbors, active
 
 
@@ -189,7 +210,13 @@ def possible_first_free(candidate, choices):
     read. Remaining reads must have an option other than the chosen free color.
     This avoids exponential enumeration and does not relax integer identities.
     """
-    options = [set(values) - {candidate} for values in choices]
+    # Candidate zero represents first-free sentinel 64 after palette exhaustion.
+    # Zero is always occupied in the shader mask, independent of neighbor reads.
+    if not 0 <= candidate <= 63:
+        return False
+    options = [
+        set(values) - ({candidate} if candidate else set()) for values in choices
+    ]
     if any(not values for values in options):
         return False
     matched = {}
@@ -203,7 +230,7 @@ def possible_first_free(candidate, choices):
                     return True
         return False
 
-    return all(assign(color, set()) for color in range(1, candidate))
+    return all(assign(color, set()) for color in range(1, candidate or 64))
 
 
 def check_outputs(layout, case, before, actual, expected, contract):
@@ -211,6 +238,16 @@ def check_outputs(layout, case, before, actual, expected, contract):
 
     masks, neighbors, active = validate_case(layout, case, before)
     nondeterministic = case["kind"] == "topo_step" and not case["deterministic"]
+    bounded_nondeterministic = (
+        case["kind"] == "topo_bounded" and not case["deterministic"]
+    )
+    variable = (
+        {"Colors", "Colored", "NumColors", "ColoringIndirect"}
+        if bounded_nondeterministic
+        else {"Colors"}
+        if nondeterministic
+        else set()
+    )
     for name, mask in masks.items():
         if actual[name].shape != before[name].shape or actual[name].dtype != np.uint32:
             raise ValueError(f"Invalid returned {name}")
@@ -219,7 +256,7 @@ def check_outputs(layout, case, before, actual, expected, contract):
             before[name][~mask],
             err_msg=f"Unexpected write to {name}",
         )
-        if not (nondeterministic and name == "Colors"):
+        if name not in variable:
             np.testing.assert_array_equal(
                 actual[name],
                 expected[name],
@@ -231,7 +268,7 @@ def check_outputs(layout, case, before, actual, expected, contract):
                 if before["Colored"][i] != 0:
                     continue
                 color = int(result["Colors"][i])
-                if not 1 <= color <= 63:
+                if not 0 <= color <= 63:
                     raise AssertionError("Topo pick outside supported palette")
                 choices = []
                 for j in neighbors[i]:
@@ -241,6 +278,57 @@ def check_outputs(layout, case, before, actual, expected, contract):
                     choices.append(values)
                 if not possible_first_free(color, choices):
                     raise AssertionError(f"No legal first-free witness for contact {i}")
+    if case["kind"] == "topo_bounded":
+        n = case["count"]
+        for result in (actual, expected):
+            colors, flags = result["Colors"][:n], result["Colored"][:n]
+            if np.any(colors >= 64) or np.any(flags > 1):
+                raise AssertionError("Invalid bounded palette or final flag")
+            if (
+                int(result["NumColors"][0]) not in (0, 1)
+                or list(map(int, result["ColoringIndirect"][1:3])) != [1, 1]
+                or int(result["ColoringIndirect"][0]) not in (0, case["groups"])
+            ):
+                raise AssertionError("Invalid convergence state")
+            for i in range(n):
+                if i not in active:
+                    if colors[i] != 0 or flags[i] != 1:
+                        raise AssertionError("Inert contact entered coloring")
+                    continue
+                if bool(colors[i]) != bool(flags[i]):
+                    raise AssertionError("Unresolved contact retains a solver color")
+                if colors[i] and any(colors[i] == colors[j] for j in neighbors[i]):
+                    raise AssertionError("Conflicting contacts share a solver color")
+            unsolved = [i for i in active if not colors[i]]
+            if unsolved and (
+                case["expect_complete"]
+                or result["NumColors"][0]
+                or not result["ColoringIndirect"][0]
+            ):
+                raise AssertionError(
+                    "Coloring claims convergence with unresolved contacts"
+                )
+            # Every nonempty component must retain a winner even at its budget.
+            remaining = set(active)
+            while remaining:
+                stack = [remaining.pop()]
+                component = []
+                while stack:
+                    i = stack.pop()
+                    component.append(i)
+                    for j in neighbors[i]:
+                        if j in remaining:
+                            remaining.remove(j)
+                            stack.append(j)
+                if not any(colors[i] for i in component):
+                    raise AssertionError(
+                        "Coloring discarded a whole conflict component"
+                    )
+    if case["kind"] == "topo_finalize":
+        for i in range(case["count"]):
+            wanted = before["Colors"][i] if before["Colored"][i] == 1 else 0
+            if actual["Colors"][i] != wanted:
+                raise AssertionError("Invalid unresolved-color publication")
     if case["kind"] == "luby_reset":
         for i in range(case["count"]):
             key = (i * 0xCC9E2D51) & 0xFFFFFFFF
@@ -276,7 +364,7 @@ def check_outputs(layout, case, before, actual, expected, contract):
 
 
 def main():
-    from coloring_kernels import make_kernel
+    from coloring_kernels import make_kernel, make_program
     from stage_replay import parse_args, run_stage
 
     args = parse_args(OPERATIONS, "topo_step")
@@ -287,6 +375,7 @@ def main():
         make_kernel=make_kernel,
         validate_case=validate_case,
         check_outputs=check_outputs,
+        make_program=make_program if args.operation == "topo_bounded" else None,
         launch=lambda case: (case["groups"], case["threads"], case["iterations"]),
     )
 

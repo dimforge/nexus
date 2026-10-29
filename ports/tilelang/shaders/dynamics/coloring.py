@@ -228,8 +228,10 @@ def gpu_step_graph_coloring_topo_gc(layout):
                         Pending[cid] = Result[0]
                     else:
                         first(Mask, Result)
-                        Colors[cid] = Result[0]
-                        Colored[cid] = T.uint32(1)
+                        Colors[cid] = T.if_then_else(
+                            Result[0] < T.uint32(64), Result[0], T.uint32(0)
+                        )
+                        Colored[cid] = T.Cast("uint32", Result[0] < T.uint32(64))
                     NumColors[0] = T.uint32(0)
                 elif deterministic:
                     Pending[cid] = T.uint32(0xFFFFFFFF)
@@ -303,3 +305,16 @@ def gpu_fix_conflicts_topo_gc(layout):
                             Colored[cid] = T.uint32(1)
 
     return fix
+
+
+def gpu_finalize_topo_gc(layout):
+    @T.macro
+    def finalize(Colors, Colored, Plan, i, groups):
+        bound = T.Cast("int32", Plan[layout["plan"]["bound"]])
+        for chunk in T.serial(T.ceildiv(bound, groups * 64)):
+            cid = i + chunk * groups * 64
+            if cid < bound:
+                if Colored[cid] != T.uint32(1):
+                    Colors[cid] = T.uint32(0)
+
+    return finalize
