@@ -9,6 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Manifest {
+    pub schema: u32,
+    pub buffer_bytes: BTreeMap<String, u64>,
     pub entry: String,
     pub buffers: Vec<String>,
     pub storage_buffers: Vec<String>,
@@ -19,6 +21,9 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn validate(&self) -> Result<(), String> {
+        if self.schema != 1 {
+            return Err("Unsupported native manifest schema".into());
+        }
         if self.entry.is_empty() || self.blocks == 0 || self.threads == 0 || self.iterations == 0 {
             return Err("Empty entry or dispatch dimension".into());
         }
@@ -32,6 +37,14 @@ impl Manifest {
             })
         {
             return Err("Invalid or duplicate buffer names".into());
+        }
+        if self.buffer_bytes.keys().collect::<BTreeSet<_>>() != storage
+            || self
+                .buffer_bytes
+                .values()
+                .any(|size| *size == 0 || size % 4 != 0)
+        {
+            return Err("Invalid specialization buffer sizes".into());
         }
         self.blocks
             .checked_mul(self.threads)
@@ -86,8 +99,7 @@ impl NativeKernel {
             let buffer = buffers
                 .get(name)
                 .ok_or_else(|| format!("Missing buffer {name}"))?;
-            if buffer.length() == 0
-                || buffer.length() % 4 != 0
+            if buffer.length() != self.manifest.buffer_bytes[name]
                 || buffer.device().registry_id() != self.device_id
             {
                 return Err(format!("Invalid buffer {name}"));
@@ -122,6 +134,8 @@ mod tests {
     use super::*;
     fn valid() -> Manifest {
         Manifest {
+            schema: 1,
+            buffer_bytes: BTreeMap::from([("A".into(), 4)]),
             entry: "main".into(),
             buffers: vec!["A".into()],
             storage_buffers: vec!["A".into()],
@@ -153,5 +167,20 @@ mod tests {
         let mut m = valid();
         m.buffers.clear();
         assert!(m.validate().is_ok());
+    }
+    #[test]
+    fn rejects_missing_misaligned_or_unknown_buffer_sizes() {
+        let mut m = valid();
+        m.buffer_bytes.clear();
+        assert!(m.validate().is_err());
+        m = valid();
+        m.buffer_bytes.insert("A".into(), 5);
+        assert!(m.validate().is_err());
+        m = valid();
+        m.buffer_bytes.insert("unused".into(), 4);
+        assert!(m.validate().is_err());
+        m = valid();
+        m.schema = 9;
+        assert!(m.validate().is_err());
     }
 }

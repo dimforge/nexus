@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut storage = BTreeMap::new();
     for name in &manifest.storage_buffers {
         let bytes = fs::read(root.join(format!("{name}.bin")))?;
-        if bytes.is_empty() || bytes.len() % 4 != 0 {
+        if bytes.len() as u64 != manifest.buffer_bytes[name] {
             return Err("Invalid fixture buffer".into());
         }
         let words: Vec<u32> = bytes

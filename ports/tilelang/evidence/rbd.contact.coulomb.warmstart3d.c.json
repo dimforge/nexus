@@ -3,9 +3,16 @@
     {
       "bindings": {
         "blocks": 1,
+        "buffer_bytes": {
+          "Params": 24,
+          "Poses": 160,
+          "Tiles": 16896,
+          "Velocities": 160
+        },
         "buffers": [],
         "entry": "kernel_kernel",
         "iterations": 3,
+        "schema": 1,
         "storage_buffers": [
           "Tiles",
           "Velocities",
@@ -26,7 +33,7 @@
         "Velocities.actual.bin": "6bb5573ee8f557d10a104664e3095c0555d0b681883f71d2439a0ec3f1c43739",
         "Velocities.bin": "6bb5573ee8f557d10a104664e3095c0555d0b681883f71d2439a0ec3f1c43739",
         "Velocities.expected.bin": "6bb5573ee8f557d10a104664e3095c0555d0b681883f71d2439a0ec3f1c43739",
-        "bindings.json": "9316e44153ffe9edfc9f60ea836e6ef451d9e3749cde4bfb8e80d65b3de7b504",
+        "bindings.json": "1871fcbbe802ebc639a908d3356fc22d6cd9fd223f4fe5e21e3b6cfd860322ee",
         "kernel.c": "bd603c2e7e4b085df979e0bbdf6a0e93e543457125667e7e56571521e0f1afda"
       },
       "fixture": {
@@ -54,12 +61,19 @@
     {
       "bindings": {
         "blocks": 1,
+        "buffer_bytes": {
+          "Params": 24,
+          "Poses": 160,
+          "Tiles": 16896,
+          "Velocities": 160
+        },
         "buffers": [
           "Tiles",
           "Velocities"
         ],
         "entry": "kernel_kernel",
         "iterations": 3,
+        "schema": 1,
         "storage_buffers": [
           "Tiles",
           "Velocities",
@@ -80,7 +94,7 @@
         "Velocities.actual.bin": "de6f352c64d93d122fa94dfb02e60abafe9dcc35ed39281b382dde090a2bfc5e",
         "Velocities.bin": "f85d35b8343347fb5629809ac20a5a5a07714ef3270b096d4c381e26d72e6c80",
         "Velocities.expected.bin": "de6f352c64d93d122fa94dfb02e60abafe9dcc35ed39281b382dde090a2bfc5e",
-        "bindings.json": "2f84a46c97bcde253ce6dc6e7b467947bf4773e180f6e763281ffd36f5b831a0",
+        "bindings.json": "118cb14e0b3c8185b0cb1bd22e420fa15650a3f202dc09b87679ee1721da786f",
         "kernel.c": "46545f98074004b61ebb1151d279efebc447b63108ad392bbc02f024a87ba4c2"
       },
       "fixture": {
@@ -108,12 +122,19 @@
     {
       "bindings": {
         "blocks": 1,
+        "buffer_bytes": {
+          "Params": 24,
+          "Poses": 2144,
+          "Tiles": 16896,
+          "Velocities": 2144
+        },
         "buffers": [
           "Tiles",
           "Velocities"
         ],
         "entry": "kernel_kernel",
         "iterations": 3,
+        "schema": 1,
         "storage_buffers": [
           "Tiles",
           "Velocities",
@@ -134,7 +155,7 @@
         "Velocities.actual.bin": "5f51d72ee3a98371dbbf1f2de55972a09f621709be4d123cd025d068a07a0509",
         "Velocities.bin": "58d4fcd7d40430fbdb356b713c44d7833fbcdfce16edc067ab42c41e9382fa26",
         "Velocities.expected.bin": "5f51d72ee3a98371dbbf1f2de55972a09f621709be4d123cd025d068a07a0509",
-        "bindings.json": "2f84a46c97bcde253ce6dc6e7b467947bf4773e180f6e763281ffd36f5b831a0",
+        "bindings.json": "15c7be434751a0e259495a1d377898ebf64040833eb05b0991685518da9436de",
         "kernel.c": "d89fca3d392e661c86e3858ea101abd8f35c7d05f92644f8f464c13f5e53d2a3"
       },
       "fixture": {
@@ -162,12 +183,19 @@
     {
       "bindings": {
         "blocks": 2,
+        "buffer_bytes": {
+          "Params": 24,
+          "Poses": 4256,
+          "Tiles": 50688,
+          "Velocities": 4256
+        },
         "buffers": [
           "Tiles",
           "Velocities"
         ],
         "entry": "kernel_kernel",
         "iterations": 3,
+        "schema": 1,
         "storage_buffers": [
           "Tiles",
           "Velocities",
@@ -188,7 +216,7 @@
         "Velocities.actual.bin": "c2b13bd3b96f94c76de56657dbdc48ad78f391ced29eb4895f23a5eb70cad77d",
         "Velocities.bin": "2e782340e215d7ca692f640457f2c9f1eef182b26017421b7af106ddb59c3d46",
         "Velocities.expected.bin": "c2b13bd3b96f94c76de56657dbdc48ad78f391ced29eb4895f23a5eb70cad77d",
-        "bindings.json": "096c278b2a873db4a60ee5f6ae24988b27af35562569645dcb718b9e55b67f18",
+        "bindings.json": "2419aab7e2c2e53bc35bea0d00f0f64f702f8c35b72da0c2f09a99a0c70f0067",
         "kernel.c": "4acb5bab73e0ac6c9cb6dc2dbcf588ee7a9935a6c3d7303a7ec484844edb52bb"
       },
       "fixture": {
@@ -216,12 +244,19 @@
     {
       "bindings": {
         "blocks": 3,
+        "buffer_bytes": {
+          "Params": 24,
+          "Poses": 8352,
+          "Tiles": 84480,
+          "Velocities": 8352
+        },
         "buffers": [
           "Tiles",
           "Velocities"
         ],
         "entry": "kernel_kernel",
         "iterations": 3,
+        "schema": 1,
         "storage_buffers": [
           "Tiles",
           "Velocities",
@@ -242,7 +277,7 @@
         "Velocities.actual.bin": "beeb0285f0b1c2e2c73ade75c640a759b338df3fd98b98cdee4838424b127c37",
         "Velocities.bin": "84529892e702fa6402b85ba53d7e216a57534c8b343c0d2fe43731b0eead88cb",
         "Velocities.expected.bin": "beeb0285f0b1c2e2c73ade75c640a759b338df3fd98b98cdee4838424b127c37",
-        "bindings.json": "385a57d99cb75ab87a13824266a53d96fa6f4170755f58ab3f9f53ec3583d067",
+        "bindings.json": "e358fb5605fb15d97c29451bd02ed4cdf55c6fbbf2649069dd9652ba6bd666ac",
         "kernel.c": "d79c5b1d61eb9cf4abae9222c2c1cdf5e78f9679d48d2d33b299ce8125f22bf1"
       },
       "fixture": {
@@ -303,7 +338,7 @@
       "ports/tilelang/contracts/effective_mass.json": "fb80c9138d02c1d99a63acf35c17d249fae4ce0f5ce8a5a6cab28461f3db6971",
       "ports/tilelang/contracts/integrate.json": "f92d44634b5f93f146d45f864e020fd5b9b2c8d5b050f94c735c2a0f1d567b0f",
       "ports/tilelang/contracts/warmstart.json": "384861217604cd84e74e8a421112054f2f32a95f92eadf866659ab066240afeb",
-      "ports/tilelang/handoff.py": "a28e3c61b71ea0a9d3141eba4e47e001b7c833564480812c1365d1a5278a75ff",
+      "ports/tilelang/handoff.py": "a9f46505813fbf72b24a7b563af6c07608c42aa772062d6bdf966b1565c78260",
       "ports/tilelang/inventory.json": "986e4ae8fa55437860aaef909c1b76fdd7f7d8a6498319d9649e0ae05c43182e",
       "ports/tilelang/inventory.py": "d036a86212533db798bc0a7b0d59da3774fc9bb304e36e8caa10913e47b88400",
       "ports/tilelang/kernel_support.py": "c35ab6b77ab828cf99997f7f689ce33e5cfe9c8130eb9eb25066a38ae92e58fc",
@@ -311,19 +346,19 @@
       "ports/tilelang/native/Cargo.lock": "3d66d537a41d3386978a535f40529556165fe26a4209caf0aa9054d85463b064",
       "ports/tilelang/native/Cargo.toml": "4f7f72e257241414c654826c44e8b00f7d770652802d25d4add657b84ceaaad0",
       "ports/tilelang/native/rust-toolchain.toml": "5e7517b95a2b4e810124f84091dd4a6e3f2192523fcac7b6d52abc7fc6aff91d",
-      "ports/tilelang/native/src/bin/native-replay.rs": "3cf29698f4568be49c75e342032d1de64d7207c10e5c9f893c943c88d4c626f5",
+      "ports/tilelang/native/src/bin/native-replay.rs": "09989561baeaac9fc4b43a510f3b9c5a8082a267fae71aba6bbed34250ccfba5",
       "ports/tilelang/native/src/bin/rust-reference.rs": "5e3826d7c404fa61277f0c32d1fcfbed4fcf36e0a113a0212fc38f967f2b630c",
-      "ports/tilelang/native/src/lib.rs": "25705bd9187a8f2b5e6cc3c94f963b6e548e4df0a4d1a1c18647a4df59ebfdd4",
+      "ports/tilelang/native/src/lib.rs": "ff48e10d11ddfd75005197d21ad0901b164c1046bfa231eb549416461c145ef7",
       "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
       "ports/tilelang/numerics.py": "1ee5c998e19750294162d94aedb87928010b3b524ac53338e6badfdaec9d4652",
       "ports/tilelang/parity.json": "ae1dc593f28d6431648c991d914746ff212b8a85ca84bb69192702708f08c6f4",
-      "ports/tilelang/parity.py": "342646bb2443e350145f8eba37de2490da3e845a649028a27ab34b6780d836cc",
+      "ports/tilelang/parity.py": "f3825afaf0fdd0db86dfa367589562a38b16ddbf112d1953b6647eab8f42671b",
       "ports/tilelang/reference/Cargo.lock": "f30132799c20433c709af9df85a357dc328d5f973cfed3289c97e6139dde615b",
       "ports/tilelang/reference/Cargo.toml": "866556f7f2415974a4685dc9036768aef3b2fc8bb7d05469da110af6c3933fb1",
       "ports/tilelang/reference/rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33",
       "ports/tilelang/reference/src/main.rs": "484046a409871dc401f9efcca3c16345a424b9391a783fc8580c07a89087dd8e",
-      "ports/tilelang/reference/src/operations.rs": "811b604b2f9c7b017538dd09c7df0f5f915784d569975aa30b2b918823ebbec7",
-      "ports/tilelang/replay.py": "c5aa9e5ba4093d9c0f9b977726aa51fcf1366a4c48fd147345a9ab076d6f4829",
+      "ports/tilelang/reference/src/operations.rs": "8a8ffc5ba66a5ad9f3561a39e9569dedd77d7208ace10deba0e5725ebaca9ded",
+      "ports/tilelang/replay.py": "c6a1f88c497fe3d85861350b285fbc3ffa72fd6b7e9e994d7435e0c4d4eff413",
       "ports/tilelang/requirements.txt": "8dba2741619f70e2f7c08d61350c8c2a0f105902b87e243b129e5410a3f8012c",
       "ports/tilelang/session.schema.json": "e99950fc5331a03b2fc975bb5d9c68e434b702926d30e7921e8126b60e763822",
       "ports/tilelang/shaders/__init__.py": "b49b0d4bdf369abaa2cff4a137163b6cdc9d5914d94cd0afd1600d99ac4a7cd4",
@@ -336,7 +371,7 @@
       "ports/tilelang/shaders/dynamics/tile_kernels.py": "a3d374572a8f28acb643ca5e738fd08611d96e412adce335ddce9df4a9a0e479",
       "ports/tilelang/tests/test_handoff.py": "12f3e0a2bdcca04be74c86c22f452aa2821c4db25b72f12470ff80d6029013d7",
       "ports/tilelang/tests/test_inventory.py": "9e1ce6bee76c8c76f36f4a9a514f74380324f54ceae26a78a31d01135ab603f9",
-      "ports/tilelang/tests/test_parity.py": "cd1e85d9601dc81c57808b9cbb94eb64cac553f354df64e88e0bc5922a757474",
+      "ports/tilelang/tests/test_parity.py": "95cca57a6f3c1007019aeda8867445f66b25c7ddb68e83bc0749316d7ed41d18",
       "ports/tilelang/tests/test_replay.py": "6cabd50d01366dc999b8e213efbaae4f9d22d0dc63b51c92fb1319ce9619cfdc"
     },
     "reference": {
@@ -511,7 +546,7 @@
   },
   "layout_sha256": "cf4764a73717b9d19cf3488e173172b0d1cd422e450f0423a52ffd0a2d15c92c",
   "level": "executed",
-  "reference_commit": "4dddf90d52b8698e9997db6bf772f60e32922f43",
+  "reference_commit": "a828f306b96e8cd40274de7e1cc72662807bca81",
   "schema": 1,
   "status": "passed",
   "suite": "portable",

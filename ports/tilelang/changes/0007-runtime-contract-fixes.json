@@ -1,0 +1,26 @@
+{
+  "id": "0007-runtime-contract-fixes",
+  "features": [
+    "rbd.contact.coulomb.solve3d",
+    "rbd.contact.coulomb.effective_mass3d",
+    "rbd.contact.coulomb.warmstart3d",
+    "rbd.body.integrate_linearized3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "abi",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Enforce native specialization byte sizes, preserve exact integration reference parameters, and reject ambiguous evidence overrides.",
+  "regressions": [
+    "Missing, extra, misaligned and unknown-schema native buffer contracts fail",
+    "Duplicate evidence overrides cannot hide failures",
+    "Native C/Metal and Ascend source replay regenerate all bindings and fixture hashes"
+  ],
+  "differences": [
+    "Binding manifests now carry a required schema and exact byte counts. Regenerate old native replay bindings.",
+    "Integration exports the same modified RbdSimParams used by its Rust oracle; TileLang arithmetic is unchanged.",
+    "Handoff creation rejects fingerprinted source files absent from the committed archive."
+  ]
+}

@@ -57,6 +57,7 @@ fn main() {
                         v.angular *= 1000.0;
                     }
                 }
+                pilot::write_buffer(&dir, "RbdParams.bin", &[params]);
                 pilot::write_buffer(&dir, "Velocities.bin", &velocities);
                 pilot::write_buffer(
                     &dir,

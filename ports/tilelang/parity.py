@@ -199,9 +199,13 @@ def status(root, extra_evidence=()):
                     "path": str(path),
                     "environment": report.get("environment"),
                 }
+    seen = set()
     for path in extra_evidence:
         report = read_json(path)
         feature, target = report["feature"], report["target"]
+        if (feature, target) in seen:
+            raise ValueError("Duplicate feature/target evidence")
+        seen.add((feature, target))
         if feature not in matrix or target not in matrix[feature]:
             raise ValueError(f"Unknown evidence feature/target: {feature}/{target}")
         matrix[feature][target] = {

@@ -211,7 +211,14 @@ def lower(layout, case, target):
         # Preserve the scalar expression order used by the portable contract.
         source = "#pragma clang fp contract(off)\n" + source
     return source, {
+        "schema": 1,
         "entry": str(function.attrs["global_symbol"]),
+        "buffer_bytes": {
+            "Tiles": case["tiles"] * layout["tile_words"] * 4,
+            "Velocities": case["bodies"] * layout["velocity_words"] * 4,
+            "Poses": case["bodies"] * layout["pose_words"] * 4,
+            "Params": 24,
+        },
         "buffers": order,
         "storage_buffers": list(BUFFERS),
         "blocks": max((case.get("active_bodies", case["count"]) + 63) // 64, 1),

@@ -80,6 +80,15 @@ def build(root, output, results):
         )
     config = manifest(root)
     inputs = evidence_inputs(root)
+    tracked = set(
+        subprocess.check_output(
+            ["git", "-C", str(root), "ls-files", "-z"], text=True
+        ).split("\0")
+    )
+    if any(path not in tracked for group in inputs.values() for path in group):
+        raise ValueError(
+            "Every fingerprinted source must be tracked in the handoff commit"
+        )
     current = status(root)
     if current["source_reconciliation"] != "current" or current["inventory"]["errors"]:
         raise ValueError("Source/inventory reconciliation is required")

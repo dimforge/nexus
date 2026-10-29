@@ -75,6 +75,10 @@ class ParityTests(unittest.TestCase):
         with patch.object(parity.subprocess, "run"):
             return parity.reconcile(self.root, self.change, [self.evidence])
 
+    def test_duplicate_overrides_cannot_hide_a_failed_report(self):
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            parity.status(self.root, [self.evidence, self.evidence])
+
     def test_success_is_scoped_and_ascend_is_unvalidated(self):
         result = self.accept()
         self.assertEqual(result["source_reconciliation"], "current")

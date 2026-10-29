@@ -98,3 +98,18 @@ regressions pass, as do Rust exporter fmt/strict Clippy and Python Ruff F checks
 No global tolerance changed. Full scene stepping, complete contact preparation,
 and production coloring remain unimplemented; the solve numerical release block
 and missing Ascend execution remain explicit.
+
+## Inventory, handoff and native contract checks
+
+All 108 Rust shader modules have explicit dispositions and mirrored target paths;
+19 capability groups keep remaining scope visible. The native binding manifest
+now records a schema and exact specialization byte sizes. Native launch and fixture
+loading reject mismatched sizes. Integration fixtures preserve the full parameters
+actually used by their Rust oracle. Ambiguous duplicate evidence overrides fail.
+
+C and native Metal pass all 32 cases; the pinned Ascend compiler lowers all 32.
+The 41 Python regressions and three native contract tests pass; both Rust tools
+pass strict Clippy. An actual immutable 32-case handoff was built and verified
+from commit a828f306b (before the native size-contract fix), covering 297 files.
+Returned-output round trips, corruption/missing files, path escape, and unavailable
+NPU probes are tested. They are offline validation tests, not Ascend execution.
