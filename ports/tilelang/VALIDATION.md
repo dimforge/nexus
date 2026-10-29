@@ -71,3 +71,18 @@ interface and are reported unavailable, not passed. TileLang/Rust CPU disagree i
 `evidence/numerics.json` preserves these diagnostic results and exact input hashes.
 The numerical gap is unresolved; no tolerance was widened and no Rust physics
 was changed. This diagnostic is not accepted portable or release evidence.
+
+## Hardware-free Ascend source milestone
+
+Built TileLang commit `8944978dd8761eb975a28f53d2a9be4a800be241` with
+`USE_ASCEND=ON`, `USE_CUDA=OFF`, `USE_ROCM=OFF`, `USE_METAL=ON` and runtime
+stubs on this macOS host, without CANN or an NPU. All 17 solver specializations
+lower successfully to Ascend source. The report records native compiler-library
+hashes and version `0.1.15+git8944978d`. C/Metal replays still use the original
+0.1.15 wheel and both pass 17/17 cases. These are distinct compiler environments.
+
+`compiler.lock.json` pins the source and principal submodules; `compiler.py`
+provides a dedicated-environment build recipe. Its record-only path was tested
+against the actual build. The complete clean helper/CI build is not yet tested.
+No vendor device binary was compiled. Ascend runtime, numerical correctness and
+performance remain unvalidated. Source lowering cannot satisfy `--require ascend`.

@@ -1,0 +1,21 @@
+{
+  "id": "0003-ascend-source",
+  "features": [
+    "rbd.contact.coulomb.solve3d"
+  ],
+  "kinds": [
+    "tooling",
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Reproduce an Ascend-enabled compiler build without an NPU and record source-lowering evidence separately from execution.",
+  "regressions": [
+    "all 17 portable solver specializations lower to Ascend source",
+    "C and Metal retain their existing execution contract",
+    "compiler receipt records pinned source and submodules; replay fingerprints loaded native compiler libraries"
+  ],
+  "differences": [
+    "Ascend source is generated with a separately built 0.1.15+git8944978d compiler; C/Metal execution retains the original pinned wheel.",
+    "The compiler stubs do not emulate hardware. No vendor binary compilation, Ascend execution, or performance is claimed."
+  ]
+}

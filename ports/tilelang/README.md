@@ -200,12 +200,12 @@ compiler/runtime work can continue while this gap remains release-blocking.
 In parallel, establish an ordinary Linux CPU build of a pinned TileLang revision
 with the Ascend code generator enabled, then lower the pilot and representative
 portability probes to Ascend source. Upstream's [Ascend build configuration](https://github.com/tile-ai/tilelang/blob/main/src/ascend/CMakeLists.txt)
-explicitly separates code generation from CANN and provides runtime stubs. This
-makes a hardware-free code-generation check a concrete next experiment; it has
-not yet succeeded for this pilot. A stub permits loading the compiler/runtime
+explicitly separates code generation from CANN and provides runtime stubs. The pinned source build now succeeds on macOS without CANN, and all 17 pilot
+specializations generate Ascend source. `evidence/ascend.json` records this
+source-lowering result; `evidence/compiler-build.json` records the build. A stub permits loading the compiler/runtime
 library; it does not emulate an NPU or validate the generated device program.
 
-The local macOS wheel lacks the required Ascend backend. Use a Linux environment
+The original published macOS wheel lacks the required Ascend backend. Use a Linux environment
 or a separate source build rather than treating that wheel's missing backend as a
 kernel failure. Pin the compiler commit and submodules as well as package versions;
 replay C/Metal if adopting a different compiler. Do not silently compare reports
@@ -231,6 +231,20 @@ as the provisional high-end capability profile. The actual device and CANN
 version remain undecided. This does not promise support for other Ascend
 architectures. Record required capabilities so a later target change exposes the
 operations that need rework.
+
+The build can be reproduced in a dedicated directory (requires Git, CMake, Ninja,
+a C++ compiler, Python and network access for the pinned dependencies):
+
+```sh
+python3 ports/tilelang/compiler.py /tmp/nexus-ascend-compiler
+```
+
+Install the resulting wheel and pinned runtime dependencies in a separate venv.
+Keep Z3 and TVM FFI installed inside that environment so native-library rpaths
+resolve. The build helper does not change the pilot's execution environment.
+`--record-only --source CHECKOUT` records existing wheels without rebuilding;
+that path has been exercised locally. The full helper's clean Linux build has
+not yet been run; the local build used the equivalent pinned source/build flags.
 
 ### 2. Exercise difficult operations before broad translation
 

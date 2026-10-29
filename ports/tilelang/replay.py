@@ -202,6 +202,17 @@ def execute_c(source, bindings, directory, arrays):
     }
 
 
+def compiler_libraries():
+    import tilelang
+
+    directory = Path(tilelang.__file__).parent / "lib"
+    return {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(directory.iterdir())
+        if path.is_file() and path.suffix in (".so", ".dylib", ".dll")
+    }
+
+
 def build_native(reference=False):
     """Build pinned Rust execution adapters; the returned process needs no Python."""
     target = ROOT / "target"
@@ -296,6 +307,7 @@ def main():
             "tvm_ffi": importlib.metadata.version("apache-tvm-ffi"),
             "z3": importlib.metadata.version("z3-solver"),
         },
+        "compiler_libraries": compiler_libraries(),
         "layout_sha256": hashlib.sha256(
             (fixture_dir / "layout.json").read_bytes()
         ).hexdigest(),

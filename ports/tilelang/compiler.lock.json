@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/tile-ai/tilelang.git",
+  "revision": "8944978dd8761eb975a28f53d2a9be4a800be241",
+  "submodules": {
+    "3rdparty/cutlass": "b2dd65dc864e09688245b316ac46c4a6cd07e15c",
+    "3rdparty/tvm": "4211874e9e4b8770fd20ad0d98ab80afd1df5028"
+  },
+  "build_packages": [
+    "scikit-build-core==1.1.1",
+    "cython==3.3.0",
+    "z3-solver==4.15.4.0"
+  ],
+  "environment": {
+    "USE_ASCEND": "ON",
+    "USE_CUDA": "OFF",
+    "USE_ROCM": "OFF",
+    "TILELANG_USE_ASCEND_STUBS": "ON"
+  },
+  "target_profile": "Ascend 950 SIMT; provisional, no vendor toolkit or device validation"
+}

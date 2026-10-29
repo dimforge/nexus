@@ -506,6 +506,14 @@
       "status": "passed"
     }
   ],
+  "compiler_libraries": {
+    "libtilelang.dylib": "ea30a2121d1f75909c759db62ad2a218837f036fbaa7b40fdc9d3649809c2700",
+    "libtvm_compiler.dylib": "80b3b6370a3f1226806bdff609c92d66c8833605bb67add3eae2bd3b831a5f88",
+    "libtvm_runtime.dylib": "1edcbfd7c3a692e28dc210ab7d2f90f322c4e5bbf4c7b1e6876422bc329612f1",
+    "tilelang_ascend_npu_exchange.abi3.so": "f76d36f2e2b80a817ffa126d1e647a1fa30957571478d5cb6f292fca467564fe",
+    "tilelang_cython_wrapper.abi3.so": "8b4a5fdfe6dcf259eb8642a1f55d345264e5aef346f63d7c222e390335e275e6",
+    "tilelang_deepgemm_heuristics.abi3.so": "e3b47e22e1ed3353e110e3e50e891ea27a2c1a21dbcade2cf66ba1ea13598a81"
+  },
   "environment": {
     "device": "Apple M4 Max",
     "numpy": "2.2.6",
@@ -525,6 +533,8 @@
       ".github/workflows/tilelang.yml": "2e793b8baea818298c9209619e99286f1399d154adbe1fbc5903a9d5b9e79413",
       "AGENTS.md": "ff9871eab80c0256ee666a9fe1fcc00f0bf804618461e2f482852fcd5d35653d",
       "ports/tilelang/AGENTS.md": "c3d499507c73319d6602a959371d1c10f1864259fa0c526413cb4839d0ace065",
+      "ports/tilelang/compiler.lock.json": "328632f9962f548b5597970c76b126139f8295bbecf504a47066288ccc195cfe",
+      "ports/tilelang/compiler.py": "67beeed0b138e7c77f3171060cc3f572066df5ab10e6a5ef3c955d229a728ea6",
       "ports/tilelang/contract.json": "bac7a7b37fbc0cc52de7660be3490831549cbbd3cae968f3de1927c1c18456fd",
       "ports/tilelang/coulomb.py": "7a8e3edbcc2615c8223749d046066b499385c59214b3063a32962b6693869ccb",
       "ports/tilelang/native/Cargo.lock": "3d66d537a41d3386978a535f40529556165fe26a4209caf0aa9054d85463b064",
@@ -535,13 +545,13 @@
       "ports/tilelang/native/src/lib.rs": "25705bd9187a8f2b5e6cc3c94f963b6e548e4df0a4d1a1c18647a4df59ebfdd4",
       "ports/tilelang/native_metal.swift": "8a12208c39cda34ada627e56d8b9aa732bd83c611cb4becd33fad7cfb3e213b0",
       "ports/tilelang/numerics.py": "1ee5c998e19750294162d94aedb87928010b3b524ac53338e6badfdaec9d4652",
-      "ports/tilelang/parity.json": "ceab6dfd8df023265662cd174c5ba62db5e58f7b8c4164cde6939157b94571a8",
+      "ports/tilelang/parity.json": "d626b7fe421af8ed6662d38dce24d133c4218d7e608887bb33f745249c8f7b9b",
       "ports/tilelang/parity.py": "082105db6892a8e8702f514b985bc0ba915e78cbfa76003a5ad4f7a751af2392",
       "ports/tilelang/reference/Cargo.lock": "f30132799c20433c709af9df85a357dc328d5f973cfed3289c97e6139dde615b",
       "ports/tilelang/reference/Cargo.toml": "c2d6db79191afd99ebae0e0a9b5c3243efcf75233273712f7fcf8b0b6a10c5d3",
       "ports/tilelang/reference/rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33",
       "ports/tilelang/reference/src/main.rs": "4eb354f53bd5159801a6c6a2d051916d634896bf1d6df996abf91b0936f42f40",
-      "ports/tilelang/replay.py": "479f72577fe66195f5e6de0f864d51fd0450eec2cb2cb035dd2e6dc21cda2810",
+      "ports/tilelang/replay.py": "b09f932022604e179e58b31152d7a992180d40941a1d06b751a303b56d3de9fa",
       "ports/tilelang/requirements.txt": "8dba2741619f70e2f7c08d61350c8c2a0f105902b87e243b129e5410a3f8012c",
       "ports/tilelang/tests/test_parity.py": "30928b8d128e5fb0a0dbabc7c5fd3b4528d4eb4cd168894b5b3930e576fd71a5",
       "ports/tilelang/tests/test_replay.py": "5d5685e3bff806e0da5aa89dfd5293dec431ad2538174d79af4965281461a800"
@@ -718,7 +728,7 @@
   },
   "layout_sha256": "cf4764a73717b9d19cf3488e173172b0d1cd422e450f0423a52ffd0a2d15c92c",
   "level": "executed",
-  "reference_commit": "61175309f83e300819e70b7cfed524ae30f93bc8",
+  "reference_commit": "c71d449b9b813d2756628448a5032fe12e7b1e7c",
   "schema": 1,
   "status": "passed",
   "suite": "portable",
