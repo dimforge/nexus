@@ -490,3 +490,12 @@ completion assertion. Dense fixtures intentionally exhaust a two-round budget.
 Repeated source lowering and CPU compilation are reused within one program without
 removing any dispatch or changing its physical-buffer mapping. Full-source matrix
 refresh and reconciliation follow this implementation commit.
+
+The full matrix was then regenerated from implementation commit 217397008:
+**46 operations, 604 cases per target**, all passing on CPU C++ and native Metal,
+with all 604 Ascend source-lowering checks passing. Reconciliation under change
+0024 and `parity.py check --require c --require metal` pass. Six targeted UBSan
+runs also pass: seeded/dense composed coloring, grid-stride deterministic coloring,
+both exhausted-palette modes and finalization. No global floating tolerance or
+zero-distance numerical release block changed. CUDA execution and Ascend vendor
+compilation/execution remain unvalidated; the complete backend is still in progress.
