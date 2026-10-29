@@ -94,6 +94,12 @@
     "Private prefix temporaries avoid ambiguous Ascend shared-memory read-modify-write barrier insertion. Source lowering alone does not qualify Ascend synchronization.",
     "The standalone sort uses independent batch grids. The native flattened-batch controller optimization is not implemented.",
     "Canonicalization retains native field order but runs all eight 4-bit passes per field, using native three-buffer ping-pong ownership. This preserves ordering but has more dispatches than the variable-bit Rust optimization.",
-    "Fixed capacity-bounded launches consume device counters without intermediate host physics/readback. Native indirect grids are also published and checked."
+    "Fixed capacity-bounded launches consume device counters without intermediate host physics/readback. Native indirect grids are also published and checked.",
+    "The complete refreshed matrix also accepts the source changes classified separately in records 0031 (inert link guard), 0032 (stable face intersections) and 0033 (analytic collision composition and scoped geometry comparison)."
+  ],
+  "related_changes": [
+    "0031-contact-links-inert-slots",
+    "0032-stable-face-line-intersections",
+    "0033-native-analytic-collision"
   ]
 }
