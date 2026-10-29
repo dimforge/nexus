@@ -227,3 +227,42 @@ This implements preparation from existing links/manifolds, not collision
 creation, recycle eligibility, warmstart gather or the complete scene schedule.
 The full-port goal and the existing numerical-policy investigation continue.
 Ascend vendor compilation, device execution and performance remain unvalidated.
+
+## Contact-link persistence and color seeding
+
+All 3D functions in `contact_links.rs` now have mirrored counterparts: link
+initialization, identity matching in the shorter nonempty body adjacency list,
+translation/rotation reuse decisions, state copying/refresh and previous-color
+seeding. The Rust oracle calls all three entry points separately and in order;
+a composed per-contact TileLang test uses immutable old topology and disjoint
+old/new state halves. Production adjacency generation and changing-scene frame
+stepping remain separate unfinished work.
+
+The 36 new cases exercise 0/1/31/32/33/63/64/65/129 contacts, reverse adjacency
+ordering and duplicate identities, missing matches, static/empty lists, stale
+inactive IDs, high-bit multibody flags, zero/invalid previous colors, reversed
+state-half ordering and exact state/padding copies. Recycling checks include
+inclusive translation thresholds, excessive relative rotation, rigid motion that
+preserves relative pose but exceeds the individual rotation limit, disabled
+reuse and quaternion sign equivalence. All output words agree exactly with Rust.
+
+Compiler-sensitive integer expressions are covered by the same cases. Unsigned
+flag values are reduced to boolean zero tests before combination. Sentinel
+checks precede address casts, avoiding a compiler-eliminated signed comparison.
+The C backend's invalid constant bitcast is avoided by storing the exact f32-one
+bits. These adaptations preserve native u32 data and do not alter Rust behavior.
+
+All 151 cases across eighteen operation contracts pass on C++ CPU and native
+Rust Metal; all 151 lower to Ascend source. All 103 Python regressions and three
+native adapter tests pass, together with Rust formatting/strict Clippy and Ruff
+F checks. Additional standalone generated-C++ checks at 65 and 129 contacts for
+each of the four new operations passed with `-fsanitize=undefined` and
+`-fno-sanitize-recover=all` (eight runs, outputs also checked exactly).
+AddressSanitizer could not run on this host: a sampled process spun recursively
+inside its shadow-memory/malloc initialization before `main` and was stopped.
+That attempt is unavailable evidence, not a passed memory-safety check.
+
+The full-port goal remains active. Warmstart gathering/scaling, production
+scheduling, collision detection, joints, native scene integration and scene
+stability tests remain unfinished. The existing floating branch-sensitivity
+policy remains unresolved; Ascend vendor compilation/execution is unvalidated.
