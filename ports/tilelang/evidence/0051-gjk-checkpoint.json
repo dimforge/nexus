@@ -1,0 +1,2435 @@
+{
+  "scope": "Narrowed near-origin GJK correction and seven dependent geometry/collision operations; resident scenes and global reconciliation remain in progress",
+  "inputs_sha256": "5e06375a1aa80efd7c48f486cd94bba322fda1183f258f6b784ec96d1dcdd96f",
+  "reports": [
+    {
+      "operation": "simplex_project",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "708c651ff8e3c6cdbc303ba76db534143640bbc5ff511e3938dc8f362f5ae058",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_closest",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "c5fab6ce9177f49bf271f569fee1dacdd79b225daf21183171765897839718d5",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "floor_cylinder",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "c8f777e23c33dfd8228512f2900b9b397d6b406f61bb8b2f143bafae5b5861b5",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "d9f0b50c7522c96aa7051bd2ad03406df30ed3793746d98439131370945fd2df",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.55717134475708e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.5528513193130493,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "2b9c5cfd6212a9a46e7440e2450f1ab336936361d0e177aff9ded8cba1792b66",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.5869736671447754e-05,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.8410693407058716,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "triangle_fallback",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.519918441772461e-06,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "d1172609acec99557c909fd74bcacddfc58c2d1e8c64e1a138aaf26fb2604a27",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.8605180978775024,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "d000e055b24adea1e9ec5afe3bbfa307c76f97c073850fbfd2094703a442cdfa",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "simplex_project",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "9d0e591723496916ce60cb7c5f65e23452522e3af99aaff14fa67ff07b4e6028",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_closest",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "c75e5372269343e7f2b994bc497e1e870968093d5c0db9ac23e7bb68bbe4dcac",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "floor_cylinder",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "5acab2220ce5e30fbcd3d851a3d689b94c8803e6748f376e1786d6eaddbb0a54",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "baff0b2ec39338af038d7575aa1312088c5dc0777760bc4e648b8411e9346d3f",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.55717134475708e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.5528513193130493,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "ba4b7e1f24d7474871700817c8ea53650fc7fdd951c7baac78890902a9cd6fc9",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.5869736671447754e-05,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.8410693407058716,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "triangle_fallback",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.519918441772461e-06,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "25f4d8b07419d39bc2950fdc7033acfca781b5974349fc96bf9eeff188602c16",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.8605180978775024,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "ea6796ee2b599562074e2b54c71e22aa0da2040b009cfeeed37ba6a243ecc5a1",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "simplex_project",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "99baf5c80f9b4eef888a09e3cf6bc1bbaf692025a2b748d8639555ddb4c1ca07",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_closest",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "cffb1bd32776c4f57af556ccbfb30d96c2f93eb30c4afd5d17c9735bf97472f6",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "floor_cylinder",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "a08e87c40b7add58b9d74855a20a42b2fd7453f1948617b70714f7a38e873880",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "d97f0385938b08f256a7270f9b1daf52337acf4b893d4bac0005bb84b8b3e5b5",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "0702d59ed5ae16191f48b1dcf62bf22659a33349a893424d6edf3868d7080901",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "triangle_fallback",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "a9b87e9c7e41a207dbdc04abc0b0f1262804e525c751a8761c34a8ecab39fb4e",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a1766b93c663ee5a5482e454284c00e42403a6aa",
+      "report_sha256": "8c9ba37b6c769e91e1b97e43249c1af6061228b7d40f2c627cd1ae4b991acb84",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    }
+  ]
+}
