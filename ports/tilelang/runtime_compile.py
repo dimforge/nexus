@@ -55,7 +55,12 @@ def specialize(
         ),
     )
     layout = json.loads((output / "native/layout.json").read_text())
-    directory = output / "native/runtime_scene/native-upload"
+    operation = (
+        "runtime_twist_scene"
+        if layout.get("friction_model") == "twist"
+        else "runtime_scene"
+    )
+    directory = output / "native" / operation / "native-upload"
     case = json.loads((directory / "case.json").read_text())
     initial = {
         n: np.fromfile(directory / f"{n}.bin", np.uint32) for n in case["buffer_words"]

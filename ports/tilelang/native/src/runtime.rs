@@ -237,9 +237,6 @@ fn validate_parameters(p: &RbdSimParams) -> Result<(), String> {
     {
         return Err("Invalid solver parameters".into());
     }
-    if p.friction_model != FrictionModel::Coulomb {
-        return Err("Simplified friction is not yet supported by the runtime".into());
-    }
     Ok(())
 }
 
@@ -607,7 +604,9 @@ impl TileLangSimulation {
         self.uploaded.params
     }
 
-    /// Replace native solver parameters while preserving physical state, caches and step count.
+    /// Replace native solver parameters while preserving physical state and step count.
+    /// A friction-model change reallocates compact contact tiles and clears old adjacency
+    /// counts, matching RbdState::set_friction_model; other changes preserve all caches.
     /// `dt` is the substep duration, as in RbdSceneUpload. Changed schedules are compiled
     /// into a separate configuration before it is published; this is not a cheap per-frame setter.
     pub fn set_solver_parameters(&mut self, params: RbdSimParams) -> Result<(), String> {
@@ -615,7 +614,8 @@ impl TileLangSimulation {
         if params == self.uploaded.params {
             return Ok(());
         }
-        let checkpoint = self.checkpoint()?;
+        let mut checkpoint = self.checkpoint()?;
+        let model_changed = params.friction_model != self.uploaded.params.friction_model;
         let mut upload = self.uploaded.clone();
         upload.params = params;
         let mut options = self.options.clone();
@@ -662,18 +662,51 @@ impl TileLangSimulation {
         if old_metadata != new_metadata {
             return Err("Reconfiguration changed non-parameter scene metadata".into());
         }
+        if model_changed {
+            // The newly allocated tile type has a different extent. OldCounts gates
+            // every previous-contact lookup, including warmstarts and color seeding.
+            // Preserve all other regions and the absolute frame count, as in Nexus.
+            let fresh = replacement.checkpoint()?;
+            let tiles = fresh
+                .frame
+                .regions
+                .get("OldTiles")
+                .ok_or("Missing new contact tiles")?;
+            checkpoint
+                .frame
+                .regions
+                .insert("OldTiles".into(), tiles.clone());
+            checkpoint
+                .frame
+                .regions
+                .get_mut("OldCounts")
+                .ok_or("Missing old contact counts")?
+                .fill(0);
+        }
         let continuation = RuntimeCheckpoint {
             signature: replacement.signature.clone(),
             frame: checkpoint.frame,
         };
-        // Same scene, Coulomb layout and semantic regions: changing iteration counts,
-        // timestep or coefficients does not invalidate native cache identities.
+        // Scene identity and persistent region meanings were checked above; only
+        // the model-dependent tile region and its read gate were reset when needed.
         unsafe { replacement.restore_checkpoint(&continuation) }?;
         replacement.workspace_root = self.workspace_root.clone();
         replacement.next_configuration = self.next_configuration;
         *self = replacement;
         Ok(())
     }
+    /// Current simulation-wide contact model.
+    pub fn friction_model(&self) -> FrictionModel {
+        self.uploaded.params.friction_model
+    }
+    /// Recompile the contact model and reset its warmstarts and color seeds.
+    /// Poses, velocities, live gravity and the frame count remain unchanged.
+    pub fn set_friction_model(&mut self, model: FrictionModel) -> Result<(), String> {
+        let mut params = self.solver_parameters();
+        params.friction_model = model;
+        self.set_solver_parameters(params)
+    }
+
     /// Change the full-frame duration and TGS substep count, matching RbdState.
     pub fn set_timestep(&mut self, dt: f32, substeps: u32) -> Result<(), String> {
         let mut params = self.solver_parameters();

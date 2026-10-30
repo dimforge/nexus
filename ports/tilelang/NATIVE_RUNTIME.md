@@ -58,9 +58,9 @@ collider indices remain a separate space. `Some(N)` records at most N frames and
 then rejects further stepping.
 
 The integration remains experimental. Cold-start uploads do not preserve existing
-contact caches. Topo coloring, Coulomb friction, ordinary joints and LBVH are the
-current composed path, including native hub splitting. Other friction models and
-remaining scheduling variants still need integration.
+contact caches. Topo coloring, Coulomb and simplified twist friction, ordinary joints and LBVH
+form the current composed path, including native hub splitting. Remaining
+scheduling variants still need integration.
 No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
 prepares source only for a future CANN execution adapter.
 
@@ -123,7 +123,8 @@ the caches required for continuation.
 `solver_parameters()` returns the native parameter block, whose `dt` is the substep
 duration. `set_solver_parameters` compiles a replacement configuration, checks that
 all non-parameter scene inputs and compiler sources still match, then transfers
-all cached state before publishing it. Errors leave the live physical state intact.
+persistent state before publishing it. A friction-model change resets contact
+history as described below; other updates retain all cached words. Errors leave the live physical state intact.
 The convenience setters `set_timestep` (full-frame duration and substep count),
 `set_num_internal_pgs_iterations`, `set_contact_merge_cos` and
 `set_contact_recycle_distance` match the corresponding native controls. Changed
@@ -150,3 +151,26 @@ reconstructs the scene: contacts and colors start empty and the frame counter re
 It corresponds to rebuilding a native `RbdState`, and does not reproduce the cache
 behavior of native incremental `append_bodies`/`remove_bodies`. Use the returned
 new body ordering for future state reads and edits.
+
+The resident API accepts `FrictionModel::Simplified` as well as the default
+`Coulomb`. Simplified contacts use the native compact twist tile: normal impulses
+per point, one central sliding constraint and one angular constraint per manifold.
+The compiler selects the corresponding tile layout and shader implementations.
+Unknown native model values retain Nexus's Coulomb fallback.
+
+`friction_model()` reads the current choice. `set_friction_model(model)` and a
+model change through `set_solver_parameters(params)` compile a replacement
+configuration before publishing it. They preserve poses, velocities, live gravity
+and the absolute frame count. As in `RbdState::set_friction_model`, old contact
+adjacency counts become zero and the model-dependent tile storage is reallocated;
+this disables old contact warmstarts and color seeds. Other parameter updates
+retain all persistent caches. Reapplying the same parameters is a no-op, and an
+old-model checkpoint cannot be restored into a new-model simulation.
+
+Model selection is a control operation with compilation cost. It is not intended
+for switching every frame. `native/tests/runtime_friction.rs` compares twelve
+frames of two batches of spinning/sliding boxes against the production CPU
+pipeline, with switches in both directions and initial capacity growth. These
+checks require the noalias-disabled CPU profile even when TileLang runs on Metal.
+The registered `runtime_twist_scene` matrix additionally covers native joints,
+multiple colliders, mesh reduction, split hubs and large batch storage.
