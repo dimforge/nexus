@@ -65,7 +65,7 @@ pub(crate) fn fixture_config(
     let n = per * nb;
     let storage = (per + 3) * nb;
     let general_scene = label.starts_with("general_");
-    let traced = general_scene || label.starts_with("joint_");
+    let traced = true;
     let pair_capacity = per * per * nb * if general_scene { 2 } else { 1 };
     let capacity = pair_capacity * 2;
     let cs = capacity + 3;

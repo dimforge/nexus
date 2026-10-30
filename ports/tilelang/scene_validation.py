@@ -69,6 +69,8 @@ BASE_BUFFERS = (
     "ReduceGrid",
     "Config",
     "InitConfig",
+    "Trajectory",
+    "FrameIndex",
 )
 BUFFERS = (
     tuple(dict.fromkeys(BASE_BUFFERS))
@@ -198,6 +200,8 @@ def buffer_sizes(l, c):
         ReduceGrid=6,
         Config=l["sort_uniforms_words"],
         InitConfig=l["sort_uniforms_words"],
+        Trajectory=c["frames"] * c["trace_stride"] + 3,
+        FrameIndex=2,
     )
     for i in range(4):
         sizes.update(
@@ -218,8 +222,6 @@ def buffer_sizes(l, c):
             PfmOrder=cs,
             PfmKeys=cs,
             PfmSortedKeys=cs,
-            Trajectory=c["frames"] * c["trace_stride"] + 3,
-            FrameIndex=2,
         )
     return sizes
 
@@ -302,6 +304,11 @@ def validate_case(l, c, a):
         1 if n <= 256 else 2
     ):
         raise ValueError("Invalid scene adjacency scan")
+    if (
+        c["trace_stride"] != n * (l["pose_words"] + l["velocity_words"])
+        or a["FrameIndex"][0] != 0
+    ):
+        raise ValueError("Invalid scene trajectory dimensions or initial cursor")
     sizes = buffer_sizes(l, c)
     if (
         set(a) != set(sizes)

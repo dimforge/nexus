@@ -42,3 +42,24 @@ Changing a case, configuration, budget or independent check requires a new chang
 record and fresh evidence. The numerical policies cover these bounded unit-scale
 regressions. They do not resolve the isolated zero-distance CFM stress suite, the
 native secondary-witness clipping limitation, or Ascend hardware qualification.
+
+## Analytic trajectories and discrete collision timing
+
+Analytic scenes now record every pose/velocity frame, as joint and general scenes
+already did. Native/target comparisons retain their existing float tolerances;
+padding, static body words, frame counters, guards and the final recorded state
+remain exact. The shared trace checker applies the same policy to every family.
+
+The original 2 cm analytic penetration bound describes the final checkpoint.
+Applying it unchanged to every intermediate frame rejects the Rust reference:
+in `free-c1-l1-b1-f120`, frame 47 reaches 3.077 cm penetration while the sphere
+moves at 7.684 m/s, before the next discrete collision pass. The final state still
+meets 2 cm. The contracts therefore explicitly select `previous_surface_motion`
+for intermediate physical checks. Its extra allowance is
+`2 * frame_dt * previous_max_surface_speed + |gravity| * frame_dt^2`, where
+surface speed is linear speed plus angular speed times the fixture's bounding
+radius. This covers two approaching surfaces over one discrete collision step.
+It is a diagnostic motion bound, not a continuous-collision guarantee. The final
+checkpoint receives no extra allowance. Energy, quaternion normalization, static
+state and finite-state checks apply at every frame independently. A pair of
+matching but corrupt trajectories must still fail these physical checks.

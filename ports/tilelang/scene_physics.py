@@ -26,7 +26,7 @@ def state(layout, case, arrays):
     return position, rotation, linear, angular
 
 
-def check_physics(layout, case, before, result, contract):
+def check_physics(layout, case, before, result, contract, *, penetration_allowance=0.0):
     import numpy as np
 
     p, q, v, w = state(layout, case, result)
@@ -72,7 +72,7 @@ def check_physics(layout, case, before, result, contract):
                     )
             else:
                 penetration = max(penetration, float(1.0 - np.linalg.norm(d)))
-    if penetration > contract["physics"]["max_penetration"]:
+    if penetration > contract["physics"]["max_penetration"] + penetration_allowance:
         raise AssertionError(f"Unbounded scene penetration: {penetration}")
     inertia = 1 / 6 if case["scene"] == "boxes" else 0.1
     gravity = float(-before["Gravity"].view(np.float32)[1])
@@ -110,3 +110,56 @@ def check_physics(layout, case, before, result, contract):
         if np.max(np.abs(v[dynamic, 0] + 0.5 * w[dynamic, 2])) > 0.01:
             raise AssertionError("Friction scene did not reach rolling contact")
     return {"penetration": penetration, "energy": total, "speed": speed, "spin": spin}
+
+
+def check_trajectory_physics(layout, case, before, result, contract):
+    """Apply the existing physical bounds at every recorded frame."""
+    import numpy as np
+
+    if (
+        contract["physics"].get("transient_penetration_policy")
+        != "previous_surface_motion"
+    ):
+        raise ValueError("Missing analytic transient penetration policy")
+    n, stride = case["body_count"], case["trace_stride"]
+    pw, vw = layout["pose_words"], layout["velocity_words"]
+    maxima = {key: 0.0 for key in ("penetration", "energy", "speed", "spin")}
+    dt = (
+        float(before["RbdParams"].view(np.float32)[layout["rbd_params"]["dt"]])
+        * case["substeps"]
+    )
+    gravity = float(np.linalg.norm(before["Gravity"].view(np.float32)[:3]))
+    previous = before
+    radius = np.sqrt(0.75) if case["scene"] == "boxes" else 0.5
+    for frame in range(case["frames"]):
+        start = frame * stride
+        current = dict(
+            result,
+            Poses=result["Trajectory"][start : start + n * pw],
+            Velocities=result["Trajectory"][start + n * pw : start + n * (pw + vw)],
+        )
+        # Collision is generated at the start of a frame. Two approaching
+        # surfaces can move by twice the previous maximum surface speed over dt,
+        # plus gravitational displacement. This is a transient diagnostic bound,
+        # separate from native/target numeric comparison and final settling.
+        _, _, linear, angular = state(layout, case, previous)
+        surface_speed = np.linalg.norm(linear, axis=1) + radius * np.linalg.norm(
+            angular, axis=1
+        )
+        allowance = (
+            0.0
+            if frame + 1 == case["frames"]
+            else 2 * dt * float(np.max(surface_speed, initial=0)) + gravity * dt * dt
+        )
+        observed = check_physics(
+            layout,
+            dict(case, frames=frame + 1),
+            before,
+            current,
+            contract,
+            penetration_allowance=allowance,
+        )
+        previous = current
+        for key, value in observed.items():
+            maxima[key] = max(maxima[key], value)
+    return maxima

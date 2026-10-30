@@ -104,6 +104,8 @@ def check_guards(l, c, b, a, e):
     for i in range(4):
         prefix(f"AdjAux{i}", (c["strides"][i] + 255) // 256 if i < c["levels"] else 0)
         prefix(f"BucketAux{i}", 1 if i == 0 else 0)
+    prefix("Trajectory", c["frames"] * c["trace_stride"])
+    prefix("FrameIndex", 1)
     if claimed != set(b):
         raise ValueError(f"Missing scene write policy: {set(b) - claimed}")
     for name, m in masks.items():

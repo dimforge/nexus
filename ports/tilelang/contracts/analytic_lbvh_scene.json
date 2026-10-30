@@ -141,7 +141,9 @@
     "LbvhSortGrid",
     "LbvhSortKeys",
     "LbvhSorted",
-    "LbvhTree"
+    "LbvhTree",
+    "Trajectory",
+    "FrameIndex"
   ],
   "outputs": [
     "Velocities",
@@ -221,7 +223,9 @@
     "LbvhSortGrid",
     "LbvhSortKeys",
     "LbvhSorted",
-    "LbvhTree"
+    "LbvhTree",
+    "Trajectory",
+    "FrameIndex"
   ],
   "comparison": "lbvh_scene_fields",
   "atol": 2e-06,
@@ -229,7 +233,8 @@
   "physics": {
     "max_penetration": 0.02,
     "energy_relative_allowance": 0.02,
-    "energy_per_body_allowance": 0.05
+    "energy_per_body_allowance": 0.05,
+    "transient_penetration_policy": "previous_surface_motion"
   },
   "box_geometry_roundoff": {
     "epsilon_multiplier": 32,

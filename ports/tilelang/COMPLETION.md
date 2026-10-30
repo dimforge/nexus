@@ -50,9 +50,9 @@ Remaining implementation sequence:
    row construction, orthogonalization and colored solve) are ported. They are connected to analytic frames, with sixteen joint scenes and all-frame
    device trajectory checks. General runtime scene upload remains. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
    restitution, empty inputs and interleaved batches through connected steps and
-   1/8/120-frame checkpoints with independent physical assertions. Ordinary joints and
-   general collision have all-frame traces; extend analytic traces and broader scene
-   coverage. Compare intermediate stages and short-run checkpoints to Rust;
+   1/8/120-frame checkpoints with independent physical assertions. Analytic, ordinary-joint and
+   general collision scenes now have all-frame traces; broader scene coverage and
+   current target qualification remain. Compare intermediate stages and short-run checkpoints to Rust;
    test long-run bounded penetration, energy/momentum behavior and stability.
    Keep sleeping disabled for benchmarks and stability comparisons.
 5. Complete offline Ascend source coverage, immutable scene/kernel handoff bundles,

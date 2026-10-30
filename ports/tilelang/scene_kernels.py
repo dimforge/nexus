@@ -309,7 +309,7 @@ def make_program(l, c, target):
         for col in range(1, c["color_stride"] - 1):
             color("colored_solve", col, "Color0")
     body("finalize")
-    if c["kind"] in ("joint_scene", "general_scene"):
+    if "Trajectory" in sizes:
         from trajectory_kernels import make_kernel as trajectory_kernel
 
         add(
