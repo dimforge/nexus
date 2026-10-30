@@ -3,7 +3,12 @@
 //! The compiler and generated kernels are trusted executable code. No reference
 //! physics runs during specialization or stepping. Ascend execution is not yet
 //! available; its source bundles are produced by the separate compiler entrypoint.
-use nexus_rbd3d::{Velocity, math::Pose, pipeline::RbdSceneUpload};
+use nexus_rbd3d::{
+    Velocity,
+    math::Pose,
+    pipeline::RbdSceneUpload,
+    shaders::dynamics::{FrictionModel, RbdSimParams},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -32,6 +37,7 @@ impl TileLangBackend {
 }
 
 /// Paths and allocation policy chosen by the caller. The workspace must not exist.
+#[derive(Clone)]
 pub struct RuntimeOptions {
     pub backend: TileLangBackend,
     pub python: PathBuf,
@@ -195,6 +201,9 @@ impl RuntimeCheckpoint {
 pub struct TileLangSimulation {
     options: RuntimeOptions,
     archive: PathBuf,
+    uploaded: RbdSceneUpload,
+    workspace_root: PathBuf,
+    next_configuration: usize,
     signature: Value,
     body_count: usize,
     capacity: u32,
@@ -202,6 +211,38 @@ pub struct TileLangSimulation {
     published_variant: usize,
     session: Session,
 }
+fn validate_parameters(p: &RbdSimParams) -> Result<(), String> {
+    let floats = [
+        p.dt,
+        p.contact_damping_ratio,
+        p.contact_natural_frequency,
+        p.static_contact_damping_ratio,
+        p.static_contact_natural_frequency,
+        p.joint_natural_frequency,
+        p.joint_damping_ratio,
+        p.warmstart_coefficient,
+        p.length_unit,
+        p.normalized_allowed_linear_error,
+        p.normalized_max_corrective_velocity,
+        p.normalized_prediction_distance,
+        p.normalized_max_linear_velocity,
+        p.contact_merge_cos,
+        p.normalized_contact_recycle_distance,
+    ];
+    if floats.iter().any(|v| !v.is_finite())
+        || p.dt <= 0.
+        || p.length_unit <= 0.
+        || p.num_solver_iterations == 0
+        || !(0. ..=1.).contains(&p.warmstart_coefficient)
+    {
+        return Err("Invalid solver parameters".into());
+    }
+    if p.friction_model != FrictionModel::Coulomb {
+        return Err("Simplified friction is not yet supported by the runtime".into());
+    }
+    Ok(())
+}
+
 fn read_json(path: &Path) -> Result<Value, String> {
     serde_json::from_slice(&fs::read(path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
@@ -351,6 +392,7 @@ impl TileLangSimulation {
         upload: &RbdSceneUpload,
         mut options: RuntimeOptions,
     ) -> Result<Self, String> {
+        validate_parameters(&upload.params)?;
         if options.initial_pair_capacity == 0
             || options.initial_pair_capacity > options.max_pair_capacity
             || options.max_pair_capacity > 0x1fffffff
@@ -392,7 +434,11 @@ impl TileLangSimulation {
                 Session::Metal { backend, frame }
             }
         };
+        let workspace_root = options.workspace.clone();
         Ok(Self {
+            uploaded: upload.clone(),
+            workspace_root,
+            next_configuration: 0,
             options,
             archive,
             signature,
@@ -554,6 +600,101 @@ impl TileLangSimulation {
         }
         self.published_variant = 0;
         Ok(())
+    }
+
+    /// Current native parameter block. `dt` is a substep duration.
+    pub fn solver_parameters(&self) -> RbdSimParams {
+        self.uploaded.params
+    }
+
+    /// Replace native solver parameters while preserving physical state, caches and step count.
+    /// `dt` is the substep duration, as in RbdSceneUpload. Changed schedules are compiled
+    /// into a separate configuration before it is published; this is not a cheap per-frame setter.
+    pub fn set_solver_parameters(&mut self, params: RbdSimParams) -> Result<(), String> {
+        validate_parameters(&params)?;
+        if params == self.uploaded.params {
+            return Ok(());
+        }
+        let checkpoint = self.checkpoint()?;
+        let mut upload = self.uploaded.clone();
+        upload.params = params;
+        let mut options = self.options.clone();
+        options.initial_pair_capacity = self.capacity;
+        options.workspace = self
+            .workspace_root
+            .join(format!("configuration-{}", self.next_configuration));
+        self.next_configuration = self
+            .next_configuration
+            .checked_add(1)
+            .ok_or("Configuration counter overflow")?;
+        // Preserve the constructor's trusted compiler/workspace contract. All scene
+        // arrays are unchanged; only a checked native parameter block differs.
+        let mut replacement = unsafe { Self::from_upload(&upload, options) }?;
+        if replacement.signature["source"] != self.signature["source"] {
+            return Err("Sources changed during reconfiguration".into());
+        }
+        let old_archive = self.signature["archive"]
+            .as_object()
+            .ok_or("Missing scene identity")?;
+        let new_archive = replacement.signature["archive"]
+            .as_object()
+            .ok_or("Missing new scene identity")?;
+        if old_archive.keys().ne(new_archive.keys())
+            || old_archive.iter().any(|(name, value)| {
+                !matches!(name.as_str(), "RbdParams.bin" | "scene.json")
+                    && new_archive.get(name) != Some(value)
+            })
+        {
+            return Err("Reconfiguration changed non-parameter scene inputs".into());
+        }
+        let mut old_metadata = read_json(&self.archive.join("scene.json"))?;
+        let mut new_metadata = read_json(&replacement.archive.join("scene.json"))?;
+        for name in ["substeps", "pgs"] {
+            old_metadata
+                .as_object_mut()
+                .ok_or("Invalid scene metadata")?
+                .remove(name);
+            new_metadata
+                .as_object_mut()
+                .ok_or("Invalid new scene metadata")?
+                .remove(name);
+        }
+        if old_metadata != new_metadata {
+            return Err("Reconfiguration changed non-parameter scene metadata".into());
+        }
+        let continuation = RuntimeCheckpoint {
+            signature: replacement.signature.clone(),
+            frame: checkpoint.frame,
+        };
+        // Same scene, Coulomb layout and semantic regions: changing iteration counts,
+        // timestep or coefficients does not invalidate native cache identities.
+        unsafe { replacement.restore_checkpoint(&continuation) }?;
+        replacement.workspace_root = self.workspace_root.clone();
+        replacement.next_configuration = self.next_configuration;
+        *self = replacement;
+        Ok(())
+    }
+    /// Change the full-frame duration and TGS substep count, matching RbdState.
+    pub fn set_timestep(&mut self, dt: f32, substeps: u32) -> Result<(), String> {
+        let mut params = self.solver_parameters();
+        params.num_solver_iterations = substeps.max(1);
+        params.dt = dt / params.num_solver_iterations as f32;
+        self.set_solver_parameters(params)
+    }
+    pub fn set_num_internal_pgs_iterations(&mut self, iterations: u32) -> Result<(), String> {
+        let mut params = self.solver_parameters();
+        params.num_internal_pgs_iterations = iterations.max(1);
+        self.set_solver_parameters(params)
+    }
+    pub fn set_contact_merge_cos(&mut self, cos: f32) -> Result<(), String> {
+        let mut params = self.solver_parameters();
+        params.contact_merge_cos = cos;
+        self.set_solver_parameters(params)
+    }
+    pub fn set_contact_recycle_distance(&mut self, distance: f32) -> Result<(), String> {
+        let mut params = self.solver_parameters();
+        params.normalized_contact_recycle_distance = distance;
+        self.set_solver_parameters(params)
     }
 
     /// Adjust the application allocation limit after a capacity error.

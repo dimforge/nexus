@@ -59,8 +59,7 @@ then rejects further stepping.
 
 The integration remains experimental. Cold-start uploads do not preserve existing
 contact caches. Topo coloring, Coulomb friction, ordinary joints and LBVH are the
-current composed path, including native hub splitting. Body insertion/removal,
-mutable solver configuration, other friction models and
+current composed path, including native hub splitting. Body insertion/removal, other friction models and
 remaining scheduling variants still need integration.
 No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
 prepares source only for a future CANN execution adapter.
@@ -93,8 +92,7 @@ frames. Body ranges follow the same native interleaved order as readback. Update
 validate the complete range and values before writing; invalid input leaves state
 unchanged. Gravity and body state migrate through capacity retries. Teleports keep
 the previous contact cache, which the next native matching pass revalidates.
-Changing body/collider membership or solver iteration counts remains a separate
-scene lifecycle operation; these setters do not change the compiled schedule.
+Changing body/collider membership remains a separate scene lifecycle operation.
 
 Native hubs use the ordinary body allocation followed by `max(native_body_slots, 1024)`
 split velocity slots. Assignment and constraint splitting run before coloring;
@@ -121,3 +119,19 @@ step counter. Already compiled growth variants remain available. Checkpoints and
 reset perform explicit state transfers; normal stepping still runs generated
 kernels without a host physics fallback. A cold-start upload alone does not contain
 the caches required for continuation.
+
+`solver_parameters()` returns the native parameter block, whose `dt` is the substep
+duration. `set_solver_parameters` compiles a replacement configuration, checks that
+all non-parameter scene inputs and compiler sources still match, then transfers
+all cached state before publishing it. Errors leave the live physical state intact.
+The convenience setters `set_timestep` (full-frame duration and substep count),
+`set_num_internal_pgs_iterations`, `set_contact_merge_cos` and
+`set_contact_recycle_distance` match the corresponding native controls. Changed
+parameters require compilation, so use these as configuration operations. Repeating
+an identical setting does no work. Reset uses the original uploaded bodies and the
+latest parameter configuration. Serialized checkpoints retain their configuration
+identity and cannot be restored after parameters change.
+
+Run `--test runtime_configuration -- --ignored --nocapture` with the compiler and
+workspace variables above plus `NEXUS_DISABLE_BF=1` to compare live configuration
+changes against the production CPU pipeline.
