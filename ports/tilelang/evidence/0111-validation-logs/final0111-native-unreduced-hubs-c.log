@@ -1,0 +1,12 @@
+running 1 test
+test c_runtime_preserves_unreduced_contacts_through_lazy_growth ... Native runtime artifacts: /private/tmp/nexus-frame-runtime/final0111-runtime/C-reduced-false-83454-1793388625899250000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1014.38s
+
+
+running 1 test
+test c_hubs_survive_runtime_growth ... Hub runtime artifacts: /private/tmp/nexus-frame-runtime/final0111-runtime/hubs-C-93770-1793389640365976000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 615.58s

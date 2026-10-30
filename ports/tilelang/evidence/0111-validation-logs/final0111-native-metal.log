@@ -1,0 +1,45 @@
+running 1 test
+test metal_dense_coloring_growth_and_native_tail_parity ... Coloring runtime artifacts: /private/tmp/nexus-frame-runtime/final0111-runtime/coloring-Metal-37706-1793384831707152000
+Metal: dense native comparison frame 10
+Metal: dense native comparison frame 20
+Metal: dense native comparison frame 30
+Metal: dense native comparison frame 40
+Metal: dense native comparison frame 50
+Metal: dense native comparison frame 60
+Metal: dense native comparison frame 70
+Metal: dense native comparison frame 80
+Metal: dense native comparison frame 90
+Metal: dense native comparison frame 100
+Metal: dense native comparison frame 110
+Metal: dense native comparison frame 120
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 747.09s
+
+
+running 1 test
+test metal_configuration_updates_match_production_pipeline ... Runtime configuration artifacts: /private/tmp/nexus-frame-runtime/final0111-runtime/configuration-Metal-41054-1793385578887337000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 506.74s
+
+
+running 1 test
+test metal_live_updates_match_production_pipeline ... Runtime control artifacts: /private/tmp/nexus-frame-runtime/final0111-runtime/control-Metal-43470-1793386085710460000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 501.67s
+
+
+running 1 test
+test metal_twist_and_model_switches_match_production_pipeline ... Runtime friction artifacts: /private/tmp/nexus-frame-runtime/final0111-runtime/friction-Metal-52788-1793386587485134000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 635.51s
+
+
+running 1 test
+test metal_reconstructs_inserted_and_removed_scenes ... Runtime lifecycle artifacts: /private/tmp/nexus-frame-runtime/final0111-runtime/lifecycle-Metal-61402-1793387223086323000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 694.12s

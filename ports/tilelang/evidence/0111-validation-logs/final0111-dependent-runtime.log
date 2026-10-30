@@ -1,0 +1,5 @@
+Fresh fixtures ready; starting remaining six public runtime tests
+Passed reduced
+Passed unreduced-hubs-metal
+Passed unreduced-hubs-c
+All dependent public runtime tests passed
