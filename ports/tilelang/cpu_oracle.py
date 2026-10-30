@@ -138,6 +138,25 @@ def export_fixtures(binary, directory, extra=()):
     return profile
 
 
+def native_cargo(arguments):
+    """Build native CPU conversion/runtime with the same pinned compiler profile."""
+    if not arguments:
+        raise ValueError("Supply a Cargo subcommand")
+    return run(
+        [
+            "cargo",
+            f"+{toolchain()}",
+            arguments[0],
+            "--manifest-path",
+            HERE / "native/Cargo.toml",
+            "--target-dir",
+            HERE.parent.parent / "target",
+            *arguments[1:],
+        ],
+        environment(),
+    )
+
+
 def export_native_scenes(directory):
     """Export the real Nexus CPU conversion without a GPU or Metal dependency."""
     env = environment()
@@ -167,4 +186,8 @@ def export_native_scenes(directory):
 
 
 if __name__ == "__main__":
-    print(cargo(sys.argv[1:]))
+    print(
+        native_cargo(sys.argv[2:])
+        if sys.argv[1:2] == ["--native"]
+        else cargo(sys.argv[1:])
+    )

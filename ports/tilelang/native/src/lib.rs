@@ -9,3 +9,6 @@ pub mod frame;
 pub mod upload;
 #[cfg(any(feature = "rust-reference", feature = "scene-upload"))]
 pub mod upload_cases;
+
+#[cfg(feature = "runtime")]
+pub mod runtime;

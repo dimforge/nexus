@@ -4,7 +4,7 @@ import itertools
 from pathlib import Path
 
 import numpy as np
-from frame_manifest import validate_frame
+from frame_manifest import validate_frame, validate_growth
 from ordered import CompilationSession
 from replay import execute_c
 
@@ -30,37 +30,29 @@ class CpuFrameSession:
         self.poisoned = False
         self.environment = {}
         for v in variants:
-            validate_frame(v["manifest"])
-            sizes = v["manifest"]["program"]["buffer_bytes"]
-            if set(v["initial"]) != set(sizes) or any(
-                a.dtype != np.uint32 or a.ndim != 1 or a.nbytes != sizes[n]
-                for n, a in v["initial"].items()
-            ):
-                raise ValueError("Invalid frame upload")
+            self._validate_variant(v)
         for old, new in itertools.pairwise(variants):
-            a, b = old["manifest"], new["manifest"]
-            if (
-                a["max_steps"] != b["max_steps"]
-                or set(a["persistent"]) != set(b["persistent"])
-                or len(a["gates"]) != len(b["gates"])
-            ):
-                raise ValueError("Incompatible variants")
-            if any(
-                x["id"] != y["id"]
-                or x["counters"] != y["counters"]
-                or x["capacity"] > y["capacity"]
-                for x, y in zip(a["gates"], b["gates"])
-            ):
-                raise ValueError("Gate meanings changed or capacities shrank")
-            if not any(
-                x["capacity"] < y["capacity"] for x, y in zip(a["gates"], b["gates"])
-            ) or any(
-                b["persistent"][n]["word_len"] < r["word_len"]
-                for n, r in a["persistent"].items()
-            ):
-                raise ValueError("Variants must grow without truncating state")
+            validate_growth(old["manifest"], new["manifest"])
         self.compiled = self._compile(0)
         self.storage = {n: a.copy() for n, a in variants[0]["initial"].items()}
+
+    @staticmethod
+    def _validate_variant(v):
+        validate_frame(v["manifest"])
+        sizes = v["manifest"]["program"]["buffer_bytes"]
+        if set(v["initial"]) != set(sizes) or any(
+            a.dtype != np.uint32 or a.ndim != 1 or a.nbytes != sizes[n]
+            for n, a in v["initial"].items()
+        ):
+            raise ValueError("Invalid frame upload")
+
+    def extend(self, variant):
+        """Append trusted capacity specialization without changing live state."""
+        if self.poisoned:
+            raise RuntimeError("Poisoned frame")
+        self._validate_variant(variant)
+        validate_growth(self.variants[-1]["manifest"], variant["manifest"])
+        self.variants.append(variant)
 
     def _compile(self, index):
         v = self.variants[index]
@@ -104,7 +96,10 @@ class CpuFrameSession:
     def step(self):
         if self.poisoned:
             raise RuntimeError("Poisoned frame")
-        if self.steps >= self.variants[self.current]["manifest"]["max_steps"]:
+        limit = self.variants[self.current]["manifest"]["max_steps"]
+        if self.steps == 0xFFFFFFFFFFFFFFFF or (
+            limit is not None and self.steps >= limit
+        ):
             raise RuntimeError("Frame step limit")
         retries = 0
         while True:
