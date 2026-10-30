@@ -1,0 +1,418 @@
+{
+  "scope": "EPA and GJK/EPA composition only; global reconciliation and generic collision integration remain pending",
+  "inputs_sha256": "7787e3713a883c32fa8652209f025d94269ae7114f440f08691b4e5edb9c9212",
+  "reports": [
+    {
+      "operation": "epa_closest",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "16988eaf99ce9b193fddc588bb04db49a90c21a2f1a4bcdcf37fa9ea088db09a",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "85cdd4d07526a92df462f7f8566fa78dddab52776dd309c16d2a8430f5700048",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "a7ce0a68aecf46b7dc07a77eec0bdea8d78685f7986c0d82e5027498fc19e29f",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "f518d5ee0f13976140b1301b95ed499677674cf0425210a2a49f1275b4687c5e",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.55717134475708e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.5528513193130493,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "26a3f7b2306bb0a2de3d5f4af4ca8e13c5cf6a2cba72255313f0b321db43c2b2",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.55717134475708e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.5528513193130493,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "9b39d6d945ba591a3eb717699a5cd0339977033449959a561d909ea8c44b140a",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": null
+        }
+      ]
+    }
+  ]
+}
