@@ -2,7 +2,7 @@
 //!
 //! A simplex of dimension up to 3 that uses Voronoï regions for computing point projections.
 
-use crate::queries::gjk::cso_point::{CsoPoint, EPS_TOL};
+use crate::queries::gjk::cso_point::{CsoPoint, EPS_TOL, FLT_EPS};
 use crate::queries::projection::{FEATURE_EDGE, FEATURE_FACE, FEATURE_VERTEX};
 use crate::shapes::{Segment, Tetrahedron, Triangle};
 use glamx::Vec3;
@@ -201,7 +201,17 @@ impl VoronoiSimplex {
                         // that GJK mistakes for a separating direction near the origin.
                         let normal = (tri.b - tri.a).cross(tri.c - tri.a);
                         let norm_sq = normal.length_squared();
-                        if norm_sq > 0.0 {
+                        let scale_sq = tri
+                            .a
+                            .length_squared()
+                            .max(tri.b.length_squared())
+                            .max(tri.c.length_squared());
+                        // Retain the existing projection outside the roundoff-sized
+                        // neighborhood of the origin. Only there can cancellation
+                        // change intersection into an arbitrary separating direction.
+                        if norm_sq > 0.0
+                            && proj.point.length_squared() <= scale_sq * FLT_EPS * FLT_EPS
+                        {
                             point = normal * (normal.dot(tri.a) / norm_sq);
                         }
                     }

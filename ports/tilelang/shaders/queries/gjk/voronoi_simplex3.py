@@ -176,7 +176,13 @@ def project_origin_and_reduce(
                     ac[k] = c[k] - a[k]
                 cross(ab, ac, normal)
                 norm_sq = dot(normal, normal)
-                if norm_sq > 0.0:
+                scale_sq = T.max(dot(a, a), T.max(dot(b, b), dot(c, c)))
+                residual_sq = (values[0] * values[0] + values[1] * values[1]) + values[
+                    2
+                ] * values[2]
+                if (norm_sq > 0.0) & (
+                    residual_sq <= (scale_sq * T.float32(1e-7)) * T.float32(1e-7)
+                ):
                     offset = dot(normal, a) / norm_sq
                     for k in T.serial(3):
                         values[k] = normal[k] * offset
