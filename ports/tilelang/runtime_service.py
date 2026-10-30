@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-
 from frame_cpu import CapacityError, CpuFrameSession
 from runtime_compile import load_variant
 
@@ -30,6 +29,12 @@ def serve(directory, input_stream, output_stream):
             command = request["command"]
             if command == "step":
                 result = runtime.step()
+            elif command == "checkpoint":
+                result = runtime.checkpoint()
+            elif command == "restore":
+                result = runtime.restore(request["checkpoint"])
+            elif command == "reset":
+                result = runtime.reset()
             elif command == "read":
                 result = runtime.storage[request["buffer"]].tolist()
             elif command == "write":

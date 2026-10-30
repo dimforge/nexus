@@ -4,7 +4,7 @@
 //! physics runs during specialization or stepping. Ascend execution is not yet
 //! available; its source bundles are produced by the separate compiler entrypoint.
 use nexus_rbd3d::{Velocity, math::Pose, pipeline::RbdSceneUpload};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -178,6 +178,20 @@ enum Session {
     },
 }
 
+/// A source/archive-bound continuation, including contact caches and step count.
+/// Serialize to retain it between processes. Restoring serialized words requires trusted provenance.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeCheckpoint {
+    signature: Value,
+    frame: crate::checkpoint::FrameCheckpoint,
+}
+impl RuntimeCheckpoint {
+    pub fn step(&self) -> u64 {
+        self.frame.steps
+    }
+}
+
 pub struct TileLangSimulation {
     options: RuntimeOptions,
     archive: PathBuf,
@@ -280,7 +294,7 @@ fn compile(
         return Err("Compiler specialization differs from requested configuration".into());
     }
     Ok(
-        json!({"source": metadata["inputs"], "archive": metadata["archive_sha256"], "contact_reduction": metadata["contact_reduction"]}),
+        json!({"source": metadata["inputs"], "archive": metadata["archive_sha256"], "contact_reduction": metadata["contact_reduction"],"max_steps":metadata["max_steps"]}),
     )
 }
 #[cfg(feature = "metal")]
@@ -448,31 +462,100 @@ impl TileLangSimulation {
                             limit: self.options.max_pair_capacity,
                         });
                     }
-                    let directory = self
-                        .options
-                        .workspace
-                        .join(format!("variant-{}", self.next_variant));
-                    self.next_variant += 1;
-                    let signature = compile(&self.options, &self.archive, &directory, capacity)?;
-                    if signature != self.signature {
-                        return Err(RuntimeError::Runtime(
-                            "Sources or scene archive changed during the session".into(),
-                        ));
-                    }
-                    match &mut self.session {
-                        Session::C(process) => {
-                            process.call(json!({"command":"extend","directory":directory}))?;
-                        }
-                        #[cfg(feature = "metal")]
-                        Session::Metal { frame, .. } => {
-                            unsafe { frame.extend(load_metal(&directory)?) }?
-                        }
-                    }
-                    self.capacity = capacity;
+                    self.compile_capacity(capacity)?;
                 }
             }
         }
     }
+    fn compile_capacity(&mut self, capacity: u32) -> Result<(), String> {
+        let directory = self
+            .options
+            .workspace
+            .join(format!("variant-{}", self.next_variant));
+        self.next_variant += 1;
+        let signature = compile(&self.options, &self.archive, &directory, capacity)?;
+        if signature != self.signature {
+            return Err("Sources or scene archive changed during the session".into());
+        }
+        match &mut self.session {
+            Session::C(process) => {
+                process.call(json!({"command":"extend","directory":directory}))?;
+            }
+            #[cfg(feature = "metal")]
+            Session::Metal { frame, .. } => unsafe { frame.extend(load_metal(&directory)?) }?,
+        }
+        self.capacity = capacity;
+        Ok(())
+    }
+
+    /// Capture persistent state and contact caches at a frame boundary.
+    pub fn checkpoint(&mut self) -> Result<RuntimeCheckpoint, String> {
+        let frame = match &mut self.session {
+            Session::C(process) => {
+                serde_json::from_value(process.call(json!({"command":"checkpoint"}))?)
+                    .map_err(|e| e.to_string())?
+            }
+            #[cfg(feature = "metal")]
+            Session::Metal { backend, frame } => frame.checkpoint(backend)?,
+        };
+        Ok(RuntimeCheckpoint {
+            signature: self.signature.clone(),
+            frame,
+        })
+    }
+    /// Restore a continuation from the same source and original scene upload.
+    /// This may compile larger buffers. Failed validation leaves the published state unchanged.
+    ///
+    /// # Safety
+    /// The checkpoint must be unmodified output of a trusted simulation with these
+    /// exact source/archive semantics. Deserializing arbitrary words does not prove
+    /// cached indices or physical values meet the generated shaders' preconditions.
+    pub unsafe fn restore_checkpoint(
+        &mut self,
+        checkpoint: &RuntimeCheckpoint,
+    ) -> Result<(), String> {
+        if checkpoint.signature != self.signature {
+            return Err("Checkpoint source, scene or configuration differs".into());
+        }
+        checkpoint.frame.validate()?;
+        let capacity = *checkpoint
+            .frame
+            .capacities
+            .values()
+            .max()
+            .ok_or("Missing checkpoint capacities")?;
+        if capacity > self.options.max_pair_capacity {
+            return Err("Checkpoint exceeds application capacity limit".into());
+        }
+        if capacity > self.capacity {
+            self.compile_capacity(capacity)?;
+        }
+        let index = match &mut self.session {
+            Session::C(process) => serde_json::from_value(
+                process.call(json!({"command":"restore","checkpoint":checkpoint.frame}))?,
+            )
+            .map_err(|e| e.to_string())?,
+            #[cfg(feature = "metal")]
+            Session::Metal { backend, frame } => {
+                unsafe { frame.restore(backend, &checkpoint.frame) }?
+            }
+        };
+        self.published_variant = index;
+        Ok(())
+    }
+    /// Reset physical state, contact caches and the step counter to the original upload.
+    pub fn reset(&mut self) -> Result<(), String> {
+        match &mut self.session {
+            Session::C(process) => {
+                process.call(json!({"command":"reset"}))?;
+            }
+            #[cfg(feature = "metal")]
+            Session::Metal { backend, frame } => frame.reset(backend)?,
+        }
+        self.published_variant = 0;
+        Ok(())
+    }
+
     /// Adjust the application allocation limit after a capacity error.
     pub fn set_pair_capacity_limit(&mut self, limit: u32) -> Result<(), String> {
         if limit < self.capacity || limit > 0x1fffffff {

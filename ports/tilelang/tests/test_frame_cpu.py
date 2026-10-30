@@ -75,6 +75,57 @@ class FrameCpuTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
 
+    def test_checkpoint_restore_and_reset_preserve_continuation(self):
+        s = CpuFrameSession([variant(1), variant(8, 3)], self.temp.name)
+        initial = s.checkpoint()
+        s.step()
+        saved = s.checkpoint()
+        s.step()
+        expected = s.storage["State"].copy()
+        self.assertEqual(s.restore(saved), 1)
+        self.assertEqual(s.step()["step"], 2)
+        np.testing.assert_array_equal(s.storage["State"], expected)
+        fresh = CpuFrameSession([variant(16, 7)], Path(self.temp.name) / "fresh")
+        self.assertEqual(fresh.restore(saved), 0)
+        self.assertEqual(fresh.step()["step"], 2)
+        np.testing.assert_array_equal(fresh.storage["State"][7:9], expected[3:5])
+        np.testing.assert_array_equal(fresh.storage["State"][:7], [0xDEADBEEF] * 7)
+        s.reset()
+        self.assertEqual(s.checkpoint(), initial)
+        self.assertEqual(s.step()["step"], 1)
+        self.assertEqual(s.checkpoint(), saved)
+
+    def test_checkpoint_rejections_do_not_change_live_state(self):
+        import copy
+
+        s = CpuFrameSession([variant(8, 3)], self.temp.name)
+        s.step()
+        before = s.checkpoint()
+        for mutation in (
+            "extra_region",
+            "word",
+            "long_region",
+            "step",
+            "capacity",
+            "schema",
+        ):
+            bad = copy.deepcopy(before)
+            if mutation == "extra_region":
+                bad["regions"]["missing"] = [1]
+            elif mutation == "word":
+                bad["regions"]["state"][0] = -1
+            elif mutation == "long_region":
+                bad["regions"]["state"] += [1]
+            elif mutation == "step":
+                bad["steps"] = 4
+            elif mutation == "capacity":
+                bad["capacities"]["pairs"] = 9
+            else:
+                bad["schema"] = 0
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                s.restore(bad)
+            self.assertEqual(s.checkpoint(), before)
+
     def test_updates_migrate_and_rejections_preserve_guards(self):
         s = CpuFrameSession([variant(1), variant(8, 3)], self.temp.name)
         s.write_persistent("state", 0, np.array([100, 200], np.uint32))

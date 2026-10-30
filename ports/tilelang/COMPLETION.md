@@ -34,11 +34,13 @@ Implemented and connected:
   integration tests are required for these controls.
 - Native split-hub storage and frame scheduling, with exact ownership/scaled-mass
   validation and production comparisons for one/two 33-contact plates.
+- Source/archive-bound checkpoints and reset preserve complete continuation state,
+  including contact caches and gravity, with C/Metal control and scene regressions.
 
 Remaining implementation and qualification:
 
 1. Complete scene lifecycle: insertion/removal or explicit reconstruction preserving
-   the intended state, continuation/reset semantics, mutable solver parameters and
+   the intended state, mutable solver parameters and
    remaining public backend integration. Cold-start upload is not a continuation
    checkpoint. Do not substitute host physics for a missing generated stage.
 2. Broaden dense hub scene and lifecycle qualification. Complete coloring

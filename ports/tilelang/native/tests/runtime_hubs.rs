@@ -3,7 +3,7 @@
 use khal::backend::{Backend, GpuBackend};
 use nexus_rbd3d::{pipeline::RbdState, rapier::prelude::*, shaders::dynamics::RbdSimParams};
 use nexus_tilelang_native::{
-    runtime::{RuntimeOptions, TileLangBackend, TileLangSimulation},
+    runtime::{RuntimeCheckpoint, RuntimeOptions, TileLangBackend, TileLangSimulation},
     upload_cases::{capacities, hub_scene},
 };
 use std::{
@@ -74,6 +74,8 @@ fn exercise(target: TileLangBackend) {
         let stride = bodies
             * (size_of::<nexus_rbd3d::math::Pose>() + size_of::<nexus_rbd3d::Velocity>())
             / 4;
+        let mut saved = None;
+        let mut observed = Vec::new();
         for frame in 0..8 {
             let progress = simulation.step().unwrap();
             assert_eq!(progress.step, frame as u64 + 1);
@@ -88,6 +90,10 @@ fn exercise(target: TileLangBackend) {
                 .copied()
                 .collect();
             assert_eq!(actual.len(), stride);
+            observed.push(actual.clone());
+            if frame == 3 {
+                saved = Some(simulation.checkpoint().unwrap());
+            }
             for (i, (&a, &e)) in actual
                 .iter()
                 .zip(&trace[frame * stride..(frame + 1) * stride])
@@ -104,6 +110,59 @@ fn exercise(target: TileLangBackend) {
             }
         }
         assert_eq!(simulation.step().unwrap().step, 9);
+        let saved = saved.unwrap();
+        let encoded = serde_json::to_vec(&saved).unwrap();
+        let restored: RuntimeCheckpoint = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(restored.step(), 4);
+        let before = serde_json::to_value(simulation.checkpoint().unwrap()).unwrap();
+        let mut wrong = serde_json::to_value(&restored).unwrap();
+        wrong["signature"] = serde_json::json!({"invalid":true});
+        let wrong: RuntimeCheckpoint = serde_json::from_value(wrong).unwrap();
+        assert!(unsafe { simulation.restore_checkpoint(&wrong) }.is_err());
+        assert_eq!(
+            serde_json::to_value(simulation.checkpoint().unwrap()).unwrap(),
+            before
+        );
+        simulation.set_gravity([0., 0., 0.]).unwrap();
+        unsafe { simulation.restore_checkpoint(&restored) }.unwrap();
+        assert_eq!(
+            serde_json::to_value(simulation.checkpoint().unwrap()).unwrap(),
+            serde_json::to_value(&restored).unwrap()
+        );
+        for (frame, expected) in observed.iter().enumerate().skip(4) {
+            assert_eq!(simulation.step().unwrap().step, frame as u64 + 1);
+            let poses = simulation.body_poses().unwrap();
+            let velocities = simulation.velocities().unwrap();
+            for (&a, &e) in bytemuck::cast_slice::<_, f32>(&poses)
+                .iter()
+                .chain(bytemuck::cast_slice::<_, f32>(&velocities))
+                .zip(expected)
+            {
+                assert!(
+                    a.is_finite() && (a - e).abs() <= 2e-6 + 2e-5 * e.abs(),
+                    "restored frame {frame}: {a} != {e}"
+                );
+            }
+        }
+        simulation.reset().unwrap();
+        assert_eq!(simulation.checkpoint().unwrap().step(), 0);
+        assert_eq!(
+            bytemuck::cast_slice::<_, u32>(&simulation.body_poses().unwrap()),
+            bytemuck::cast_slice::<_, u32>(&upload.body_poses[..bodies])
+        );
+        assert_eq!(simulation.step().unwrap().step, 1);
+        let poses = simulation.body_poses().unwrap();
+        let velocities = simulation.velocities().unwrap();
+        for (&a, &e) in bytemuck::cast_slice::<_, f32>(&poses)
+            .iter()
+            .chain(bytemuck::cast_slice::<_, f32>(&velocities))
+            .zip(&observed[0])
+        {
+            assert!(
+                a.is_finite() && (a - e).abs() <= 2e-6 + 2e-5 * e.abs(),
+                "reset: {a} != {e}"
+            );
+        }
     });
 }
 #[test]

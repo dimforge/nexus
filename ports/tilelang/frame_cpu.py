@@ -71,6 +71,59 @@ class CpuFrameSession:
         start = r["word_start"] + word_offset
         self.storage[r["buffer"]][start : start + words.size] = words
 
+    def checkpoint(self):
+        if self.poisoned:
+            raise RuntimeError("Poisoned frame")
+        m = self.variants[self.current]["manifest"]
+        return {
+            "schema": 1,
+            "steps": self.steps,
+            "capacities": {g["id"]: g["capacity"] for g in m["gates"]},
+            "regions": {
+                name: self.storage[r["buffer"]][
+                    r["word_start"] : r["word_start"] + r["word_len"]
+                ].tolist()
+                for name, r in m["persistent"].items()
+            },
+        }
+
+    def restore(self, checkpoint):
+        """Restore trusted solver state after complete shape checks, before publishing."""
+        from frame_checkpoint import fits, validate_checkpoint
+
+        if self.poisoned:
+            raise RuntimeError("Poisoned frame")
+        validate_checkpoint(checkpoint)
+        index = next(
+            (i for i, v in enumerate(self.variants) if fits(checkpoint, v["manifest"])),
+            None,
+        )
+        if index is None:
+            raise ValueError("Checkpoint has no compatible capacity specialization")
+        v = self.variants[index]
+        compiled = self._compile(index)
+        storage = {n: a.copy() for n, a in v["initial"].items()}
+        for name, words in checkpoint["regions"].items():
+            region = v["manifest"]["persistent"][name]
+            start = region["word_start"]
+            storage[region["buffer"]][start : start + len(words)] = words
+        self.compiled, self.storage, self.current, self.steps = (
+            compiled,
+            storage,
+            index,
+            checkpoint["steps"],
+        )
+        return index
+
+    def reset(self):
+        """Return to the original upload without compiling or running reference physics."""
+        if self.poisoned:
+            raise RuntimeError("Poisoned frame")
+        v = self.variants[0]
+        compiled = self._compile(0)
+        storage = {n: a.copy() for n, a in v["initial"].items()}
+        self.compiled, self.storage, self.current, self.steps = compiled, storage, 0, 0
+
     def _compile(self, index):
         v = self.variants[index]
         return [

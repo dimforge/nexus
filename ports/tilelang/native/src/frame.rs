@@ -261,6 +261,99 @@ impl FrameSession {
         self.variants.push(variant);
         Ok(())
     }
+    /// Copy the semantic state required to continue at the same frame boundary.
+    pub fn checkpoint(
+        &self,
+        backend: &Metal,
+    ) -> Result<crate::checkpoint::FrameCheckpoint, String> {
+        if self.poisoned {
+            return Err("Poisoned frame".into());
+        }
+        let m = &self.variants[self.current].manifest;
+        let mut regions = BTreeMap::new();
+        for (name, r) in &m.persistent {
+            let words = self.read(backend, &r.buffer)?;
+            regions.insert(
+                name.clone(),
+                words[r.word_start..r.word_start + r.word_len].to_vec(),
+            );
+        }
+        Ok(crate::checkpoint::FrameCheckpoint {
+            schema: 1,
+            steps: self.steps,
+            capacities: m.gates.iter().map(|g| (g.id.clone(), g.capacity)).collect(),
+            regions,
+        })
+    }
+    /// Restore a checkpoint into compatible storage, resetting nonpersistent scratch.
+    ///
+    /// # Safety
+    /// Words must be a valid checkpoint of the same scene and kernel semantics.
+    /// Counters, cached indices, layouts and physical inputs must satisfy every shader precondition.
+    pub unsafe fn restore(
+        &mut self,
+        backend: &Metal,
+        state: &crate::checkpoint::FrameCheckpoint,
+    ) -> Result<usize, String> {
+        if self.poisoned || backend.device().registry_id() != self.device_id {
+            return Err("Poisoned frame or wrong device".into());
+        }
+        state.validate()?;
+        let index = self
+            .variants
+            .iter()
+            .position(|v| {
+                let m = &v.manifest;
+                let caps: BTreeMap<_, _> = m.gates.iter().map(|g| (&g.id, g.capacity)).collect();
+                caps.len() == state.capacities.len()
+                    && state
+                        .capacities
+                        .iter()
+                        .all(|(k, n)| caps.get(k).is_some_and(|cap| cap >= n))
+                    && m.persistent.keys().eq(state.regions.keys())
+                    && state
+                        .regions
+                        .iter()
+                        .all(|(k, v)| v.len() <= m.persistent[k].word_len)
+                    && m.max_steps.is_none_or(|limit| state.steps <= limit as u64)
+            })
+            .ok_or("Checkpoint has no compatible capacity specialization")?;
+        let v = &self.variants[index];
+        let program = NativeProgram::new(backend, v.manifest.program.clone(), &v.sources)?;
+        let storage = upload(backend, v)?;
+        backend.synchronize().map_err(|e| e.to_string())?;
+        for (name, words) in &state.regions {
+            let r = &v.manifest.persistent[name];
+            let b = &storage[&r.buffer];
+            unsafe {
+                std::slice::from_raw_parts_mut(
+                    b.contents().cast::<u32>().add(r.word_start),
+                    words.len(),
+                )
+            }
+            .copy_from_slice(words);
+        }
+        self.program = program;
+        self.storage = storage;
+        self.current = index;
+        self.steps = state.steps;
+        Ok(index)
+    }
+    /// Reset all state and scratch to the original upload.
+    pub fn reset(&mut self, backend: &Metal) -> Result<(), String> {
+        if self.poisoned || backend.device().registry_id() != self.device_id {
+            return Err("Poisoned frame or wrong device".into());
+        }
+        let v = &self.variants[0];
+        let program = NativeProgram::new(backend, v.manifest.program.clone(), &v.sources)?;
+        let storage = upload(backend, v)?;
+        backend.synchronize().map_err(|e| e.to_string())?;
+        self.program = program;
+        self.storage = storage;
+        self.current = 0;
+        self.steps = 0;
+        Ok(())
+    }
     fn refs(&self) -> BTreeMap<String, &BufferRef> {
         self.storage
             .iter()
@@ -485,6 +578,58 @@ mod tests {
                 ("commit.metal".into(),format!("#include <metal_stdlib>\nusing namespace metal;\nkernel void commit(device uint* state [[buffer(0)]]) {{state[{offset}]+=1;}}"))]),
             initial:BTreeMap::from([("State".into(),state),("Input".into(),vec![5]),("Count".into(),vec![0])]),
         }
+    }
+    #[test]
+    fn checkpoint_restore_reset_and_rejections_are_transactional() {
+        let backend = Metal::new().unwrap();
+        let mut session =
+            unsafe { FrameSession::new(&backend, vec![variant(1, 0), variant(8, 3)]) }.unwrap();
+        let initial = serde_json::to_value(session.checkpoint(&backend).unwrap()).unwrap();
+        session.step(&backend).unwrap();
+        let checkpoint = session.checkpoint(&backend).unwrap();
+        session.step(&backend).unwrap();
+        let expected = session.read(&backend, "State").unwrap();
+        for mode in 0..5 {
+            let mut bad = checkpoint.clone();
+            match mode {
+                0 => bad.schema = 0,
+                1 => bad.steps = 3,
+                2 => {
+                    bad.capacities.insert("pairs".into(), 9);
+                }
+                3 => {
+                    bad.regions.insert("missing".into(), vec![1]);
+                }
+                _ => bad.regions.get_mut("pose_and_velocity").unwrap().push(0),
+            }
+            assert!(unsafe { session.restore(&backend, &bad) }.is_err());
+            assert_eq!(session.steps, 2);
+            assert_eq!(session.read(&backend, "State").unwrap(), expected);
+        }
+        assert_eq!(
+            unsafe { session.restore(&backend, &checkpoint) }.unwrap(),
+            1
+        );
+        assert_eq!(session.steps, 1);
+        session.step(&backend).unwrap();
+        assert_eq!(session.read(&backend, "State").unwrap(), expected);
+        let mut fresh = unsafe { FrameSession::new(&backend, vec![variant(16, 7)]) }.unwrap();
+        unsafe { fresh.restore(&backend, &checkpoint) }.unwrap();
+        assert_eq!(fresh.step(&backend).unwrap().step, 2);
+        assert_eq!(
+            &fresh.read(&backend, "State").unwrap()[7..9],
+            &expected[3..5]
+        );
+        session.reset(&backend).unwrap();
+        assert_eq!(
+            serde_json::to_value(session.checkpoint(&backend).unwrap()).unwrap(),
+            initial
+        );
+        session.step(&backend).unwrap();
+        assert_eq!(
+            serde_json::to_value(session.checkpoint(&backend).unwrap()).unwrap(),
+            serde_json::to_value(checkpoint).unwrap()
+        );
     }
     #[test]
     fn growth_retries_before_commit_and_relocates_state_on_device() {

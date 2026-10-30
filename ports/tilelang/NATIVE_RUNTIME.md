@@ -60,7 +60,7 @@ then rejects further stepping.
 The integration remains experimental. Cold-start uploads do not preserve existing
 contact caches. Topo coloring, Coulomb friction, ordinary joints and LBVH are the
 current composed path, including native hub splitting. Body insertion/removal,
-continuation checkpoints, mutable solver configuration, other friction models and
+mutable solver configuration, other friction models and
 remaining scheduling variants still need integration.
 No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
 prepares source only for a future CANN execution adapter.
@@ -107,3 +107,17 @@ The hub runtime integration tests use `NEXUS_TILELANG_HUB_EXPECTED` pointing to 
 fresh `runtime_scene/split-hubs-f8` fixture, plus the compiler/workspace variables
 above. Run `--test runtime_hubs -- --ignored --nocapture`; both C and Metal start
 with capacity one, grow on demand, and compare eight frames plus untraced stepping.
+
+`checkpoint()` returns a serializable `RuntimeCheckpoint` with contact caches,
+poses, velocities, gravity, trace state (if enabled), and the completed step count.
+`restore_checkpoint` accepts only matching source, original-upload and configuration
+identity; it can prepare larger capacity before restoring. Restoring is unsafe
+because serialized cached indices are trusted shader inputs: only use unmodified
+checkpoints with trusted provenance. Shape/capacity checks are not a validator for
+arbitrary externally edited solver state. C and Metal use the same word-based ABI.
+
+`reset()` replaces all state and scratch with the original upload and resets the
+step counter. Already compiled growth variants remain available. Checkpoints and
+reset perform explicit state transfers; normal stepping still runs generated
+kernels without a host physics fallback. A cold-start upload alone does not contain
+the caches required for continuation.

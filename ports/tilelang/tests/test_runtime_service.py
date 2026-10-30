@@ -37,6 +37,36 @@ def write_variant(directory, value):
 
 
 class RuntimeServiceTests(unittest.TestCase):
+    def test_checkpoint_restore_and_reset_protocol(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_variant(root / "variant", variant(8))
+            checkpoint = {
+                "schema": 1,
+                "steps": 1,
+                "capacities": {"pairs": 8},
+                "regions": {"state": [100, 200]},
+            }
+            requests = [
+                {"command": "step"},
+                {"command": "restore", "checkpoint": checkpoint},
+                {"command": "checkpoint"},
+                {"command": "step"},
+                {"command": "read", "buffer": "State"},
+                {"command": "reset"},
+                {"command": "checkpoint"},
+            ]
+            out = io.StringIO()
+            serve(
+                root / "variant", io.StringIO("\n".join(map(json.dumps, requests))), out
+            )
+            rows = list(map(json.loads, out.getvalue().splitlines()))
+            self.assertEqual(rows[3]["ok"], checkpoint)
+            self.assertEqual(rows[4]["ok"]["step"], 2)
+            self.assertEqual(rows[5]["ok"][:2], [101, 200])
+            self.assertEqual(rows[7]["ok"]["steps"], 0)
+            self.assertEqual(rows[7]["ok"]["regions"], {"state": [42, 17]})
+
     def test_capacity_return_extend_step_and_explicit_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
