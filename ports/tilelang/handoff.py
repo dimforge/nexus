@@ -304,6 +304,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from scene_replay import check_outputs as check_scene_outputs
     from joint_validation import check_outputs as check_joint_outputs
     from joint_scene_validation import check_outputs as check_joint_scene_outputs
+    from geometry_validation import check_outputs as check_geometry_outputs
     from body_uniform_replay import check_outputs as check_body_uniform_outputs
 
     result = {
@@ -372,6 +373,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "scene_fields": check_scene_outputs,
                     "joint_fields": check_joint_outputs,
                     "joint_scene_fields": check_joint_scene_outputs,
+                    "geometry_fields": check_geometry_outputs,
                     "broadphase_fields": check_broadphase_outputs,
                     "narrow_fields": check_narrow_outputs,
                     "contact_plan_fields": check_contact_plan_outputs,

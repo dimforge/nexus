@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "feature": "rbd.query.segment_projection3d",
+  "scope": "Native 3D segment_projection helper and intermediate-state parity",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Inputs",
+    "Output"
+  ],
+  "outputs": [
+    "Output"
+  ],
+  "comparison": "geometry_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Existing f32 arithmetic policy; copied simplex coordinates, feature IDs, dimensions, previous indices and untouched words remain exact.",
+  "preconditions": [
+    "Finite coordinates bounded by 1e6; Rust-exported explicit diagnostic wire layout, distinct from native object layout",
+    "Three guard rows; one 64-lane strided group, including empty and partial lanes",
+    "Simplex dimensions 0..3 (0..2 for insertion), valid previous vertex indices; projection solid flags 0 or 1"
+  ],
+  "invariants": [
+    "Exact copied state and guards, finite projected points and weights",
+    "Independent f64 subset least-squares projection for nondegenerate primitives",
+    "Projected simplex does not grow; reduced barycentrics reconstruct its projected point",
+    "Native affine-dependence rejection, vertex ordering and previous-index behavior preserved"
+  ],
+  "outside_scope": [
+    "Full GJK iteration, EPA and polygonal-feature manifold generation",
+    "Native near-degenerate fallback semantics do not certify a nondegenerate solid",
+    "Ascend vendor compilation, execution and performance"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n24",
+    "n33",
+    "n65",
+    "n129"
+  ],
+  "geometry": {
+    "rank_epsilon": 1e-07,
+    "projection_atol": 1e-05
+  }
+}

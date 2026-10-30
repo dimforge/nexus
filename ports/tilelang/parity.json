@@ -1186,6 +1186,84 @@
       "test_command": "python ports/tilelang/joint_scene_replay.py --target c",
       "runner": "joint_scene_replay.py",
       "operation": "joint_scene"
+    },
+    {
+      "id": "rbd.query.segment_projection3d",
+      "operation": "segment_projection",
+      "runner": "geometry_replay.py",
+      "coverage": "Native local segment_projection with full intermediate state and explicit diagnostic packing; not a complete GJK query",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/segment.rs::project_local_point_and_get_location"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/segment.py::project_local_point_and_get_location",
+      "dependency_policy": "Conservative: every watched source invalidates evidence, including the private Rust source linked into the oracle.",
+      "contract": "ports/tilelang/contracts/segment_projection.json",
+      "test_command": "python ports/tilelang/geometry_replay.py --operation segment_projection --target c"
+    },
+    {
+      "id": "rbd.query.triangle_projection3d",
+      "operation": "triangle_projection",
+      "runner": "geometry_replay.py",
+      "coverage": "Native local triangle_projection with full intermediate state and explicit diagnostic packing; not a complete GJK query",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/triangle.rs::project_local_point_and_get_location"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/triangle.py::project_local_point_and_get_location",
+      "dependency_policy": "Conservative: every watched source invalidates evidence, including the private Rust source linked into the oracle.",
+      "contract": "ports/tilelang/contracts/triangle_projection.json",
+      "test_command": "python ports/tilelang/geometry_replay.py --operation triangle_projection --target c"
+    },
+    {
+      "id": "rbd.query.tetrahedron_projection3d",
+      "operation": "tetrahedron_projection",
+      "runner": "geometry_replay.py",
+      "coverage": "Native local tetrahedron_projection with full intermediate state and explicit diagnostic packing; not a complete GJK query",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/tetrahedron.rs::project_local_point_and_get_location"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/tetrahedron.py::project_local_point_and_get_location",
+      "dependency_policy": "Conservative: every watched source invalidates evidence, including the private Rust source linked into the oracle.",
+      "contract": "ports/tilelang/contracts/tetrahedron_projection.json",
+      "test_command": "python ports/tilelang/geometry_replay.py --operation tetrahedron_projection --target c"
+    },
+    {
+      "id": "rbd.query.simplex_init3d",
+      "operation": "simplex_init",
+      "runner": "geometry_replay.py",
+      "coverage": "Native local simplex_init with full intermediate state and explicit diagnostic packing; not a complete GJK query",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/gjk/voronoi_simplex3.rs::init"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/gjk/voronoi_simplex3.py::init",
+      "dependency_policy": "Conservative: every watched source invalidates evidence, including the private Rust source linked into the oracle.",
+      "contract": "ports/tilelang/contracts/simplex_init.json",
+      "test_command": "python ports/tilelang/geometry_replay.py --operation simplex_init --target c"
+    },
+    {
+      "id": "rbd.query.simplex_add3d",
+      "operation": "simplex_add",
+      "runner": "geometry_replay.py",
+      "coverage": "Native local simplex_add with full intermediate state and explicit diagnostic packing; not a complete GJK query",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/gjk/voronoi_simplex3.rs::add_point"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/gjk/voronoi_simplex3.py::add_point",
+      "dependency_policy": "Conservative: every watched source invalidates evidence, including the private Rust source linked into the oracle.",
+      "contract": "ports/tilelang/contracts/simplex_add.json",
+      "test_command": "python ports/tilelang/geometry_replay.py --operation simplex_add --target c"
+    },
+    {
+      "id": "rbd.query.simplex_project3d",
+      "operation": "simplex_project",
+      "runner": "geometry_replay.py",
+      "coverage": "Native local simplex_project with full intermediate state and explicit diagnostic packing; not a complete GJK query",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/gjk/voronoi_simplex3.rs::project_origin_and_reduce"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/gjk/voronoi_simplex3.py::project_origin_and_reduce",
+      "dependency_policy": "Conservative: every watched source invalidates evidence, including the private Rust source linked into the oracle.",
+      "contract": "ports/tilelang/contracts/simplex_project.json",
+      "test_command": "python ports/tilelang/geometry_replay.py --operation simplex_project --target c"
     }
   ],
   "targets": [

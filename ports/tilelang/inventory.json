@@ -736,10 +736,14 @@
     {
       "reference": "src_rbd_shaders/queries/gjk/cso_point.rs",
       "implementation": "ports/tilelang/shaders/queries/gjk/cso_point.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.simplex_init3d"
+      ],
+      "symbols": [
+        "origin"
+      ],
+      "remaining": "Zero CSO initialization is exercised; from_points is prepared but its support-map caller remains unported."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/epa2.rs",
@@ -784,18 +788,36 @@
     {
       "reference": "src_rbd_shaders/queries/gjk/voronoi_simplex3.rs",
       "implementation": "ports/tilelang/shaders/queries/gjk/voronoi_simplex3.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
+      ],
+      "symbols": [
+        "init",
+        "add_point",
+        "swap_vertices",
+        "project_origin_and_reduce"
+      ],
+      "remaining": "All native 3D simplex methods are mirrored; GJK result extraction lives in gjk.rs and remains separate."
     },
     {
       "reference": "src_rbd_shaders/queries/mod.rs",
       "implementation": "ports/tilelang/shaders/queries/__init__.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
+      ],
+      "symbols": [
+        "relative_eq"
+      ],
+      "remaining": "Other query modules remain separate; only whole-vector approximate equality is used by these projections."
     },
     {
       "reference": "src_rbd_shaders/queries/polygonal_feature.rs",
@@ -816,10 +838,23 @@
     {
       "reference": "src_rbd_shaders/queries/projection.rs",
       "implementation": "ports/tilelang/shaders/queries/projection.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
+      ],
+      "symbols": [
+        "location",
+        "vertex",
+        "edge",
+        "solid",
+        "barycentric_coordinates"
+      ],
+      "remaining": "Location constructors and barycentric conversion are ported; public runtime query wrappers remain."
     },
     {
       "reference": "src_rbd_shaders/queries/ray.rs",
@@ -915,12 +950,19 @@
       "implementation": "ports/tilelang/shaders/shapes/segment.py",
       "coverage": "partial",
       "operations": [
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
       ],
       "symbols": [
-        "project_local_point"
+        "project_local_point",
+        "project_local_point_and_get_location"
       ],
-      "remaining": "Only segment point projection used by capsule/cone; support and location queries remain unported."
+      "remaining": "Local projection ported alongside prior bounds; other segment methods remain."
     },
     {
       "reference": "src_rbd_shaders/shapes/shape.rs",
@@ -944,10 +986,21 @@
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
       "implementation": "ports/tilelang/shaders/shapes/tetrahedron.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
+      ],
+      "symbols": [
+        "check_edge",
+        "check_face",
+        "project_local_point_and_get_location"
+      ],
+      "remaining": "Tetrahedron local projection and Voronoi tests are ported; generic collision composition remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/triangle.rs",
@@ -955,12 +1008,20 @@
       "coverage": "partial",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
-        "rbd.broadphase.pairs_program3d"
+        "rbd.broadphase.pairs_program3d",
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
       ],
       "symbols": [
-        "aabb"
+        "aabb",
+        "stable_check_edges_voronoi",
+        "project_local_point_and_get_location"
       ],
-      "remaining": "Only local triangle bounds; other geometry remains unported."
+      "remaining": "Local projection ported alongside bounds; support-map and support-face methods remain."
     },
     {
       "reference": "src_rbd_shaders/shapes/trimesh.rs",
@@ -1320,7 +1381,13 @@
         "rbd.collision.analytic_contacts3d",
         "rbd.collision.reset_narrow3d",
         "rbd.collision.contact_plan3d",
-        "rbd.pipeline.analytic_collision3d"
+        "rbd.pipeline.analytic_collision3d",
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
       ],
       "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
@@ -1331,7 +1398,13 @@
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.pairs_program3d",
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
       ],
       "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
     },
@@ -1341,7 +1414,13 @@
       "coverage": "partial",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
-        "rbd.broadphase.pairs_program3d"
+        "rbd.broadphase.pairs_program3d",
+        "rbd.query.segment_projection3d",
+        "rbd.query.triangle_projection3d",
+        "rbd.query.tetrahedron_projection3d",
+        "rbd.query.simplex_init3d",
+        "rbd.query.simplex_add3d",
+        "rbd.query.simplex_project3d"
       ],
       "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },

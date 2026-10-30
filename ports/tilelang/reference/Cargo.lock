@@ -734,6 +734,7 @@ name = "nexus-tilelang-reference"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "glamx",
  "khal",
  "khal-std",
  "nexus_rbd_shaders3d",
