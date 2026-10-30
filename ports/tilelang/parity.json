@@ -2075,6 +2075,73 @@
       "test_command": "python ports/tilelang/runtime_replay.py --target c",
       "runner": "runtime_replay.py",
       "operation": "runtime_scene"
+    },
+    {
+      "id": "rbd.contact.twist.effective_mass3d",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/twist_friction.rs::compute_effective_masses",
+        "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/twist_friction.py::compute_effective_masses",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_effective_mass.json",
+      "test_command": "python ports/tilelang/twist_replay.py --operation twist_effective_mass --target c",
+      "operation": "twist_effective_mass"
+    },
+    {
+      "id": "rbd.contact.twist.warmstart3d",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/twist_friction.rs::warmstart",
+        "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/twist_friction.py::warmstart",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_warmstart.json",
+      "test_command": "python ports/tilelang/twist_replay.py --operation twist_warmstart --target c",
+      "operation": "twist_warmstart"
+    },
+    {
+      "id": "rbd.contact.twist.solve3d",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/twist_friction.rs::solve",
+        "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/twist_friction.py::solve",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_solve.json",
+      "test_command": "python ports/tilelang/twist_replay.py --operation twist_solve --target c",
+      "operation": "twist_solve"
+    },
+    {
+      "id": "rbd.contact.twist.scale3d",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/twist_friction.rs::scale_impulses",
+        "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/twist_friction.py::scale_impulses",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_scale.json",
+      "test_command": "python ports/tilelang/twist_replay.py --operation twist_scale --target c",
+      "operation": "twist_scale"
+    },
+    {
+      "id": "rbd.contact.twist.prepare3d",
+      "coverage": "Native compact twist preparation, geometry recycling, nearest-anchor transfer and cached warmstart on guarded fixtures.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/twist_friction.rs::TwistConstraint::init_points_with_poses",
+        "src_rbd_shaders/dynamics/twist_friction.rs::TwistConstraint::recycle_from",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_prepare_constraints",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::transfer_contact_impulses"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/twist_tiles.py::gpu_prepare_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_prepare.json",
+      "test_command": "python ports/tilelang/twist_contact_replay.py --target c",
+      "operation": "twist_prepare"
     }
   ],
   "targets": [

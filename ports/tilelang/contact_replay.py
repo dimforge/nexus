@@ -19,7 +19,12 @@ BUFFERS = (
 def validate_layout(layout):
     from shaders.dynamics.coulomb_tiles import validate_layout as tile_layout
 
-    tile_layout(layout)
+    if layout.get("friction_model") == "twist":
+        from shaders.dynamics.twist_tiles import validate_layout as twist_layout
+
+        twist_layout(layout)
+    else:
+        tile_layout(layout)
 
     def fields(stride, mapping):
         if type(stride) is not int or not 0 < stride < 2**20:
@@ -76,16 +81,17 @@ def validate_layout(layout):
         ],
     )
     fields(l["state_words"], [(l["state_pose_a"], l["pose_words"])])
-    fields(l["point_words"], [(v, 32 * 4) for v in l["point"].values()])
-    fields(
-        l["tile_words"],
-        [(v, 32 * 4) for v in l["header"].values()]
-        + [
-            (l["coupling"], 32 * 4),
-            (l["points"], 4 * l["point_words"]),
-            (l["warmstart"], 32 * 2 * l["velocity_words"]),
-        ],
-    )
+    if layout.get("friction_model") != "twist":
+        fields(l["point_words"], [(v, 32 * 4) for v in l["point"].values()])
+        fields(
+            l["tile_words"],
+            [(v, 32 * 4) for v in l["header"].values()]
+            + [
+                (l["coupling"], 32 * 4),
+                (l["points"], 4 * l["point_words"]),
+                (l["warmstart"], 32 * 2 * l["velocity_words"]),
+            ],
+        )
 
 
 def validate_case(layout, case, arrays):
@@ -233,16 +239,26 @@ def validate_case(layout, case, arrays):
                 or abs(np.dot(direction, tangent)) > 2e-6
             ):
                 raise ValueError("Invalid old contact frame")
-            for k in range(n):
-                src = ob + layout["points"] + k * layout["point_words"]
-                for field in p.values():
-                    finite(of[src + field : src + field + 4])
+            if layout.get("friction_model") == "twist":
+                from twist_contact_validation import validate_old
+
+                validate_old(layout, arrays["OldTiles"], ob, n)
+            else:
+                for k in range(n):
+                    src = ob + layout["points"] + k * layout["point_words"]
+                    for field in p.values():
+                        finite(of[src + field : src + field + 4])
         elif link[l["recycled"]]:
             raise ValueError("Recycled link has no previous constraint")
 
 
 def output_masks(layout, case, before):
     """Float arithmetic, copied fields, and untouched storage have distinct policies."""
+    if layout.get("friction_model") == "twist":
+        from twist_contact_validation import output_masks as twist_masks
+
+        return twist_masks(layout, case, before)
+
     import numpy as np
 
     mutable = np.zeros(before["Tiles"].size, dtype=bool)
