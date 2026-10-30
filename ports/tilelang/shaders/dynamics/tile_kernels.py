@@ -6,10 +6,10 @@ production color schedules and complete frame stepping remain separate work.
 """
 
 import tilelang.language as T
-
 from kernel_support import launch
-from .solver_utils import solve_points, warmstart_constraint
+
 from .coulomb_tiles import validate_layout
+from .solver_utils import solve_points, warmstart_constraint
 
 
 def gpu_solve_constraints(layout, case, target):
@@ -34,6 +34,9 @@ def gpu_warmstart_constraints(layout, case, target):
 
 def transfer_contact_impulses(layout):
     """Nearest old local-anchor pair within 10cm; strict ties retain the first."""
+    if layout.get("friction_model") == "twist":
+        return _transfer_twist_contact_impulses(layout)
+
     import tilelang.language as T
     from kernel_support import cross, dot, f32
 
@@ -99,14 +102,20 @@ def transfer_contact_impulses(layout):
 
 def gpu_prepare_constraints(layout, case):
     """Prepare independent output tile lanes from color-ordered Rust contact links."""
+    if layout.get("friction_model") == "twist":
+        from .twist_tiles import gpu_prepare_constraints as prepare_twist
+
+        return prepare_twist(layout, case)
+
     import tilelang.language as T
+
+    from .constraint import compute_effective_masses
+    from .coulomb_tiles import constraint_warmstart
     from .solver_utils import (
         contact_to_constraint_header,
         contact_to_constraint_points,
         recycle_from,
     )
-    from .constraint import compute_effective_masses
-    from .coulomb_tiles import constraint_warmstart
 
     # Eliminate unreachable gather/matching loops before TileLang index analysis.
     if case["count"] == 0:
@@ -167,8 +176,9 @@ def gpu_scale_constraint_impulses(layout):
     """Scale active points and refresh the cache, including write_constraint resets."""
     import tilelang.language as T
     from kernel_support import f32
-    from .solver_utils import scale_impulses
+
     from .coulomb_tiles import constraint_warmstart
+    from .solver_utils import scale_impulses
 
     scale = scale_impulses(layout)
     cache = constraint_warmstart(layout)
@@ -263,6 +273,7 @@ def gpu_hub_warmstart_constraints(layout):
     """Recompute each split slot's delta from its constraint, not the cached pair."""
     import tilelang.language as T
     from kernel_support import f32
+
     from .coulomb_tiles import tile_warmstart
 
     delta = tile_warmstart(layout)
@@ -364,5 +375,106 @@ def _colored_constraint_body(layout, case, operation):
                         biased(Tiles, Velocities, Poses, Params, index[0])
                     else:
                         both(Tiles, Velocities, Poses, Params, index[0])
+
+    return one
+
+
+def _transfer_twist_contact_impulses(layout):
+    """Generic nearest-anchor transfer specialized to native TwistConstraint fields."""
+    import tilelang.language as T
+    from kernel_support import cross, dot, f32, quat_rotate
+
+    h, t = layout["header"], layout["twist"]
+
+    @T.macro
+    def anchors(Tiles, b, k, a, c):
+        ra = T.alloc_local((3,), "float32")
+        rb = T.alloc_local((3,), "float32")
+        qa = T.alloc_local((4,), "float32")
+        qb = T.alloc_local((4,), "float32")
+        for d in T.serial(3):
+            ra[d] = f32(Tiles, b + t["arm_a"] + k * layout["twist_arm_words"] + d)
+            rb[d] = ra[d] + f32(Tiles, b + t["offset_b"] + d)
+        for d in T.serial(4):
+            qa[d] = f32(Tiles, b + t["frame_a"] + d) * T.if_then_else(d < 3, -1.0, 1.0)
+            qb[d] = f32(Tiles, b + t["frame_b"] + d) * T.if_then_else(d < 3, -1.0, 1.0)
+        quat_rotate(qa, ra, a)
+        quat_rotate(qb, rb, c)
+
+    @T.macro
+    def one(OldTiles, Tiles, i, old):
+        base = i // 32 * layout["tile_words"] + i % 32 * 4
+        ob = old // 32 * layout["tile_words"] + old % 32 * 4
+        tangent = T.alloc_local((3,), "float32")
+        normal = T.alloc_local((3,), "float32")
+        bitangent = T.alloc_local((3,), "float32")
+        ot = T.alloc_local((3,), "float32")
+        on = T.alloc_local((3,), "float32")
+        obt = T.alloc_local((3,), "float32")
+        world = T.alloc_local((3,), "float32")
+        for d in T.serial(3):
+            tangent[d] = f32(Tiles, base + h["tangent"] + d)
+            normal[d] = f32(Tiles, base + h["normal"] + d)
+            ot[d] = f32(OldTiles, ob + h["tangent"] + d)
+            on[d] = f32(OldTiles, ob + h["normal"] + d)
+        cross(normal, tangent, bitangent)
+        cross(on, ot, obt)
+        for d in T.serial(3):
+            world[d] = ot[d] * f32(OldTiles, ob + t["friction"]) + obt[d] * f32(
+                OldTiles, ob + t["friction"] + 1
+            )
+        count = T.cast(Tiles[base + h["normal"] + 3], "int32")
+        for k in T.serial(4):
+            if k < count:
+                a = T.alloc_local((3,), "float32")
+                b = T.alloc_local((3,), "float32")
+                oa = T.alloc_local((3,), "float32")
+                oc = T.alloc_local((3,), "float32")
+                da = T.alloc_local((3,), "float32")
+                db = T.alloc_local((3,), "float32")
+                best = T.alloc_local((1,), "int32")
+                sq_best = T.alloc_local((1,), "float32")
+                best[0] = -1
+                sq_best[0] = T.float32(0.1) * T.float32(0.1)
+                anchors(Tiles, base, k, a, b)
+                for j in T.serial(4):
+                    if j < T.cast(OldTiles[ob + h["normal"] + 3], "int32"):
+                        anchors(OldTiles, ob, j, oa, oc)
+                        for d in T.serial(3):
+                            da[d] = oa[d] - a[d]
+                            db[d] = oc[d] - b[d]
+                        sq = T.max(dot(da, da), dot(db, db))
+                        if sq < sq_best[0]:
+                            sq_best[0] = sq
+                            best[0] = j
+                if best[0] >= 0:
+                    Tiles[base + t["normal_impulse"] + k] = OldTiles[
+                        ob + t["normal_impulse"] + best[0]
+                    ]
+                    Tiles[base + t["friction"]] = T.reinterpret(
+                        f32(Tiles, base + t["friction"]) + dot(world, tangent), "uint32"
+                    )
+                    Tiles[base + t["friction"] + 1] = T.reinterpret(
+                        f32(Tiles, base + t["friction"] + 1) + dot(world, bitangent),
+                        "uint32",
+                    )
+                    Tiles[base + h["off_b"] + 3] = T.reinterpret(
+                        f32(Tiles, base + h["off_b"] + 3)
+                        + f32(OldTiles, ob + h["off_b"] + 3),
+                        "uint32",
+                    )
+        if count > 0:
+            for d in T.serial(2):
+                Tiles[base + t["friction"] + d] = T.reinterpret(
+                    f32(Tiles, base + t["friction"] + d) / T.cast(count, "float32"),
+                    "uint32",
+                )
+            if count > 1:
+                Tiles[base + h["off_b"] + 3] = T.reinterpret(
+                    f32(Tiles, base + h["off_b"] + 3) / T.cast(count, "float32"),
+                    "uint32",
+                )
+            else:
+                Tiles[base + h["off_b"] + 3] = T.uint32(0)
 
     return one

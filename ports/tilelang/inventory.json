@@ -755,7 +755,8 @@
         "rbd.contact.coulomb.colored_warmstart3d",
         "rbd.contact.coulomb.colored_cached3d",
         "rbd.contact.coulomb.colored_program3d",
-        "rbd.contact.coulomb.boundary3d"
+        "rbd.contact.coulomb.boundary3d",
+        "rbd.contact.twist.prepare3d"
       ],
       "symbols": [
         "gpu_solve_constraints",
@@ -777,15 +778,18 @@
         "rbd.contact.twist.effective_mass3d",
         "rbd.contact.twist.warmstart3d",
         "rbd.contact.twist.solve3d",
-        "rbd.contact.twist.scale3d"
+        "rbd.contact.twist.scale3d",
+        "rbd.contact.twist.prepare3d"
       ],
       "symbols": [
         "compute_effective_masses",
         "scale_impulses",
         "warmstart",
-        "solve"
+        "solve",
+        "init_points_with_poses",
+        "recycle_from"
       ],
-      "remaining": "Prepared-tile arithmetic is translated. Initialization, recycling, impulse transfer and complete scene scheduling remain."
+      "remaining": "Compact arithmetic, initialization and recycling are translated; broader scene integration and numerical qualification remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_tiles.rs",
@@ -795,13 +799,16 @@
         "rbd.contact.twist.effective_mass3d",
         "rbd.contact.twist.warmstart3d",
         "rbd.contact.twist.solve3d",
-        "rbd.contact.twist.scale3d"
+        "rbd.contact.twist.scale3d",
+        "rbd.contact.twist.prepare3d"
       ],
       "symbols": [
         "validate_layout",
-        "make_kernel"
+        "make_kernel",
+        "constraint_warmstart",
+        "gpu_prepare_constraints"
       ],
-      "remaining": "Native compact tile offsets are consumed directly. Preparation, cached warmstart, gather and full model-specific tile entry points remain."
+      "remaining": "Native compact preparation and warmstart cache are translated. Model-specific colored, gather, hub and scene integration remain."
     },
     {
       "reference": "src_rbd_shaders/lib.rs",
@@ -1781,7 +1788,8 @@
         "rbd.contact.match_links3d",
         "rbd.scheduling.seed_colors3d",
         "rbd.contact.persistence3d",
-        "rbd.contact.coulomb.prepare3d"
+        "rbd.contact.coulomb.prepare3d",
+        "rbd.contact.twist.prepare3d"
       ],
       "remaining": "Matching, geometry reuse and impulse transfer are connected to changing-contact fixture scenes. Production runtime integration and contact-sensitive numerical qualification remain."
     },
@@ -1864,9 +1872,10 @@
         "rbd.contact.twist.effective_mass3d",
         "rbd.contact.twist.warmstart3d",
         "rbd.contact.twist.solve3d",
-        "rbd.contact.twist.scale3d"
+        "rbd.contact.twist.scale3d",
+        "rbd.contact.twist.prepare3d"
       ],
-      "remaining": "Compact prepared-tile effective masses, warmstart, scaling and solve translated; preparation, persistence and runtime composition remain."
+      "remaining": "Compact arithmetic, preparation, recycling and cache generation translated; full model-specific scheduling and runtime integration remain."
     },
     {
       "id": "rbd.utils",

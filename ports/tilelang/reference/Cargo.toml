@@ -165,3 +165,7 @@ path = "src/runtime_scenes.rs"
 [[bin]]
 name = "twist"
 path = "src/twist.rs"
+
+[[bin]]
+name = "twist-contacts"
+path = "src/twist_contacts.rs"

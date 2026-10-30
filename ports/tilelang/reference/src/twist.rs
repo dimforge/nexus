@@ -1,7 +1,7 @@
 //! Live native twist-friction arithmetic and compact-tile ABI oracle.
 #[allow(dead_code)]
 #[path = "contacts.rs"]
-mod contacts;
+pub(crate) mod contacts;
 use nexus_rbd_shaders3d::{
     Pose,
     dynamics::{
@@ -17,7 +17,7 @@ use std::{
     mem::{offset_of, size_of},
     path::Path,
 };
-fn layout() -> Value {
+pub(crate) fn layout() -> Value {
     let mut l = contacts::layout();
     l["friction_model"] = json!("twist");
     l["tile_words"] = json!(size_of::<TwistTile>() / 4);

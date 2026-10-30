@@ -502,3 +502,157 @@ def _operation(l, c, operation):
                                 )
 
     return one
+
+
+def init_points_with_poses(layout, case):
+    from kernel_support import cross
+
+    h, t, l, c, m, mp = (
+        layout[k]
+        for k in ("header", "twist", "link", "contact", "manifold", "manifold_point")
+    )
+
+    @T.macro
+    def one(Links, Contacts, SolverPoses, Velocities, States, Tiles, i, j):
+        base = i // 32 * layout["tile_words"] + i % 32 * 4
+        lb = i * layout["link_words"]
+        cb = j * layout["contact_words"]
+        mb = cb + c["contact"]
+        sp = (case["new_base"] + j) * layout["state_words"] + layout["state_pose_a"]
+        pa = T.cast(Links[lb + l["solver_body_a"]], "int32") * layout["pose_words"]
+        pb = T.cast(Links[lb + l["solver_body_b"]], "int32") * layout["pose_words"]
+        va = T.cast(Contacts[cb + c["bodies"]], "int32") * layout["velocity_words"]
+        vb = T.cast(Contacts[cb + c["bodies"] + 1], "int32") * layout["velocity_words"]
+        q = T.alloc_local((4,), "float32")
+        normal = T.alloc_local((3,), "float32")
+        direction = T.alloc_local((3,), "float32")
+        offset = T.alloc_local((3,), "float32")
+        for d in T.serial(4):
+            q[d] = f32(States, sp + layout["pose_rotation"] + d)
+            Tiles[base + t["frame_a"] + d] = SolverPoses[
+                pa + layout["pose_rotation"] + d
+            ]
+            Tiles[base + t["frame_b"] + d] = SolverPoses[
+                pb + layout["pose_rotation"] + d
+            ]
+        for d in T.serial(3):
+            normal[d] = f32(Contacts, mb + m["normal_a"] + d)
+            offset[d] = f32(SolverPoses, pa + layout["pose_translation"] + d) - f32(
+                SolverPoses, pb + layout["pose_translation"] + d
+            )
+            Tiles[base + t["offset_b"] + d] = T.reinterpret(offset[d], "uint32")
+        quat_rotate(q, normal, direction)
+        for d in T.serial(3):
+            direction[d] = -direction[d]
+            Tiles[base + h["normal"] + d] = T.reinterpret(direction[d], "uint32")
+        sign = T.if_then_else(direction[2] < 0.0, -1.0, 1.0)
+        aa = -1.0 / (sign + direction[2])
+        Tiles[base + h["tangent"]] = T.reinterpret(
+            direction[0] * direction[1] * aa, "uint32"
+        )
+        Tiles[base + h["tangent"] + 1] = T.reinterpret(
+            sign + direction[1] * direction[1] * aa, "uint32"
+        )
+        Tiles[base + h["tangent"] + 2] = T.reinterpret(-direction[1], "uint32")
+        for k in T.serial(4):
+            if k < T.cast(Contacts[mb + m["len"]], "int32"):
+                src = mb + m["points_a"] + k * layout["manifold_point_words"]
+                arm = base + t["arm_a"] + k * layout["twist_arm_words"]
+                point = T.alloc_local((3,), "float32")
+                world = T.alloc_local((3,), "float32")
+                ra = T.alloc_local((3,), "float32")
+                rb = T.alloc_local((3,), "float32")
+                wa = T.alloc_local((3,), "float32")
+                wb = T.alloc_local((3,), "float32")
+                ca = T.alloc_local((3,), "float32")
+                cc = T.alloc_local((3,), "float32")
+                dv = T.alloc_local((3,), "float32")
+                for d in T.serial(3):
+                    point[d] = (
+                        f32(Contacts, src + mp["pt"] + d)
+                        + normal[d] * f32(Contacts, src + mp["dist"]) / 2.0
+                    )
+                    wa[d] = f32(Velocities, va + layout["velocity_angular"] + d)
+                    wb[d] = f32(Velocities, vb + layout["velocity_angular"] + d)
+                quat_rotate(q, point, world)
+                for d in T.serial(3):
+                    ra[d] = (
+                        world[d] + f32(States, sp + layout["pose_translation"] + d)
+                    ) - f32(SolverPoses, pa + layout["pose_translation"] + d)
+                    rb[d] = ra[d] + offset[d]
+                    Tiles[arm + d] = T.reinterpret(ra[d], "uint32")
+                cross(wa, ra, ca)
+                cross(wb, rb, cc)
+                for d in T.serial(3):
+                    dv[d] = (
+                        (f32(Velocities, va + layout["velocity_linear"] + d) + ca[d])
+                        - f32(Velocities, vb + layout["velocity_linear"] + d)
+                    ) - cc[d]
+                Tiles[base + t["normal_vel"] + k] = T.reinterpret(
+                    f32(Links, lb + l["restitution"]) * dot(dv, direction), "uint32"
+                )
+                Tiles[base + t["dist"] + k] = Contacts[src + mp["dist"]]
+
+    return one
+
+
+def recycle_from(layout):
+    from kernel_support import cross
+
+    h, t, l = (layout[k] for k in ("header", "twist", "link"))
+
+    @T.macro
+    def one(Links, Velocities, OldTiles, Tiles, i, old):
+        base = i // 32 * layout["tile_words"] + i % 32 * 4
+        ob = old // 32 * layout["tile_words"] + old % 32 * 4
+        lb = i * layout["link_words"]
+        va = T.cast(Links[lb + l["solver_body_a"]], "int32") * layout["velocity_words"]
+        vb = T.cast(Links[lb + l["solver_body_b"]], "int32") * layout["velocity_words"]
+        for d in T.serial(4):
+            Tiles[base + h["normal"] + d] = OldTiles[ob + h["normal"] + d]
+            Tiles[base + t["frame_a"] + d] = OldTiles[ob + t["frame_a"] + d]
+            Tiles[base + t["frame_b"] + d] = OldTiles[ob + t["frame_b"] + d]
+            Tiles[base + t["offset_b"] + d] = OldTiles[ob + t["offset_b"] + d]
+            Tiles[base + t["center_a"] + d] = OldTiles[ob + t["center_a"] + d]
+        for d in T.serial(3):
+            Tiles[base + h["tangent"] + d] = OldTiles[ob + h["tangent"] + d]
+            Tiles[base + t["friction"] + d] = OldTiles[ob + t["friction"] + d]
+        Tiles[base + h["diag_b"] + 3] = OldTiles[ob + h["diag_b"] + 3]
+        Tiles[base + h["off_b"] + 3] = OldTiles[ob + h["off_b"] + 3]
+        for k in T.serial(4):
+            if k < T.cast(OldTiles[ob + h["normal"] + 3], "int32"):
+                arm = base + t["arm_a"] + k * layout["twist_arm_words"]
+                src = ob + t["arm_a"] + k * layout["twist_arm_words"]
+                for d in T.serial(4):
+                    Tiles[arm + d] = OldTiles[src + d]
+                Tiles[base + t["normal_impulse"] + k] = OldTiles[
+                    ob + t["normal_impulse"] + k
+                ]
+                Tiles[base + t["dist"] + k] = OldTiles[ob + t["dist"] + k]
+                Tiles[base + t["radius"] + k] = OldTiles[ob + t["radius"] + k]
+                ra = T.alloc_local((3,), "float32")
+                rb = T.alloc_local((3,), "float32")
+                wa = T.alloc_local((3,), "float32")
+                wb = T.alloc_local((3,), "float32")
+                ca = T.alloc_local((3,), "float32")
+                cb = T.alloc_local((3,), "float32")
+                dv = T.alloc_local((3,), "float32")
+                normal = T.alloc_local((3,), "float32")
+                for d in T.serial(3):
+                    ra[d] = f32(OldTiles, src + d)
+                    rb[d] = ra[d] + f32(OldTiles, ob + t["offset_b"] + d)
+                    wa[d] = f32(Velocities, va + layout["velocity_angular"] + d)
+                    wb[d] = f32(Velocities, vb + layout["velocity_angular"] + d)
+                    normal[d] = f32(OldTiles, ob + h["normal"] + d)
+                cross(wa, ra, ca)
+                cross(wb, rb, cb)
+                for d in T.serial(3):
+                    dv[d] = (
+                        (f32(Velocities, va + layout["velocity_linear"] + d) + ca[d])
+                        - f32(Velocities, vb + layout["velocity_linear"] + d)
+                    ) - cb[d]
+                Tiles[base + t["normal_vel"] + k] = T.reinterpret(
+                    f32(Links, lb + l["restitution"]) * dot(dv, normal), "uint32"
+                )
+
+    return one
