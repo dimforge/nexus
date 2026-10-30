@@ -1,0 +1,5667 @@
+{
+  "scope": "Paired native/TileLang clipped-witness correction and retained zero-distance CFM policy, including existing geometry and deferred collision regressions. Full-frame revalidation and global reconciliation remain required.",
+  "inputs_sha256": "00344e805ad7066ccc5060b4b677f2b55ca1ecb14c6c28a53c4ecfb852c52f59",
+  "reports": [
+    {
+      "operation": "solve",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "2af0e917afdadef8a334961bf6371afb72f00c6045c340de444c6df4aee31438",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-b1-f1-i1-s20261029",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b1-f1-i1-s20261030",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n31-b1-f1-i1-s20261060",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n32-b1-f1-i1-s20261061",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b1-f1-i1-s20261062",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n63-b1-f1-i1-s20261092",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 7.152557373046875e-07,
+            "Velocities": 4.76837158203125e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n64-b1-f1-i1-s20261093",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 5.8673322200775146e-08,
+            "Velocities": 5.960464477539063e-08
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b1-f1-i1-s20261094",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Velocities": 4.172325134277344e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n127-b1-f1-i1-s20261156",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Velocities": 2.384185791015625e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 9.5367431640625e-07,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Velocities": 3.5762786865234375e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 9.5367431640625e-07,
+            "Velocities": 2.384185791015625e-07
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "solve",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "ebdb375e6636a416bf6029c4b045984667c558dac6895546b6a4b081a5006489",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-b1-f1-i1-s20261029",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b1-f1-i1-s20261030",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n31-b1-f1-i1-s20261060",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n32-b1-f1-i1-s20261061",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b1-f1-i1-s20261062",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n63-b1-f1-i1-s20261092",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 7.152557373046875e-07,
+            "Velocities": 4.76837158203125e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n64-b1-f1-i1-s20261093",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 5.8673322200775146e-08,
+            "Velocities": 5.960464477539063e-08
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b1-f1-i1-s20261094",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Velocities": 4.172325134277344e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n127-b1-f1-i1-s20261156",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Velocities": 2.384185791015625e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 9.5367431640625e-07,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s17",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Velocities": 3.5762786865234375e-07
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s42",
+          "max_absolute_errors": {
+            "Params": 0.0,
+            "Poses": 0.0,
+            "Tiles": 9.5367431640625e-07,
+            "Velocities": 2.384185791015625e-07
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "solve",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "b762deed59728b55414b7e6e088eabbfb69d8f863e5d0000e09191d7da7aa04a",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-b1-f1-i1-s20261029",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b1-f1-i1-s20261030",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n31-b1-f1-i1-s20261060",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n32-b1-f1-i1-s20261061",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b1-f1-i1-s20261062",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n63-b1-f1-i1-s20261092",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n64-b1-f1-i1-s20261093",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b1-f1-i1-s20261094",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n127-b1-f1-i1-s20261156",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "support_face",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "160a0fa7aae77dea54627ef23ebdfb3cf72280d391e52cad01e85728bcca6450",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n7",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n168",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "support_face",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "24a512b529b3d8b2b18200c08bc711c20a5d1be96576b91a26a204aa15d6ce3c",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n7",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n168",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "support_face",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "bc5a6ec4b53b4d65af5446490910560ea733e5c18a70c6b6efcf9064cee967e4",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n7",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n168",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "polygonal_contacts",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "bd44a769d3e1dd26e3de6d9cacde3af9402b3a620d53953d6d7e008570ceda39",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n25",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n300",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 2.9802322387695312e-08,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "edge_witnesses",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "polygonal_contacts",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "398bb58875e7a86b7baa04ec949bf1e133f0b979a73949382ee11d214ba5211f",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n25",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n300",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 2.9802322387695312e-08,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "edge_witnesses",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "polygonal_contacts",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "0dfce7d5037f20004c7458746c4bd4ddaacc91e0b71f49057163d3f03bb3f6e5",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n25",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n300",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "edge_witnesses",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "550f45e65c1a95f9ec3c8e0fce702b1794535eaadb21598621feac498216af44",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "daf7e72b0843947a108bf3f7970067a8ffc480499b74fac7d688688b3f37e10f",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "e4d15f87bd6e7b8834ef7ef5ca81162ffd42bc96f497f251e2573d551dd8ced0",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "f3225bce60f892a288cdff263adf6dc5b6b590a4a887cac5efd124bb0384e38f",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.5869736671447754e-05,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.8410693407058716,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "triangle_fallback",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.519918441772461e-06,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "aeb0857d2fd40e80f3ded8801c468f17b9cdb360f77c78ff94925c07a3a27837",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.5869736671447754e-05,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.8410693407058716,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "triangle_fallback",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.519918441772461e-06,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "b855c66f37d1e8b683ff8f0630a04b0b5380a7a886b5e0349d244d4ba919b72d",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "triangle_fallback",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "deferred_pairs",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "06b8e07b8afaebf6f380e324e4c4fab2118dfd3c2c9b68cc6ead76125c5a276c",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 39,
+            "written": 39
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 81,
+            "written": 81
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 3.725290298461914e-09,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 17,
+            "requested": 34,
+            "written": 17
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_pairs",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "5c015c7ba3d6195e9bdaf3ce4b0c22ae331d54aae65abf9b15d3c50108d37d8e",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 39,
+            "written": 39
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 81,
+            "written": 81
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 3.725290298461914e-09,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 17,
+            "requested": 34,
+            "written": 17
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_pairs",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "71941a6bab73c684e21872b2484b068e6c8d14484973dc11167870eb0daea84d",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "4841e92d6945469bbebee88195cd95b551e2f5cb67c768e5492aaf2be891a12b",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.8605180978775024,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "775f219661f4910ef6099465d8a93b8af1945b45137a1ff073a7139df2d0b3a9",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.8605180978775024,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "a1a9926dfff4694f250b5f3568cd64535af8ca294176fd53738421d84cd33ce4",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_pair_keys",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "e0b8a847e68373c30980adf0166996162acb4225f3c7b42128f08a3d87a7ac4a",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_pair_keys",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "9ca7d876f15ff4800640cdcc2168c00f619cdbdd017cf75d54b24593409814c4",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_pair_keys",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "94408d3860ff7eb9b58546e6065881432e9dbde8f4d8d05f4aec671d84980b27",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape_keys",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "73ecb5570b27ef69b47f098d508fb95f2414ab155ed617ad9cc000725e44faf2",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape_keys",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "c2b34a55fac221c5d8759e4164bfca2bee3e807d5834b95deb88bcb6d7e107c3",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape_keys",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "0fba38c262bb188502aca688c262eec128edebb45c3a7ff394477a2ef19c1611",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_permuted_keys",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "74c0b5857ae1ae07f0ad53d11d6acc20c1aa363b9c14ee60507d730949132049",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_permuted_keys",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "160570d9f413b96fcafe2aaf0b9950dd96081b59abd628ac7f83308379ff0a7e",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_permuted_keys",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "a620df3d3cc778f11ef2a54c7cfe850730c76a2928a82b40c846719640873f1d",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "38cdde35986e198e789ac01fa21600440491d7cda11fe7d1f279da20519e8b05",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "7982de4840a5f60d08edaa49f82cfd1872a2dcedd713e8e319672a9e4dbfaf0c",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "1d0c796a8f58aca76fc8101d96c3341749fbdd7f7b882c04a9d6bf475577ed8b",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "solve_boundary",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "4da25ec9fff8795b666688cce2dfed0cd2e2415165367b80cd07e6577123e394",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-b1-f1-i1-s20261029",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 0
+            },
+            "max_distance_interval_width": 0,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 0
+          }
+        },
+        {
+          "name": "n1-b1-f1-i1-s20261030",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 1
+            },
+            "max_distance_interval_width": 1.7201438497205235e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 0
+          }
+        },
+        {
+          "name": "n31-b1-f1-i1-s20261060",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 31
+            },
+            "max_distance_interval_width": 2.861443006985098e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 15
+          }
+        },
+        {
+          "name": "n32-b1-f1-i1-s20261061",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 32
+            },
+            "max_distance_interval_width": 3.604059953254968e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 15
+          }
+        },
+        {
+          "name": "n33-b1-f1-i1-s20261062",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 33
+            },
+            "max_distance_interval_width": 3.240153543804247e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 16
+          }
+        },
+        {
+          "name": "n63-b1-f1-i1-s20261092",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 7.152557373046875e-07,
+            "Uncertain": 0.0,
+            "Velocities": 4.76837158203125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 63
+            },
+            "max_distance_interval_width": 3.343668857763715e-07,
+            "maximum_branch_residual": 7.152557373046875e-07,
+            "uncertain_contacts": 31
+          }
+        },
+        {
+          "name": "n64-b1-f1-i1-s20261093",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 5.8673322200775146e-08,
+            "Uncertain": 0.0,
+            "Velocities": 5.960464477539063e-08
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 64
+            },
+            "max_distance_interval_width": 3.244176688954603e-07,
+            "maximum_branch_residual": 5.960464477539063e-08,
+            "uncertain_contacts": 32
+          }
+        },
+        {
+          "name": "n65-b1-f1-i1-s20261094",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Uncertain": 0.0,
+            "Velocities": 4.172325134277344e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 65
+            },
+            "max_distance_interval_width": 3.651819047711946e-07,
+            "maximum_branch_residual": 4.76837158203125e-07,
+            "uncertain_contacts": 32
+          }
+        },
+        {
+          "name": "n127-b1-f1-i1-s20261156",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0157850980758667,
+            "Uncertain": 0.0,
+            "Velocities": 0.0056036412715911865
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 2,
+              "Soft": 125
+            },
+            "max_distance_interval_width": 3.359901362132156e-07,
+            "maximum_branch_residual": 4.0531158447265625e-06,
+            "uncertain_contacts": 63
+          }
+        },
+        {
+          "name": "n129-b0-f0-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b0-f0-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 1.2814998626708984e-06,
+            "Uncertain": 0.0,
+            "Velocities": 5.364418029785156e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 1.2814998626708984e-06,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b0-f1-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b0-f1-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 1.1920928955078125e-07,
+            "Uncertain": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 1.1920928955078125e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f0-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 9.5367431640625e-07,
+            "Uncertain": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 9.5367431640625e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f0-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0023794025182724,
+            "Uncertain": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 1.1920928955078125e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f1-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Uncertain": 0.0,
+            "Velocities": 3.5762786865234375e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 4.76837158203125e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f1-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0023794025182724,
+            "Uncertain": 0.0,
+            "Velocities": 2.384185791015625e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 9.5367431640625e-07,
+            "uncertain_contacts": 65
+          }
+        }
+      ]
+    },
+    {
+      "operation": "solve_boundary",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "b3eb8444e6d836726e30eceb352b54d5b2244dca7f2c21d14f36138f8e04abb0",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-b1-f1-i1-s20261029",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 0
+            },
+            "max_distance_interval_width": 0,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 0
+          }
+        },
+        {
+          "name": "n1-b1-f1-i1-s20261030",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 1
+            },
+            "max_distance_interval_width": 1.7201438497205235e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 0
+          }
+        },
+        {
+          "name": "n31-b1-f1-i1-s20261060",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 31
+            },
+            "max_distance_interval_width": 2.861443006985098e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 15
+          }
+        },
+        {
+          "name": "n32-b1-f1-i1-s20261061",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 32
+            },
+            "max_distance_interval_width": 3.604059953254968e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 15
+          }
+        },
+        {
+          "name": "n33-b1-f1-i1-s20261062",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 33
+            },
+            "max_distance_interval_width": 3.240153543804247e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 16
+          }
+        },
+        {
+          "name": "n63-b1-f1-i1-s20261092",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 7.152557373046875e-07,
+            "Uncertain": 0.0,
+            "Velocities": 4.76837158203125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 63
+            },
+            "max_distance_interval_width": 3.343668857763715e-07,
+            "maximum_branch_residual": 7.152557373046875e-07,
+            "uncertain_contacts": 31
+          }
+        },
+        {
+          "name": "n64-b1-f1-i1-s20261093",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 5.8673322200775146e-08,
+            "Uncertain": 0.0,
+            "Velocities": 5.960464477539063e-08
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 64
+            },
+            "max_distance_interval_width": 3.244176688954603e-07,
+            "maximum_branch_residual": 5.960464477539063e-08,
+            "uncertain_contacts": 32
+          }
+        },
+        {
+          "name": "n65-b1-f1-i1-s20261094",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Uncertain": 0.0,
+            "Velocities": 4.172325134277344e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 65
+            },
+            "max_distance_interval_width": 3.651819047711946e-07,
+            "maximum_branch_residual": 4.76837158203125e-07,
+            "uncertain_contacts": 32
+          }
+        },
+        {
+          "name": "n127-b1-f1-i1-s20261156",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0157850980758667,
+            "Uncertain": 0.0,
+            "Velocities": 0.0056036412715911865
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 2,
+              "Soft": 125
+            },
+            "max_distance_interval_width": 3.359901362132156e-07,
+            "maximum_branch_residual": 4.0531158447265625e-06,
+            "uncertain_contacts": 63
+          }
+        },
+        {
+          "name": "n129-b0-f0-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b0-f0-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 1.2814998626708984e-06,
+            "Uncertain": 0.0,
+            "Velocities": 5.364418029785156e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 1.2814998626708984e-06,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b0-f1-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0,
+            "Uncertain": 0.0,
+            "Velocities": 0.0
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 0,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b0-f1-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 1.1920928955078125e-07,
+            "Uncertain": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 0,
+              "Soft": 129
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 1.1920928955078125e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f0-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 9.5367431640625e-07,
+            "Uncertain": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 9.5367431640625e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f0-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0023794025182724,
+            "Uncertain": 0.0,
+            "Velocities": 1.1920928955078125e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 1.1920928955078125e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f1-i3-s17",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 4.76837158203125e-07,
+            "Uncertain": 0.0,
+            "Velocities": 3.5762786865234375e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.720709434995584e-07,
+            "maximum_branch_residual": 4.76837158203125e-07,
+            "uncertain_contacts": 65
+          }
+        },
+        {
+          "name": "n129-b1-f1-i3-s42",
+          "max_absolute_errors": {
+            "HardTiles": 0.0,
+            "HardVelocities": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SoftTiles": 0.0,
+            "SoftVelocities": 0.0,
+            "Tiles": 0.0023794025182724,
+            "Uncertain": 0.0,
+            "Velocities": 2.384185791015625e-07
+          },
+          "diagnostics": {
+            "matched_branches": {
+              "Hard": 1,
+              "Soft": 128
+            },
+            "max_distance_interval_width": 3.4257132475179475e-07,
+            "maximum_branch_residual": 9.5367431640625e-07,
+            "uncertain_contacts": 65
+          }
+        }
+      ]
+    },
+    {
+      "operation": "solve_boundary",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "52c650f190c43bf52303d51d861f52446d517b1e",
+      "report_sha256": "1c343c3598e246061af2ab529fa5383b07c2dc8293bed3cf32ba9d563bcfa4f9",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "n0-b1-f1-i1-s20261029",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b1-f1-i1-s20261030",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n31-b1-f1-i1-s20261060",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n32-b1-f1-i1-s20261061",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b1-f1-i1-s20261062",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n63-b1-f1-i1-s20261092",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n64-b1-f1-i1-s20261093",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b1-f1-i1-s20261094",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n127-b1-f1-i1-s20261156",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f0-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b0-f1-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f0-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s17",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-f1-i3-s42",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    }
+  ],
+  "case_totals": {
+    "c": 103,
+    "metal": 103,
+    "ascend": 103
+  },
+  "limitations": [
+    "Ascend evidence is source lowering only; no vendor compilation, device execution or synchronization qualification.",
+    "No production runtime completion claim; frozen f1ae000f3 scene/restart runs are separate historical evidence.",
+    "Native Rust Metal diagnostics are not substituted for registered TileLang target execution."
+  ]
+}
