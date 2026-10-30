@@ -24,7 +24,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Namespace/type reexports only; executable behavior is tracked in the adjacent mirrored modules. No independent kernel is required."
     },
     {
       "reference": "src_rbd_shaders/broad_phase/brute_force.rs",
@@ -106,7 +106,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Namespace/type reexports only; executable behavior is tracked in the adjacent mirrored modules. No independent kernel is required."
     },
     {
       "reference": "src_rbd_shaders/broad_phase/narrow_phase.rs",
@@ -160,7 +160,7 @@
         "integrate_linearized",
         "to_world"
       ],
-      "remaining": "Only the named operation contracts are implemented; all other Rust behavior in this module remains unported."
+      "remaining": "The active 3D pipeline uses to_world and integrate_linearized. Constructors/defaults are supplied by native typed upload. Force::integrate, Velocity::integrate/velocity_at_point/apply_impulse remain Rust convenience APIs, not separate TileLang entry points."
     },
     {
       "reference": "src_rbd_shaders/dynamics/canonical_order.rs",
@@ -229,7 +229,7 @@
         "gpu_finalize_topo_gc",
         "gpu_coloring_requirements"
       ],
-      "remaining": "All Topo entry points and bounded scheduling, including exhaustion safety, are ported; unbounded Luby scheduling and production solver integration remain."
+      "remaining": "All native coloring entry points and pre-commit requirements feedback are mirrored. Public runtime selects seeded deterministic Topo and grows its limits; unbounded Luby is not exposed as a portable runtime scheduler. Final source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/dynamics/constraint.rs",
@@ -269,7 +269,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Native HeaderTile/WarmstartTile ABI and tile_lane indexing are represented by Rust-derived layout offsets in Coulomb/twist accessors and kernel_support. There is no separate Python data-object API; fused/tail dispatch substitution is documented in NATIVE_RUNTIME.md."
     },
     {
       "reference": "src_rbd_shaders/dynamics/coulomb_tiles.rs",
@@ -287,7 +287,7 @@
         "constraint_warmstart",
         "tile_warmstart"
       ],
-      "remaining": "Rust-derived layouts and the listed cache/tiled-warmstart helpers are ported; unlisted symbols and production runtime integration remain."
+      "remaining": "Native tile headers/points are accessed through Rust-derived offsets in the mirrored solver, preparation and warmstart kernels. Public Coulomb runtime is connected; final current-source qualification remains. Host constructors stay in the native typed exporter."
     },
     {
       "reference": "src_rbd_shaders/dynamics/joint.rs",
@@ -312,7 +312,7 @@
       "symbols": [
         "motor_params"
       ],
-      "remaining": "Ordinary 3D rigid-joint runtime math is ported, preserving native coupled-axis limitations. Multibody-only helpers, 2D and frame integration remain outside these kernel contracts."
+      "remaining": "Ordinary 3D joint preparation, motors, limits and solving connect to the public runtime and native scene/restart comparisons. Constructors and small helpers can be inlined; native coupled-axis limitations remain. Articulated multibodies and 2D are deferred; final source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/dynamics/joint_constraint.rs",
@@ -340,7 +340,7 @@
         "gpu_solve_joint_constraints",
         "ii_mul"
       ],
-      "remaining": "Ordinary 3D rigid-joint runtime math is ported, preserving native coupled-axis limitations. Multibody-only helpers, 2D and frame integration remain outside these kernel contracts."
+      "remaining": "Ordinary 3D joint preparation, motors, limits and solving connect to the public runtime and native scene/restart comparisons. Constructors and small helpers can be inlined; native coupled-axis limitations remain. Articulated multibodies and 2D are deferred; final source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/dynamics/joint_constraint_builder.rs",
@@ -379,7 +379,7 @@
         "motor_linear_coupled",
         "update_constraint"
       ],
-      "remaining": "Ordinary 3D rigid-joint runtime math is ported, preserving native coupled-axis limitations. Multibody-only helpers, 2D and frame integration remain outside these kernel contracts."
+      "remaining": "Ordinary 3D joint preparation, motors, limits and solving connect to the public runtime and native scene/restart comparisons. Constructors and small helpers can be inlined; native coupled-axis limitations remain. Articulated multibodies and 2D are deferred; final source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/dynamics/mass_splitting.rs",
@@ -410,7 +410,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Namespace/type reexports only; executable behavior is tracked in the adjacent mirrored modules. No independent kernel is required."
     },
     {
       "reference": "src_rbd_shaders/dynamics/mprops_update.rs",
@@ -734,7 +734,7 @@
         "gpu_solver_count_constraints",
         "gpu_solver_sort_constraints"
       ],
-      "remaining": "Body lifecycle and adjacency are connected to analytic ball/box scene checkpoints with persistent topology and coloring. Remaining solver variants, rigid joints, hubs and general production schedules are pending."
+      "remaining": "All active 3D body/adjacency stages connect to the public runtime with joints, hubs and general collision. touches_multibody exclusion remains in graph filtering; articulated solving is deferred. Final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/dynamics/solver_utils.rs",
@@ -758,7 +758,7 @@
         "writes_velocity_a",
         "writes_velocity_b"
       ],
-      "remaining": "Listed solve, preparation, warmstart and scaling methods are ported; unlisted helpers, other solver variants and production integration remain."
+      "remaining": "Per-contact solve, preparation, recycling and warmstart are translated. Several Rust accessors and small arithmetic helpers are inlined into these mirrored routines or kernel_support using native-derived offsets. Final current-source qualification remains; native fused/tail launches use ordered portable colors."
     },
     {
       "reference": "src_rbd_shaders/dynamics/tile_kernels.rs",
@@ -795,7 +795,7 @@
         "gpu_hub_warmstart_constraints",
         "gpu_solve_constraints_unbiased_cached"
       ],
-      "remaining": "Native bucket-range solve, scatter warmstart, unbiased cached solve and ordered color passes are ported. Fused/tail optimizations, other models and production frame integration remain."
+      "remaining": "All active rigid contact stages are represented. Native fused/tail solve and fused warmstart are substituted by ascending separate-color launches; their dependency equivalence has a native differential regression. Public frame stepping uses scatter warmstart; cached gather and hub variants have independent contracts. Ascend synchronization remains untested."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_friction.rs",
@@ -822,7 +822,7 @@
         "init_points_with_poses",
         "recycle_from"
       ],
-      "remaining": "Compact arithmetic, initialization and recycling are translated; broader scene integration and numerical qualification remain."
+      "remaining": "Compact normal, sliding/twist arithmetic, preparation and recycling are connected to complete native scene and public model-switch tests. Native accessors are inlined through Rust-derived tile offsets. Final source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_tiles.rs",
@@ -851,7 +851,7 @@
         "gpu_prepare_constraints",
         "tile_warmstart"
       ],
-      "remaining": "Compact arithmetic, preparation, color scheduling and cache/hub warmstart are ported; full twist scene/runtime integration and hardware qualification remain."
+      "remaining": "Compact tile arithmetic, preparation, cache and hub/color scheduling connect to the public runtime. Headers and constructors use native-derived layouts; final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/lib.rs",
@@ -859,7 +859,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Native math types/constants and helper expressions are represented by the typed exporter, kernel_support and mirrored call sites. Rust crate exports and language traits have no standalone shader equivalent. This is not a claim that every public Rust convenience function has a Python API."
     },
     {
       "reference": "src_rbd_shaders/queries/contact.rs",
@@ -875,7 +875,7 @@
         "ball_convex",
         "cuboid_cuboid"
       ],
-      "remaining": "All native analytic contact functions and material combination; PFM generic convex contact remains unported."
+      "remaining": "Analytic contacts/material combination are mirrored. The generic pfm_pfm route is implemented in contact_pfm_pfm.py and invoked by broad_phase/narrow_phase.py. Final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/queries/contact_manifold.rs",
@@ -883,7 +883,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Native ContactPoint/ContactManifold storage comes from Rust-derived layouts. Initialization, single-point construction, clear and flipped witness writes are inlined in mirrored contact/narrow-phase/PFM kernels; no standalone Python object wrapper is claimed."
     },
     {
       "reference": "src_rbd_shaders/queries/contact_pfm_pfm.rs",
@@ -923,7 +923,7 @@
         "origin",
         "from_points"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "CSO support and witness construction feed the complete GJK/EPA/PFM path. Rust constructors lower to local buffer writes. Final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/epa2.rs",
@@ -958,7 +958,7 @@
         "expand_silhouette",
         "closest_points"
       ],
-      "remaining": "The complete bounded EPA routine is translated and exercised standalone and after GJK; generic manifolds, broader production shapes and private-memory hardware qualification remain separate."
+      "remaining": "The bounded native EPA routine is translated and connected to general manifold scenes. Local storage initialization replaces Rust constructors. Final current-source qualification remains; Ascend private-memory execution remains untested."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/gjk.rs",
@@ -979,7 +979,7 @@
         "cso_point_from_shapes",
         "closest_points"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "Bounded native GJK is connected to EPA and polygonal manifolds. Result constructors lower to local buffer writes; final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/mod.rs",
@@ -987,7 +987,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Namespace/type reexports only; executable behavior is tracked in the adjacent mirrored modules. No independent kernel is required."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/voronoi_simplex2.rs",
@@ -1051,7 +1051,7 @@
         "contacts_edge_edge",
         "contacts"
       ],
-      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
+      "remaining": "3D feature clipping and secondary witnesses connect to complete PFM/deferred native scenes. Native constructors and small helpers may be inlined; active 3D behavior is covered by registered feature/manifold contracts. Final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/queries/projection.rs",
@@ -1072,7 +1072,7 @@
         "solid",
         "barycentric_coordinates"
       ],
-      "remaining": "Location constructors and barycentric conversion are ported; public runtime query wrappers remain."
+      "remaining": "Projection flags, locations and barycentric conversion support the registered primitive, mesh and Shape point queries. Native constructors are represented by local-buffer writes. Final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/queries/ray.rs",
@@ -1168,7 +1168,7 @@
         "local_support_point",
         "support_face"
       ],
-      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
+      "remaining": "Native bounds, support points/faces and GJK/EPA/PFM composition are connected. Mesh descriptors/constructors remain native typed upload, not Python object APIs. Final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/cylinder.rs",
@@ -1249,7 +1249,7 @@
         "project_local_point",
         "project_local_point_and_get_location"
       ],
-      "remaining": "Local projection ported alongside prior bounds; other segment methods remain."
+      "remaining": "3D segment bounds/projection and polyline support are connected; descriptor constructors stay in native typed upload. Final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/shape.rs",
@@ -1314,7 +1314,7 @@
         "check_face",
         "project_local_point_and_get_location"
       ],
-      "remaining": "Tetrahedron local projection and Voronoi tests are ported; generic collision composition remains."
+      "remaining": "Native tetrahedron projection and Voronoi tests feed the GJK/EPA simplex path. Constructors are represented by local buffers; final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/triangle.rs",
@@ -1342,7 +1342,7 @@
         "local_support_point",
         "support_face"
       ],
-      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
+      "remaining": "3D triangle projection, support faces and clipping connect to mesh/PFM queries and scenes. Constructors and private predicates are represented inside these routines; final current-source qualification remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/trimesh.rs",
@@ -1470,7 +1470,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "BatchIndices ABI is derived from Rust. Active rigid-body/collider batch index calculations are inlined in mirrored entry points. Multibody-specific regions/accessors remain deferred; there is no separate Python slice wrapper."
     },
     {
       "reference": "src_rbd_shaders/utils/linalg.rs",
@@ -1478,7 +1478,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "These dense/interleaved matrix algorithms are used by articulated multibodies, explicitly deferred by the user. Active ordinary rigid-body/joint paths do not call this module."
     },
     {
       "reference": "src_rbd_shaders/utils/mod.rs",
@@ -1486,7 +1486,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Namespace/type reexports only; executable behavior is tracked in the adjacent mirrored modules. No independent kernel is required."
     },
     {
       "reference": "src_rbd_shaders/utils/prefix_sum.rs",
@@ -1535,7 +1535,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "Namespace reexports only; executable stages and constants are mapped in the adjacent modules."
+      "remaining": "Namespace/type reexports only; executable behavior is tracked in the adjacent mirrored modules. No independent kernel is required."
     },
     {
       "reference": "src_rbd_shaders/utils/radix_sort/sort_count.rs",
@@ -1635,7 +1635,7 @@
       "coverage": "unported",
       "operations": [],
       "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "remaining": "Rust slice/reference wrappers are represented by direct TileLang buffer access with native-derived offsets and explicit batch strides. Memory guards and indirect-index preconditions are tested at each operation boundary; no Python pointer-object API is claimed."
     },
     {
       "reference": "src_rbd_shaders/tests/coloring_luby.rs",
@@ -1671,7 +1671,7 @@
         "rbd.body.sync_collider_poses3d",
         "rbd.body.coefficients3d"
       ],
-      "remaining": "Body lifecycle, world inertia and free-body composition are ported; production scene integration remains incomplete."
+      "remaining": "The resident runtime connects native body upload, world inertia, gravity, integration, finalization and live pose/velocity edits. Full current-source matrix qualification remains; unused Rust Force/Impulse convenience methods are not a separate Python object API."
     },
     {
       "id": "rbd.contact.coulomb",
@@ -1694,7 +1694,7 @@
         "rbd.pipeline.joint_restart3d",
         "rbd.contact.coulomb.boundary3d"
       ],
-      "remaining": "Preparation, warmstart, native ordered color ranges and resident analytic/joint/general fixture frames are translated. Remaining fused/tail variants, production scheduling and numerical qualification remain."
+      "remaining": "Prepared colors, recycling, warmstart, biased/unbiased solve and caches are connected to the public runtime. Native fused/tail launches are intentionally represented by ordered colors; native schedule equivalence and full scene/restart evidence are required."
     },
     {
       "id": "rbd.broadphase.brute_force",
@@ -1706,7 +1706,7 @@
         "rbd.broadphase.brute_pairs_serial3d",
         "rbd.broadphase.pairs_program3d"
       ],
-      "remaining": "All native brute-force stages and resident analytic/general fixture scenes are implemented. Production integration, overflow retry and performance qualification remain."
+      "remaining": "All native brute-force entry points and composed fixture scenes are covered. The public portable backend uses LBVH; brute force remains a tested alternative kernel path, not a separate public runtime mode. Performance and Ascend execution are unqualified."
     },
     {
       "id": "rbd.broadphase.lbvh",
@@ -1738,7 +1738,7 @@
         "rbd.pipeline.runtime_twist_scene3d",
         "rbd.pipeline.runtime_twist_restart3d"
       ],
-      "remaining": "All 3D LBVH stages and resident Morton sort/build/refit/traversal composition are implemented. Production frame integration, dynamic capacity management and performance qualification remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
+      "remaining": "All 3D LBVH stages connect native multi-collider uploads to resident build/refit/traversal and pre-commit pair capacity growth. Current full-matrix evidence and Ascend synchronization remain to be qualified."
     },
     {
       "id": "rbd.collision.primitives",
@@ -1781,7 +1781,7 @@
         "rbd.pipeline.runtime_twist_scene3d",
         "rbd.pipeline.runtime_twist_restart3d"
       ],
-      "remaining": "Native world bounds, support maps, analytic and deferred contact generation are connected to resident fixture scenes. Production integration and long-scene numerical qualification remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
+      "remaining": "Analytic contact generation and native Shape point-query wrappers are connected and independently checked. Final current-source qualification remains."
     },
     {
       "id": "rbd.collision.convex",
@@ -1821,7 +1821,7 @@
         "rbd.pipeline.runtime_twist_scene3d",
         "rbd.pipeline.runtime_twist_restart3d"
       ],
-      "remaining": "Native 3D GJK, EPA, SAT and polygonal manifolds are connected to resident general-collision fixture scenes. Secondary-witness clipping and long-scene numerical qualification remain explicit gaps. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
+      "remaining": "Native 3D support, GJK, EPA, SAT, secondary-witness clipping and general manifold scenes are implemented. Full-matrix current-source qualification remains; Ascend private-memory compilation and performance remain untested."
     },
     {
       "id": "rbd.collision.composite",
@@ -1860,7 +1860,7 @@
         "rbd.pipeline.runtime_twist_scene3d",
         "rbd.pipeline.runtime_twist_restart3d"
       ],
-      "remaining": "Native mesh/polyline deferred traversal, subshape conversion, work sorting and reduction are connected to resident fixture scenes. Point queries, mesh pseudonormals, arbitrary capacity retry and production integration remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
+      "remaining": "Mesh/polyline traversal, subshape conversion, sorting, reduction, point queries and pseudonormals are implemented. Public runtime retries both pair and deferred-work overflow before commit. Final current-source qualification remains."
     },
     {
       "id": "rbd.queries",
@@ -1875,7 +1875,7 @@
         "rbd.query.shape_project_world3d",
         "rbd.query.shape_project_world_boundary3d"
       ],
-      "remaining": "Mesh and native Shape point-query wrappers are implemented with explicit native singular behavior; final source qualification and inventory audit remain."
+      "remaining": "Projection, support, mesh/ray and native Shape local/world solid/boundary wrappers have registered contracts. Native singular/default behavior stays explicit. Final current-source qualification remains."
     },
     {
       "id": "rbd.contact.persistence",
@@ -1889,7 +1889,7 @@
         "rbd.contact.coulomb.prepare3d",
         "rbd.contact.twist.prepare3d"
       ],
-      "remaining": "Matching, geometry reuse and impulse transfer are connected to changing-contact fixture scenes. Production runtime integration and contact-sensitive numerical qualification remain."
+      "remaining": "Matching, geometry reuse and model-specific impulse transfer are connected to live runtime, checkpoint continuation and model switching. Final native scene/restart matrix qualification remains."
     },
     {
       "id": "rbd.scheduling.colors",
@@ -1923,7 +1923,7 @@
         "rbd.contact.twist.hub_warmstart3d",
         "rbd.scheduling.color_requirements3d"
       ],
-      "remaining": "Adjacency, seeding, coloring entry points, buckets and dispatch sizing are ported; full convergence scheduling, palette exhaustion and production integration remain."
+      "remaining": "Adjacency, seeded Topo coloring, buckets and pre-commit palette/completion checks are connected. The runtime grows palette/round limits or returns an explicit capacity error. Native Luby primitives remain tested; the public backend selects deterministic Topo. Final qualification remains."
     },
     {
       "id": "rbd.scheduling.hubs",
@@ -1938,7 +1938,7 @@
         "rbd.scheduling.hub_scatter3d",
         "rbd.scheduling.hub_average3d"
       ],
-      "remaining": "Hub entry points and warmstart are ported; production synchronized solver scheduling and scene stability remain."
+      "remaining": "Native hub allocation/splitting, warmstart, scatter and cooperative averaging are connected to resident frames and public capacity migration. One/two 33-contact plate comparisons are required; Ascend hardware synchronization remains untested."
     },
     {
       "id": "rbd.constraints.joints",
@@ -1961,7 +1961,7 @@
         "rbd.pipeline.runtime_twist_scene3d",
         "rbd.pipeline.runtime_twist_restart3d"
       ],
-      "remaining": "Ordinary joints are connected to analytic frames with continuous trajectory validation. Production arbitrary scene upload/backend selection and broader scene coverage remain."
+      "remaining": "Ordinary joint motors, limits, preparation and colored iterations connect native arbitrary scene upload to resident stepping, configuration and scene reconstruction. Native coupled-axis restrictions remain unchanged. Final current-source qualification remains."
     },
     {
       "id": "rbd.constraints.multibody",
@@ -1990,7 +1990,7 @@
         "rbd.contact.twist.gather_warmstart3d",
         "rbd.contact.twist.hub_warmstart3d"
       ],
-      "remaining": "Compact arithmetic, preparation, recycling and cache generation translated; full model-specific scheduling and runtime integration remain."
+      "remaining": "Compact twist arithmetic, preparation, caches, color/hub scheduling and public model switching are connected. Required native full scenes and identical-state restarts cover contact-sensitive fields. Final current-source qualification remains."
     },
     {
       "id": "rbd.utils",
@@ -2010,7 +2010,7 @@
         "rbd.utils.radix_pass",
         "rbd.utils.radix_sort"
       ],
-      "remaining": "Prefix hierarchy and native radix stages/sorts implemented. Flattened-batch host optimization and other utility algorithms remain."
+      "remaining": "Native prefix hierarchy and radix stages/sorts are ported. Typed layouts, batch indexing and slice access lower to derived offsets and direct buffer operations. Matrix utilities used only by articulated multibodies stay deferred. Final current-source qualification remains."
     },
     {
       "id": "rbd.determinism",
@@ -2036,7 +2036,7 @@
         "rbd.pipeline.runtime_twist_scene3d",
         "rbd.pipeline.runtime_twist_restart3d"
       ],
-      "remaining": "Canonical contacts and bounded Topo schedules are connected to analytic, joint and general collision fixture scenes. Production and unbounded scheduling remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
+      "remaining": "Canonical contacts, stable adjacency, deterministic bounded Topo with completion feedback and ordered color dependencies connect to the public runtime. Exact IDs/guards remain mandatory; nondeterministic hub allocation is validated by semantic ownership. Floating point is tolerance-based. Final current-source qualification remains."
     },
     {
       "id": "rbd.pipeline",
@@ -2062,7 +2062,7 @@
         "rbd.pipeline.runtime_twist_scene3d",
         "rbd.pipeline.runtime_twist_restart3d"
       ],
-      "remaining": "Analytic, ordinary-joint and general collision fixture scenes are composed on resident storage with trajectory diagnostics. Public backend selection, arbitrary upload and capacity retry, hubs and remaining variants are pending. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
+      "remaining": "Rust-owned backend selection, native scene upload, resident stepping, lazy capacity/color growth, live controls, model switching, checkpoints and scene reconstruction are implemented. Full current-source matrix and offline handoff qualification remain. Ascend execution adapter/toolkit testing awaits hardware."
     },
     {
       "id": "rbd.dim2",
