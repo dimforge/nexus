@@ -17,7 +17,10 @@ class PfmTests(unittest.TestCase):
     def fixture(self, op="pfm_manifold", n=343):
         root = Path(
             os.environ.get(
-                "NEXUS_TILELANG_PFM_FIXTURES", HERE / "results" / op / "c/fixtures"
+                "NEXUS_TILELANG_PFM_FIXTURES",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / op
+                / "c/fixtures",
             )
         )
         d = root / op / (f"n{n}" if isinstance(n, int) else n)

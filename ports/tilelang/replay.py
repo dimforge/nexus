@@ -12,11 +12,11 @@ import hashlib
 import importlib.metadata
 import json
 import os
-from pathlib import Path
 import platform
 import shlex
 import subprocess
 import sys
+from pathlib import Path
 
 from cpu_oracle import export_fixtures
 
@@ -189,7 +189,6 @@ def check_outputs(layout, case, before, actual, expected, contract):
 
 def lower(layout, case, target):
     import tilelang
-
     from kernels import make_kernel
 
     requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
@@ -339,21 +338,13 @@ def main():
     if args.boundary_stress and args.operation != "solve":
         parser.error("Boundary stress applies only to solve")
     if args.operation == "all":
-        registry = json.loads((HERE / "parity.json").read_text())
-        for feature in registry["features"]:
-            command = [
-                sys.executable,
-                str(HERE / feature.get("runner", "replay.py")),
-                "--target",
-                args.target,
-                "--operation",
-                feature["operation"],
-                "--output",
-                str(args.output),
-            ]
-            if args.compile_only:
-                command.append("--compile-only")
-            subprocess.run(command, check=True)
+        from matrix import command, features
+
+        for feature in features():
+            subprocess.run(
+                command(feature, args.target, args.output, args.compile_only),
+                check=True,
+            )
         return
     import numpy as np
     from parity import evidence_inputs

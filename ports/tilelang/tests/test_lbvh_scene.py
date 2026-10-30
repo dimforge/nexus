@@ -19,7 +19,9 @@ class LbvhSceneTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_LBVH_SCENE_FIXTURES",
-                HERE / "results" / operation / "c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / operation
+                / "c/fixtures",
             )
         )
         directory = root / operation / name

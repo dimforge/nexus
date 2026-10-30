@@ -19,7 +19,8 @@ class PointQueryTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_POINT_QUERY_FIXTURES",
-                HERE / "results-point-queries-0098/mesh_projection/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "mesh_projection/c/fixtures",
             )
         )
         l = json.loads((root / "layout.json").read_text())

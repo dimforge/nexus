@@ -6,6 +6,7 @@ This tests the offline return protocol, not Ascend execution.
 import json
 import os
 import unittest
+from pathlib import Path
 
 from recorded_handoff import RecordedHandoff, handoff
 from replay import HERE
@@ -14,7 +15,12 @@ from replay import HERE
 @unittest.skipUnless(
     os.environ.get("NEXUS_TILELANG_FRAME_RESULTS")
     or all(
-        (HERE / "results" / op / target / "report.json").is_file()
+        (
+            Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+            / op
+            / target
+            / "report.json"
+        ).is_file()
         for op in ("analytic_frame_retry", "general_frame_retry", "joint_frame_retry")
         for target in ("metal", "ascend")
     ),

@@ -23,7 +23,8 @@ class LbvhSceneRestartTests(restarts.SceneRestartTests):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_LBVH_RESTART_FIXTURES",
-                HERE / "results" / f"{op}/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / f"{op}/c/fixtures",
             )
         )
         d = root / op / name

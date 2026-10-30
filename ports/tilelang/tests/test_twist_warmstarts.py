@@ -17,11 +17,7 @@ from warmstart_replay import BUFFERS, OPERATIONS, check_outputs, validate_case
 class TwistWarmstartTests(unittest.TestCase):
     def load(self, op="gather_warmstart", name="n129"):
         root = (
-            Path(
-                os.environ.get(
-                    "NEXUS_TILELANG_RESULTS", HERE / "results-twist-warmstart-0093"
-                )
-            )
+            Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
             / ("twist_" + op)
             / "c/fixtures"
         )

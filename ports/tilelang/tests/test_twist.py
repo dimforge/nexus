@@ -19,7 +19,8 @@ class TwistTests(unittest.TestCase):
         root = (
             Path(
                 os.environ.get(
-                    "NEXUS_TILELANG_TWIST_RESULTS", HERE / "results-twist-0089"
+                    "NEXUS_TILELANG_TWIST_RESULTS",
+                    Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results")),
                 )
             )
             / op

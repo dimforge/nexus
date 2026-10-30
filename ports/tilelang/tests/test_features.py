@@ -17,7 +17,10 @@ class FeatureTests(unittest.TestCase):
     def fixture(self, op="support_face", name="n168"):
         root = Path(
             os.environ.get(
-                "NEXUS_TILELANG_FEATURE_FIXTURES", HERE / "results" / op / "c/fixtures"
+                "NEXUS_TILELANG_FEATURE_FIXTURES",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / op
+                / "c/fixtures",
             )
         )
         d = root / op / name

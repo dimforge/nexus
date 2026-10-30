@@ -21,7 +21,9 @@ from replay import HERE
 
 root = Path(
     os.environ.get(
-        "NEXUS_TILELANG_BOUNDARY_FIXTURES", HERE / "results/solve_boundary/c/fixtures"
+        "NEXUS_TILELANG_BOUNDARY_FIXTURES",
+        Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+        / "solve_boundary/c/fixtures",
     )
 )
 

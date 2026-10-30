@@ -39,5 +39,6 @@
     "n32-b1-f1-i1",
     "n65-b1-f1-i1",
     "n129-b1-f1-i1"
-  ]
+  ],
+  "comparison": "twist_fields"
 }

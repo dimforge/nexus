@@ -17,7 +17,10 @@ class EpaTests(unittest.TestCase):
     def fixture(self, op="epa_closest", name="n343"):
         root = Path(
             os.environ.get(
-                "NEXUS_TILELANG_EPA_FIXTURES", HERE / "results" / op / "c/fixtures"
+                "NEXUS_TILELANG_EPA_FIXTURES",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / op
+                / "c/fixtures",
             )
         )
         d = root / op / name

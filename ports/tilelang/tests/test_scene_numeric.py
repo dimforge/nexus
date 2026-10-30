@@ -18,7 +18,7 @@ class SceneNumericTests(unittest.TestCase):
     def fixture(self):
         root = (
             Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
-            / "general_scene/metal/fixtures"
+            / "general_scene/c/fixtures"
         )
         d = root / "general_scene/general_triangle-c1-l1-b1-f120"
         l = json.loads((root / "layout.json").read_text())

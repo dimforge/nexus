@@ -18,7 +18,8 @@ class TwistColoredTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_TWIST_COLORED_FIXTURES",
-                HERE / "results-twist-colored-0092/twist_colored_program/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "twist_colored_program/c/fixtures",
             )
         )
         op = "twist_" + op

@@ -19,7 +19,8 @@ class RenderTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_RENDER_FIXTURES",
-                HERE / "results-render-0097/prep_render/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "prep_render/c/fixtures",
             )
         )
         d = root / "prep_render" / name

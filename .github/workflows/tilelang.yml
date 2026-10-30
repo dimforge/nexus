@@ -1,20 +1,25 @@
-name: TileLang parity pilot
+name: TileLang parity
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  TILELANG_CACHE_DIR: /tmp/nexus-tilelang-cache
+  TVM_FFI_CACHE_DIR: /tmp/nexus-tvm-ffi-cache
 
 jobs:
-  parity:
-    name: Rust reference / TileLang CPU
+  source:
+    name: Source inventory and native oracle
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      CARGO_TERM_COLOR: always
-      TILELANG_CACHE_DIR: ${{ runner.temp }}/tilelang-cache
-      TVM_FFI_CACHE_DIR: ${{ runner.temp }}/tvm-ffi-cache
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,33 +35,125 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ports/tilelang/reference/target
-          key: tilelang-reference-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/reference/rust-toolchain.toml') }}
-      - name: Check Rust exporter
+            ports/tilelang/native/target
+          key: tilelang-oracles-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/native/Cargo.lock', 'ports/tilelang/cpu_oracle.py') }}
+      - name: Rust checks with the mandatory noalias guard
         run: |
-          cargo fmt --manifest-path ports/tilelang/reference/Cargo.toml -- --check
+          cargo +1.98.1 fmt --manifest-path ports/tilelang/reference/Cargo.toml -- --check
+          cargo +1.98.1 fmt --manifest-path ports/tilelang/native/Cargo.toml -- --check
           python ports/tilelang/cpu_oracle.py clippy --locked --all-targets -- -D warnings
           python ports/tilelang/cpu_oracle.py test --locked --bin cpu-dispatch-check
           python ports/tilelang/cpu_oracle.py test --locked --release --bin cpu-dispatch-check
-      - name: Test change tracking without an accelerator
+          python ports/tilelang/cpu_oracle.py --native clippy --locked --no-default-features --features runtime --all-targets -- -D warnings
+          python ports/tilelang/cpu_oracle.py --native test --locked --no-default-features --features runtime
+      - name: Check inventory, tracking and exhaustive matrix routing
         run: |
           python -m unittest discover -s ports/tilelang/tests -p test_parity.py -v
           python -m unittest discover -s ports/tilelang/tests -p test_inventory.py -v
+          python -m unittest discover -s ports/tilelang/tests -p test_matrix.py -v
           python ports/tilelang/inventory.py
-      - name: Install pinned compiler with CPU-only PyTorch
+
+  replay:
+    name: CPU replay shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ports/tilelang/reference/target
+            ports/tilelang/native/target
+          key: tilelang-oracles-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/native/Cargo.lock', 'ports/tilelang/cpu_oracle.py') }}
+      - name: Install pinned portable compiler
         run: |
           python -m pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r ports/tilelang/requirements.txt
-      - name: Replay the current Rust reference
-        run: python ports/tilelang/replay.py --operation all --target c
-      - name: Test replay guards and handoff validation
-        run: python -m unittest discover -s ports/tilelang/tests -v
-      - name: Require reconciled source and fresh CPU execution evidence
-        run: >-
-          python ports/tilelang/parity.py check --require c
-          --evidence-dir ports/tilelang/results
+      - name: Execute every assigned operation
+        run: python ports/tilelang/matrix.py --target c --shard-count 16 --shard-index ${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: tilelang-cpu-parity
+          name: tilelang-cpu-shard-${{ matrix.shard }}
           path: ports/tilelang/results/
-          if-no-files-found: ignore
+          if-no-files-found: error
+          retention-days: 7
+
+  regressions:
+    name: Complete CPU evidence and corruption regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: replay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - name: Install validation dependencies
+        run: python -m pip install numpy==2.2.6
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: tilelang-cpu-shard-*
+          path: ports/tilelang/results
+          merge-multiple: true
+      - name: Test guards and offline return protocol
+        run: python -m unittest discover -s ports/tilelang/tests -v
+      - name: Require every registered operation and current source
+        run: python ports/tilelang/parity.py check --require c --evidence-dir ports/tilelang/results
+
+  native-runtime:
+    name: Public Rust backend on CPU
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    needs: replay
+    env:
+      NEXUS_DISABLE_BF: "1"
+      NEXUS_TILELANG_RUNTIME_WORK: ${{ runner.temp }}/native-runtime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ports/tilelang/reference/target
+            ports/tilelang/native/target
+          key: tilelang-oracles-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/native/Cargo.lock', 'ports/tilelang/cpu_oracle.py') }}
+      - name: Install pinned compiler
+        run: |
+          python -m pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r ports/tilelang/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: tilelang-cpu-shard-*
+          path: ports/tilelang/results
+          merge-multiple: true
+      - name: Run growth, live controls, lifecycle, checkpoints and model switching
+        run: |
+          export NEXUS_TILELANG_RUNTIME_PYTHON="$(command -v python)"
+          export NEXUS_TILELANG_RUNTIME_EXPECTED="$GITHUB_WORKSPACE/ports/tilelang/results/runtime_scene/c/fixtures/runtime_scene/mesh-contact-joint-f8"
+          export NEXUS_TILELANG_RUNTIME_EXPECTED_UNREDUCED="$GITHUB_WORKSPACE/ports/tilelang/results/runtime_scene/c/fixtures/runtime_scene/mesh-overlap-unreduced-f8"
+          export NEXUS_TILELANG_HUB_EXPECTED="$GITHUB_WORKSPACE/ports/tilelang/results/runtime_scene/c/fixtures/runtime_scene/split-hubs-f8"
+          python ports/tilelang/cpu_oracle.py --native test --locked --no-default-features --features runtime --tests -- --ignored --test-threads=1 --nocapture

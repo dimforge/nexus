@@ -20,11 +20,13 @@ class TwistSceneTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_TWIST_SCENE_FIXTURES",
-                HERE
-                / "results-twist-scene-0095-diagnostic/runtime_twist_scene/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "runtime_twist_scene/c/fixtures",
             )
         )
-        name = os.environ.get("NEXUS_TILELANG_TWIST_SCENE_CASE", "native-upload")
+        name = os.environ.get(
+            "NEXUS_TILELANG_TWIST_SCENE_CASE", "mesh-contact-joint-f1"
+        )
         d = root / "runtime_twist_scene" / name
         l = json.loads((root / "layout.json").read_text())
         c = json.loads((d / "case.json").read_text())

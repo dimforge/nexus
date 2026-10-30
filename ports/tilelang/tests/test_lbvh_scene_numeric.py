@@ -22,7 +22,8 @@ class LbvhSceneNumericTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_LBVH_NUMERIC_FIXTURES",
-                HERE / "results/general_lbvh_scene/metal/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "general_lbvh_scene/c/fixtures",
             )
         )
         directory = root / "general_lbvh_scene/general_triangle-c1-l1-b1-f120"

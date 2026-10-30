@@ -24,7 +24,10 @@ class DeferredTests(unittest.TestCase):
     def fixture(self, op="deferred_pairs", name="n567-c1200-g3-normal"):
         root = Path(
             os.environ.get(
-                "NEXUS_TILELANG_DEFERRED_FIXTURES", HERE / "results" / op / "c/fixtures"
+                "NEXUS_TILELANG_DEFERRED_FIXTURES",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / op
+                / "c/fixtures",
             )
         )
         d = root / op / name

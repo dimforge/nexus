@@ -3,6 +3,7 @@
 import json
 import os
 import unittest
+from pathlib import Path
 
 from recorded_handoff import RecordedHandoff, handoff
 from replay import HERE
@@ -11,7 +12,12 @@ from replay import HERE
 @unittest.skipUnless(
     os.environ.get("NEXUS_TILELANG_RUNTIME_RESULTS")
     or all(
-        (HERE / "results" / op / target / "report.json").is_file()
+        (
+            Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+            / op
+            / target
+            / "report.json"
+        ).is_file()
         for op in ("runtime_scene",)
         for target in ("metal", "ascend")
     ),

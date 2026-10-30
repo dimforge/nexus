@@ -314,16 +314,20 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from link_replay import check_outputs as check_link_outputs
     from narrow_replay import check_outputs as check_narrow_outputs
     from pfm_validation import check_outputs as check_pfm_outputs
+    from point_query_replay import check_outputs as check_point_query_outputs
     from pose_replay import check_outputs as check_pose_outputs
     from primitives import check_outputs as check_integer_outputs
     from radix_replay import check_outputs as check_radix_outputs
+    from render_replay import check_outputs as check_render_outputs
     from replay import check_outputs
     from runtime_scene_validation import check_outputs as check_runtime_scene_outputs
     from scan_replay import check_outputs as check_scan_outputs
     from scene_replay import check_outputs as check_scene_outputs
     from scene_restart_validation import check_outputs as check_scene_restart_outputs
+    from shape_query_replay import check_outputs as check_shape_query_outputs
     from support_validation import check_outputs as check_support_outputs
     from tgs_replay import check_outputs as check_tgs_outputs
+    from twist_validation import check_outputs as check_twist_outputs
     from warmstart_replay import check_outputs as check_warmstart_outputs
 
     result = {
@@ -413,6 +417,10 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "radix_fields": check_radix_outputs,
                     "canonical_fields": check_canonical_outputs,
                     "body_uniform_fields": check_body_uniform_outputs,
+                    "render_fields": check_render_outputs,
+                    "point_query_fields": check_point_query_outputs,
+                    "shape_query_fields": check_shape_query_outputs,
+                    "twist_fields": check_twist_outputs,
                 }[contract.get("comparison")]
                 before = {
                     n: np.fromfile(safe_file(directory, f"{n}.bin"), dtype=np.uint32)

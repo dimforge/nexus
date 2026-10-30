@@ -57,5 +57,6 @@
     "n129-b0-f1-i3",
     "n129-b1-f0-i3",
     "n129-b1-f1-i3"
-  ]
+  ],
+  "comparison": "twist_fields"
 }

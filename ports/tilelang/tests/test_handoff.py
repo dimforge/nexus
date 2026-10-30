@@ -338,3 +338,28 @@ class BoundaryHandoffTests(HandoffTests):
         self.save_manifest()
         with self.assertRaisesRegex(ValueError, "missing from handoff"):
             handoff.verify_bundle(self.bundle)
+
+
+class TwistHandoffTests(HandoffTests):
+    operation = "twist_solve"
+    mutable_buffer = "Tiles"
+
+
+class RenderHandoffTests(HandoffTests):
+    operation = "prep_render"
+    mutable_buffer = "Positions"
+
+
+class MeshQueryHandoffTests(HandoffTests):
+    operation = "mesh_projection"
+    mutable_buffer = "Results"
+
+
+class RayQueryHandoffTests(HandoffTests):
+    operation = "ray_point"
+    mutable_buffer = "Results"
+
+
+class ShapeQueryHandoffTests(HandoffTests):
+    operation = "shape_project_world_boundary"
+    mutable_buffer = "Results"

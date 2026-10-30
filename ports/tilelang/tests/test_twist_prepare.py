@@ -19,7 +19,8 @@ class TwistPrepareTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_TWIST_PREPARE_FIXTURES",
-                HERE / "results-twist-preparation-0090/twist_prepare/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "twist_prepare/c/fixtures",
             )
         )
         directory = root / "twist_prepare" / name

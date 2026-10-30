@@ -20,7 +20,8 @@ class RuntimeSceneTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_RUNTIME_FIXTURES",
-                HERE / "results/runtime_scene/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "runtime_scene/c/fixtures",
             )
         )
         name = name or os.environ.get(

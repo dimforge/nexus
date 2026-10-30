@@ -19,7 +19,8 @@ class ShapeQueryTests(unittest.TestCase):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_SHAPE_QUERY_FIXTURES",
-                HERE / "results/shape_project_local/c/fixtures",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / "shape_project_local/c/fixtures",
             )
         )
         l = json.loads((root / "layout.json").read_text())

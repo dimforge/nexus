@@ -19,7 +19,9 @@ class FrameSceneTests(unittest.TestCase):
     def fixture(self, op="analytic_frame_retry", name="capacity_growth-c2-l1-b1-f120"):
         root = Path(
             os.environ.get(
-                "NEXUS_TILELANG_FRAME_FIXTURES", HERE / f"results/{op}/c/fixtures"
+                "NEXUS_TILELANG_FRAME_FIXTURES",
+                Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+                / f"{op}/c/fixtures",
             )
         )
         d = root / op / name

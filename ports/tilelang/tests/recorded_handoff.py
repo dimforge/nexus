@@ -24,7 +24,12 @@ class RecordedHandoff(unittest.TestCase):
         self.bundle.mkdir()
         self.returned.mkdir()
         self.snapshot = Path(os.environ.get(self.root_environment, ROOT))
-        results = Path(os.environ.get(self.results_environment, HERE / "results"))
+        results = Path(
+            os.environ.get(
+                self.results_environment,
+                os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"),
+            )
+        )
         self.output = self.root / "comparison.json"
         self.manifest = {
             "schema": 1,

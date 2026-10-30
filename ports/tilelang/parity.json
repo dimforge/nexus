@@ -2087,7 +2087,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/twist_effective_mass.json",
       "test_command": "python ports/tilelang/twist_replay.py --operation twist_effective_mass --target c",
-      "operation": "twist_effective_mass"
+      "operation": "twist_effective_mass",
+      "runner": "twist_replay.py"
     },
     {
       "id": "rbd.contact.twist.warmstart3d",
@@ -2100,7 +2101,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/twist_warmstart.json",
       "test_command": "python ports/tilelang/twist_replay.py --operation twist_warmstart --target c",
-      "operation": "twist_warmstart"
+      "operation": "twist_warmstart",
+      "runner": "twist_replay.py"
     },
     {
       "id": "rbd.contact.twist.solve3d",
@@ -2113,7 +2115,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/twist_solve.json",
       "test_command": "python ports/tilelang/twist_replay.py --operation twist_solve --target c",
-      "operation": "twist_solve"
+      "operation": "twist_solve",
+      "runner": "twist_replay.py"
     },
     {
       "id": "rbd.contact.twist.scale3d",
@@ -2126,7 +2129,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/twist_scale.json",
       "test_command": "python ports/tilelang/twist_replay.py --operation twist_scale --target c",
-      "operation": "twist_scale"
+      "operation": "twist_scale",
+      "runner": "twist_replay.py"
     },
     {
       "id": "rbd.contact.twist.prepare3d",
@@ -2141,7 +2145,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/twist_prepare.json",
       "test_command": "python ports/tilelang/twist_contact_replay.py --target c",
-      "operation": "twist_prepare"
+      "operation": "twist_prepare",
+      "runner": "twist_contact_replay.py"
     },
     {
       "id": "rbd.contact.twist.colored_solve3d",
@@ -2304,7 +2309,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/mesh_projection.json",
       "test_command": "python ports/tilelang/point_query_replay.py --operation mesh_projection --target c",
-      "operation": "mesh_projection"
+      "operation": "mesh_projection",
+      "runner": "point_query_replay.py"
     },
     {
       "id": "rbd.query.mesh_pseudo_normal3d",
@@ -2316,7 +2322,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/mesh_pseudo_normal.json",
       "test_command": "python ports/tilelang/point_query_replay.py --operation mesh_pseudo_normal --target c",
-      "operation": "mesh_pseudo_normal"
+      "operation": "mesh_pseudo_normal",
+      "runner": "point_query_replay.py"
     },
     {
       "id": "rbd.query.ray_point3d",
@@ -2328,7 +2335,8 @@
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
       "contract": "ports/tilelang/contracts/ray_point.json",
       "test_command": "python ports/tilelang/point_query_replay.py --operation ray_point --target c",
-      "operation": "ray_point"
+      "operation": "ray_point",
+      "runner": "point_query_replay.py"
     },
     {
       "id": "rbd.query.shape_project_local3d",
