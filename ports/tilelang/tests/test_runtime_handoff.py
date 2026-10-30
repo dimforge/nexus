@@ -1,11 +1,22 @@
 """Return protocol for native scene imports; recorded Metal is not Ascend evidence."""
 
 import json
+import os
 import unittest
 
 from recorded_handoff import RecordedHandoff, handoff
+from replay import HERE
 
 
+@unittest.skipUnless(
+    os.environ.get("NEXUS_TILELANG_RUNTIME_RESULTS")
+    or all(
+        (HERE / "results" / op / target / "report.json").is_file()
+        for op in ("runtime_scene",)
+        for target in ("metal", "ascend")
+    ),
+    "Requires recorded Metal execution and Ascend source reports; an explicit results path must be valid",
+)
 class RuntimeHandoffTests(RecordedHandoff):
     root_environment = "NEXUS_TILELANG_RUNTIME_ROOT"
     results_environment = "NEXUS_TILELANG_RUNTIME_RESULTS"

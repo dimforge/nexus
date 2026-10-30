@@ -80,3 +80,11 @@ its registered matrix is required. A paired Rust/TileLang
 clipping fix now rejects tangentially separated edge witnesses; its registered
 geometry and scene matrix remains required. No global float tolerance or
 physics arithmetic is changed by this classification.
+
+
+The CPU-only test suite must not assume recorded Metal/Ascend protocol fixtures.
+Those return-protocol tests opt in when both target reports exist, or when an
+explicit results path is supplied (invalid configured evidence still fails).
+The full CI workflow needs updated native runtime integration checks and a scalable
+execution layout; its original single-job timeout has not been qualified for the
+expanded matrix. Local scoped passes do not establish complete CI success.
