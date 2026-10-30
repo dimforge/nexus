@@ -16,14 +16,16 @@ from runtime_scene_validation import check_outputs, validate_case
 
 
 class RuntimeSceneTests(unittest.TestCase):
-    def fixture(self):
+    def fixture(self, name=None):
         root = Path(
             os.environ.get(
                 "NEXUS_TILELANG_RUNTIME_FIXTURES",
                 HERE / "results/runtime_scene/c/fixtures",
             )
         )
-        name = os.environ.get("NEXUS_TILELANG_RUNTIME_CASE", "mesh-contact-joint-f1")
+        name = name or os.environ.get(
+            "NEXUS_TILELANG_RUNTIME_CASE", "mesh-contact-joint-f1"
+        )
         directory = root / "runtime_scene" / name
         l = json.loads((root / "layout.json").read_text())
         c = json.loads((directory / "case.json").read_text())
@@ -39,6 +41,17 @@ class RuntimeSceneTests(unittest.TestCase):
         k = json.loads((HERE / "contracts/runtime_scene.json").read_text())
         k.pop("numeric_policies", None)
         return l, c, b, e, k
+
+    def test_many_batch_prefix_scratch_and_guards(self):
+        l, c, b, e, k = self.fixture("many-batches-f8")
+        self.assertEqual(c["bucket_strides"], [264, 2, 1, 1])
+        self.assertEqual(c["bucket_levels"], 2)
+        check_outputs(l, c, b, e, e, k)
+        for name in ("BucketAux0", "BucketAux1", "BucketAux2", "AdjAux0"):
+            actual = {n: v.copy() for n, v in e.items()}
+            actual[name][-1] ^= 1
+            with self.subTest(buffer=name), self.assertRaises(AssertionError):
+                check_outputs(l, c, b, actual, e, k)
 
     def test_real_multi_collider_upload_and_expected_outputs(self):
         l, c, b, e, k = self.fixture()

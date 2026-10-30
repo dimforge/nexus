@@ -103,7 +103,10 @@ def check_guards(l, c, b, a, e):
     prefix("Reduced", 1024)
     for i in range(4):
         prefix(f"AdjAux{i}", (c["strides"][i] + 255) // 256 if i < c["levels"] else 0)
-        prefix(f"BucketAux{i}", 1 if i == 0 else 0)
+        prefix(
+            f"BucketAux{i}",
+            (c["bucket_strides"][i] + 255) // 256 if i < c["bucket_levels"] else 0,
+        )
     prefix("Trajectory", c["frames"] * c["trace_stride"])
     prefix("FrameIndex", 1)
     if claimed != set(b):
