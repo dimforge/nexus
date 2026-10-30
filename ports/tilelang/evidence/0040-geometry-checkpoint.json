@@ -1,0 +1,762 @@
+{
+  "scope": "Projection and simplex helpers only; global reconciliation is pending remaining source changes",
+  "inputs_sha256": "ebc45e441866c919e658d967016d644d940bf0b45dd0c28bdb53c2fef8b24402",
+  "reports": [
+    {
+      "operation": "segment_projection",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "d151d47c914c2c8c6ca31a492376bce3d4f0dc2917bd6eef9fd892be3d8ae7f9",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "segment_projection",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "a6ab138011e49182729c288c97f50d04b9e4f6154ae90f57ff44342273836976",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "segment_projection",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "2ef2a03323dbedf9e733997e59690611c7e70ab0829feb0845faa6a8ac6f4f36",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "triangle_projection",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "a79c01f3e2c93eb258d4ce56b4d2264069d8fad8c5ed2883f1f065cf18f328c9",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "triangle_projection",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "2c75167c2789f86d4db350beee7fc16f822560b5b28e3ecc0e35699d85013b40",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "triangle_projection",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "c7bb0bb15d4a9cfd8c9c66c02322728b37c5f5f299ead895323e017df588aa35",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "tetrahedron_projection",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "779aa18b229dbf80ec0a8826a10b0b28cfa340e90c51da37e43037f604b93bbe",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "tetrahedron_projection",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "8c57ad6908ef2581c3b7522726cd02583d4247e8af967f0ec2b75cc6c9af92c5",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "tetrahedron_projection",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "41c52e47df8b419209cbcf22397efc81a2cacc0801b5ad9a88df23a1eb5f5582",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "simplex_init",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "f667b921eddd9989f1edb0eb1a113dd51bb601ab3916cf531c750b43ea6499fb",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "simplex_init",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "6930d4bb7e684e3dfb0d0baa012949e687f8852784c06814924eca9f8bdbf033",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "simplex_init",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "0e7f0f0a934f211f6bce7641baa6cd35cead94447d3fb7175719d685a6a545e1",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "simplex_add",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "1b13e71c317891d328c82c497e931ff3925004d81bb792ed555ada419fa545f7",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "simplex_add",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "ec0bcf606198f868a12c4db9762638314524a0f1365617db6c8d2b7346c60436",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "simplex_add",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "38b4ac08ba746a012067f3463ab213b9718e0aced0fa9c04a98fe383c6630115",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "simplex_project",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "22e00ea735338bffe73bc66fb3453482b26c146a31e20fd01e76a564856c39da",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "simplex_project",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "46a2fb2abe324abc2fbce866a6bd2365dc70940a518288f93a6b6208dfbd04d1",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "State": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "simplex_project",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "bea585d82f1474daccf4f568c497c84d62d1864f1170c537cc244fcf30ad7b76",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n24",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        }
+      ]
+    }
+  ]
+}
