@@ -1,0 +1,1076 @@
+{
+  "scope": "Convex PFM composition and the zero-normal EPA fix only; deferred collision and global full-scene reconciliation remain in progress",
+  "inputs_sha256": "e5bf40f8c9fb126a5832cfa2d9c51d7a536c514e53fd5685e7489d9ceec58815",
+  "reports": [
+    {
+      "operation": "pfm_subshape",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "ee69c8593a3c65c4c3cf20d5f7de5a5a15b799368f11d50c885fe6c776a86e18",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "6b571c9d347da4f46e63b06644fc719c3ebc94e7514642645669e789d58dd7a9",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "b658fecdb269b3da302c2826a463f1715880ed07aad25375c41b3f67472599bb",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "1e0b1fd02b19f097330b874966b956278ed6467a124b4501954b8792b0612383",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.5869736671447754e-05,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.8410693407058716,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "9a0750affc8120b0c9f341e279e7fa3cf11bfcc63c31e88ebf531d2e75c593e8",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.5869736671447754e-05,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 1.8410693407058716,
+            "Poses": 0.0,
+            "Radii": 0.0,
+            "Shapes": 0.0,
+            "SubShapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 115,
+                "point": 1
+              },
+              {
+                "pair": 121,
+                "point": 1
+              },
+              {
+                "pair": 165,
+                "point": 0
+              },
+              {
+                "pair": 165,
+                "point": 1
+              },
+              {
+                "pair": 228,
+                "point": 0
+              },
+              {
+                "pair": 228,
+                "point": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "pfm_manifold",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "6fc5348182f1d59341542632037007fa77ce0cf187b0af4d1d648830ef22566a",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "6c50eb3789793dd95d9592865fe791c5db0e514254b35ff38ea4ab7da0ee8e4f",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "c7225c5342ffe9310d9249cbd65ee99f66958446a78808806faf84039efa2e58",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.562945544719696e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "epa_closest",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "32dbfbbd7b77baba6ee12c923157afcc9cb3eedf86d7fde817530be22c81462d",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "996b23879782884f1fd05678ea9f57f6467d0159084ee1eb147a51633b105a1f",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.55717134475708e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.5528513193130493,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "d030948dea5b3de7d6d0aa0f971b9a6b85fcba3d1363cb2dc3ecd75e6ddd40a3",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.55717134475708e-05,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.5528513193130493,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_epa",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "298fc314609866909d4cb226404321c4a4d7498beeb5976199e01c58bcc648cb",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "point_touch",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    }
+  ]
+}
