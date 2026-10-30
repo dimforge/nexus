@@ -1,0 +1,40 @@
+324/456 operation-target reports passed
+328/456 operation-target reports passed
+331/456 operation-target reports passed
+332/456 operation-target reports passed
+333/456 operation-target reports passed
+335/456 operation-target reports passed
+336/456 operation-target reports passed
+337/456 operation-target reports passed
+338/456 operation-target reports passed
+339/456 operation-target reports passed
+340/456 operation-target reports passed
+342/456 operation-target reports passed
+345/456 operation-target reports passed
+348/456 operation-target reports passed
+353/456 operation-target reports passed
+359/456 operation-target reports passed
+368/456 operation-target reports passed
+374/456 operation-target reports passed
+377/456 operation-target reports passed
+380/456 operation-target reports passed
+385/456 operation-target reports passed
+387/456 operation-target reports passed
+393/456 operation-target reports passed
+403/456 operation-target reports passed
+420/456 operation-target reports passed
+425/456 operation-target reports passed
+432/456 operation-target reports passed
+439/456 operation-target reports passed
+440/456 operation-target reports passed
+444/456 operation-target reports passed
+452/456 operation-target reports passed
+453/456 operation-target reports passed
+454/456 operation-target reports passed
+455/456 operation-target reports passed
+456/456 operation-target reports passed
+c 1728 cases; artifact receipts verified
+metal 1728 cases; artifact receipts verified
+ascend 1728 cases; artifact receipts verified
+Wrote /Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/evidence/0110-final-matrix-checkpoint.json
+Full current-source Python regression suite passed
