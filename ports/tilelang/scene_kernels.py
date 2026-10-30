@@ -113,6 +113,9 @@ def make_program(l, c, target):
         general_collision_kernels if c["kind"] == "general_scene" else collision_kernels
     )
     cm = identity(collision.BUFFERS)
+    if c.get("broadphase") == "lbvh":
+        from scene_broadphase import EXTRA
+        cm.update(identity(EXTRA))
     cm.update(Poses="ColliderPoses", Contacts="RawContacts")
     if c["kind"] == "general_scene":
         cm["Indices"] = "GeometryIndices"

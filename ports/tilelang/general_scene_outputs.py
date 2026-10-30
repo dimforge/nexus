@@ -30,6 +30,16 @@ def check_collision(l, c, b, a, e, k):
     aa["Poses"] = a["ColliderPoses"]
     ee = {n: e[n] for n in broad.BUFFERS}
     ee["Poses"] = e["ColliderPoses"]
+    if c.get("broadphase") == "lbvh":
+        # The enclosing LBVH scene checker validates its independently reconstructed
+        # complete overlap set and tree. Here retain only the common AABB check.
+        bc.update(
+            kind="world_aabbs",
+            dispatch=c["body_count"],
+            groups=max((c["body_count"] + 63) // 64, 1),
+        )
+        bb["PairCount"] = a["PairCount"]
+        bc["initial_count"] = int(a["PairCount"][0])
     bc["buffer_words"] = {n: v.size for n, v in bb.items()}
     errors = broad.check_outputs(
         l, bc, bb, aa, ee, numeric_policy.field_contract(c, k, "Aabbs")

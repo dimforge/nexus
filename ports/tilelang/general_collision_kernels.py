@@ -5,6 +5,7 @@ import contact_plan_kernels as plan
 import deferred_kernels as deferred
 import narrow_kernels as narrow
 import radix_kernels as radix
+import scene_broadphase
 
 EXTRA = (
     "PfmPairs",
@@ -50,7 +51,7 @@ def make_program(l, c, target):
         )
     )
     mapping = identity(broad.BUFFERS)
-    append(broad.make_program(l, case(mapping, kind="broadphase_pairs"), target))
+    append(scene_broadphase.make_program(l, c, target))
 
     def stage(kind):
         mapping = identity(deferred.BUFFERS)

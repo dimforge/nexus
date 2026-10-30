@@ -16,6 +16,10 @@ use nexus_rbd_shaders3d::{
 };
 use serde_json::{Value, json};
 use std::{fs, path::Path};
+#[allow(dead_code)]
+#[path = "lbvh_runtime.rs"]
+mod lbvh;
+
 fn write<T: bytemuck::NoUninit>(dir: &Path, name: &str, data: &[T]) {
     fs::write(dir.join(name), bytemuck::cast_slice(data)).unwrap();
 }
@@ -37,6 +41,19 @@ pub fn fixture_with_snapshots(
     nb: usize,
     frames: u32,
     snapshots: &[u32],
+) -> Value {
+    fixture_config(dir, label, columns, levels, nb, frames, snapshots, false)
+}
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn fixture_config(
+    dir: &Path,
+    label: &str,
+    columns: usize,
+    levels: usize,
+    nb: usize,
+    frames: u32,
+    snapshots: &[u32],
+    use_lbvh: bool,
 ) -> Value {
     fs::create_dir_all(dir).unwrap();
     let guard = 0xdeadbeefu32;
@@ -72,6 +89,7 @@ pub fn fixture_with_snapshots(
         contact_sort_collider_shift: 0,
         ..Default::default()
     };
+    let mut lbvh = use_lbvh.then(|| lbvh::SceneLbvh::new(batch, storage));
     let mut poses = vec![Pose::IDENTITY; storage];
     let local_poses = vec![Pose::IDENTITY; storage];
     let mut collider_poses = poses.clone();
@@ -343,7 +361,7 @@ pub fn fixture_with_snapshots(
         };
         pair_capacity + 3
     ];
-    let mut pair_count = [0, guard, guard];
+    let mut pair_count = if use_lbvh { [0; 3] } else { [0, guard, guard] };
     let mut pfm_count = [0, guard, guard];
     let mut plan = [ContactPlan::default(); 2];
     let mut pfm_sort_len = [guard; 3];
@@ -454,6 +472,9 @@ pub fn fixture_with_snapshots(
             buffers!(dir, $suffix)
         };
         ($root:expr,$suffix:expr) => {{
+            if let Some(tree) = &lbvh {
+                tree.write($root, $suffix);
+            }
             if joint_scene {
                 write($root, &format!("Joints{}.bin", $suffix), &joints);
                 write($root, &format!("Builders{}.bin", $suffix), &builders);
@@ -663,17 +684,29 @@ pub fn fixture_with_snapshots(
                 &vertices,
             );
         }
-        for i in 0..pair_capacity.div_ceil(64).max(1) as u32 * 64 {
-            gpu_bf_find_pairs(
-                UVec3::new(i, 0, 0),
-                &aabbs,
+        if let Some(tree) = &mut lbvh {
+            tree.run(
+                &collider_poses,
+                &shapes,
+                &vertices,
+                &interaction,
+                &filters,
                 &mut pairs,
                 &mut pair_count,
-                &interaction,
-                &batch,
-                &filters,
-                &p,
             );
+        } else {
+            for i in 0..pair_capacity.div_ceil(64).max(1) as u32 * 64 {
+                gpu_bf_find_pairs(
+                    UVec3::new(i, 0, 0),
+                    &aabbs,
+                    &mut pairs,
+                    &mut pair_count,
+                    &interaction,
+                    &batch,
+                    &filters,
+                    &p,
+                );
+            }
         }
         if general_scene {
             for i in 0..groups * 64 {
@@ -1398,7 +1431,20 @@ pub fn fixture_with_snapshots(
             (name, json!(size))
         })
         .collect::<serde_json::Map<_, _>>();
-    let case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":3,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"buffer_words":sizes});
+    let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":3,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"buffer_words":sizes});
+    if use_lbvh {
+        case["broadphase"] = json!("lbvh");
+        for entry in fs::read_dir(dir).unwrap().map(Result::unwrap) {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with("Lbvh")
+                && name.ends_with(".bin")
+                && !name.ends_with(".expected.bin")
+            {
+                case["buffer_words"][name.trim_end_matches(".bin")] =
+                    json!(entry.metadata().unwrap().len() / 4);
+            }
+        }
+    }
     fs::write(
         dir.join("case.json"),
         serde_json::to_vec_pretty(&case).unwrap(),
