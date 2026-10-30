@@ -1,0 +1,17 @@
+{
+  "id": "0084-runtime-test-workspaces",
+  "features": [
+    "rbd.pipeline.runtime_scene3d"
+  ],
+  "kinds": [
+    "test"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Use distinct reduced and unreduced integration workspace names even when parallel tests observe the same timestamp.",
+  "regressions": [
+    "Repeat all four C and Metal runtime integration tests with two test threads; preserve the original failed log and source-bound matrix."
+  ],
+  "differences": [
+    "Test harness only; no solver or runtime arithmetic changes."
+  ]
+}
