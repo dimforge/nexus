@@ -111,6 +111,10 @@ def validate_case(l, c, b):
                         )
                     used.add(slot)
     rf = l["rbd_params"]
+    if "friction_models" in l:
+        twist = b["RbdParams"][rf["friction_model"]] == l["friction_models"]["twist"]
+        if twist != (l.get("friction_model") == "twist"):
+            raise ValueError("Runtime contact ABI differs from friction model")
     params = b["RbdParams"]
     if (
         params[rf["num_solver_iterations"]] != c["substeps"]

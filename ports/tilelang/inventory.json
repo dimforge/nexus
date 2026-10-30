@@ -73,7 +73,8 @@
         "rbd.pipeline.analytic_frame_retry3d",
         "rbd.pipeline.general_frame_retry3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "scratch_start",
@@ -126,7 +127,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "gpu_narrow_phase_shape_shape",
@@ -299,7 +301,8 @@
         "rbd.pipeline.joint_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_restart3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "motor_params"
@@ -322,7 +325,8 @@
         "rbd.pipeline.joint_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_restart3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "gpu_init_joint_constraints",
@@ -348,7 +352,8 @@
         "rbd.pipeline.joint_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_restart3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "orthogonalize_constraints",
@@ -379,7 +384,8 @@
         "rbd.scheduling.hub_dispatch3d",
         "rbd.scheduling.hub_scatter3d",
         "rbd.scheduling.hub_average3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "gpu_hub_assign",
@@ -702,7 +708,8 @@
         "rbd.pipeline.analytic_frame_retry3d",
         "rbd.pipeline.general_frame_retry3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "gpu_integrate_linearized",
@@ -790,7 +797,8 @@
         "rbd.contact.twist.colored_solve3d",
         "rbd.contact.twist.colored_warmstart3d",
         "rbd.contact.twist.colored_cached3d",
-        "rbd.contact.twist.colored_program3d"
+        "rbd.contact.twist.colored_program3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "compute_effective_masses",
@@ -818,7 +826,8 @@
         "rbd.contact.twist.colored_program3d",
         "rbd.contact.twist.scale_impulses3d",
         "rbd.contact.twist.gather_warmstart3d",
-        "rbd.contact.twist.hub_warmstart3d"
+        "rbd.contact.twist.hub_warmstart3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "validate_layout",
@@ -872,7 +881,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "contact_support_map_support_map",
@@ -1176,7 +1186,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "bvh_node_idx",
@@ -1224,7 +1235,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "compute_aabb",
@@ -1299,7 +1311,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "symbols": [
         "bvh_node_idx",
@@ -1671,7 +1684,8 @@
         "rbd.pipeline.analytic_frame_retry3d",
         "rbd.pipeline.general_frame_retry3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "remaining": "All 3D LBVH stages and resident Morton sort/build/refit/traversal composition are implemented. Production frame integration, dynamic capacity management and performance qualification remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
     },
@@ -1712,7 +1726,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "remaining": "Native world bounds, support maps, analytic and deferred contact generation are connected to resident fixture scenes. Production integration and long-scene numerical qualification remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
     },
@@ -1750,7 +1765,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "remaining": "Native 3D GJK, EPA, SAT and polygonal manifolds are connected to resident general-collision fixture scenes. Secondary-witness clipping and long-scene numerical qualification remain explicit gaps. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
     },
@@ -1787,7 +1803,8 @@
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "remaining": "Native mesh/polyline deferred traversal, subshape conversion, work sorting and reduction are connected to resident fixture scenes. Point queries, mesh pseudonormals, arbitrary capacity retry and production integration remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
     },
@@ -1877,7 +1894,8 @@
         "rbd.pipeline.joint_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_restart3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "remaining": "Ordinary joints are connected to analytic frames with continuous trajectory validation. Production arbitrary scene upload/backend selection and broader scene coverage remain."
     },
@@ -1950,7 +1968,8 @@
         "rbd.pipeline.analytic_frame_retry3d",
         "rbd.pipeline.general_frame_retry3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "remaining": "Canonical contacts and bounded Topo schedules are connected to analytic, joint and general collision fixture scenes. Production and unbounded scheduling remain. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
     },
@@ -1974,7 +1993,8 @@
         "rbd.pipeline.analytic_frame_retry3d",
         "rbd.pipeline.general_frame_retry3d",
         "rbd.pipeline.joint_frame_retry3d",
-        "rbd.pipeline.runtime_scene3d"
+        "rbd.pipeline.runtime_scene3d",
+        "rbd.pipeline.runtime_twist_scene3d"
       ],
       "remaining": "Analytic, ordinary-joint and general collision fixture scenes are composed on resident storage with trajectory diagnostics. Public backend selection, arbitrary upload and capacity retry, hubs and remaining variants are pending. Native multi-collider scene import with combined general collision and ordinary joints is registered; public backend lifecycle remains outstanding."
     },

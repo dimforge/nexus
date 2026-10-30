@@ -22,6 +22,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         params.num_solver_iterations = 3;
         params.num_internal_pgs_iterations = 5;
         params.dt = 0.03;
+        params.friction_model = match std::env::args().nth(2).as_deref().unwrap_or("coulomb") {
+            "coulomb" => nexus_rbd3d::shaders::dynamics::FrictionModel::Coulomb,
+            "twist" => nexus_rbd3d::shaders::dynamics::FrictionModel::Simplified,
+            _ => return Err("Unknown friction model".into()),
+        };
         for label in [
             "multi-collider-joint",
             "mesh-contact-joint",

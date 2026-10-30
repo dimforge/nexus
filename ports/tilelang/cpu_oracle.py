@@ -157,7 +157,7 @@ def native_cargo(arguments, env=None):
     )
 
 
-def export_native_scenes(directory):
+def export_native_scenes(directory, model="coulomb"):
     """Export the real Nexus CPU conversion without a GPU or Metal dependency."""
     env = environment()
     directory = Path(directory).resolve()
@@ -179,13 +179,14 @@ def export_native_scenes(directory):
             HERE.parent.parent / "target",
             "--",
             directory,
+            model,
         ],
         env,
     )
     return profile
 
 
-def export_production_scenes(directory):
+def export_production_scenes(directory, model="coulomb"):
     """Run the complete production RbdPipeline with the checked CPU profile."""
     env = environment()
     env["NEXUS_DISABLE_BF"] = "1"
@@ -202,6 +203,7 @@ def export_production_scenes(directory):
             "runtime-reference",
             "--",
             directory,
+            model,
         ],
         env,
     )

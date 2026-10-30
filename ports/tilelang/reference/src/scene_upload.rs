@@ -1,7 +1,7 @@
 //! Checked reader for native RbdState cold-start uploads, without a GPU dependency.
 use nexus_rbd_shaders3d::{
     PaddedVector, Pose,
-    dynamics::{FrictionModel, ImpulseJoint, LocalMassProperties, RbdSimParams, Velocity},
+    dynamics::{ImpulseJoint, LocalMassProperties, RbdSimParams, Velocity},
     glamx::Vec4,
     queries::ColliderMaterial,
     rapier::geometry::{Group, InteractionGroups, InteractionTestMode},
@@ -221,9 +221,7 @@ impl SceneUpload {
             }
             start = end;
         }
-        if result.params.friction_model != FrictionModel::Coulomb {
-            return Err("Runtime upload currently requires Coulomb friction; simplified friction remains in progress".into());
-        }
+
         if !result.gravity.is_finite()
             || !result.params.dt.is_finite()
             || result.params.dt <= 0.0

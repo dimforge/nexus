@@ -76,19 +76,19 @@ def check_case(layout, case, before, expected, trace, metadata, contract):
     return check_trajectory(layout, case, before, actual, expected, contract)
 
 
-def check_suite(directory, production):
+def check_suite(directory, production, operation="runtime_scene"):
     directory, production = Path(directory), Path(production)
     layout = json.loads((directory / "layout.json").read_text())
     contract = json.loads(
-        (Path(__file__).parent / "contracts/runtime_scene.json").read_text()
+        (Path(__file__).parent / f"contracts/{operation}.json").read_text()
     )
-    cases = json.loads((directory / "runtime_scene/suite.json").read_text())["cases"]
+    cases = json.loads((directory / operation / "suite.json").read_text())["cases"]
     results = {}
     for case in cases:
         name = case["name"].rsplit("-f", 1)[0]
         reference = production / name
         check_upload(layout, directory / "native-inputs" / name, reference / "upload")
-        fixture = directory / "runtime_scene" / case["name"]
+        fixture = directory / operation / case["name"]
         before = {
             n: np.fromfile(fixture / f"{n}.bin", np.uint32)
             for n in ("FrameIndex", "Trajectory")

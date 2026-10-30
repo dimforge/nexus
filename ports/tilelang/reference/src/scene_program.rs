@@ -6,7 +6,6 @@ use nexus_rbd_shaders3d::{
     PaddedVector, Pose,
     bounding_volumes::Aabb,
     broad_phase::*,
-    dynamics::coulomb_tiles::*,
     dynamics::*,
     glamx::{UVec2, UVec3, Vec3, Vec4},
     queries::{ColliderMaterial, IndexedManifold},
@@ -21,6 +20,8 @@ use std::{fs, path::Path};
 mod lbvh;
 #[path = "scene_hubs.rs"]
 mod scene_hubs;
+#[path = "scene_model.rs"]
+mod scene_model;
 #[allow(dead_code)]
 #[path = "scene_upload.rs"]
 pub(crate) mod scene_upload;
@@ -97,6 +98,52 @@ pub(crate) fn fixture_storage(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn scene_storage(
+    dir: &Path,
+    label: &str,
+    columns: usize,
+    levels: usize,
+    nb: usize,
+    frames: u32,
+    snapshots: &[u32],
+    use_lbvh: bool,
+    pair_capacity_override: Option<usize>,
+    execute: bool,
+    upload: Option<&scene_upload::SceneUpload>,
+) -> Value {
+    match upload.map_or(FrictionModel::Coulomb, |u| u.params.friction_model) {
+        _ if upload.is_none_or(|u| u.params.friction_model != FrictionModel::Simplified) => {
+            scene_storage_model::<scene_model::Coulomb>(
+                dir,
+                label,
+                columns,
+                levels,
+                nb,
+                frames,
+                snapshots,
+                use_lbvh,
+                pair_capacity_override,
+                execute,
+                upload,
+            )
+        }
+        _ => scene_storage_model::<scene_model::Twist>(
+            dir,
+            label,
+            columns,
+            levels,
+            nb,
+            frames,
+            snapshots,
+            use_lbvh,
+            pair_capacity_override,
+            execute,
+            upload,
+        ),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn scene_storage_model<M: scene_model::Model>(
     dir: &Path,
     label: &str,
     columns: usize,
@@ -520,7 +567,7 @@ pub(crate) fn scene_storage(
     let mut pending = colors.clone();
     let mut num_colors = [1, guard];
     let mut coloring_grid = [[guard; 3]; 3];
-    let mut tiles = vec![CoulombTile::default(); cs.div_ceil(32)];
+    let mut tiles = vec![M::Tile::default(); cs.div_ceil(32)];
     let mut old_tiles = tiles.clone();
     let mut sorted_links = links.clone();
     let mut indices = vec![guard; cs];
@@ -1250,7 +1297,7 @@ pub(crate) fn scene_storage(
         indirect.copy_from_slice(bucket_state.indirect.unwrap_slice());
         bucket_aux = bucket_state.aux;
         for i in 0..capacity as u32 {
-            gpu_prepare_constraints(
+            M::prepare(
                 UVec3::new(i, 0, 0),
                 &sorted_links,
                 &contacts,
@@ -1300,13 +1347,7 @@ pub(crate) fn scene_storage(
             }
             if p.warmstart_coefficient != 1. {
                 for i in 0..groups * 64 {
-                    gpu_scale_constraint_impulses(
-                        UVec3::new(i, 0, 0),
-                        &bucket_ends,
-                        &mut tiles,
-                        &batch,
-                        &p,
-                    );
+                    M::scale(UVec3::new(i, 0, 0), &bucket_ends, &mut tiles, &batch, &p);
                 }
             }
             if hub_pool > 0 {
@@ -1314,7 +1355,7 @@ pub(crate) fn scene_storage(
             }
             for color in 1..color_stride as u32 - 1 {
                 for i in 0..groups * 64 {
-                    gpu_warmstart_constraints(
+                    M::warmstart(
                         UVec3::new(i, 0, 0),
                         UVec3::new(groups, 1, 1),
                         &tiles,
@@ -1351,7 +1392,7 @@ pub(crate) fn scene_storage(
                 }
                 for color in 1..color_stride as u32 - 1 {
                     for i in 0..groups * 64 {
-                        gpu_solve_constraints(
+                        M::solve(
                             UVec3::new(i, 0, 0),
                             UVec3::new(groups, 1, 1),
                             &mut tiles,
@@ -1399,7 +1440,7 @@ pub(crate) fn scene_storage(
             }
             for color in 1..color_stride as u32 - 1 {
                 for i in 0..groups * 64 {
-                    gpu_solve_constraints(
+                    M::solve(
                         UVec3::new(i, 0, 0),
                         UVec3::new(groups, 1, 1),
                         &mut tiles,

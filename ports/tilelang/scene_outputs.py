@@ -5,6 +5,11 @@ from scene_validation import BODY_BUFFERS, READONLY, body_case
 
 
 def tile_words(l, slot):
+    if l.get("friction_model") == "twist":
+        from twist_scene_validation import tile_words as twist_words
+
+        yield from twist_words(l, slot)
+        return
     base = slot // 32 * l["tile_words"] + slot % 32 * 4
     for off in (*l["header"].values(), l["coupling"]):
         yield from range(base + off, base + off + 4)
@@ -446,6 +451,10 @@ def check_graph(l, c, a, e):
 
 
 def check_constraints(l, c, a, e, contract, count):
+    if l.get("friction_model") == "twist":
+        from twist_scene_validation import check_constraints as twist_check
+
+        return twist_check(l, c, a, e, contract, count)
     import numpy as np
 
     for result in (a, e):
