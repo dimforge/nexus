@@ -127,9 +127,13 @@ class LbvhTests(unittest.TestCase):
 
     def test_ascend_pair_scratch_is_private(self):
         try:
-            import tilelang.ascend.language  # noqa: F401
+            import tilelang.ascend.language
         except ImportError:
             self.skipTest("Ascend TileLang is not installed")
+        import tilelang
+
+        if "ascend" not in tilelang.tvm.target.Target.list_kinds():
+            self.skipTest("Compiler was built without the Ascend target")
         from lbvh_kernels import dimensions, make_kernel
         from ordered import lower_program
 

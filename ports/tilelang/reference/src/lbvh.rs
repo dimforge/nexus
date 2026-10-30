@@ -4,6 +4,10 @@ mod broadphase_shapes;
 #[path = "collision_layout.rs"]
 mod collision_layout;
 mod dispatch;
+mod lbvh_program;
+#[allow(dead_code)]
+#[path = "radix_program.rs"]
+mod radix;
 use khal::backend::{GpuBackend, GpuBuffer, GpuPass};
 use nexus_rbd_shaders3d::{
     PaddedVector, Pose,
@@ -36,6 +40,25 @@ const OPS: [&str; 12] = [
     "lbvh_refit_plan",
     "lbvh_reset",
     "flat_list_dispatch",
+];
+const BUFFERS: [&str; 17] = [
+    "Pairs",
+    "Groups",
+    "Filters",
+    "Poses",
+    "Shapes",
+    "Vertices",
+    "Partials",
+    "Domain",
+    "Keys",
+    "Sorted",
+    "Tree",
+    "Frontier",
+    "FrontierLen",
+    "Rounds",
+    "PairCount",
+    "Indirect",
+    "BatchIds",
 ];
 #[derive(Clone)]
 struct Data {
@@ -257,7 +280,7 @@ impl Data {
         }
     }
 }
-fn case(root: &Path, n: usize, nb: usize, g: u32, mode: &str, suites: &mut [Vec<Value>]) {
+fn case(root: &Path, n: usize, nb: usize, g: u32, mode: &str, suites: &mut [Vec<Value>]) -> Value {
     let cap = n + 3;
     let storage = cap * nb + 3;
     let guard = 0xdeadbeef;
@@ -361,6 +384,7 @@ fn case(root: &Path, n: usize, nb: usize, g: u32, mode: &str, suites: &mut [Vec<
         }
     }
     let name = format!("n{n}-b{nb}-g{g}-{mode}");
+    let program_case = lbvh_program::fixture(root, &d, g, mode, &name);
     for (ix, op) in OPS.iter().enumerate() {
         if *op == "lbvh_build" {
             // Topology stage consumes already sorted Morton keys, with stable collider IDs.
@@ -405,7 +429,7 @@ fn case(root: &Path, n: usize, nb: usize, g: u32, mode: &str, suites: &mut [Vec<
             .map(|r| r.unwrap())
             .filter_map(|r| {
                 let name = r.file_name().to_string_lossy().into_owned();
-                if name.ends_with(".bin") && !name.contains(".expected") {
+                if name.ends_with(".bin") && BUFFERS.contains(&name.trim_end_matches(".bin")) {
                     Some((
                         name.trim_end_matches(".bin").to_owned(),
                         json!(r.metadata().unwrap().len() / 4),
@@ -426,6 +450,7 @@ fn case(root: &Path, n: usize, nb: usize, g: u32, mode: &str, suites: &mut [Vec<
             d = out;
         }
     }
+    program_case
 }
 fn main() {
     let output = std::env::args().nth(1).unwrap();
@@ -433,6 +458,14 @@ fn main() {
     fs::create_dir_all(root).unwrap();
     let mut l = collision_layout::layout();
     macro_rules! fields {($ty:ty,$($f:ident),+)=>{json!({$(stringify!($f):offset_of!($ty,$f)/4),+})}}
+    l["sort_uniforms_words"] =
+        json!(size_of::<nexus_rbd_shaders3d::utils::radix_sort::SortUniforms>() / 4);
+    l["sort_uniforms"] = fields!(
+        nexus_rbd_shaders3d::utils::radix_sort::SortUniforms,
+        shift,
+        max_keys_per_batch,
+        has_aux
+    );
     l["max_flt_bits"] = json!(nexus_rbd_shaders3d::MAX_FLT.to_bits());
     l["lbvh_node_words"] = json!(size_of::<LbvhNode>() / 4);
     l["lbvh_node"] = fields!(
@@ -453,6 +486,7 @@ fn main() {
     )
     .unwrap();
     let mut suites = vec![Vec::new(); OPS.len()];
+    let mut program_cases = Vec::new();
     for (n, nb, g, mode) in [
         (0, 1, 1, "mixed"),
         (1, 2, 1, "collapsed"),
@@ -465,8 +499,13 @@ fn main() {
         (33, 2, 1, "overflow"),
         (65, 2, 2, "filters"),
     ] {
-        case(root, n, nb, g, mode, &mut suites);
+        program_cases.push(case(root, n, nb, g, mode, &mut suites));
     }
+    fs::write(
+        root.join("lbvh_program/suite.json"),
+        serde_json::to_vec_pretty(&json!({"cases":program_cases})).unwrap(),
+    )
+    .unwrap();
     for (op, cases) in OPS.iter().zip(suites) {
         fs::write(
             root.join(op).join("suite.json"),

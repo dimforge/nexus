@@ -1663,6 +1663,20 @@
       "test_command": "python ports/tilelang/lbvh_replay.py --operation flat_list_dispatch --target c",
       "operation": "flat_list_dispatch",
       "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_program3d",
+      "coverage": "Resident 3D LBVH domain, Morton generation, eight native stable radix passes, build, escapes, leaf/chunk/frontier refit, pair reset/traversal and dispatch publication. Runtime resizing and scene integration remain.",
+      "reference_symbols": [
+        "src_rbd/broad_phase/lbvh.rs::Lbvh::update_tree",
+        "src_rbd/broad_phase/lbvh.rs::Lbvh::find_pairs"
+      ],
+      "implementation": "ports/tilelang/lbvh_program_kernels.py::make_program",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_program.json",
+      "test_command": "python ports/tilelang/lbvh_program_replay.py --target c",
+      "operation": "lbvh_program",
+      "runner": "lbvh_program_replay.py"
     }
   ],
   "targets": [

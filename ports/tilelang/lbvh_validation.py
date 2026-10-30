@@ -413,8 +413,7 @@ def check_frontier(l, c, b, r):
     np.testing.assert_array_equal(r["Frontier"][cap * nb :], b["Frontier"][cap * nb :])
 
 
-def check_outputs(l, c, b, a, e, k):
-    validate_case(l, c, b)
+def write_policy(l, c, b):
     kind = c["kind"]
     n, nb, cap = c["colliders"], c["batches"], c["capacity"]
     f = l["lbvh_node"]
@@ -493,6 +492,14 @@ def check_outputs(l, c, b, a, e, k):
     if kind == "lbvh_pairs":
         masks["Pairs"][: c["pair_capacity"] * l["pair_words"]] = True
         masks["PairCount"][0] = True
+    return masks, floats
+
+
+def check_outputs(l, c, b, a, e, k):
+    validate_case(l, c, b)
+    kind = c["kind"]
+    n, nb = c["colliders"], c["batches"]
+    masks, floats = write_policy(l, c, b)
     errors = {}
     for r in (a, e):
         if set(r) != set(b) or any(

@@ -300,6 +300,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from hub_replay import check_outputs as check_hub_outputs
     from joint_scene_validation import check_outputs as check_joint_scene_outputs
     from joint_validation import check_outputs as check_joint_outputs
+    from lbvh_program_validation import check_outputs as check_lbvh_program_outputs
     from lbvh_validation import check_outputs as check_lbvh_outputs
     from link_replay import check_outputs as check_link_outputs
     from narrow_replay import check_outputs as check_narrow_outputs
@@ -382,6 +383,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "joint_scene_fields": check_joint_scene_outputs,
                     "general_scene_fields": check_general_scene_outputs,
                     "lbvh_fields": check_lbvh_outputs,
+                    "lbvh_program_fields": check_lbvh_program_outputs,
                     "geometry_fields": check_geometry_outputs,
                     "support_fields": check_support_outputs,
                     "epa_fields": check_epa_outputs,

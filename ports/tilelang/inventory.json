@@ -63,7 +63,8 @@
         "rbd.broadphase.lbvh_pairs3d",
         "rbd.broadphase.lbvh_refit_plan3d",
         "rbd.broadphase.lbvh_reset3d",
-        "rbd.broadphase.flat_list_dispatch3d"
+        "rbd.broadphase.flat_list_dispatch3d",
+        "rbd.broadphase.lbvh_program3d"
       ],
       "symbols": [
         "scratch_start",
@@ -86,7 +87,7 @@
         "refit_node",
         "refit_barrier"
       ],
-      "remaining": "All native 3D entry points translated. Refit uses the native fixed 64-level web-compatible schedule rather than any_lane_active early exits. Full resident composition, production integration, performance and Ascend device memory semantics remain unqualified."
+      "remaining": "All 3D entry points are connected to a resident build/refit/traversal program with stable radix sorting. Production integration, performance and Ascend device synchronization remain unqualified."
     },
     {
       "reference": "src_rbd_shaders/broad_phase/mod.rs",
@@ -1549,9 +1550,10 @@
         "rbd.broadphase.lbvh_pairs3d",
         "rbd.broadphase.lbvh_refit_plan3d",
         "rbd.broadphase.lbvh_reset3d",
-        "rbd.broadphase.flat_list_dispatch3d"
+        "rbd.broadphase.flat_list_dispatch3d",
+        "rbd.broadphase.lbvh_program3d"
       ],
-      "remaining": "All native 3D LBVH stages are translated and independently checked. Resident Morton sort/build/refit/traversal composition, production integration and performance qualification remain."
+      "remaining": "All 3D LBVH stages and resident Morton sort/build/refit/traversal composition are implemented. Production frame integration, dynamic capacity management and performance qualification remain."
     },
     {
       "id": "rbd.collision.primitives",
