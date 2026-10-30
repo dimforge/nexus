@@ -1,0 +1,168 @@
+   Compiling nexus_viewer3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.53s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests ../../src_viewer/lib.rs (target/debug/deps/nexus_viewer3d-3a857ac10f824079)
+
+running 1 test
+test viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame ... 
+thread 'viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame' (32303764) panicked at crates/nexus_viewer3d/../../src_viewer/viewer.rs:2009:13:
+assertion `left == right` failed
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame' (32303764) panicked at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/resource/texture_manager.rs:392:83:
+called `Option::unwrap()` on a `None` value
+stack backtrace:
+   0:        0x106922170 - std[5d97c59e5e5fafcc]::backtrace_rs::backtrace::libunwind::trace
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/../../backtrace/src/backtrace/libunwind.rs:117:9
+   1:        0x106922170 - std[5d97c59e5e5fafcc]::backtrace_rs::backtrace::trace_unsynchronized::<std[5d97c59e5e5fafcc]::sys::backtrace::_print_fmt::{closure#1}>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/../../backtrace/src/backtrace/mod.rs:66:14
+   2:        0x106922170 - std[5d97c59e5e5fafcc]::sys::backtrace::_print_fmt
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs:74:9
+   3:        0x106922170 - <<std[5d97c59e5e5fafcc]::sys::backtrace::BacktraceLock>::print::DisplayBacktrace as core[663bb9e1522ba5ef]::fmt::Display>::fmt
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs:44:26
+   4:        0x106937e4c - <core[663bb9e1522ba5ef]::fmt::rt::Argument>::fmt
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/fmt/rt.rs:152:76
+   5:        0x106937e4c - core[663bb9e1522ba5ef]::fmt::write
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/fmt/mod.rs:1687:22
+   6:        0x106926a68 - std[5d97c59e5e5fafcc]::io::default_write_fmt::<alloc[cc4db322bb1ac55d]::vec::Vec<u8>>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/io/mod.rs:626:11
+   7:        0x106926a68 - <alloc[cc4db322bb1ac55d]::vec::Vec<u8> as std[5d97c59e5e5fafcc]::io::Write>::write_fmt
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/io/mod.rs:1730:13
+   8:        0x106907038 - <std[5d97c59e5e5fafcc]::sys::backtrace::BacktraceLock>::print
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs:47:25
+   9:        0x106907038 - std[5d97c59e5e5fafcc]::panicking::default_hook::{closure#0}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:292:27
+  10:        0x10691afb8 - std[5d97c59e5e5fafcc]::panicking::default_hook
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:316:9
+  11:        0x104135ff0 - <alloc[cc4db322bb1ac55d]::boxed::Box<dyn for<'a, 'b> core[663bb9e1522ba5ef]::ops::function::Fn<(&'a std[5d97c59e5e5fafcc]::panic::PanicHookInfo<'b>,), Output = ()> + core[663bb9e1522ba5ef]::marker::Sync + core[663bb9e1522ba5ef]::marker::Send> as core[663bb9e1522ba5ef]::ops::function::Fn<(&std[5d97c59e5e5fafcc]::panic::PanicHookInfo,)>>::call
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/boxed.rs:2333:9
+  12:        0x104135ff0 - test[4aa3eea2f4983582]::test_main_inner::<test[4aa3eea2f4983582]::test_main_static::{closure#0}>::{closure#0}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/test/src/lib.rs:155:21
+  13:        0x10691b4f8 - <alloc[cc4db322bb1ac55d]::boxed::Box<dyn for<'a, 'b> core[663bb9e1522ba5ef]::ops::function::Fn<(&'a std[5d97c59e5e5fafcc]::panic::PanicHookInfo<'b>,), Output = ()> + core[663bb9e1522ba5ef]::marker::Sync + core[663bb9e1522ba5ef]::marker::Send> as core[663bb9e1522ba5ef]::ops::function::Fn<(&std[5d97c59e5e5fafcc]::panic::PanicHookInfo,)>>::call
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/boxed.rs:2333:9
+  14:        0x10691b4f8 - std[5d97c59e5e5fafcc]::panicking::panic_with_hook
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:823:13
+  15:        0x1069070ec - std[5d97c59e5e5fafcc]::panicking::panic_handler::{closure#0}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:681:13
+  16:        0x1068fdfd0 - std[5d97c59e5e5fafcc]::sys::backtrace::__rust_end_short_backtrace::<std[5d97c59e5e5fafcc]::panicking::panic_handler::{closure#0}, !>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs:182:18
+  17:        0x106907858 - __rustc[100742bb89c490cb]::rust_begin_unwind
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:679:5
+  18:        0x1069ed9ec - core[663bb9e1522ba5ef]::panicking::panic_fmt
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/panicking.rs:80:14
+  19:        0x1069ed9c4 - core[663bb9e1522ba5ef]::panicking::panic
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/panicking.rs:150:5
+  20:        0x1069ed748 - core[663bb9e1522ba5ef]::option::unwrap_failed
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/option.rs:2251:5
+  21:        0x104363c1c - <core[663bb9e1522ba5ef]::option::Option<&mut kiss3d[a7db78d0dea0d90e]::resource::texture_manager::TextureManager>>::unwrap
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:1014:21
+  22:        0x104363c1c - <kiss3d[a7db78d0dea0d90e]::resource::texture_manager::TextureManager>::get_global_manager::<alloc[cc4db322bb1ac55d]::sync::Arc<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::Texture>, <kiss3d[a7db78d0dea0d90e]::builtin::object_material2d::ObjectMaterial2d>::new::{closure#2}>::{closure#0}
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/resource/texture_manager.rs:392:83
+  23:        0x10436227c - <std[5d97c59e5e5fafcc]::thread::local::LocalKey<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::window::window_cache::WindowCache>>>::try_with::<<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::TextureManager>::get_global_manager<alloc[cc4db322bb1ac55d]::sync::Arc<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::Texture>, <kiss3d[a7db78d0dea0d90e]::builtin::object_material2d::ObjectMaterial2d>::new::{closure#2}>::{closure#0}, alloc[cc4db322bb1ac55d]::sync::Arc<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::Texture>>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/thread/local.rs:463:12
+  24:        0x104361ed8 - <std[5d97c59e5e5fafcc]::thread::local::LocalKey<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::window::window_cache::WindowCache>>>::with::<<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::TextureManager>::get_global_manager<alloc[cc4db322bb1ac55d]::sync::Arc<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::Texture>, <kiss3d[a7db78d0dea0d90e]::builtin::object_material2d::ObjectMaterial2d>::new::{closure#2}>::{closure#0}, alloc[cc4db322bb1ac55d]::sync::Arc<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::Texture>>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/thread/local.rs:427:20
+  25:        0x104360840 - <kiss3d[a7db78d0dea0d90e]::resource::texture_manager::TextureManager>::get_global_manager::<alloc[cc4db322bb1ac55d]::sync::Arc<kiss3d[a7db78d0dea0d90e]::resource::texture_manager::Texture>, <kiss3d[a7db78d0dea0d90e]::builtin::object_material2d::ObjectMaterial2d>::new::{closure#2}>
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/resource/texture_manager.rs:392:14
+  26:        0x1042b6ba0 - <kiss3d[a7db78d0dea0d90e]::builtin::object_material2d::ObjectMaterial2d>::new
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/builtin/object_material2d.rs:840:30
+  27:        0x10426bb5c - <kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>::new
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/resource/material_manager2d.rs:37:22
+  28:        0x104270020 - kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::KEY_MATERIAL_MANAGER::__rust_std_internal_init_fn
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/resource/material_manager2d.rs:9:86
+  29:        0x10430c06c - <kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::KEY_MATERIAL_MANAGER::__rust_std_internal_init_fn as core[663bb9e1522ba5ef]::ops::function::FnOnce<()>>::call_once
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+  30:        0x10694b674 - <core[663bb9e1522ba5ef]::option::Option<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>>>::unwrap_or_else::<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::KEY_MATERIAL_MANAGER::__rust_std_internal_init_fn>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:1065:21
+  31:        0x10694b674 - <std[5d97c59e5e5fafcc]::sys::thread_local::native::lazy::Storage<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>, ()>>::get_or_init_slow::<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::KEY_MATERIAL_MANAGER::__rust_std_internal_init_fn>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/sys/thread_local/native/lazy.rs:80:42
+  32:        0x104343ca0 - <std[5d97c59e5e5fafcc]::sys::thread_local::native::lazy::Storage<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>, ()>>::get_or_init::<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::KEY_MATERIAL_MANAGER::__rust_std_internal_init_fn>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/sys/thread_local/native/lazy.rs:62:27
+  33:        0x10426423c - kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::KEY_MATERIAL_MANAGER::{K#0}::{closure#0}
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/sys/thread_local/native/mod.rs:97:49
+  34:        0x10430b31c - <kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::KEY_MATERIAL_MANAGER::{K#0}::{closure#0} as core[663bb9e1522ba5ef]::ops::function::FnOnce<(core[663bb9e1522ba5ef]::option::Option<&mut core[663bb9e1522ba5ef]::option::Option<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>>>,)>>::call_once
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+  35:        0x104362c78 - <std[5d97c59e5e5fafcc]::thread::local::LocalKey<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>>>::try_with::<<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>::reset_global_manager::{closure#0}, ()>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/thread/local.rs:462:37
+  36:        0x104362c28 - <std[5d97c59e5e5fafcc]::thread::local::LocalKey<core[663bb9e1522ba5ef]::cell::RefCell<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>>>::with::<<kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>::reset_global_manager::{closure#0}, ()>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/thread/local.rs:427:20
+  37:        0x10426bb2c - <kiss3d[a7db78d0dea0d90e]::resource::material_manager2d::MaterialManager2d>::reset_global_manager
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/resource/material_manager2d.rs:98:30
+  38:        0x1042e1688 - <kiss3d[a7db78d0dea0d90e]::window::window::Window as core[663bb9e1522ba5ef]::ops::drop::Drop>::drop
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/kiss3d-0.47.0/src/window/window.rs:1218:13
+  39:        0x1040c75dc - core[663bb9e1522ba5ef]::ptr::drop_glue::<kiss3d[a7db78d0dea0d90e]::window::window::Window>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:823:1
+  40:        0x1040c5ac0 - core[663bb9e1522ba5ef]::ptr::drop_glue::<nexus_viewer3d[506db03b32410ee8]::viewer::NexusViewer>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:823:1
+  41:        0x10404b8f8 - nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}
+                               at /Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d/../../src_viewer/viewer.rs:2010:9
+  42:        0x10408a618 - futures_executor[a681858458b5b20d]::local_pool::block_on::<nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}>::{closure#0}
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-executor-0.3.34/src/local_pool.rs:315:34
+  43:        0x10408a4f8 - futures_executor[a681858458b5b20d]::local_pool::run_executor::<(), futures_executor[a681858458b5b20d]::local_pool::block_on<nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}>::{closure#0}>::{closure#0}
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-executor-0.3.34/src/local_pool.rs:89:37
+  44:        0x104053314 - <std[5d97c59e5e5fafcc]::thread::local::LocalKey<alloc[cc4db322bb1ac55d]::sync::Arc<futures_executor[a681858458b5b20d]::local_pool::ThreadNotify>>>::try_with::<futures_executor[a681858458b5b20d]::local_pool::run_executor<(), futures_executor[a681858458b5b20d]::local_pool::block_on<nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}>::{closure#0}>::{closure#0}, ()>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/thread/local.rs:463:12
+  45:        0x1040531f8 - <std[5d97c59e5e5fafcc]::thread::local::LocalKey<alloc[cc4db322bb1ac55d]::sync::Arc<futures_executor[a681858458b5b20d]::local_pool::ThreadNotify>>>::with::<futures_executor[a681858458b5b20d]::local_pool::run_executor<(), futures_executor[a681858458b5b20d]::local_pool::block_on<nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}>::{closure#0}>::{closure#0}, ()>
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/thread/local.rs:427:20
+  46:        0x10408a250 - futures_executor[a681858458b5b20d]::local_pool::run_executor::<(), futures_executor[a681858458b5b20d]::local_pool::block_on<nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}>::{closure#0}>
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-executor-0.3.34/src/local_pool.rs:85:27
+  47:        0x10408a3b8 - futures_executor[a681858458b5b20d]::local_pool::block_on::<nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}>
+                               at /Users/sebcrozet/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-executor-0.3.34/src/local_pool.rs:315:5
+  48:        0x1040fb820 - nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame
+                               at /Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d/../../src_viewer/viewer.rs:2003:9
+  49:        0x10404b630 - nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0}
+                               at /Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d/../../src_viewer/viewer.rs:2002:58
+  50:        0x1040cd42c - <nexus_viewer3d[506db03b32410ee8]::viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame::{closure#0} as core[663bb9e1522ba5ef]::ops::function::FnOnce<()>>::call_once
+                               at /Users/sebcrozet/.rustup/toolchains/1.98.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+  51:        0x10412b29c - <fn() -> core[663bb9e1522ba5ef]::result::Result<(), alloc[cc4db322bb1ac55d]::string::String> as core[663bb9e1522ba5ef]::ops::function::FnOnce<()>>::call_once
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/function.rs:250:5
+  52:        0x10412b29c - test[4aa3eea2f4983582]::__rust_begin_short_backtrace::<core[663bb9e1522ba5ef]::result::Result<(), alloc[cc4db322bb1ac55d]::string::String>, fn() -> core[663bb9e1522ba5ef]::result::Result<(), alloc[cc4db322bb1ac55d]::string::String>>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/test/src/lib.rs:724:18
+  53:        0x1041365d0 - test[4aa3eea2f4983582]::run_test_in_process::{closure#0}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/test/src/lib.rs:747:74
+  54:        0x1041365d0 - <core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<test[4aa3eea2f4983582]::run_test_in_process::{closure#0}> as core[663bb9e1522ba5ef]::ops::function::FnOnce<()>>::call_once
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/panic/unwind_safe.rs:275:9
+  55:        0x1041365d0 - std[5d97c59e5e5fafcc]::panicking::catch_unwind::do_call::<core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<test[4aa3eea2f4983582]::run_test_in_process::{closure#0}>, core[663bb9e1522ba5ef]::result::Result<(), alloc[cc4db322bb1ac55d]::string::String>>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:576:43
+  56:        0x1041365d0 - std[5d97c59e5e5fafcc]::panicking::catch_unwind::<core[663bb9e1522ba5ef]::result::Result<(), alloc[cc4db322bb1ac55d]::string::String>, core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<test[4aa3eea2f4983582]::run_test_in_process::{closure#0}>>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:544:19
+  57:        0x1041365d0 - std[5d97c59e5e5fafcc]::panic::catch_unwind::<core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<test[4aa3eea2f4983582]::run_test_in_process::{closure#0}>, core[663bb9e1522ba5ef]::result::Result<(), alloc[cc4db322bb1ac55d]::string::String>>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panic.rs:359:14
+  58:        0x1041365d0 - test[4aa3eea2f4983582]::run_test_in_process
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/test/src/lib.rs:747:27
+  59:        0x1041365d0 - test[4aa3eea2f4983582]::run_test::{closure#0}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/test/src/lib.rs:668:43
+  60:        0x1041314b0 - test[4aa3eea2f4983582]::run_test::{closure#1}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/test/src/lib.rs:698:41
+  61:        0x1041314b0 - std[5d97c59e5e5fafcc]::sys::backtrace::__rust_begin_short_backtrace::<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs:166:18
+  62:        0x104138a98 - std[5d97c59e5e5fafcc]::thread::lifecycle::spawn_unchecked::<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>::{closure#1}::{closure#0}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/thread/lifecycle.rs:70:13
+  63:        0x104138a98 - <core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<std[5d97c59e5e5fafcc]::thread::lifecycle::spawn_unchecked<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>::{closure#1}::{closure#0}> as core[663bb9e1522ba5ef]::ops::function::FnOnce<()>>::call_once
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/panic/unwind_safe.rs:275:9
+  64:        0x104138a98 - std[5d97c59e5e5fafcc]::panicking::catch_unwind::do_call::<core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<std[5d97c59e5e5fafcc]::thread::lifecycle::spawn_unchecked<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>::{closure#1}::{closure#0}>, ()>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:576:43
+  65:        0x104138a98 - std[5d97c59e5e5fafcc]::panicking::catch_unwind::<(), core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<std[5d97c59e5e5fafcc]::thread::lifecycle::spawn_unchecked<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>::{closure#1}::{closure#0}>>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:544:19
+  66:        0x104138a98 - std[5d97c59e5e5fafcc]::panic::catch_unwind::<core[663bb9e1522ba5ef]::panic::unwind_safe::AssertUnwindSafe<std[5d97c59e5e5fafcc]::thread::lifecycle::spawn_unchecked<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>::{closure#1}::{closure#0}>, ()>
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panic.rs:359:14
+  67:        0x104138a98 - std[5d97c59e5e5fafcc]::thread::lifecycle::spawn_unchecked::<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>::{closure#1}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/thread/lifecycle.rs:68:26
+  68:        0x104138a98 - <std[5d97c59e5e5fafcc]::thread::lifecycle::spawn_unchecked<test[4aa3eea2f4983582]::run_test::{closure#1}, ()>::{closure#1} as core[663bb9e1522ba5ef]::ops::function::FnOnce<()>>::call_once::{shim:vtable#0}
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/function.rs:250:5
+  69:        0x106921370 - <alloc[cc4db322bb1ac55d]::boxed::Box<dyn core[663bb9e1522ba5ef]::ops::function::FnOnce<(), Output = ()> + core[663bb9e1522ba5ef]::marker::Send> as core[663bb9e1522ba5ef]::ops::function::FnOnce<()>>::call_once
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/boxed.rs:2319:9
+  70:        0x106921370 - <std[5d97c59e5e5fafcc]::sys::thread::unix::Thread>::new::thread_start
+                               at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/thread/unix.rs:123:17
+  71:        0x18da51c58 - __pthread_cond_wait
+
+thread 'viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame' (32303764) panicked at /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/panicking.rs:233:5:
+panic in a destructor during cleanup
+thread caused non-unwinding panic. aborting.
+error: test failed, to rerun pass `-p nexus_viewer3d --lib`
+
+Caused by:
+  process didn't exit successfully: `/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/deps/nexus_viewer3d-3a857ac10f824079 tilelang_viewer_tests --include-ignored --test-threads=1` (signal: 6, SIGABRT: process abort signal)

@@ -1,0 +1,12 @@
+    Checking khal v0.4.0 (https://github.com/dimforge/khal?tag=v0.4.0#57ad7b6b)
+   Compiling nexus_rbd3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_rbd3d)
+   Compiling nexus_mpm3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_mpm3d)
+   Compiling nexus-tilelang-native v0.1.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/native)
+    Checking vortx-shaders v0.5.0 (https://github.com/dimforge/vortx?tag=v0.5.0#e7b9add2)
+    Checking nexus_rbd_shaders3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_rbd_shaders3d)
+    Checking vortx v0.5.0 (https://github.com/dimforge/vortx?tag=v0.5.0#e7b9add2)
+    Checking nexus_mpm_shaders3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_mpm_shaders3d)
+    Checking nexus3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus3d)
+    Checking nexus_viewer3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d)
+    Checking nexus_examples_3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/examples3d)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.72s

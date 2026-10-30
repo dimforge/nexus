@@ -1,0 +1,6 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running `target/debug/all_examples3 --example tileLangComparison --tilelang metal --run --compare --headless --snapshot 62 /private/tmp/nexus-tilelang-metal-final.png`
+Preparing TileLangMetal kernels in /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/nexus-tilelang-testbed/TileLangMetal-68926-1793402461962704000 (first specialization can take several minutes)
+TileLang testbed result: TileLangUi { compare: true, show_reference: false, error: None, comparison: Some(Comparison { bodies: 19, rms_position: 0.001603434549974318, max_position: 0.002932103, max_angle: 7.147098e-5, max_linear_velocity: 0.0070804385, max_angular_velocity: 0.00073273445 }), frames: 60, step_ms: 135.190458, rust_ms: Some(2.69575), retries: 0, reconstructions: 0, workspace: Some("/var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/nexus-tilelang-testbed/TileLangMetal-68926-1793402461962704000") }

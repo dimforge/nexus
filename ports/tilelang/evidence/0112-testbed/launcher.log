@@ -1,0 +1,29 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running `target/debug/all_examples3 --example tileLangComparison --tilelang metal --run --compare --headless --snapshot 62 /private/tmp/nexus-tilelang-metal-final.png`
+Preparing TileLangMetal kernels in /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/nexus-tilelang-testbed/TileLangMetal-68599-1793402364037594000 (first specialization can take several minutes)
+TileLang stopped: TileLang specialization failed:
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/runtime_compile.py", line 184, in <module>
+    main()
+    ~~~~^^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/runtime_compile.py", line 171, in main
+    specialize(
+    ~~~~~~~~~~^
+        a.upload,
+        ^^^^^^^^^
+    ...<6 lines>...
+        a.coloring_rounds,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/runtime_compile.py", line 35, in specialize
+    from scene_kernels import make_program
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/scene_kernels.py", line 3, in <module>
+    import body_kernels
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/body_kernels.py", line 3, in <module>
+    import tilelang.language as T
+ModuleNotFoundError: No module named 'tilelang'
+
+

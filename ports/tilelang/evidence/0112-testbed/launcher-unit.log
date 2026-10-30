@@ -1,0 +1,7 @@
+test_missing_interpreter_fails_before_launch (test_run_tilelang_testbed.InterpreterPathTests.test_missing_interpreter_fails_before_launch) ... ok
+test_virtualenv_symlink_keeps_its_environment (test_run_tilelang_testbed.InterpreterPathTests.test_virtualenv_symlink_keeps_its_environment) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.002s
+
+OK

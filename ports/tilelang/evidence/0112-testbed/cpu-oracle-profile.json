@@ -1,0 +1,12 @@
+{
+  "profile": "khal-cpu-noalias-disabled-v1",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "rustflags": [
+    "-Zmutable-noalias=no"
+  ],
+  "rustc_bootstrap": "1",
+  "mutable_reference_noalias": false,
+  "shared_reference_noalias": true,
+  "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+  "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976"
+}
