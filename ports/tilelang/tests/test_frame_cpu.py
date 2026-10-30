@@ -93,6 +93,35 @@ class FrameCpuTests(unittest.TestCase):
             s.step()
         self.assertEqual(s.storage["State"][3], 45)
 
+    def test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace(self):
+        small, large = variant(1), variant(8, 3)
+        for v in (small, large):
+            v["manifest"]["max_steps"] = None
+        s = CpuFrameSession([small], self.temp.name)
+        with self.assertRaises(CapacityError):
+            s.step()
+        s.extend(large)
+        self.assertEqual(s.steps, 0)
+        self.assertEqual(s.storage["State"][0], 42)
+        self.assertEqual(s.step()["retries"], 1)
+        for _ in range(9):
+            s.step()
+        self.assertEqual(s.steps, 10)
+        self.assertEqual(s.storage["State"][3:5].tolist(), [52, 17])
+        s.steps = 0xFFFFFFFFFFFFFFFF
+        with self.assertRaisesRegex(RuntimeError, "step limit"):
+            s.step()
+        self.assertEqual(s.storage["State"][3], 52)
+
+    def test_rejected_extension_does_not_mutate_the_session(self):
+        s = CpuFrameSession([variant(8)], self.temp.name)
+        for v in (variant(8), variant(1)):
+            with self.assertRaises(ValueError):
+                s.extend(v)
+            self.assertEqual(len(s.variants), 1)
+            self.assertEqual(s.storage["State"][0], 42)
+        self.assertEqual(s.step()["step"], 1)
+
     def test_exhaustion_does_not_advance(self):
         s = CpuFrameSession([variant(1)], self.temp.name)
         for _ in range(2):

@@ -117,3 +117,25 @@ profile and native archive hashes. The registered cases use eleven color buckets
 body and collider indexing remain separate. `runtime_scene_fields` also validates
 external returned buffers through `handoff.py`. `test_runtime_handoff.py` uses
 recorded Metal results against Ascend source artifacts to test that protocol only.
+
+
+## Adaptive execution without a trajectory
+
+`FrameSession::extend` and `CpuFrameSession.extend` accept additional trusted
+capacity specializations after an overflow. They validate compatibility before
+appending. A later step allocates and compiles the new variant before migrating
+live state; failures preserve the previous variant. This removes the requirement
+to know the entire capacity ladder before opening a session.
+
+A frame manifest may explicitly set `max_steps` to null only if both trajectory
+buffers are absent. The executor then retains a u64 step count and rejects its
+overflow before mutation. Missing `max_steps` is an error; finite tracing retains
+the existing step limit. The batch replay CLI still requires a finite count.
+
+`runtime_compile.py --upload ARCHIVE --output NEW_DIRECTORY --target c|metal|ascend
+--pair-capacity N` specializes an uploaded scene without executing the CPU
+reference solver. Omit `--trace-steps` for ongoing execution without trajectory
+storage. Artifacts record exact compiler-source and archive hashes. Source lowering
+alone is not target execution. `runtime_service.py VARIANT_DIRECTORY` controls a
+resident generated-C session through JSON lines, with explicit state read requests.
+Rust backend selection and automatic compilation after overflow remain in progress.

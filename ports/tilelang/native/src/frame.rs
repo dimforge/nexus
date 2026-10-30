@@ -37,12 +37,26 @@ pub struct FrameManifest {
     /// bytes at the new offset; new capacity starts from that variant's upload.
     pub persistent: BTreeMap<String, PersistentRegion>,
     /// Includes trace capacity, when tracing is enabled. No implicit wraparound.
-    pub max_steps: u32,
+    #[serde(deserialize_with = "deserialize_max_steps")]
+    pub max_steps: Option<u32>,
+}
+// An explicit null means no trace limit; a missing field is an error.
+fn deserialize_max_steps<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
+    Option::<u32>::deserialize(d)
 }
 impl FrameManifest {
     pub fn validate(&self) -> Result<Vec<usize>, String> {
         self.program.validate()?;
-        if self.schema != 1 || self.program.iterations != 1 || self.max_steps == 0 {
+        if self.schema != 1
+            || self.program.iterations != 1
+            || self.max_steps == Some(0)
+            || (self.max_steps.is_none()
+                && self
+                    .program
+                    .storage_buffers
+                    .iter()
+                    .any(|n| n == "Trajectory" || n == "FrameIndex"))
+        {
             return Err("Invalid resident frame schema, iteration count or step limit".into());
         }
         let mut ends = Vec::new();
@@ -145,7 +159,7 @@ pub enum StepError {
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct FrameStats {
-    pub step: u32,
+    pub step: u64,
     pub retries: usize,
     pub variant: usize,
     pub counts: BTreeMap<String, u64>,
@@ -156,7 +170,7 @@ pub struct FrameSession {
     current: usize,
     program: NativeProgram,
     storage: BTreeMap<String, Buffer>,
-    steps: u32,
+    steps: u64,
     poisoned: bool,
     device_id: u64,
 }
@@ -177,6 +191,30 @@ fn upload(backend: &Metal, variant: &FrameVariant) -> Result<BTreeMap<String, Bu
         })
         .collect()
 }
+fn validate_growth(old: &FrameManifest, new: &FrameManifest) -> Result<(), String> {
+    if old.gates.len() != new.gates.len()
+        || old.max_steps != new.max_steps
+        || old.persistent.keys().ne(new.persistent.keys())
+    {
+        return Err("Incompatible frame capacity variants".into());
+    }
+    let mut grows = false;
+    for (a, b) in old.gates.iter().zip(&new.gates) {
+        if a.id != b.id || a.counters != b.counters || b.capacity < a.capacity {
+            return Err("Capacity variants change gate meaning or shrink".into());
+        }
+        grows |= b.capacity > a.capacity;
+    }
+    if !grows
+        || old
+            .persistent
+            .iter()
+            .any(|(id, r)| new.persistent[id].word_len < r.word_len)
+    {
+        return Err("Capacity variants must grow without truncating state".into());
+    }
+    Ok(())
+}
 impl FrameSession {
     /// Load trusted kernels and initial storage. Variants increase capacities
     /// while preserving the same physical scene and semantic persistent regions.
@@ -194,28 +232,7 @@ impl FrameSession {
             v.validate()?;
         }
         for pair in variants.windows(2) {
-            let (old, new) = (&pair[0].manifest, &pair[1].manifest);
-            if old.gates.len() != new.gates.len()
-                || old.max_steps != new.max_steps
-                || old.persistent.keys().ne(new.persistent.keys())
-            {
-                return Err("Incompatible frame capacity variants".into());
-            }
-            let mut grows = false;
-            for (a, b) in old.gates.iter().zip(&new.gates) {
-                if a.id != b.id || a.counters != b.counters || b.capacity < a.capacity {
-                    return Err("Capacity variants change gate meaning or shrink".into());
-                }
-                grows |= b.capacity > a.capacity;
-            }
-            if !grows
-                || old
-                    .persistent
-                    .iter()
-                    .any(|(id, r)| new.persistent[id].word_len < r.word_len)
-            {
-                return Err("Capacity variants must grow without truncating state".into());
-            }
+            validate_growth(&pair[0].manifest, &pair[1].manifest)?;
         }
         let first = &variants[0];
         let program = NativeProgram::new(backend, first.manifest.program.clone(), &first.sources)?;
@@ -229,6 +246,20 @@ impl FrameSession {
             poisoned: false,
             device_id: backend.device().registry_id(),
         })
+    }
+    /// Append a trusted specialization without changing live state.
+    ///
+    /// # Safety
+    /// The same scene, gate-placement and dispatch requirements as `new` apply.
+    /// New capacity must preserve every semantic persistent region.
+    pub unsafe fn extend(&mut self, variant: FrameVariant) -> Result<(), String> {
+        if self.poisoned {
+            return Err("Poisoned frame".into());
+        }
+        variant.validate()?;
+        validate_growth(&self.variants.last().unwrap().manifest, &variant.manifest)?;
+        self.variants.push(variant);
+        Ok(())
     }
     fn refs(&self) -> BTreeMap<String, &BufferRef> {
         self.storage
@@ -277,7 +308,12 @@ impl FrameSession {
                 "Frame and backend devices differ".into(),
             ));
         }
-        if self.steps >= self.variants[self.current].manifest.max_steps {
+        if self.steps == u64::MAX
+            || self.variants[self.current]
+                .manifest
+                .max_steps
+                .is_some_and(|limit| self.steps >= limit as u64)
+        {
             return Err(StepError::StepLimit);
         }
         let mut retries = 0;
@@ -405,7 +441,7 @@ mod tests {
         FrameVariant{
             manifest:FrameManifest{schema:1,program:ProgramManifest{schema:2,storage_buffers:sizes.keys().cloned().collect(),buffer_bytes:sizes,iterations:1,stages:vec![count,commit]},
                 gates:vec![CapacityGate{id:"pairs".into(),after_stage:"count".into(),counters:vec![Counter{buffer:"Count".into(),word:0}],capacity}],
-                persistent:BTreeMap::from([("pose_and_velocity".into(),PersistentRegion{buffer:"State".into(),word_start:offset,word_len:2})]),max_steps:2},
+                persistent:BTreeMap::from([("pose_and_velocity".into(),PersistentRegion{buffer:"State".into(),word_start:offset,word_len:2})]),max_steps:Some(2)},
             sources:BTreeMap::from([
                 ("count.metal".into(),"#include <metal_stdlib>\nusing namespace metal;\nkernel void count(device uint* input [[buffer(0)]], device uint* count [[buffer(1)]]) {count[0]=input[0];}".into()),
                 ("commit.metal".into(),format!("#include <metal_stdlib>\nusing namespace metal;\nkernel void commit(device uint* state [[buffer(0)]]) {{state[{offset}]+=1;}}"))]),
@@ -440,6 +476,55 @@ mod tests {
         assert_eq!(session.read(&backend, "State").unwrap()[3], 44);
         assert_eq!(session.step(&backend), Err(StepError::StepLimit));
         assert_eq!(session.read(&backend, "State").unwrap()[3], 44);
+    }
+    #[test]
+    fn unbounded_session_accepts_capacity_compiled_after_exhaustion() {
+        let backend = Metal::new().unwrap();
+        let mut small = variant(1, 0);
+        small.manifest.max_steps = None;
+        let mut frame = unsafe { FrameSession::new(&backend, vec![small]) }.unwrap();
+        assert!(matches!(
+            frame.step(&backend),
+            Err(StepError::Capacity { .. })
+        ));
+        let mut large = variant(8, 3);
+        large.manifest.max_steps = None;
+        unsafe { frame.extend(large) }.unwrap();
+        assert_eq!(frame.steps, 0);
+        assert_eq!(frame.read(&backend, "State").unwrap()[0], 42);
+        assert_eq!(frame.step(&backend).unwrap().retries, 1);
+        for _ in 0..9 {
+            frame.step(&backend).unwrap();
+        }
+        assert_eq!(frame.steps, 10);
+        assert_eq!(&frame.read(&backend, "State").unwrap()[3..5], &[52, 17]);
+        frame.steps = u64::MAX;
+        assert_eq!(frame.step(&backend), Err(StepError::StepLimit));
+        assert_eq!(frame.read(&backend, "State").unwrap()[3], 52);
+    }
+    #[test]
+    fn rejected_extension_preserves_the_current_session() {
+        let backend = Metal::new().unwrap();
+        let mut frame = unsafe { FrameSession::new(&backend, vec![variant(8, 0)]) }.unwrap();
+        assert!(unsafe { frame.extend(variant(3, 0)) }.is_err());
+        assert_eq!(frame.variants.len(), 1);
+        assert_eq!(frame.read(&backend, "State").unwrap()[0], 42);
+        assert_eq!(frame.step(&backend).unwrap().step, 1);
+    }
+    #[test]
+    fn unbounded_manifest_cannot_silently_overrun_a_trace() {
+        let mut v = variant(8, 0);
+        v.manifest.max_steps = None;
+        v.manifest.validate().unwrap();
+        v.manifest.program.storage_buffers.push("Trajectory".into());
+        v.manifest
+            .program
+            .buffer_bytes
+            .insert("Trajectory".into(), 4);
+        assert!(v.manifest.validate().is_err());
+        // Option fields normally default to None; our deserializer requires the field.
+        let missing = r#"{"schema":1,"program":{"schema":2,"stages":[],"storage_buffers":[],"buffer_bytes":{},"iterations":1},"gates":[],"persistent":{}}"#;
+        assert!(serde_json::from_str::<FrameManifest>(missing).is_err());
     }
     #[test]
     fn exhausted_capacity_never_advances_physics_or_frame_count() {
