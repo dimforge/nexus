@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "qualification": "Verified lossless archives of superseded 0110 validation and the failed handoff. These are historical diagnostics, not current acceptance or deliverables.",
+  "archives": [
+    {
+      "source": "ports/tilelang/results-final-0110",
+      "archive": "ports/tilelang/results-archive-0110/results-final-0110.tar.gz",
+      "sha256": "dd347156c3194ec713952490561e52d3fa1e5239c90d3c65cce0b92525e504a0",
+      "bytes": 1475241248,
+      "files_verified": 1233529,
+      "unpacked_removed_after_verified_backup": true,
+      "restore_from_repo_root": "tar -xzf ports/tilelang/results-archive-0110/results-final-0110.tar.gz -C ports/tilelang"
+    },
+    {
+      "source": "ports/tilelang/results-handoff-0110",
+      "archive": "ports/tilelang/results-archive-0110/results-handoff-0110.tar.gz",
+      "sha256": "19dd549a48662f4ad0ad1a90ef1f89a7ec9c5900feb51a38fdad631d043eadd7",
+      "bytes": 825383494,
+      "files_verified": 197744,
+      "unpacked_removed_after_verified_backup": true,
+      "restore_from_repo_root": "tar -xzf ports/tilelang/results-archive-0110/results-handoff-0110.tar.gz -C ports/tilelang"
+    }
+  ],
+  "verification": "Every archived regular-file byte stream matched its unpacked original; archive members matched the complete original file inventory. No tracked files were removed.",
+  "reason": "Free space for the fresh 0111 source validation while retaining reproducible prior execution and the handoff routing failure."
+}

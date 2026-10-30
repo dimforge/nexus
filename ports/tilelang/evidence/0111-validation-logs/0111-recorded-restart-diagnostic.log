@@ -1,0 +1,16 @@
+Historical recorded Metal data, fixed return validator diagnostic only; no new execution or source acceptance.
+Passed general_triangle-restart-0
+Passed general_triangle-restart-27
+Passed general_triangle-restart-28
+Passed general_triangle-restart-29
+Passed general_triangle-restart-30
+Passed general_triangle-restart-31
+Passed general_triangle-restart-32
+Passed general_triangle-restart-33
+Passed general_triangle-restart-34
+Passed general_triangle-restart-35
+Passed general_triangle-restart-36
+Passed general_triangle-restart-37
+Passed general_triangle-restart-38
+Passed general_triangle-restart-119
+All 14 previously rejected returns pass the correct snapshot validation.
