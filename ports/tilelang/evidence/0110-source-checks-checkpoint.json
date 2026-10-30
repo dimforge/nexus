@@ -758,7 +758,8 @@
           "4",
           "1.114"
         ]
-      ]
+      ],
+      "qualification": "Superseded by fresh-fixture rerun below; this earlier check used the default fixture root."
     },
     "ports/tilelang/evidence/0110-validation-logs/final0110-native-shader-unit.log": {
       "sha256": "0a8d61f5ee7d546cc370574856e424af0cd1863f04ef17d1079e84249983bf2a",
@@ -789,12 +790,19 @@
       "sha256": "8b977a6834ff185b0f577ed955da68b25a6bdda00c6ce713dfa2654bd4540665",
       "rust_tests_passed": 2,
       "python_suites": []
+    },
+    "ports/tilelang/evidence/0110-validation-logs/final0110-ascend-fresh-regression.log": {
+      "sha256": "43785d4c768f09eb9a613e93ca027bc2c51e89fc6894077fa23a2a947b543fde",
+      "python_tests_passed": 4,
+      "fixture_root": "ports/tilelang/results-final-0110",
+      "qualification": "NEXUS_TILELANG_RESULTS explicitly points at the final source run; no skip."
     }
   },
   "notes": [
     "Synthetic source reconciliation and numeric-boundary lines in the source test log come from unit-test fixture repositories, not the real branch status.",
     "Ignored expensive native tests in the ordinary unit log were explicitly executed in the separate public runtime logs.",
     "The native shader unit invocation was cpu_oracle.py test --locked -p nexus_rbd_shaders3d --lib, from the source-identical backend worktree.",
-    "No CUDA or Ascend device execution and no remote CI run."
+    "No CUDA or Ascend device execution and no remote CI run.",
+    "The final Ascend scratch/launch qualification uses the explicit final0110 fixture root; the earlier default-root log is retained as a superseded diagnostic."
   ]
 }
