@@ -5,8 +5,8 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
-from pathlib import Path
 import platform
+from pathlib import Path
 
 from cpu_oracle import export_fixtures
 from parity import evidence_inputs
@@ -96,6 +96,9 @@ def run_stage(
             },
         },
     )
+    from ordered import CompilationSession
+
+    compiler_session = CompilationSession()
     active_case = None
     try:
         runner = (
@@ -116,6 +119,7 @@ def run_stage(
                     before,
                     args.target,
                     iterations=case["iterations"],
+                    session=compiler_session,
                 )
                 source = sources[f"kernel.{args.target}"]
             else:
@@ -170,7 +174,11 @@ def run_stage(
                         from ordered import execute_c_program
 
                         execution = execute_c_program(
-                            sources, bindings, directory, actual
+                            sources,
+                            bindings,
+                            directory,
+                            actual,
+                            session=compiler_session,
                         )
                     else:
                         execution = execute_c(source, bindings, directory, actual)
@@ -215,6 +223,7 @@ def run_stage(
             print(f"{args.target}: {args.operation}/{case['name']}: passed", flush=True)
         if evidence_inputs(ROOT) != inputs:
             raise ValueError("Sources changed during stage replay")
+        report["compilation_reuse"] = compiler_session.hits
         report["status"] = "passed"
     except Exception as error:
         report.update(status="failed", error=str(error), failed_case=active_case)

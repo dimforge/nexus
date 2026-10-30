@@ -69,6 +69,15 @@ impl NativeKernel {
         let pipeline = backend
             .device()
             .new_compute_pipeline_state_with_function(&function)?;
+        Self::with_pipeline(backend, pipeline, manifest)
+    }
+
+    fn with_pipeline(
+        backend: &Metal,
+        pipeline: ComputePipelineState,
+        manifest: Manifest,
+    ) -> Result<Self, String> {
+        manifest.validate()?;
         if manifest.threads > pipeline.max_total_threads_per_threadgroup() {
             return Err("Thread count exceeds device/kernel limit".into());
         }
@@ -216,17 +225,22 @@ impl NativeProgram {
         sources: &BTreeMap<String, String>,
     ) -> Result<Self, String> {
         manifest.validate()?;
+        let mut pipelines = BTreeMap::<(String, String), ComputePipelineState>::new();
         let kernels = manifest
             .stages
             .iter()
             .map(|stage| {
-                NativeKernel::new(
-                    backend,
-                    sources
-                        .get(&stage.source)
-                        .ok_or_else(|| format!("Missing source {}", stage.source))?,
-                    stage.bindings.clone(),
-                )
+                let source = sources
+                    .get(&stage.source)
+                    .ok_or_else(|| format!("Missing source {}", stage.source))?;
+                let key = (source.clone(), stage.bindings.entry.clone());
+                if let Some(pipeline) = pipelines.get(&key) {
+                    NativeKernel::with_pipeline(backend, pipeline.clone(), stage.bindings.clone())
+                } else {
+                    let kernel = NativeKernel::new(backend, source, stage.bindings.clone())?;
+                    pipelines.insert(key, kernel.pipeline.clone());
+                    Ok(kernel)
+                }
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self { manifest, kernels })
@@ -273,6 +287,7 @@ impl NativeProgram {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use metal::foreign_types::ForeignType;
     fn valid() -> Manifest {
         Manifest {
             schema: 1,
@@ -368,6 +383,45 @@ mod tests {
         m.stages[0].buffer_map.insert("B".into(), "X".into());
         assert!(m.validate().is_err());
     }
+    #[test]
+    fn reused_metal_pipeline_keeps_bindings_iterations_and_launch_checks() {
+        let backend = Metal::new().unwrap();
+        let mut m = program();
+        let mut second = m.stages[0].clone();
+        second.name = "same_code_other_storage".into();
+        second.source = "alias.metal".into();
+        second.bindings.iterations = 3;
+        second.buffer_map.insert("A".into(), "Y".into());
+        m.stages.push(second);
+        let source = "#include <metal_stdlib>\nusing namespace metal;\nkernel void stage(device uint* a [[buffer(0)]]) { a[0] += 1; }".to_owned();
+        let sources = BTreeMap::from([
+            ("first.metal".into(), source.clone()),
+            ("alias.metal".into(), source),
+        ]);
+        let compiled = NativeProgram::new(&backend, m.clone(), &sources).unwrap();
+        assert_eq!(
+            compiled.kernels[0].pipeline.as_ptr(),
+            compiled.kernels[1].pipeline.as_ptr()
+        );
+        let usage = khal::BufferUsages::STORAGE | khal::BufferUsages::COPY_SRC;
+        let x = backend.init_buffer(&[0u32], usage).unwrap();
+        let y = backend.init_buffer(&[10u32], usage).unwrap();
+        let buffers = BTreeMap::from([
+            ("X".into(), x.raw().as_ref()),
+            ("Y".into(), y.raw().as_ref()),
+        ]);
+        unsafe {
+            compiled.dispatch(&backend, &buffers).unwrap();
+            assert_eq!(*x.raw().contents().cast::<u32>(), 2);
+            assert_eq!(*y.raw().contents().cast::<u32>(), 16);
+        }
+        m.stages[1].bindings.threads = compiled.kernels[0]
+            .pipeline
+            .max_total_threads_per_threadgroup()
+            + 1;
+        assert!(NativeProgram::new(&backend, m, &sources).is_err());
+    }
+
     #[test]
     fn ordered_native_stages_share_storage_across_iterations() {
         let backend = Metal::new().unwrap();
