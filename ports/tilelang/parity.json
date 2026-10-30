@@ -38,7 +38,8 @@
     "ports/tilelang/BOUNDARY_NUMERICS.md",
     "ports/tilelang/FRAME_RUNTIME.md",
     "ports/tilelang/native/build.rs",
-    "ports/tilelang/native/tests/*.rs"
+    "ports/tilelang/native/tests/*.rs",
+    "ports/tilelang/NATIVE_RUNTIME.md"
   ],
   "features": [
     {
