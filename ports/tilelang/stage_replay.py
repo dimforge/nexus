@@ -8,7 +8,7 @@ import json
 import platform
 from pathlib import Path
 
-from cpu_oracle import export_fixtures
+from cpu_oracle import export_fixtures, verify_probe_file
 from parity import evidence_inputs
 from replay import (
     HERE,
@@ -69,6 +69,8 @@ def run_stage(
         if exporter is not None
         else export_fixtures(oracle, output / "fixtures", extra=oracle_args)
     )
+    # Fail at export, before accepting a report that cannot be handed off.
+    verify_probe_file(output / "cpu-oracle-noalias.ll", oracle_profile)
     layout = json.loads((output / "fixtures/layout.json").read_text())
     fixtures = output / f"fixtures/{args.operation}"
     suite = json.loads((fixtures / "suite.json").read_text())

@@ -10,6 +10,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import scene_numeric
+from cpu_oracle import verify_probe_file
 from joint_scene_validation import check_joint_rows
 from replay import HERE
 from runtime_restart_validation import check_outputs, validate_case
@@ -29,6 +30,16 @@ class RuntimeRestartTests(unittest.TestCase):
         b = {n: np.fromfile(d / f"{n}.bin", np.uint32) for n in c["buffer_words"]}
         e = {n: np.fromfile(d / f"{n}.expected.bin", np.uint32) for n in b}
         return l, c, b, e, k
+
+    def test_restart_oracle_receipt_is_bound_to_the_report(self):
+        root = (
+            Path(os.environ.get("NEXUS_TILELANG_RESULTS", HERE / "results"))
+            / "runtime_twist_restart/c"
+        )
+        report = json.loads((root / "report.json").read_text())
+        verify_probe_file(
+            root / "cpu-oracle-noalias.ll", report["environment"]["cpu_oracle"]
+        )
 
     def test_all_native_snapshots_pass_independent_checks(self):
         for frame in range(8):

@@ -24,6 +24,12 @@ def export(directory):
     )
     if profile != reference_profile:
         raise ValueError("Restart/native upload CPU profiles differ")
+    # Nested exporters place their probe beside their own fixture directories.
+    # The replay/handoff ABI requires it beside this operation's report instead.
+    shutil.copyfile(
+        directory / "cpu-oracle-noalias.ll",
+        directory.parent / "cpu-oracle-noalias.ll",
+    )
     shutil.copyfile(trajectory / "layout.json", directory / "layout.json")
     source = trajectory / "runtime_twist_scene/native-upload"
     original = json.loads((source / "case.json").read_text())
