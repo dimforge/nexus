@@ -761,10 +761,29 @@
     {
       "reference": "src_rbd_shaders/queries/gjk/epa3.rs",
       "implementation": "ports/tilelang/shaders/queries/gjk/epa3.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.epa_closest3d",
+        "rbd.query.gjk_epa3d"
+      ],
+      "symbols": [
+        "none",
+        "face_id_new",
+        "heap_best_index",
+        "heap_peek",
+        "heap_pop",
+        "heap_push",
+        "ccw_face_normal",
+        "face_new_with_proj",
+        "face_new",
+        "face_closest_points",
+        "next_ccw_pt_id",
+        "can_be_seen_by",
+        "compute_silhouette",
+        "expand_silhouette",
+        "closest_points"
+      ],
+      "remaining": "The complete bounded EPA routine is translated and exercised standalone and after GJK; generic manifolds, broader production shapes and private-memory hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/gjk.rs",
@@ -1448,7 +1467,9 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.epa_closest3d",
+        "rbd.query.gjk_epa3d"
       ],
       "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
@@ -1469,7 +1490,9 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.epa_closest3d",
+        "rbd.query.gjk_epa3d"
       ],
       "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
     },
@@ -1489,7 +1512,9 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.epa_closest3d",
+        "rbd.query.gjk_epa3d"
       ],
       "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },

@@ -1,5 +1,6 @@
 use crate::queries::gjk::{
     VoronoiSimplex,
+    epa3::{Epa3, EpaResult},
     gjk::{closest_points, cso_point_from_shapes},
 };
 use glamx::{Quat, Vec3};
@@ -27,6 +28,12 @@ fn shape(ty: usize) -> Shape {
 use crate::simplex_fixture::pack;
 
 pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
+    fixture_impl(dir, kind, n, false)
+}
+pub fn touching_fixture(dir: &Path, kind: &str) -> Value {
+    fixture_impl(dir, kind, 1, true)
+}
+fn fixture_impl(dir: &Path, kind: &str, n: usize, touching: bool) -> Value {
     fs::create_dir_all(dir).unwrap();
     let storage = n + 3;
     let guard = 0xdeadbeefu32;
@@ -67,7 +74,7 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
             },
             ..Pose::IDENTITY
         };
-        let direction = match i % 8 {
+        let mut direction = match i % 8 {
             0 => Vec3::X,
             1 => Vec3::new(-0.0, 1.0, 0.0),
             2 => -Vec3::Y,
@@ -77,6 +84,12 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
             6 => Vec3::new(-1.0, -1.0, 0.5),
             _ => Vec3::new(0.2, -0.3, -0.7),
         };
+        if touching {
+            shapes[2 * i] = Shape::ball(0.5);
+            shapes[2 * i + 1] = Shape::ball(0.5);
+            poses[i] = Pose::from_translation(Vec3::X);
+            direction = Vec3::X;
+        }
         for (dest, value) in input[i][..3].iter_mut().zip(direction.to_array()) {
             *dest = value.to_bits();
         }
@@ -89,6 +102,23 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
             direction,
             &vertices,
         ));
+        if kind == "epa_closest" || kind == "gjk_epa" {
+            input[i][4] = 1;
+            let mut seed = simplexes[i];
+            let collision = closest_points(
+                poses[i],
+                &shapes[2 * i],
+                &shapes[2 * i + 1],
+                f32::from_bits(input[i][3]),
+                true,
+                &mut seed,
+                &vertices,
+            );
+            input[i][5] = u32::from(collision.status == 0);
+            if kind == "epa_closest" {
+                simplexes[i] = seed;
+            }
+        }
         pack(&simplexes[i], &mut states[i]);
     }
     macro_rules! write {
@@ -121,6 +151,20 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
                 &vertices,
             );
             vec![p.point, p.orig_a, p.orig_b]
+        } else if kind == "epa_closest" {
+            let result = if input[i][5] != 0 {
+                Epa3::default().closest_points(
+                    poses[i],
+                    &shapes[2 * i],
+                    &shapes[2 * i + 1],
+                    &simplexes[i],
+                    &vertices,
+                )
+            } else {
+                EpaResult::default()
+            };
+            output[i][9] = u32::from(result.valid);
+            vec![result.pt_a, result.pt_b, result.normal]
         } else {
             let r = closest_points(
                 poses[i],
@@ -133,7 +177,23 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
             );
             output[i][9] = r.status;
             pack(&simplexes[i], &mut states[i]);
-            vec![r.a, r.b, r.dir]
+            if kind == "gjk_epa" && r.status == 0 {
+                let result = Epa3::default().closest_points(
+                    poses[i],
+                    &shapes[2 * i],
+                    &shapes[2 * i + 1],
+                    &simplexes[i],
+                    &vertices,
+                );
+                output[i][9] = if result.valid { 1 } else { 3 };
+                if result.valid {
+                    vec![result.pt_a, result.pt_b, result.normal]
+                } else {
+                    vec![Vec3::ZERO, Vec3::ZERO, Vec3::X]
+                }
+            } else {
+                vec![r.a, r.b, r.dir]
+            }
         };
         for (field, v) in values.iter().enumerate() {
             for d in 0..3 {
@@ -163,7 +223,12 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
     .into_iter()
     .map(|(k, v)| (k.to_owned(), json!(v)))
     .collect::<serde_json::Map<_, _>>();
-    let case = json!({"name":format!("n{n}"),"kind":kind,"count":n,"storage":storage,"groups":1,"iterations":1,"buffer_words":sizes});
+    let name = if touching {
+        "point_touch".to_owned()
+    } else {
+        format!("n{n}")
+    };
+    let case = json!({"name":name,"kind":kind,"count":n,"storage":storage,"groups":1,"iterations":1,"buffer_words":sizes});
     fs::write(
         dir.join("case.json"),
         serde_json::to_vec_pretty(&case).unwrap(),

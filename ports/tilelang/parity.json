@@ -1316,6 +1316,34 @@
       "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence, including the private GJK source linked into the native oracle.",
       "contract": "ports/tilelang/contracts/gjk_closest.json",
       "test_command": "python ports/tilelang/support_replay.py --operation gjk_closest --target c"
+    },
+    {
+      "id": "rbd.query.epa_closest3d",
+      "operation": "epa_closest",
+      "runner": "epa_replay.py",
+      "coverage": "Native bounded EPA and GJK/EPA composition for seven convex tags; independent penetration witnesses and strict status parity",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/gjk/epa3.rs::Epa3::closest_points",
+        "src_rbd_shaders/queries/gjk/gjk.rs::closest_points"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/gjk/epa3.py::closest_points",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/epa_closest.json",
+      "test_command": "python ports/tilelang/epa_replay.py --operation epa_closest --target c"
+    },
+    {
+      "id": "rbd.query.gjk_epa3d",
+      "operation": "gjk_epa",
+      "runner": "epa_replay.py",
+      "coverage": "Native bounded EPA and GJK/EPA composition for seven convex tags; independent penetration witnesses and strict status parity",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/gjk/epa3.rs::Epa3::closest_points",
+        "src_rbd_shaders/queries/gjk/gjk.rs::closest_points"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/gjk/epa3.py::closest_points",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/gjk_epa.json",
+      "test_command": "python ports/tilelang/epa_replay.py --operation gjk_epa --target c"
     }
   ],
   "targets": [

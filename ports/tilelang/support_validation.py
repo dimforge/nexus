@@ -8,10 +8,10 @@ OPERATIONS = ("support_local", "support_world", "cso_support", "gjk_closest")
 BUFFERS = ("Shapes", "Poses", "Vertices", "Inputs", "Output", "State")
 
 
-def validate_case(l, c, b):
+def validate_inputs(l, c, b, operations):
     if (
         l.get("wire_format") != "explicit_geometry_diagnostics_v1"
-        or c.get("kind") not in OPERATIONS
+        or c.get("kind") not in operations
     ):
         raise ValueError("Invalid support operation or wire format")
     n = c["count"]
@@ -110,6 +110,11 @@ def validate_case(l, c, b):
         or np.any(rows[:, si["exact"]] > 1)
     ):
         raise ValueError("Invalid support direction or distance policy")
+    return n, vertices, shapes, q, t, directions
+
+
+def validate_case(l, c, b):
+    n, vertices, shapes, q, t, directions = validate_inputs(l, c, b, OPERATIONS)
     state = b["State"].reshape(-1, l["simplex_words"])[:n]
     ss = l["simplex"]
     for i, row in enumerate(state):

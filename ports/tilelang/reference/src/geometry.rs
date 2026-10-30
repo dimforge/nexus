@@ -1,8 +1,10 @@
 //! Live native geometry oracle. Private GJK source is linked into this binary
 //! without changing production visibility or duplicating its implementation.
-pub use nexus_rbd_shaders3d::{DIM, MAX_FLT, PaddedVector, Pose, Vector, shapes, sqrt};
+pub use nexus_rbd_shaders3d::{DIM, MAX_FLT, Pad, PaddedVector, Pose, Vector, shapes, sqrt, utils};
 #[path = "../../../../src_rbd_shaders/queries/gjk/cso_point.rs"]
 pub mod cso_point;
+#[path = "../../../../src_rbd_shaders/queries/gjk/epa3.rs"]
+pub mod epa3;
 #[path = "../../../../src_rbd_shaders/queries/gjk/gjk.rs"]
 pub mod gjk;
 #[path = "../../../../src_rbd_shaders/queries/gjk/voronoi_simplex3.rs"]
@@ -13,6 +15,7 @@ mod queries {
     }
     pub mod gjk {
         pub use crate::cso_point;
+        pub use crate::epa3;
         pub use crate::gjk;
         pub use crate::voronoi_simplex3::VoronoiSimplex;
     }
@@ -44,10 +47,15 @@ fn main() {
         "support_world",
         "cso_support",
         "gjk_closest",
+        "epa_closest",
+        "gjk_epa",
     ] {
         let mut cases = vec![];
-        let support =
-            kind.starts_with("support_") || kind == "cso_support" || kind == "gjk_closest";
+        let support = kind.starts_with("support_")
+            || kind == "cso_support"
+            || kind == "gjk_closest"
+            || kind == "epa_closest"
+            || kind == "gjk_epa";
         let counts = if support {
             [0, 1, 49, 65, 129, 343]
         } else {
@@ -62,6 +70,12 @@ fn main() {
             } else {
                 projection_fixture::fixture(&directory, kind, count)
             });
+        }
+        if kind == "epa_closest" || kind == "gjk_epa" {
+            cases.push(support_fixture::touching_fixture(
+                &root.join(kind).join("point_touch"),
+                kind,
+            ));
         }
         fs::write(
             root.join(kind).join("suite.json"),

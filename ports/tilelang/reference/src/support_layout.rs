@@ -9,7 +9,8 @@ struct SupportInput {
     direction: [f32; 3],
     max_distance: f32,
     exact: u32,
-    padding: [u32; 3],
+    epa_active: u32,
+    padding: [u32; 2],
 }
 #[repr(C)]
 struct SupportOutput {
@@ -36,6 +37,7 @@ pub fn layout() -> Value {
         direction,
         max_distance,
         exact,
+        epa_active,
         padding
     );
     fields!(

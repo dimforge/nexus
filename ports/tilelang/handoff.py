@@ -7,16 +7,16 @@ outputs from an eventual device session can be checked offline with verify-resul
 """
 
 import argparse
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 from cpu_oracle import verify_probe_file
 from parity import (
-    ROOT,
     PORT,
+    ROOT,
     digest,
     evidence_inputs,
     evidence_state,
@@ -245,8 +245,8 @@ def build(root, output, results):
 
 
 def probe(output):
-    import platform
     import os
+    import platform
 
     tool = shutil.which("npu-smi")
     result = {
@@ -280,33 +280,34 @@ def probe(output):
 def verify_results(bundle_root, returned, output, root=ROOT):
     """Check returned files; never launch device code or treat missing cases as skips."""
     import numpy as np
-    from replay import check_outputs
-    from primitives import check_outputs as check_integer_outputs
-    from body_validation import check_outputs as check_body_outputs
-    from pose_replay import check_outputs as check_pose_outputs
-    from contact_replay import check_outputs as check_contact_outputs
-    from link_replay import check_outputs as check_link_outputs
-    from warmstart_replay import check_outputs as check_warmstart_outputs
-    from hub_replay import check_outputs as check_hub_outputs
-    from scan_replay import check_outputs as check_scan_outputs
-    from graph_replay import check_outputs as check_graph_outputs
-    from bucket_replay import check_outputs as check_bucket_outputs
-    from coloring_replay import check_outputs as check_coloring_outputs
-    from colored_replay import check_outputs as check_colored_outputs
-    from coefficient_replay import check_outputs as check_coefficient_outputs
-    from contact_plan_replay import check_outputs as check_contact_plan_outputs
-    from collision_replay import check_outputs as check_collision_outputs
-    from radix_replay import check_outputs as check_radix_outputs
-    from canonical_replay import check_outputs as check_canonical_outputs
-    from narrow_replay import check_outputs as check_narrow_outputs
-    from broadphase_replay import check_outputs as check_broadphase_outputs
-    from tgs_replay import check_outputs as check_tgs_outputs
-    from scene_replay import check_outputs as check_scene_outputs
-    from joint_validation import check_outputs as check_joint_outputs
-    from joint_scene_validation import check_outputs as check_joint_scene_outputs
-    from geometry_validation import check_outputs as check_geometry_outputs
-    from support_validation import check_outputs as check_support_outputs
     from body_uniform_replay import check_outputs as check_body_uniform_outputs
+    from body_validation import check_outputs as check_body_outputs
+    from broadphase_replay import check_outputs as check_broadphase_outputs
+    from bucket_replay import check_outputs as check_bucket_outputs
+    from canonical_replay import check_outputs as check_canonical_outputs
+    from coefficient_replay import check_outputs as check_coefficient_outputs
+    from collision_replay import check_outputs as check_collision_outputs
+    from colored_replay import check_outputs as check_colored_outputs
+    from coloring_replay import check_outputs as check_coloring_outputs
+    from contact_plan_replay import check_outputs as check_contact_plan_outputs
+    from contact_replay import check_outputs as check_contact_outputs
+    from epa_validation import check_outputs as check_epa_outputs
+    from geometry_validation import check_outputs as check_geometry_outputs
+    from graph_replay import check_outputs as check_graph_outputs
+    from hub_replay import check_outputs as check_hub_outputs
+    from joint_scene_validation import check_outputs as check_joint_scene_outputs
+    from joint_validation import check_outputs as check_joint_outputs
+    from link_replay import check_outputs as check_link_outputs
+    from narrow_replay import check_outputs as check_narrow_outputs
+    from pose_replay import check_outputs as check_pose_outputs
+    from primitives import check_outputs as check_integer_outputs
+    from radix_replay import check_outputs as check_radix_outputs
+    from replay import check_outputs
+    from scan_replay import check_outputs as check_scan_outputs
+    from scene_replay import check_outputs as check_scene_outputs
+    from support_validation import check_outputs as check_support_outputs
+    from tgs_replay import check_outputs as check_tgs_outputs
+    from warmstart_replay import check_outputs as check_warmstart_outputs
 
     result = {
         "schema": 1,
@@ -376,6 +377,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "joint_scene_fields": check_joint_scene_outputs,
                     "geometry_fields": check_geometry_outputs,
                     "support_fields": check_support_outputs,
+                    "epa_fields": check_epa_outputs,
                     "broadphase_fields": check_broadphase_outputs,
                     "narrow_fields": check_narrow_outputs,
                     "contact_plan_fields": check_contact_plan_outputs,

@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "feature": "rbd.query.gjk_epa3d",
+  "scope": "Native 3D gjk_epa using the native 32-vertex, 64-face, 32-silhouette, 64-heap and 32-stack capacities",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Shapes",
+    "Poses",
+    "Vertices",
+    "Inputs",
+    "Output",
+    "State"
+  ],
+  "outputs": [
+    "Output",
+    "State"
+  ],
+  "comparison": "epa_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "max_support_gap": 0.0001,
+  "tolerance_reason": "Penetration depths, support gaps and normals retain the existing f32 tolerance. Contact point coordinates on a shared support feature are nonunique: each witness must lie inside its convex shape and reconstruct the penetration vector. Opposite normal signs are accepted only when both shapes are independently proven centrally symmetric about exactly coincident origins. Raw point/normal differences remain reported. The independent support-gap ceiling of 1e-4 for these unit-scale fixtures covers native bounded-iteration/early-return approximation; depth/gap differential comparisons remain 2e-6/2e-5.",
+  "preconditions": [
+    "Finite valid convex shapes and normalized relative poses; exact GJK distance queries and boolean EPA-active flags",
+    "Standalone EPA receives a native GJK simplex whose active witnesses lie on shape surfaces and enclose the origin; composition starts from a validated cold support point",
+    "One thread owns each diagnostic row; all untouched and read-only storage is exact"
+  ],
+  "invariants": [
+    "Status and simplex dimensions/indices remain exact; EPA itself never mutates its input simplex",
+    "Nonintersecting composed queries preserve native GJK numeric and copied-state behavior",
+    "Every valid nondegenerate EPA result has in-shape witnesses, a unit normal, nonnegative penetration and a parallel witness difference",
+    "Independent f64 support bounds constrain penetration quality; bounded failure produces the exact native fallback",
+    "The translated source preserves native iteration and workspace limits; no host geometry runs between GJK and EPA"
+  ],
+  "outside_scope": [
+    "Polygonal-feature manifold clipping and production scene integration",
+    "Ascend vendor binary compilation, device execution, private-memory resource qualification and performance"
+  ],
+  "reference_limitations": [
+    "Native capacities can exhaust, including coincident curved shapes; this returns failure rather than a fabricated successful contact",
+    "A dimension-zero simplex returns literal zero points and +Y normal in the native implementation; this exceptional behavior is checked exactly, not certified as a valid surface witness",
+    "The meaningful-distance-regression guard was fixed in Rust and TileLang together by change 0042; earlier false zero-depth results are not the behavioral reference"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n49",
+    "n65",
+    "n129",
+    "n343",
+    "point_touch"
+  ]
+}
