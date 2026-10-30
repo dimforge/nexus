@@ -76,3 +76,9 @@ elsewhere. Hub averaging preserves the Rust per-lane accumulation and six-step
 64-lane tree. Keep the cancellation fixture and both workgroup barriers between
 rounds. Serial CPU phase execution is not proof of GPU synchronization; run Metal
 and retain Ascend hardware synchronization as unvalidated until tested.
+
+Contact-sensitive scene policies are documented in `SCENE_NUMERICS.md` and the
+hashed per-case contracts. Keep their registered identical-state restart cases
+required. Exact IDs/counters/guards, all-frame physical bounds and independently
+reconstructed contact response matrices must remain mandatory. An exception for
+a named scene and field does not authorize a global tolerance change.

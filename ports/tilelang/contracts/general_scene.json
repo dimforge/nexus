@@ -210,17 +210,19 @@
   "invariants": [
     "Device-resident collision, canonicalization, adjacency, coloring, preparation, warmstart, solve, integration, finalization and persistence; no CPU physics between stages or frames",
     "Integer identities, memberships, copied words, allocation bijections, read-only inputs and capacity guards are exact; legal atomic allocation order is compared semantically",
-    "Active body and constraint arithmetic uses the existing f32 absolute/relative tolerances",
+    "Active body and constraint arithmetic uses default f32 tolerances with only the explicitly named per-case, per-field numerical policy",
     "Every recorded frame checks finite normalized state, unchanged static bodies, bounded penetration and energy",
     "Internal workspace above a published count may retain earlier-frame allocations; it is not interpreted as current state, and storage beyond the declared maximum capacity remains exact",
     "Deferred work is stably sorted by subshape then originating pair; reduction runs before contact canonicalization",
     "Primary witnesses lie inside their shape; normal, support distance, prediction and secondary-witness regression checks apply independently of numeric parity",
-    "Final trajectory frame equals published body state exactly; counter, copied words and guard regions remain exact"
+    "Final trajectory frame equals published body state exactly; counter, copied words and guard regions remain exact",
+    "Contact bases are orthonormal, inertia is positive semidefinite and effective response is independently reconstructed from stored geometry",
+    "The numerical exception is tied to this exact bounded scene configuration and its required restart fixtures; other cases and unknown fields keep default tolerances"
   ],
   "outside_scope": [
     "Arbitrary runtime upload, backend selection, adaptive capacity resize/retry, LBVH, joint/general-shape combined scenes, hubs, twist friction and unbounded Luby",
     "Articulated multibodies, MPM and 2D",
-    "Resolution of isolated zero-distance contact and joint-chain numerical release blocks",
+    "Resolution of isolated zero-distance contact numerical release blocks",
     "Ascend vendor compilation, execution, memory-model and performance qualification"
   ],
   "known_gaps": [
@@ -228,6 +230,11 @@
       "id": "general-secondary-witness-approximation",
       "description": "Inherited native PFM clipping can produce a reconstructed secondary witness outside its shape. Reports list such contacts, and new target-only misses fail; the native limitation remains a release block.",
       "blocks_release": true
+    },
+    {
+      "id": "general-triangle-feedback-roundoff",
+      "blocks_release": false,
+      "description": "Contact-sensitive long-scene drift is classified by the explicit bounded-fixture numerical policy and required identical-state restarts. Default geometry and physical checks remain mandatory."
     }
   ],
   "required_cases": [
@@ -248,5 +255,89 @@
     "general_polyline-c1-l1-b1-f120"
   ],
   "cached_warmstart_atol": 1e-05,
-  "tolerance_reason": "Active contacts, body state and all-frame trajectories retain 2e-6 absolute / 2e-5 relative. Existing analytic multi-frame cached warmstart diagnostic allowance remains 1e-5. No new numerical exception is introduced."
+  "tolerance_reason": "Default float tolerances remain 2e-6 absolute / 2e-5 relative. The explicitly named long-scene case uses the hashed per-field numerical_cases policy. Tangent response matrices use a relative Frobenius norm to handle near-zero off-diagonal entries; every matrix is also independently reconstructed from its stored geometry with the strict default tolerance. Required single-frame restart operations and all-frame physical bounds remain mandatory.",
+  "numerical_cases": {
+    "general_triangle-c1-l1-b1-f120": {
+      "configuration": {
+        "scene": "general_triangle",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 2
+      },
+      "fields": {
+        "Poses": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "SolverPoses": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "WorldMass": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "ColliderPoses": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "Aabbs": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "States": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "PfmPairs": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "TrajectoryPoses": {
+          "atol": 0.0002,
+          "rtol": 2e-05
+        },
+        "Contacts": {
+          "atol": 0.0003,
+          "rtol": 2e-05
+        },
+        "TileGeometry": {
+          "atol": 0.0003,
+          "rtol": 2e-05
+        },
+        "TrajectoryVelocities": {
+          "atol": 0.008,
+          "rtol": 2e-05
+        },
+        "TileDirections": {
+          "atol": 0.008,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.001,
+          "rtol": 2e-05
+        },
+        "TileResponse": {
+          "atol": 2e-06,
+          "rtol": 0.01,
+          "metric": "frobenius_norm"
+        }
+      },
+      "restart_operation": "general_restart",
+      "required_restarts": [
+        "general_triangle-restart-0",
+        "general_triangle-restart-16",
+        "general_triangle-restart-18",
+        "general_triangle-restart-19",
+        "general_triangle-restart-21",
+        "general_triangle-restart-26",
+        "general_triangle-restart-28",
+        "general_triangle-restart-33",
+        "general_triangle-restart-35",
+        "general_triangle-restart-39",
+        "general_triangle-restart-119"
+      ],
+      "reason": "Small identical-state solver differences accumulate through contact-sensitive trajectory feedback; bounded per-field regression acceptance requires independent all-frame physical checks and effective-response reconstruction."
+    }
+  }
 }

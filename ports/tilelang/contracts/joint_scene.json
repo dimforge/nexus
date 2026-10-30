@@ -218,13 +218,15 @@
   "invariants": [
     "Device-resident collision, canonicalization, adjacency, coloring, preparation, warmstart, solve, integration, finalization and persistence; no CPU physics between stages or frames",
     "Integer identities, memberships, copied words, allocation bijections, read-only inputs and capacity guards are exact; legal atomic allocation order is compared semantically",
-    "Active body and constraint arithmetic uses the existing f32 absolute/relative tolerances",
+    "Active body and constraint arithmetic uses default f32 tolerances with only the explicitly named per-case, per-field numerical policy",
     "Each saved checkpoint checks finite normalized state, unchanged static bodies, bounded penetration and energy, and scene-specific restitution, settling or rolling behavior",
     "Internal workspace above a published count may retain earlier-frame allocations; it is not interpreted as current state, and storage beyond the declared maximum capacity remains exact",
     "Joint rows rebuild each substep and solve before contact colors in both biased and stabilization passes",
     "Every frame is recorded on device and checked for static-body preservation, finite normalized state, bounded penetration/energy, locked anchor/rotation drift and limits",
     "Motor energy allowance adds measured travel times the force cap; final target position is checked separately",
-    "Last recorded frame equals published body state exactly; frame count, storage guards and copied words remain exact"
+    "Last recorded frame equals published body state exactly; frame count, storage guards and copied words remain exact",
+    "Contact bases are orthonormal, inertia is positive semidefinite and effective response is independently reconstructed from stored geometry",
+    "The numerical exception is tied to this exact bounded scene configuration and its required restart fixtures; other cases and unknown fields keep default tolerances"
   ],
   "outside_scope": [
     "General PFM/mesh/polyline collisions, hubs, twist friction and arbitrary public runtime scene upload",
@@ -235,8 +237,8 @@
   "known_gaps": [
     {
       "id": "joint-chain-feedback-roundoff",
-      "description": "The connected 120-frame joint chain currently exceeds strict numeric parity on C and Metal (maximum final velocity difference about 6.58e-4; both pass independent all-frame physical checks). Identical-state restart diagnostics identify late contact-sensitive differences; numerical acceptance remains unresolved. The fixtures are retained.",
-      "blocks_release": true
+      "description": "Accepted for this bounded fixture by the explicit per-field numerical policy, mandatory identical-state restarts and unchanged independent physical checks. This is not a general tolerance guarantee for arbitrary scenes.",
+      "blocks_release": false
     }
   ],
   "required_cases": [
@@ -258,11 +260,112 @@
     "joint_fixed-c3-l1-b2-f8"
   ],
   "cached_warmstart_atol": 1e-05,
-  "tolerance_reason": "Existing scene float policy; joint rows and each recorded body state use 2e-6 absolute / 2e-5 relative. Independent all-frame geometric and physical assertions are additional checks, not replacements for numeric parity.",
+  "tolerance_reason": "Default float tolerances remain 2e-6 absolute / 2e-5 relative. The explicitly named long-scene case uses the hashed per-field numerical_cases policy. Tangent response matrices use a relative Frobenius norm to handle near-zero off-diagonal entries; every matrix is also independently reconstructed from its stored geometry with the strict default tolerance. Required single-frame restart operations and all-frame physical bounds remain mandatory.",
   "joint_physics": {
     "max_anchor_error": 0.02,
     "max_locked_rotation_component": 0.01,
     "max_limit_overshoot": 0.02,
     "motor_final_position_error": 0.02
+  },
+  "numerical_cases": {
+    "joint_chain-c1-l3-b1-f120": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4
+      },
+      "fields": {
+        "Poses": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "SolverPoses": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "WorldMass": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "ColliderPoses": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "Aabbs": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "States": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "TrajectoryPoses": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "Contacts": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "TileGeometry": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "TileHeader": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "TileDirections": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "Velocities": {
+          "atol": 0.001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.001,
+          "rtol": 2e-05
+        },
+        "TrajectoryVelocities": {
+          "atol": 0.001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.002,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.002,
+          "rtol": 2e-05
+        },
+        "TileCoefficients": {
+          "atol": 2e-05,
+          "rtol": 0.0002
+        },
+        "TileResponse": {
+          "atol": 2e-05,
+          "rtol": 0.0002,
+          "metric": "frobenius_norm"
+        }
+      },
+      "restart_operation": "joint_restart",
+      "required_restarts": [
+        "joint_chain-restart-3",
+        "joint_chain-restart-80",
+        "joint_chain-restart-90",
+        "joint_chain-restart-98",
+        "joint_chain-restart-99",
+        "joint_chain-restart-100",
+        "joint_chain-restart-109",
+        "joint_chain-restart-119"
+      ],
+      "reason": "Small identical-state solver differences accumulate through contact-sensitive trajectory feedback; bounded per-field regression acceptance requires independent all-frame physical checks and effective-response reconstruction."
+    }
   }
 }

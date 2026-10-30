@@ -27,6 +27,17 @@ pub fn fixture(
     nb: usize,
     frames: u32,
 ) -> Value {
+    fixture_with_snapshots(dir, label, columns, levels, nb, frames, &[])
+}
+pub fn fixture_with_snapshots(
+    dir: &Path,
+    label: &str,
+    columns: usize,
+    levels: usize,
+    nb: usize,
+    frames: u32,
+    snapshots: &[u32],
+) -> Value {
     fs::create_dir_all(dir).unwrap();
     let guard = 0xdeadbeefu32;
     let per = if label == "empty" {
@@ -439,123 +450,126 @@ pub fn fixture(
     let mut pfm_keys = vec![guard; cs];
     let mut pfm_sorted_keys = vec![guard; cs];
     macro_rules! buffers {
-        ($suffix:expr) => {{
+        ($suffix:expr) => {
+            buffers!(dir, $suffix)
+        };
+        ($root:expr,$suffix:expr) => {{
             if joint_scene {
-                write(dir, &format!("Joints{}.bin", $suffix), &joints);
-                write(dir, &format!("Builders{}.bin", $suffix), &builders);
+                write($root, &format!("Joints{}.bin", $suffix), &joints);
+                write($root, &format!("Builders{}.bin", $suffix), &builders);
                 write(
-                    dir,
+                    $root,
                     &format!("JointConstraints{}.bin", $suffix),
                     &joint_constraints,
                 );
-                write(dir, &format!("JointColors{}.bin", $suffix), &joint_colors);
-                write(dir, &format!("JointBias{}.bin", $suffix), &[1u32, guard]);
+                write($root, &format!("JointColors{}.bin", $suffix), &joint_colors);
+                write($root, &format!("JointBias{}.bin", $suffix), &[1u32, guard]);
                 write(
-                    dir,
+                    $root,
                     &format!("JointUnbiased{}.bin", $suffix),
                     &[0u32, guard],
                 );
-                write(dir, &format!("MotorParams{}.bin", $suffix), &motor_params);
+                write($root, &format!("MotorParams{}.bin", $suffix), &motor_params);
             }
             if traced {
-                write(dir, &format!("Trajectory{}.bin", $suffix), &trajectory);
-                write(dir, &format!("FrameIndex{}.bin", $suffix), &frame_index);
+                write($root, &format!("Trajectory{}.bin", $suffix), &trajectory);
+                write($root, &format!("FrameIndex{}.bin", $suffix), &frame_index);
             }
             if general_scene {
                 write(
-                    dir,
+                    $root,
                     &format!("GeometryIndices{}.bin", $suffix),
                     &geometry_indices,
                 );
-                write(dir, &format!("PfmPairs{}.bin", $suffix), &pfm_pairs);
-                write(dir, &format!("PfmIdentity{}.bin", $suffix), &pfm_identity);
-                write(dir, &format!("PfmOrder{}.bin", $suffix), &pfm_order);
-                write(dir, &format!("PfmKeys{}.bin", $suffix), &pfm_keys);
+                write($root, &format!("PfmPairs{}.bin", $suffix), &pfm_pairs);
+                write($root, &format!("PfmIdentity{}.bin", $suffix), &pfm_identity);
+                write($root, &format!("PfmOrder{}.bin", $suffix), &pfm_order);
+                write($root, &format!("PfmKeys{}.bin", $suffix), &pfm_keys);
                 write(
-                    dir,
+                    $root,
                     &format!("PfmSortedKeys{}.bin", $suffix),
                     &pfm_sorted_keys,
                 );
             }
-            write(dir, &format!("Poses{}.bin", $suffix), &poses);
-            write(dir, &format!("LocalPoses{}.bin", $suffix), &local_poses);
+            write($root, &format!("Poses{}.bin", $suffix), &poses);
+            write($root, &format!("LocalPoses{}.bin", $suffix), &local_poses);
             write(
-                dir,
+                $root,
                 &format!("ColliderPoses{}.bin", $suffix),
                 &collider_poses,
             );
-            write(dir, &format!("SolverPoses{}.bin", $suffix), &solver_poses);
-            write(dir, &format!("Velocities{}.bin", $suffix), &vels);
+            write($root, &format!("SolverPoses{}.bin", $suffix), &solver_poses);
+            write($root, &format!("Velocities{}.bin", $suffix), &vels);
             write(
-                dir,
+                $root,
                 &format!("SolverVelocities{}.bin", $suffix),
                 &solver_vels,
             );
-            write(dir, &format!("Increments{}.bin", $suffix), &inc);
-            write(dir, &format!("LocalMass{}.bin", $suffix), &local);
-            write(dir, &format!("WorldMass{}.bin", $suffix), &world);
-            write(dir, &format!("Shapes{}.bin", $suffix), &shapes);
-            write(dir, &format!("Materials{}.bin", $suffix), &materials);
-            write(dir, &format!("Parents{}.bin", $suffix), &parents);
-            write(dir, &format!("Filters{}.bin", $suffix), &filters);
-            write(dir, &format!("Groups{}.bin", $suffix), &interaction);
-            write(dir, &format!("Vertices{}.bin", $suffix), &vertices);
-            write(dir, &format!("Aabbs{}.bin", $suffix), &aabbs);
-            write(dir, &format!("Pairs{}.bin", $suffix), &pairs);
-            write(dir, &format!("PairCount{}.bin", $suffix), &pair_count);
-            write(dir, &format!("PfmCount{}.bin", $suffix), &pfm_count);
-            write(dir, &format!("Plan{}.bin", $suffix), &plan);
-            write(dir, &format!("PfmSortLen{}.bin", $suffix), &pfm_sort_len);
+            write($root, &format!("Increments{}.bin", $suffix), &inc);
+            write($root, &format!("LocalMass{}.bin", $suffix), &local);
+            write($root, &format!("WorldMass{}.bin", $suffix), &world);
+            write($root, &format!("Shapes{}.bin", $suffix), &shapes);
+            write($root, &format!("Materials{}.bin", $suffix), &materials);
+            write($root, &format!("Parents{}.bin", $suffix), &parents);
+            write($root, &format!("Filters{}.bin", $suffix), &filters);
+            write($root, &format!("Groups{}.bin", $suffix), &interaction);
+            write($root, &format!("Vertices{}.bin", $suffix), &vertices);
+            write($root, &format!("Aabbs{}.bin", $suffix), &aabbs);
+            write($root, &format!("Pairs{}.bin", $suffix), &pairs);
+            write($root, &format!("PairCount{}.bin", $suffix), &pair_count);
+            write($root, &format!("PfmCount{}.bin", $suffix), &pfm_count);
+            write($root, &format!("Plan{}.bin", $suffix), &plan);
+            write($root, &format!("PfmSortLen{}.bin", $suffix), &pfm_sort_len);
             write(
-                dir,
+                $root,
                 &format!("ContactsIndirect{}.bin", $suffix),
                 &contacts_grid,
             );
-            write(dir, &format!("PfmIndirect{}.bin", $suffix), &pfm_grid);
-            write(dir, &format!("MbIndirect{}.bin", $suffix), &mb_grid);
-            write(dir, &format!("RawContacts{}.bin", $suffix), &raw);
-            write(dir, &format!("Contacts{}.bin", $suffix), &contacts);
-            write(dir, &format!("Counts{}.bin", $suffix), &counts);
-            write(dir, &format!("Ids{}.bin", $suffix), &ids);
-            write(dir, &format!("SortedIds{}.bin", $suffix), &sorted_ids);
-            write(dir, &format!("IsMultibody{}.bin", $suffix), &is_multibody);
-            write(dir, &format!("BodyGroup{}.bin", $suffix), &body_group);
-            write(dir, &format!("FirstSlot{}.bin", $suffix), &first);
-            write(dir, &format!("Links{}.bin", $suffix), &links);
-            write(dir, &format!("OldLinks{}.bin", $suffix), &old_links);
-            write(dir, &format!("OldCounts{}.bin", $suffix), &old_counts);
-            write(dir, &format!("OldIds{}.bin", $suffix), &old_ids);
-            write(dir, &format!("OldIndices{}.bin", $suffix), &old_indices);
-            write(dir, &format!("OldColors{}.bin", $suffix), &old_colors);
-            write(dir, &format!("States{}.bin", $suffix), &states);
-            write(dir, &format!("Colors{}.bin", $suffix), &colors);
-            write(dir, &format!("Rands{}.bin", $suffix), &rands);
-            write(dir, &format!("Colored{}.bin", $suffix), &colored);
-            write(dir, &format!("Pending{}.bin", $suffix), &pending);
-            write(dir, &format!("NumColors{}.bin", $suffix), &num_colors);
+            write($root, &format!("PfmIndirect{}.bin", $suffix), &pfm_grid);
+            write($root, &format!("MbIndirect{}.bin", $suffix), &mb_grid);
+            write($root, &format!("RawContacts{}.bin", $suffix), &raw);
+            write($root, &format!("Contacts{}.bin", $suffix), &contacts);
+            write($root, &format!("Counts{}.bin", $suffix), &counts);
+            write($root, &format!("Ids{}.bin", $suffix), &ids);
+            write($root, &format!("SortedIds{}.bin", $suffix), &sorted_ids);
+            write($root, &format!("IsMultibody{}.bin", $suffix), &is_multibody);
+            write($root, &format!("BodyGroup{}.bin", $suffix), &body_group);
+            write($root, &format!("FirstSlot{}.bin", $suffix), &first);
+            write($root, &format!("Links{}.bin", $suffix), &links);
+            write($root, &format!("OldLinks{}.bin", $suffix), &old_links);
+            write($root, &format!("OldCounts{}.bin", $suffix), &old_counts);
+            write($root, &format!("OldIds{}.bin", $suffix), &old_ids);
+            write($root, &format!("OldIndices{}.bin", $suffix), &old_indices);
+            write($root, &format!("OldColors{}.bin", $suffix), &old_colors);
+            write($root, &format!("States{}.bin", $suffix), &states);
+            write($root, &format!("Colors{}.bin", $suffix), &colors);
+            write($root, &format!("Rands{}.bin", $suffix), &rands);
+            write($root, &format!("Colored{}.bin", $suffix), &colored);
+            write($root, &format!("Pending{}.bin", $suffix), &pending);
+            write($root, &format!("NumColors{}.bin", $suffix), &num_colors);
             write(
-                dir,
+                $root,
                 &format!("ColoringIndirect{}.bin", $suffix),
                 &coloring_grid,
             );
-            write(dir, &format!("Tiles{}.bin", $suffix), &tiles);
-            write(dir, &format!("OldTiles{}.bin", $suffix), &old_tiles);
-            write(dir, &format!("SortedLinks{}.bin", $suffix), &sorted_links);
-            write(dir, &format!("Indices{}.bin", $suffix), &indices);
-            write(dir, &format!("Buckets{}.bin", $suffix), &bucket_ends);
-            write(dir, &format!("Stats{}.bin", $suffix), &stats);
-            write(dir, &format!("Indirect{}.bin", $suffix), &indirect);
-            write(dir, &format!("InOrder{}.bin", $suffix), &order);
-            write(dir, &format!("Keys{}.bin", $suffix), &keys);
-            write(dir, &format!("Values{}.bin", $suffix), &values);
-            write(dir, &format!("SortCount{}.bin", $suffix), &count);
-            write(dir, &format!("BatchIds{}.bin", $suffix), &[batch]);
-            write(dir, &format!("RbdParams{}.bin", $suffix), &[p]);
-            write(dir, &format!("Gravity{}.bin", $suffix), &[gravity]);
-            write(dir, &format!("HubCounts{}.bin", $suffix), &[hubs]);
+            write($root, &format!("Tiles{}.bin", $suffix), &tiles);
+            write($root, &format!("OldTiles{}.bin", $suffix), &old_tiles);
+            write($root, &format!("SortedLinks{}.bin", $suffix), &sorted_links);
+            write($root, &format!("Indices{}.bin", $suffix), &indices);
+            write($root, &format!("Buckets{}.bin", $suffix), &bucket_ends);
+            write($root, &format!("Stats{}.bin", $suffix), &stats);
+            write($root, &format!("Indirect{}.bin", $suffix), &indirect);
+            write($root, &format!("InOrder{}.bin", $suffix), &order);
+            write($root, &format!("Keys{}.bin", $suffix), &keys);
+            write($root, &format!("Values{}.bin", $suffix), &values);
+            write($root, &format!("SortCount{}.bin", $suffix), &count);
+            write($root, &format!("BatchIds{}.bin", $suffix), &[batch]);
+            write($root, &format!("RbdParams{}.bin", $suffix), &[p]);
+            write($root, &format!("Gravity{}.bin", $suffix), &[gravity]);
+            write($root, &format!("HubCounts{}.bin", $suffix), &[hubs]);
             for (k, v) in &sorting {
                 write(
-                    dir,
+                    $root,
                     &format!(
                         "{}{}.bin",
                         if k == "Counts" { "RadixCounts" } else { k },
@@ -565,8 +579,12 @@ pub fn fixture(
                 );
             }
             for i in 0..4 {
-                write(dir, &format!("AdjAux{i}{}.bin", $suffix), &aux[i]);
-                write(dir, &format!("BucketAux{i}{}.bin", $suffix), &bucket_aux[i]);
+                write($root, &format!("AdjAux{i}{}.bin", $suffix), &aux[i]);
+                write(
+                    $root,
+                    &format!("BucketAux{i}{}.bin", $suffix),
+                    &bucket_aux[i],
+                );
             }
         }};
     }
@@ -587,6 +605,11 @@ pub fn fixture(
         );
     }
     for frame in 0..frames {
+        let snapshot_dir = dir.join(format!("restart-{frame}"));
+        if snapshots.contains(&frame) {
+            fs::create_dir_all(&snapshot_dir).unwrap();
+            buffers!(&snapshot_dir, "");
+        }
         pair_count[0] = 0;
         for i in 0..bg * 64 {
             gpu_update_mprops(
@@ -1225,6 +1248,9 @@ pub fn fixture(
         old_colors.copy_from_slice(&colors);
         old_tiles.copy_from_slice(&tiles);
         states.copy_within(cs..2 * cs, 0);
+        if snapshots.contains(&frame) {
+            buffers!(&snapshot_dir, ".expected");
+        }
         if (frame + 1) % 30 == 0 {
             println!(
                 "{label}: frame={} contacts={} positions={:?}",

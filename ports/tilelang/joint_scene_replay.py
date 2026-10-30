@@ -6,10 +6,13 @@ from joint_scene_validation import BUFFERS, check_outputs, validate_case
 def diagnostics(layout, case, before, actual, expected, contract):
     from joint_scene_physics import check
 
-    return {
+    result = {
         name: check(layout, case, before, result, contract)
         for name, result in (("actual", actual), ("rust", expected))
     }
+
+    result["numerical_policy"] = contract.get("numerical_cases", {}).get(case["name"])
+    return result
 
 
 def main():

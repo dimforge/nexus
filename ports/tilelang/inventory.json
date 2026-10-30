@@ -1518,7 +1518,9 @@
         "rbd.contact.coulomb.colored_warmstart3d",
         "rbd.contact.coulomb.colored_cached3d",
         "rbd.contact.coulomb.colored_program3d",
-        "rbd.contact.coefficients3d"
+        "rbd.contact.coefficients3d",
+        "rbd.pipeline.general_restart3d",
+        "rbd.pipeline.joint_restart3d"
       ],
       "remaining": "Preparation, warmstart, native ordered color ranges and resident analytic/joint/general fixture frames are translated. Remaining fused/tail variants, production scheduling and numerical qualification remain."
     },
@@ -1731,7 +1733,9 @@
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
         "rbd.joint.program3d",
-        "rbd.pipeline.joint_scene3d"
+        "rbd.pipeline.joint_scene3d",
+        "rbd.pipeline.general_restart3d",
+        "rbd.pipeline.joint_restart3d"
       ],
       "remaining": "Ordinary joints are connected to analytic frames with continuous trajectory validation. Production arbitrary scene upload/backend selection and broader scene coverage remain."
     },
@@ -1795,7 +1799,9 @@
         "rbd.pipeline.analytic_collision3d",
         "rbd.pipeline.analytic_scene3d",
         "rbd.pipeline.joint_scene3d",
-        "rbd.pipeline.general_scene3d"
+        "rbd.pipeline.general_scene3d",
+        "rbd.pipeline.general_restart3d",
+        "rbd.pipeline.joint_restart3d"
       ],
       "remaining": "Analytic, ordinary-joint and general collision fixture scenes are composed on resident storage with trajectory diagnostics. Public backend selection, arbitrary upload and capacity retry, hubs and remaining variants are pending."
     },

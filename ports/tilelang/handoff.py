@@ -311,6 +311,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from replay import check_outputs
     from scan_replay import check_outputs as check_scan_outputs
     from scene_replay import check_outputs as check_scene_outputs
+    from scene_restart_validation import check_outputs as check_scene_restart_outputs
     from support_validation import check_outputs as check_support_outputs
     from tgs_replay import check_outputs as check_tgs_outputs
     from warmstart_replay import check_outputs as check_warmstart_outputs
@@ -382,6 +383,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "joint_fields": check_joint_outputs,
                     "joint_scene_fields": check_joint_scene_outputs,
                     "general_scene_fields": check_general_scene_outputs,
+                    "scene_restart_fields": check_scene_restart_outputs,
                     "lbvh_fields": check_lbvh_outputs,
                     "lbvh_program_fields": check_lbvh_program_outputs,
                     "geometry_fields": check_geometry_outputs,

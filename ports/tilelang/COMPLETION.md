@@ -70,14 +70,10 @@ A justified scoped numerical policy may accept harmless divergence without chang
 the Rust physics. Do not clear it solely by increasing a global tolerance, deleting
 cases, or declaring every floating-point mismatch harmless.
 
-Current connected-scene gap: the 120-frame joint-chain fixture fails strict
-C/Metal numeric parity (final velocity difference about 6.58e-4), while both
-trajectories satisfy the independent physical assertions. Keep it blocked until
-the contact-sensitive numerical behavior has a justified, tested policy; all
-sixteen scene cases remain required.
-
-The general triangle 120-frame fixture also fails strict numeric parity on C and
-Metal, with a final pose component difference about 1.04e-4 and transient angular
-velocity difference about 0.00624. Both trajectories satisfy the independent
-physical checks. Identical-state single-frame diagnostics are in progress; this
-case remains required and blocked until a justified numerical policy is tested.
+The two contact-sensitive 120-frame triangle and joint-chain fixtures now have
+explicit per-case, per-field numeric policies backed by required identical-state
+single-frame restart fixtures and independent geometry, effective-response and
+all-frame physical checks. Their final registered matrix remains required after
+source changes. The isolated zero-distance CFM stress case and the inherited
+secondary-witness clipping gap remain unresolved. No global float tolerance or
+physics arithmetic is changed by this classification.

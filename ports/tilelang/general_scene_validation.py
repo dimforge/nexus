@@ -1,6 +1,7 @@
 """General scene ABI, collider geometry, and full trajectory checks."""
 
 import numpy as np
+import scene_numeric as numeric_policy
 import scene_outputs as outputs
 import scene_validation as base
 from deferred_validation import mesh_indices, vertices
@@ -204,11 +205,13 @@ def check_trajectory(l, c, b, a, e, k):
     pw, vw = l["pose_words"], l["velocity_words"]
     stride = c["trace_stride"]
     mask = np.zeros(a["Trajectory"].size, bool)
+    pose_mask = mask.copy()
     for frame in range(c["frames"]):
         for i in range(n):
             for field, width in (("pose_translation", 3), ("pose_rotation", 4)):
                 off = frame * stride + i * pw + l[field]
                 mask[off : off + width] = True
+                pose_mask[off : off + width] = True
             for field in ("velocity_linear", "velocity_angular"):
                 off = frame * stride + n * pw + i * vw + l[field]
                 mask[off : off + 3] = True
@@ -223,20 +226,23 @@ def check_trajectory(l, c, b, a, e, k):
         )
     np.testing.assert_array_equal(a["Trajectory"][~mask], e["Trajectory"][~mask])
     aa, ee = (r["Trajectory"].view(np.float32)[mask] for r in (a, e))
-    np.testing.assert_allclose(
-        aa,
-        ee,
-        atol=k["atol"],
-        rtol=k["rtol"],
-        err_msg="General scene all-frame trajectory",
-    )
+    for field, selection in [
+        ("TrajectoryPoses", pose_mask),
+        ("TrajectoryVelocities", mask & ~pose_mask),
+    ]:
+        numeric_policy.check(
+            c,
+            k,
+            field,
+            a["Trajectory"].view(np.float32)[selection],
+            e["Trajectory"].view(np.float32)[selection],
+        )
     return float(np.max(np.abs(aa - ee), initial=0))
 
 
-def check_outputs(l, c, b, a, e, k):
+def check_checkpoint(l, c, b, a, e, k):
     from general_scene_outputs import check_collision
 
-    validate_case(l, c, b)
     for r in (a, e):
         if set(r) != set(b) or any(
             v.dtype != np.uint32 or v.shape != b[n].shape for n, v in r.items()
@@ -266,6 +272,12 @@ def check_outputs(l, c, b, a, e, k):
     count = outputs.check_graph(l, c, ac, ec)
     errors.update(outputs.check_constraints(l, c, ac, ec, k, count))
     errors.update(outputs.check_states(l, c, ac, ec, k, count))
+    return errors
+
+
+def check_outputs(l, c, b, a, e, k):
+    validate_case(l, c, b)
+    errors = check_checkpoint(l, c, b, a, e, k)
     errors["Trajectory"] = check_trajectory(l, c, b, a, e, k)
     for r in (a, e):
         check_physics(l, c, b, r, k)

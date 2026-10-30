@@ -2,6 +2,7 @@
 
 import broadphase_replay as broad
 import numpy as np
+import scene_numeric as numeric_policy
 from deferred_validation import contact_fields, vertices
 from general_scene_physics import primitives
 from joint_scene_physics import multiply
@@ -30,7 +31,9 @@ def check_collision(l, c, b, a, e, k):
     ee = {n: e[n] for n in broad.BUFFERS}
     ee["Poses"] = e["ColliderPoses"]
     bc["buffer_words"] = {n: v.size for n, v in bb.items()}
-    errors = broad.check_outputs(l, bc, bb, aa, ee, k)
+    errors = broad.check_outputs(
+        l, bc, bb, aa, ee, numeric_policy.field_contract(c, k, "Aabbs")
+    )
     pf, cf, mf = l["plan"], l["contact"], l["manifold"]
     w = l["contact_words"]
     length = cf["contact"] + mf["len"]
@@ -155,8 +158,8 @@ def check_collision(l, c, b, a, e, k):
         np.testing.assert_allclose(
             ar[mask].view(np.float32),
             er[mask].view(np.float32),
-            atol=k["atol"],
-            rtol=k["rtol"],
+            atol=numeric_policy.tolerances(c, k, "PfmPairs")[0],
+            rtol=numeric_policy.tolerances(c, k, "PfmPairs")[1],
             err_msg="General PFM pose/extent",
         )
     contacts = [r["Contacts"].reshape(-1, w)[:bound] for r in (a, e)]
@@ -237,8 +240,8 @@ def check_collision(l, c, b, a, e, k):
         np.testing.assert_allclose(
             av,
             ev,
-            atol=k["atol"],
-            rtol=k["rtol"],
+            atol=numeric_policy.tolerances(c, k, "Contacts")[0],
+            rtol=numeric_policy.tolerances(c, k, "Contacts")[1],
             err_msg=f"General active contact {i}",
         )
         largest = max(largest, float(np.max(np.abs(av - ev), initial=0)))

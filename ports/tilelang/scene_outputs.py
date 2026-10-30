@@ -1,5 +1,6 @@
 """Semantic comparison of a resident scene checkpoint, including allocation order."""
 
+import scene_numeric as numeric_policy
 from scene_validation import BODY_BUFFERS, READONLY, body_case
 
 
@@ -142,7 +143,11 @@ def check_bodies(l, c, b, a, e, contract):
         if not np.isfinite(av).all() or not np.isfinite(ev).all():
             raise AssertionError(f"Nonfinite scene {name}")
         np.testing.assert_allclose(
-            av, ev, atol=contract["atol"], rtol=contract["rtol"], err_msg=name
+            av,
+            ev,
+            atol=numeric_policy.tolerances(c, contract, name)[0],
+            rtol=numeric_policy.tolerances(c, contract, name)[1],
+            err_msg=name,
         )
         errors[name] = float(np.max(np.abs(av - ev))) if av.size else 0.0
     return errors
@@ -177,7 +182,9 @@ def check_collision(l, c, b, a, e, contract):
     ee = {name: e[name] for name in broad.BUFFERS}
     ee["Poses"] = e["ColliderPoses"]
     bc["buffer_words"] = {name: v.size for name, v in bb.items()}
-    errors = broad.check_outputs(l, bc, bb, aa, ee, contract)
+    errors = broad.check_outputs(
+        l, bc, bb, aa, ee, numeric_policy.field_contract(c, contract, "Aabbs")
+    )
     count = int(a["PairCount"][0])
     pf = l["plan"]
     if count > c["pair_capacity"]:
@@ -218,7 +225,11 @@ def check_collision(l, c, b, a, e, contract):
         iterations=1,
         buffer_words={name: v.size for name, v in bb.items()},
     )
-    errors.update(narrow.check_outputs(l, nc, bb, aa, ee, contract))
+    errors.update(
+        narrow.check_outputs(
+            l, nc, bb, aa, ee, numeric_policy.field_contract(c, contract, "Contacts")
+        )
+    )
     length = l["contact"]["contact"] + l["manifold"]["len"]
     for result in (a, e):
         order = result["InOrder"][:count]
@@ -398,6 +409,9 @@ def check_graph(l, c, a, e):
 def check_constraints(l, c, a, e, contract, count):
     import numpy as np
 
+    for result in (a, e):
+        numeric_policy.constraint_geometry(l, c, result)
+    numeric_policy.constraint_response(l, c, a, e, contract)
     h, p = l["header"], l["point"]
     lf = l["link"]
     max_error = 0.0
@@ -406,7 +420,6 @@ def check_constraints(l, c, a, e, contract, count):
             continue
         av = []
         ev = []
-        cache_mask = None
         for result, output in ((a, av), (e, ev)):
             slot = int(result["Indices"][cid])
             base = slot // 32 * l["tile_words"] + slot % 32 * 4
@@ -417,25 +430,42 @@ def check_constraints(l, c, a, e, contract, count):
                 raise AssertionError("Invalid scene tile length")
             words = []
             mask = []
+            labels = []
             for name, off in h.items():
                 words.extend(range(base + off, base + off + 4))
                 mask.extend([True] * 3 + [name == "tangent"])
+                labels.extend(
+                    [
+                        "TileDirections"
+                        if name in ("normal", "tangent")
+                        else "TileHeader"
+                    ]
+                    * 3
+                    + ["TileMaterial"]
+                )
             words.extend(range(base + l["coupling"], base + l["coupling"] + 4))
             mask.extend([True] * length + [False] * (4 - length))
+            labels.extend(["TileResponse"] * 4)
             for k in range(length):
                 pb = base + l["points"] + k * l["point_words"]
-                for off in p.values():
+                for field, off in p.items():
                     words.extend(range(pb + off, pb + off + 4))
                     mask.extend([True] * 4)
+                    labels.extend(
+                        {
+                            "arm_a": ["TileGeometry"] * 3 + ["TileImpulse"],
+                            "arm_b": ["TileGeometry"] * 3 + ["TileCoefficients"],
+                            "friction": ["TileImpulse"] * 2 + ["TileResponse"] * 2,
+                            "local_a": ["TileGeometry"] * 4,
+                            "local_b": ["TileGeometry"] * 3 + ["TileBias"],
+                        }[field]
+                    )
                 normal = float(floats[pb + p["arm_a"] + 3])
                 limit = normal * float(floats[base + h["tangent"] + 3])
                 if normal < 0 or np.linalg.norm(
                     floats[pb + p["friction"] : pb + p["friction"] + 2]
                 ) > limit + contract["atol"] + contract["rtol"] * abs(limit):
                     raise AssertionError("Scene unilateral/Coulomb impulse")
-            cache_mask = np.array(
-                [False] * len(words) + [True] * (2 * l["velocity_words"])
-            )
             cache = (
                 slot // 32 * l["tile_words"]
                 + l["warmstart"]
@@ -452,7 +482,8 @@ def check_constraints(l, c, a, e, contract, count):
                 for field in ("velocity_linear", "velocity_angular"):
                     cm[l[field] : l[field] + 3] = True
                 mask.extend(cm)
-            output.extend((tile[words], np.array(mask)))
+                labels.extend(["TileCache"] * l["velocity_words"])
+            output.extend((tile[words], np.array(mask), np.array(labels)))
         if not np.array_equal(av[1], ev[1]):
             raise AssertionError("Scene prepared point count differs")
         mask = av[1]
@@ -462,22 +493,18 @@ def check_constraints(l, c, a, e, contract, count):
         af, ef = av[0].view(np.float32)[mask], ev[0].view(np.float32)[mask]
         if not np.isfinite(af).all() or not np.isfinite(ef).all():
             raise AssertionError("Nonfinite scene constraint")
-        np.testing.assert_allclose(
-            af[~cache_mask[mask]],
-            ef[~cache_mask[mask]],
-            atol=contract["atol"],
-            rtol=contract["rtol"],
-            err_msg=f"Scene tile {cid}",
-        )
-        np.testing.assert_allclose(
-            af[cache_mask[mask]],
-            ef[cache_mask[mask]],
-            atol=contract["cached_warmstart_atol"]
-            if c["frames"] > 1
-            else contract["atol"],
-            rtol=contract["rtol"],
-            err_msg=f"Scene cached warmstart {cid}",
-        )
+        labels = av[2][mask]
+        for field in np.unique(labels):
+            if field == "TileResponse":
+                continue
+            fallback = (
+                contract["cached_warmstart_atol"]
+                if field == "TileCache" and c["frames"] > 1
+                else contract["atol"]
+            )
+            numeric_policy.check(
+                c, contract, field, af[labels == field], ef[labels == field], fallback
+            )
         max_error = max(max_error, float(np.max(np.abs(af - ef))))
     return {"Tiles": max_error}
 
@@ -524,8 +551,8 @@ def check_states(l, c, a, e, contract, count):
         np.testing.assert_allclose(
             af,
             ef,
-            atol=contract["atol"],
-            rtol=contract["rtol"],
+            atol=numeric_policy.tolerances(c, contract, "States")[0],
+            rtol=numeric_policy.tolerances(c, contract, "States")[1],
             err_msg="Scene recycle state",
         )
         maximum = max(maximum, float(np.max(np.abs(af - ef))))

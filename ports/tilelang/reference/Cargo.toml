@@ -141,3 +141,7 @@ path = "src/general_scenes.rs"
 [[bin]]
 name = "lbvh"
 path = "src/lbvh.rs"
+
+[[bin]]
+name="scene-restarts"
+path="src/scene_restarts.rs"
