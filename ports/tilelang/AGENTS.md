@@ -13,8 +13,9 @@
    slots only when both inverse mass and inverse inertia are zero; any read/write
    alias remains invalid. Cached gather writes one ordinary body per invocation;
    hub warmstart writes one split slot per invocation. Preparation only reads body
-   inputs, so shared indices are allowed there. Fused colors and barriers remain
-   outside the contracts.
+   inputs, so shared indices are allowed there. Native fused/tail dispatches are represented by ordered color launches; see
+   NATIVE_RUNTIME.md and the native schedule-variants differential regression.
+   Ascend barriers and runtime synchronization still require device qualification.
 4. Add a regression for every bug fix. A bug discovered in Rust should be fixed
    there with the same regression, or recorded as an explicit unresolved
    difference. Do not change Rust arithmetic just to make the port tests pass.
@@ -34,8 +35,8 @@
 8. Finish with `parity.py check`. Missing hardware results remain unvalidated;
    old results remain stale after relevant changes. The default check accepts
    the documented experimental pilot. `--release` also rejects blocking gaps.
-   Report actual scope and limitations, including the lack of production runtime
-   integration and Ascend execution.
+   Report actual scope and limitations, including current full-matrix status and
+   unavailable Ascend execution.
 
 `reference/Cargo.lock` and compiler requirements are tracked deliberately. A
 compiler/runtime upgrade is a change requiring revalidation. Reports identify the

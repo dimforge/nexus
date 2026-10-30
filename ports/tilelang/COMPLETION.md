@@ -37,33 +37,33 @@ Implemented and connected:
 - Source/archive-bound checkpoints and reset preserve complete continuation state,
   including contact caches and gravity, with C/Metal control and scene regressions.
 
-Remaining implementation and qualification:
+Also implemented: scene reconstruction for insertion/removal, mutable solver
+parameters, model switching between Coulomb and compact twist friction, native
+mesh/shape point queries and render-instance preparation. The public runtime now
+checks contact palette and completion before committing and can grow both the
+palette and deterministic round budget. Their current-source qualification remains
+explicit in the evidence ledger.
 
-1. Complete scene lifecycle: insertion/removal or explicit reconstruction preserving
-   the intended state, mutable solver parameters and
-   remaining public backend integration. Cold-start upload is not a continuation
-   checkpoint. Do not substitute host physics for a missing generated stage.
-2. Broaden dense hub scene and lifecycle qualification. Complete coloring
-   convergence/palette behavior and the remaining
-   solver/friction variants. Audit production fused/tail paths against the portable
-   ordered schedule; any intentional substitution needs a classified semantic
-   difference and production comparison, not an unearned module-complete flag.
-3. Complete required query/shape/render inventory capabilities and other missing
-   active 3D shader behavior. Preserve the mirrored Rust module organization.
-4. Add broader production scene and lifecycle coverage, including dense/shared-body
-   contacts, hubs, configuration variants and long-run physical stability. Sleeping
-   stays disabled in scene/benchmark comparisons. Verify guards, exact identities,
-   counters, contact geometry, response/cache consistency and finite/unit states.
-5. Complete the current full C/Metal execution matrix, Ascend source matrix,
-   corruption/regression tests and immutable handoff/return protocol. Update the
-   CPU-only CI workflow with native runtime checks and a scalable execution layout;
-   the old single-job timeout is not qualified for the expanded matrix. Recorded
-   Metal/Ascend protocol tests are conditional only when recordings are absent;
-   explicitly configured missing/stale evidence must fail.
-6. Reconcile the full registry against the final source snapshot. Ascend vendor
-   compilation, execution, synchronization and performance remain unavailable until
-   hardware/toolkit access exists; they are not prerequisites for completing the
-   offline work and must never be inferred from source lowering.
+Remaining qualification and audit:
+
+1. Finish the 120-frame dense/shared-body runtime comparison and checkpoint
+   continuation tests. Keep sleeping disabled, finite/unit states, exact counters,
+   guards and independent physical bounds mandatory.
+2. Complete the scheduling substitution audit and native fused/tail regression.
+   Ordered launches preserve color dependencies; different warmstart accumulation
+   orders must remain covered by native scene and restart contracts. Native CPU
+   fused/tail kernels require cooperative dispatch as well as noalias disabled.
+3. Refresh stale inventory descriptions against implemented active 3D paths.
+   Distinguish executable helpers, ABI representations, namespace modules and
+   user-deferred features; do not claim every Rust convenience API was ported merely
+   because a simulation capability is covered.
+4. Run the final complete C/Metal execution and Ascend source matrices, all required
+   corruption/regression and public runtime tests, and immutable handoff/return
+   checks. CPU CI has exhaustive registry shards and native runtime checks; remote
+   CI has not run because no branch is pushed.
+5. Reconcile every operation against the final source snapshot. Ascend vendor
+   compilation, execution, synchronization and performance are not prerequisites
+   for offline completion and must never be inferred from source lowering.
 
 The CPU oracle requires `-Zmutable-noalias=no`; always use `cpu_oracle.py` and retain
 its LLVM attribute probe. Default floating tolerances already permit roundoff.

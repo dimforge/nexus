@@ -181,10 +181,11 @@ model_kernel! {
 /// variants (one workgroup, with a barrier between colors). The caching variants also store
 /// each constraint's warmstart for the next substep.
 macro_rules! tile_solver_kernel {
-    ($name:ident, $mode:ident, $mode_value:expr, $cache:expr, $tail:expr) => {
+    ($name:ident, $mode:ident, $mode_value:expr, $cache:expr, $tail:expr, $bindgen:meta) => {
         model_kernel! {
             #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
-            #[spirv_bindgen]
+            // Tail colors exchange storage writes between lanes at color_barrier.
+            #[$bindgen]
             #[spirv(compute(threads(64)))]
             pub fn $name(
                 #[spirv(global_invocation_id)] gid: UVec3,
@@ -244,56 +245,64 @@ tile_solver_kernel!(
     mode,
     decode_bias_mode(*mode),
     false,
-    false
+    false,
+    spirv_bindgen
 );
 tile_solver_kernel!(
     gpu_solve_constraints_biased,
     mode,
     (true, false),
     false,
-    false
+    false,
+    spirv_bindgen
 );
 tile_solver_kernel!(
     gpu_solve_constraints_unbiased,
     mode,
     (false, true),
     false,
-    false
+    false,
+    spirv_bindgen
 );
 tile_solver_kernel!(
     gpu_solve_constraints_unbiased_cached,
     mode,
     (false, true),
     true,
-    false
+    false,
+    spirv_bindgen
 );
 tile_solver_kernel!(
     gpu_solve_constraints_tail,
     mode,
     decode_bias_mode(*mode),
     false,
-    true
+    true,
+    spirv_bindgen(force_cpu_coroutines)
 );
 tile_solver_kernel!(
     gpu_solve_constraints_tail_biased,
     mode,
     (true, false),
     false,
-    true
+    true,
+    spirv_bindgen(force_cpu_coroutines)
 );
 tile_solver_kernel!(
     gpu_solve_constraints_tail_unbiased,
     mode,
     (false, true),
     false,
-    true
+    true,
+    spirv_bindgen(force_cpu_coroutines)
 );
 tile_solver_kernel!(
     gpu_solve_constraints_tail_unbiased_cached,
     mode,
     (false, true),
     true,
-    true
+    true,
+    spirv_bindgen(force_cpu_coroutines)
 );
 
 /// Solves every color with one 64-lane workgroup per batch, with a barrier between colors.
@@ -302,7 +311,7 @@ macro_rules! fused_tile_solver_kernel {
     ($name:ident, $cache:expr) => {
         model_kernel! {
             #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
-            #[spirv_bindgen]
+            #[spirv_bindgen(force_cpu_coroutines)]
             #[spirv(compute(threads(64)))]
             pub fn $name(
                 #[spirv(global_invocation_id)] invocation_id: UVec3,
@@ -407,7 +416,7 @@ model_kernel! {
 model_kernel! {
     /// [`gpu_warmstart_constraints`] for every color, with one 64-lane workgroup per batch.
     #[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
-    #[spirv_bindgen]
+    #[spirv_bindgen(force_cpu_coroutines)]
     #[spirv(compute(threads(64)))]
     pub fn gpu_warmstart_constraints_fused(
         #[spirv(global_invocation_id)] invocation_id: UVec3,

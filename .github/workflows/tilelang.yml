@@ -35,7 +35,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ports/tilelang/reference/target
-            ports/tilelang/native/target
+            target
           key: tilelang-oracles-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/native/Cargo.lock', 'ports/tilelang/cpu_oracle.py') }}
       - name: Rust checks with the mandatory noalias guard
         run: |
@@ -44,6 +44,8 @@ jobs:
           python ports/tilelang/cpu_oracle.py clippy --locked --all-targets -- -D warnings
           python ports/tilelang/cpu_oracle.py test --locked --bin cpu-dispatch-check
           python ports/tilelang/cpu_oracle.py test --locked --release --bin cpu-dispatch-check
+          python ports/tilelang/cpu_oracle.py test --locked --bin schedule-variants
+          python ports/tilelang/cpu_oracle.py test --locked --release --bin schedule-variants
           python ports/tilelang/cpu_oracle.py --native clippy --locked --no-default-features --features runtime --all-targets -- -D warnings
           python ports/tilelang/cpu_oracle.py --native test --locked --no-default-features --features runtime
       - name: Check inventory, tracking and exhaustive matrix routing
@@ -76,7 +78,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ports/tilelang/reference/target
-            ports/tilelang/native/target
+            target
           key: tilelang-oracles-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/native/Cargo.lock', 'ports/tilelang/cpu_oracle.py') }}
       - name: Install pinned portable compiler
         run: |
@@ -139,7 +141,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ports/tilelang/reference/target
-            ports/tilelang/native/target
+            target
           key: tilelang-oracles-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/native/Cargo.lock', 'ports/tilelang/cpu_oracle.py') }}
       - name: Install pinned compiler
         run: |
@@ -152,6 +154,7 @@ jobs:
           merge-multiple: true
       - name: Run growth, live controls, lifecycle, checkpoints and model switching
         run: |
+          mkdir -p "$NEXUS_TILELANG_RUNTIME_WORK"
           export NEXUS_TILELANG_RUNTIME_PYTHON="$(command -v python)"
           export NEXUS_TILELANG_RUNTIME_EXPECTED="$GITHUB_WORKSPACE/ports/tilelang/results/runtime_scene/c/fixtures/runtime_scene/mesh-contact-joint-f8"
           export NEXUS_TILELANG_RUNTIME_EXPECTED_UNREDUCED="$GITHUB_WORKSPACE/ports/tilelang/results/runtime_scene/c/fixtures/runtime_scene/mesh-overlap-unreduced-f8"

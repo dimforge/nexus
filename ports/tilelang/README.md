@@ -1,25 +1,17 @@
 # TileLang rigid-body parity pilot
 
-This experimental port has twenty-six operation contracts: effective mass calculation,
-warmstarting, Coulomb solving, clamped integration, deterministic constraint-ID
-sorting, five body lifecycle entry points, world mass-property updates, collider
-pose propagation, contact preparation, contact-link initialization/matching/color seeding, and
-composed no-contact body and contact-persistence steps, impulse scaling, cached
-body warmstart gathering, split-slot warmstart application, and all five hub
-mass-splitting entry points.
-The body stages cover cleanup, COM pose initialization, gravity increments,
-increment application and final writeback. They use Rust buffer layouts and live
-Rust reference functions. The composed step reuses those ports for repeated frames
-and substeps; it does not yet connect to Nexus's production simulation backend.
+This experimental port connects the 3D rigid-body solver to a Rust-owned runtime
+that executes generated TileLang kernels on C or Metal. It includes Coulomb and
+simplified twist friction, ordinary joints, analytic and general collision,
+convex/mesh/polyline geometry, LBVH traversal, contact recycling, hub splitting,
+coloring, scene reconstruction, live controls and continuation checkpoints.
+See [NATIVE_RUNTIME.md](NATIVE_RUNTIME.md) for the public backend and
+[COMPLETION.md](COMPLETION.md) for remaining qualification work.
 
-Contact preparation now builds Coulomb tiles from sorted links and manifolds,
-transfers nearest cached impulses, reuses recycled anchors, and writes tagged
-warmstart deltas. Solving and direct warmstart still require a conflict-free color.
-Contact-link matching, recycle eligibility, impulse scaling, cached body gathering
-and split-slot warmstart application are also ported. Collision detection,
-production coloring/hub schedules, joints, twist friction and Ascend execution
-remain unimplemented. Articulated multibodies, MPM
-and 2D are deferred by the user. See `COMPLETION.md` for the agreed completion scope.
+The offline Ascend path generates kernels, binding manifests and source-bound
+fixtures for a future CANN execution adapter. No Ascend vendor compilation, device
+execution, synchronization or performance is certified. Articulated multibodies,
+MPM and 2D are deferred by the user.
 
 Rust remains the behavioral reference. `parity.json` maps stable operation IDs
 to reference symbols, implementations, contracts, and per-target evidence. Each
@@ -67,6 +59,14 @@ to 1.98.1. Custom flags and compiler wrappers are rejected; effective settings a
 probe hashes are recorded in each report. The build script rejects direct builds
 missing the required flags. This is a required backend workaround, not a proof of
 Rust aliasing soundness or a replacement for GPU validation.
+
+Fused and tail-color CPU entry points also require cooperative coroutine dispatch:
+they exchange storage writes at barriers without a shared-memory parameter that
+would otherwise enable it. The native kernels explicitly request this mode.
+`schedule-variants` compares native separate, fused and tail dispatches on
+cross-lane shared-body graphs for both contact models, including cached output
+and warmstart. Run it through `cpu_oracle.py` in debug and release modes.
+
 
 For direct exporter checks, use `python3 ports/tilelang/cpu_oracle.py clippy --locked
 --all-targets -- -D warnings` and `python3 ports/tilelang/cpu_oracle.py test --locked

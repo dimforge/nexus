@@ -120,7 +120,7 @@ fn main() {
         if args.len() == 9 {
             let colors: u32 = args[7].parse().unwrap();
             let rounds: u32 = args[8].parse().unwrap();
-            assert!((1..=63).contains(&colors) && rounds >= 2 && rounds < u32::MAX);
+            assert!((1..=63).contains(&colors) && (2..u32::MAX).contains(&rounds));
             upload.batch.solver_color_buckets_stride = colors + 2;
             upload.coloring_rounds = Some(rounds);
         }

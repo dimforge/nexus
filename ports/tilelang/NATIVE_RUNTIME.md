@@ -43,7 +43,7 @@ a C++ compiler for C execution. No Rust reference physics runs during specializa
 The native typed constructors supply initial memory; translated kernels perform
 all subsequent dynamics.
 
-Each `step` advances exactly one frame. On pair or deferred-work overflow, the
+Each `step` advances exactly one frame. On pair/deferred-work overflow or insufficient contact coloring, the
 runtime asks the compiler for a larger variant and retries before solver commit.
 It checks that the compiler sources and original scene archive still match the
 session. Failed compilation or insufficient application capacity leaves the prior
@@ -59,8 +59,8 @@ then rejects further stepping.
 
 The integration remains experimental. Cold-start uploads do not preserve existing
 contact caches. Topo coloring, Coulomb and simplified twist friction, ordinary joints and LBVH
-form the current composed path, including native hub splitting. Remaining
-scheduling variants still need integration.
+form the current composed path, including native hub splitting. Native fused/tail dispatches use separate ordered colors in this backend;
+see the dispatch substitution below.
 No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
 prepares source only for a future CANN execution adapter.
 
@@ -85,7 +85,13 @@ are still required for full qualification.
 `contact_reduction` selects native per-pair manifold merging. Set it to `false` to
 match the default Nexus pipeline, or `true` to merge composite contacts. It is
 part of the immutable compilation configuration and survives capacity growth.
-The imported color palette determines the native bounded Topo iteration count.
+The imported palette supplies the initial bounded Topo budget. Before any physics
+commit, device counters report the highest active color and any uncolored contact.
+The runtime grows the palette or iteration budget and retries. Palette values above
+63 fail explicitly; the application pair limit also bounds the maximum round budget.
+An unresolved graph returns a capacity error and leaves published physical state
+unchanged. Checkpoints retain pair, deferred-work, color and round capacities as
+separate named limits.
 
 `set_gravity`, `set_body_poses`, and `set_velocities` update live device inputs between
 frames. Body ranges follow the same native interleaved order as readback. Updates
@@ -174,3 +180,27 @@ pipeline, with switches in both directions and initial capacity growth. These
 checks require the noalias-disabled CPU profile even when TileLang runs on Metal.
 The registered `runtime_twist_scene` matrix additionally covers native joints,
 multiple colliders, mesh reduction, split hubs and large batch storage.
+
+## Portable dispatch substitution
+
+The runtime dispatches colors in ascending order, with a device execution boundary
+between colors. Native fused kernels and the tail beginning at color 24 execute
+the same per-contact arithmetic and ascending order within one workgroup, using
+barriers between colors. For a valid coloring, contacts within one color have
+disjoint writable velocity slots; static slots are read-only. Different batches
+have disjoint state. Therefore replacing a fused/tail dispatch with ordered color
+dispatches preserves dependencies without reproducing its launch-cost optimization.
+The native `schedule-variants` regression compares every storage word after three
+passes, warmstart and cached output for both models, with occupied colors
+24/25/62/63, empty colors, multiple batches and widths exceeding a workgroup.
+
+The frame uses ordered scatter warmstart. Native rigid-only production normally
+uses per-body gathering of tagged cached deltas. Both primitives are separately
+ported and tested; their accumulation order can differ in floating point. Complete
+native scene comparisons and identical-state restart contracts qualify that
+substitution. GPU synchronization and performance on Ascend still need device tests.
+
+`native/tests/runtime_coloring.rs` exercises palette/round growth, high colors,
+120 native production frames with sleeping disabled, live gravity and fresh-runtime
+checkpoint restoration. It uses the standard compiler/workspace variables and
+`NEXUS_DISABLE_BF=1`; no pre-exported expected fixture is needed.

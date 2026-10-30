@@ -193,3 +193,7 @@ path = "src/shape_queries.rs"
 [[bin]]
 name = "color-requirements"
 path = "src/color_requirements.rs"
+
+[[bin]]
+name = "schedule-variants"
+path = "src/schedule_variants.rs"
