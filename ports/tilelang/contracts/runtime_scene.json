@@ -259,7 +259,9 @@
     "mesh-contact-joint-f1",
     "mesh-contact-joint-f8",
     "wide-contacts-f1",
-    "wide-contacts-f8"
+    "wide-contacts-f8",
+    "many-batches-f1",
+    "many-batches-f8"
   ],
   "preconditions": [
     "Fresh real Nexus CPU conversion, sleeping disabled, native body/collider parent mappings and offset local poses preserved.",
@@ -267,7 +269,8 @@
     "Two batches of a multi-collider dynamic body, fixed joint endpoint and parentless mesh, with prismatic limits/motors; three batches of 65 independent ball/ground contacts.",
     "Archive built with the pinned noalias-disabled CPU toolchain; geometry and joints use the production converters. Typed storage and dispatch offsets are Rust-derived.",
     "Pair/deferred capacities are explicit. Overflow is an error; the separately registered resident runtime provides retry qualification.",
-    "Fresh production RbdPipeline::step traces with deterministic LBVH and contact reduction must match all composed Rust oracle body poses and velocities. Native physical inputs match exactly; allocator capacities and deterministic enablement may differ."
+    "Fresh production RbdPipeline::step traces with deterministic LBVH and contact reduction must match all composed Rust oracle body poses and velocities. Native physical inputs match exactly; allocator capacities and deterministic enablement may differ.",
+    "Twenty-four independent contact batches cross the 256-element color-bucket prefix boundary. Adjacency and buckets allocate every required scan level from active dimensions."
   ],
   "invariants": [
     "Complete generated LBVH, general collision, contact persistence, canonical ordering, body adjacency, contact coloring, joint and contact solve, integration and finalization. No CPU physics between kernels or frames.",

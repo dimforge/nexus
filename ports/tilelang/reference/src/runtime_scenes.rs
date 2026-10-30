@@ -46,6 +46,7 @@ fn main() {
             ("multi-collider-joint", 64),
             ("mesh-contact-joint", 64),
             ("wide-contacts", 512),
+            ("many-batches", 64),
         ]
         .into_iter()
         .flat_map(|(name, capacity)| {

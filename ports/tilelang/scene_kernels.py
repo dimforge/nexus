@@ -229,8 +229,8 @@ def make_program(l, c, target):
         bucket_count=c["color_stride"] * nb,
         batches=nb,
         groups=groups,
-        strides=[c["color_stride"] * nb, 1, 1, 1],
-        levels=1,
+        strides=c["bucket_strides"],
+        levels=c["bucket_levels"],
     )
     program("buckets", bucket_kernels.make_program(l, bc, target), bm)
     pm = identity(CONTACT)

@@ -81,3 +81,22 @@ pub fn wide_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
     }
     (bodies, colliders, ImpulseJointSet::new())
 }
+
+/// One ground contact per batch, used to exercise the inter-batch bucket hierarchy.
+pub fn small_contact_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
+    let mut bodies = RigidBodySet::new();
+    let mut colliders = ColliderSet::new();
+    let ground = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(0.0, -0.5, shift)));
+    colliders.insert_with_parent(ColliderBuilder::cuboid(2.0, 0.5, 2.0), ground, &mut bodies);
+    let body = bodies.insert(
+        RigidBodyBuilder::dynamic()
+            .translation(Vec3::new(0.0, 0.49, shift))
+            .linvel(Vec3::new(0.0, -0.1, 0.0))
+            .can_sleep(false),
+    );
+    colliders.insert_with_parent(ColliderBuilder::ball(0.5), body, &mut bodies);
+    for (_, body) in bodies.iter_mut() {
+        body.recompute_mass_properties_from_colliders(&colliders);
+    }
+    (bodies, colliders, ImpulseJointSet::new())
+}

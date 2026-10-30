@@ -516,16 +516,16 @@ pub(crate) fn scene_storage(
         1
     ];
     let mut indirect = vec![[guard; 3]; color_stride];
-    let mut aux = vec![
-        vec![guard; n.div_ceil(256) + 3],
-        vec![guard; 4],
-        vec![guard; 4],
-        vec![guard; 4],
-    ];
-    let strides = [n as u32, (n as u32).div_ceil(256), 1, 1, 1];
-    let levels_scan = if n <= 256 { 1 } else { 2 };
-    let mut bucket_aux = vec![vec![guard; 4]; 4];
-    let bucket_strides = [(color_stride * nb) as u32, 1, 1, 1, 1];
+    let (strides, levels_scan) = prefix_program::hierarchy(n);
+    let mut aux: Vec<_> = strides[1..]
+        .iter()
+        .map(|s| vec![guard; *s as usize + 3])
+        .collect();
+    let (bucket_strides, bucket_levels) = prefix_program::hierarchy(color_stride * nb);
+    let mut bucket_aux: Vec<_> = bucket_strides[1..]
+        .iter()
+        .map(|s| vec![guard; *s as usize + 3])
+        .collect();
     let mut order: Vec<u32> = (0..cs)
         .map(|i| {
             if i < n {
@@ -1194,7 +1194,7 @@ pub(crate) fn scene_storage(
             indirect: GpuBuffer::Cpu(indirect.clone()),
             aux: bucket_aux.clone(),
             strides: bucket_strides,
-            levels: 1,
+            levels: bucket_levels,
             groups,
         };
         bucket_state.reset();
@@ -1536,7 +1536,7 @@ pub(crate) fn scene_storage(
             (name, json!(size))
         })
         .collect::<serde_json::Map<_, _>>();
-    let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":joint_color_count,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"bodies_per_batch":body_per,"body_capacity_per_batch":body_capacity,"collider_count":collider_count,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"buffer_words":sizes});
+    let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":joint_color_count,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"bodies_per_batch":body_per,"body_capacity_per_batch":body_capacity,"collider_count":collider_count,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"bucket_strides":&bucket_strides[..4],"bucket_levels":bucket_levels,"buffer_words":sizes});
     if upload.is_some() {
         case["kind"] = json!("runtime_scene");
         case["general_collision"] = json!(true);

@@ -5,7 +5,7 @@ use nexus_rbd3d::{
     rapier::prelude::*,
     shaders::dynamics::RbdSimParams,
 };
-use nexus_tilelang_native::upload_cases::{capacities, scene, wide_scene};
+use nexus_tilelang_native::upload_cases::{capacities, scene, small_contact_scene, wide_scene};
 use std::{fs, path::PathBuf};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     futures::executor::block_on(async {
@@ -24,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "multi-collider-joint",
             "mesh-contact-joint",
             "wide-contacts",
+            "many-batches",
         ] {
             let mesh = SharedShape::trimesh_with_flags(
                 vec![
@@ -36,6 +37,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
             let scenes = if label == "wide-contacts" {
                 vec![wide_scene(0.), wide_scene(10.), wide_scene(20.)]
+            } else if label == "many-batches" {
+                (0..24)
+                    .map(|i| small_contact_scene(i as f32 * 10.0))
+                    .collect()
             } else {
                 vec![scene(0., mesh.clone()), scene(10., mesh)]
             };
@@ -51,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut state = RbdState::from_rapier(&backend, &refs, caps);
             state.set_gravity(
                 &backend,
-                if label == "wide-contacts" {
+                if label == "wide-contacts" || label == "many-batches" {
                     [0., -9.81, 0.]
                 } else {
                     [0., -3., 0.5]
