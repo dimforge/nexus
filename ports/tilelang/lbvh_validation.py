@@ -141,8 +141,10 @@ def validate_case(l, c, b):
         raise ValueError("Invalid LBVH dimensions")
     n, nb, cap = c["colliders"], c["batches"], c["capacity"]
     if (
-        not 1 <= nb <= 64
-        or not 1 <= c["groups"] <= 64
+        # Batch/group counts are bounded by the native-sized allocations below,
+        # not by the early fixture suite's 64-batch/64-workgroup sampling limit.
+        nb < 1
+        or c["groups"] < 1
         or c["iterations"] != 1
         or c["count"] != n * nb
         or cap != n + 3

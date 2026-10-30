@@ -48,6 +48,9 @@ class RuntimeSceneTests(unittest.TestCase):
         self.assertEqual(c["hub_pool"], 1026)
         self.assertGreater(c["body_storage"], c["hub_pool"])
         check_outputs(l, c, b, e, e, k)
+        # The world-AABB sub-check must accept more than 64 independent batches,
+        # but the ordinary exact native capacity metadata remains mandatory.
+        self.assertEqual(c["batches"], 513)
         c["hub_pool"] = c["body_storage"]
         with self.assertRaises(ValueError):
             validate_case(l, c, b)

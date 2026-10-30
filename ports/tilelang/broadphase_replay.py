@@ -38,7 +38,11 @@ def validate_case(layout, case, arrays):
         raise ValueError("Invalid broad-phase dimensions")
     n, nb = case["colliders"], case["batches"]
     if (
-        not 1 <= nb <= 64
+        nb < 1
+        # The quadratic brute-force fixtures retain their work bound. World AABBs
+        # launch one lane per collider; their storage and dispatch bounds below
+        # already constrain every batch and do not require a 64-batch ceiling.
+        or (case["kind"] != "world_aabbs" and nb > 64)
         or n > 4096
         or case["count"] != n * nb
         or n > case["capacity"]
