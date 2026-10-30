@@ -39,7 +39,8 @@
   ],
   "reference_limitations": [
     "Bounded GJK/EPA may fail and return no contacts; zero-dimensional native fallback is retained",
-    "Native feature approximations and edge clipping can produce reconstructed secondary witnesses outside the second shape; these cases retain strict numeric comparison and explicit diagnostic lists"
+    "Native feature approximations and edge clipping can produce reconstructed secondary witnesses outside the second shape; these cases retain strict numeric comparison and explicit diagnostic lists",
+    "Backface fallback points outside the finite triangle are rejected in Rust and TileLang by change 0047; the neighboring valid speculative contact is retained."
   ],
   "known_gaps": [
     {
@@ -54,6 +55,7 @@
     "n49",
     "n65",
     "n129",
-    "n343"
+    "n343",
+    "triangle_fallback"
   ]
 }

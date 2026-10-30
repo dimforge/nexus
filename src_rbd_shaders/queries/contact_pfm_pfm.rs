@@ -177,8 +177,22 @@ pub fn contact_manifold_pfm_pfm(
                 false,
             );
 
-            // The fallback's projected deepest point may lie outside the triangle, so it is
-            // only used when feature clipping produced nothing.
+            // A back-face fallback projects onto the infinite triangle plane. If
+            // clipping found no contact, that projection must still lie on the
+            // finite triangle; otherwise it can invent a deep contact far outside
+            // the mesh. Preserve the bounded-query miss instead.
+            #[cfg(feature = "dim3")]
+            if fallback && manifold.len == 0 {
+                let projected = pfm1
+                    .to_triangle()
+                    .project_local_point_and_get_location(p1, true);
+                let eps = FLT_EPS * 100.0;
+                if (projected.point - p1).length_squared() > eps * eps {
+                    return ContactManifold::default();
+                }
+            }
+
+            // A fallback contributes its point only when clipping produced nothing.
             if manifold.len < MAX_MANIFOLD_POINTS as u32
                 && (DIM == 3 || (DIM == 2 && manifold.len == 0))
                 && !(fallback && manifold.len > 0)

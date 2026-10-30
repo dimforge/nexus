@@ -4,6 +4,7 @@ import tilelang.language as T
 from kernel_support import cross, dot, f32, quat_rotate
 
 from ..shapes.shape import local_support_point, support_face
+from ..shapes.triangle import project_local_point_and_get_location
 from .gjk.epa3 import closest_points as epa_closest
 from .gjk.gjk import closest_points as gjk_closest
 from .gjk.gjk import cso_point_from_shapes
@@ -214,7 +215,31 @@ def contact_manifold_pfm_pfm(l):
                 contacts(
                     Q, Translation, f1, n, f2, c1[0], c2[0], total, Points, Count, False
                 )
-                if (Count[0] < 4) & (not (fallback[0] & (Count[0] > 0))):
+                append_valid = T.alloc_local((1,), "bool")
+                append_valid[0] = True
+                if fallback[0] & (Count[0] == 0):
+                    ta = T.alloc_local((3,), "float32")
+                    tb = T.alloc_local((3,), "float32")
+                    tc = T.alloc_local((3,), "float32")
+                    values = T.alloc_local((6,), "float32")
+                    flags = T.alloc_local((3,), "uint32")
+                    gap = T.alloc_local((3,), "float32")
+                    for d in T.serial(3):
+                        ta[d] = f32(Shapes, ia * l["shape_words"] + sf["a"] + d)
+                        tb[d] = f32(Shapes, ia * l["shape_words"] + sf["b"] + d)
+                        tc[d] = f32(Shapes, ia * l["shape_words"] + sf["c"] + d)
+                    project_local_point_and_get_location(
+                        ta, tb, tc, p1, True, values, flags
+                    )
+                    for d in T.serial(3):
+                        gap[d] = values[d] - p1[d]
+                    eps = T.float32(1e-7) * T.float32(100)
+                    append_valid[0] = dot(gap, gap) <= eps * eps
+                if (
+                    append_valid[0]
+                    & (Count[0] < 4)
+                    & (not (fallback[0] & (Count[0] > 0)))
+                ):
                     for d in T.serial(3):
                         delta[d] = p2[d] - p1[d]
                         Points[Count[0], d] = p1[d]
@@ -227,7 +252,15 @@ def contact_manifold_pfm_pfm(l):
                                 Points[i, d] = Points[i, d] + n[d] * radius1
                             Points[i, 3] = Points[i, 3] - (radius1 + radius2)
                 dedup_manifold_points(Points, Count, prediction)
-                for d in T.serial(3):
-                    Normal[d] = n[d]
+                if append_valid[0]:
+                    for d in T.serial(3):
+                        Normal[d] = n[d]
+                else:
+                    for v in T.serial(4):
+                        for d in T.serial(4):
+                            Points[v, d] = 0.0
+                    for d in T.serial(3):
+                        Normal[d] = 0.0
+                    Count[0] = 0
 
     return one

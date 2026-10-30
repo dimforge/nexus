@@ -90,6 +90,11 @@ fn main() {
                 projection_fixture::fixture(&directory, kind, count)
             });
         }
+        if kind == "pfm_manifold" {
+            cases.push(pfm_fixture::triangle_fixture(
+                &root.join(kind).join("triangle_fallback"),
+            ));
+        }
         if kind == "epa_closest" || kind == "gjk_epa" {
             cases.push(support_fixture::touching_fixture(
                 &root.join(kind).join("point_touch"),

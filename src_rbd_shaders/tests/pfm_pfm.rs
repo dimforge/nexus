@@ -238,3 +238,70 @@ fn degenerate_epa_faces_do_not_create_zero_normal_contacts() {
         );
     }
 }
+
+#[test]
+#[cfg(feature = "dim3")]
+fn triangle_backface_fallback_stays_on_the_finite_triangle() {
+    use crate::{PaddedVector, shapes::Triangle};
+    use glamx::{Quat, Vec3};
+    let vertices: Vec<_> = (0..8)
+        .map(|i| {
+            PaddedVector::new(Vec3::new(
+                if i & 1 == 0 { -0.5 } else { 0.5 },
+                if i & 2 == 0 { -0.7 } else { 0.7 },
+                if i & 4 == 0 { -0.3 } else { 0.3 },
+            ))
+        })
+        .collect();
+    let indices = [
+        0, 0, 0, 0, 4, 6, 0, 6, 2, 1, 3, 7, 1, 7, 5, 0, 1, 5, 0, 5, 4, 2, 6, 7, 2, 7, 3, 0, 2, 3,
+        0, 3, 1, 4, 5, 7, 4, 7, 6,
+    ];
+    let convex = Shape::convex_poly(0, 8, 0, indices.len() as u32);
+    // Exact relative pose from the mixed mesh/polyhedron deferred regression.
+    let f = f32::from_bits;
+    let pose = Pose::from_parts(
+        Vec3::new(f(1067869798), f(1045220559), f(3184315596)),
+        Quat::from_xyzw(f(1048315297), f(3189969584), f(1051360326), f(1063611899)),
+    );
+    let a = Vec3::new(-0.6, -0.5, 0.0);
+    let b = Vec3::new(0.6, -0.5, 0.0);
+    let c = Vec3::new(0.6, 0.5, 0.0);
+    let d = Vec3::new(-0.6, 0.5, 0.0);
+    let bad = pfm_pfm(
+        pose,
+        &Shape::from_triangle(&Triangle::new(a, b, c)),
+        0.0,
+        &convex,
+        0.0,
+        0.02,
+        &vertices,
+        &indices,
+    );
+    // Previously this returned (1.1546427, 0.75503933, 0) at depth -0.60767436:
+    // more than 0.6 units outside the triangle, despite only a nearby corner.
+    assert_eq!(
+        bad.len, 0,
+        "Reject the off-triangle infinite-plane fallback"
+    );
+    let tri = Triangle::new(a, c, d);
+    let neighbor = pfm_pfm(
+        pose,
+        &Shape::from_triangle(&tri),
+        0.0,
+        &convex,
+        0.0,
+        0.02,
+        &vertices,
+        &indices,
+    );
+    assert!(
+        neighbor.len > 0,
+        "Keep the neighboring triangle's valid speculative contact"
+    );
+    for point in neighbor.points_a.iter().take(neighbor.len as usize) {
+        let projected = tri.project_local_point_and_get_location(point.pt, true);
+        assert!((projected.point - point.pt).length_squared() < 1e-10);
+        assert!(point.dist >= 0.0 && point.dist < 0.02);
+    }
+}

@@ -20,7 +20,7 @@ class PfmTests(unittest.TestCase):
                 "NEXUS_TILELANG_PFM_FIXTURES", HERE / "results" / op / "c/fixtures"
             )
         )
-        d = root / op / f"n{n}"
+        d = root / op / (f"n{n}" if isinstance(n, int) else n)
         l = json.loads((root / "layout.json").read_text())
         c = json.loads((d / "case.json").read_text())
         k = json.loads((HERE / "contracts" / f"{op}.json").read_text())
@@ -39,6 +39,13 @@ class PfmTests(unittest.TestCase):
                 with self.subTest(op=op, n=n):
                     l, c, b, e, k = self.fixture(op, n)
                     check_outputs(l, c, b, e, e, k)
+
+    def test_triangle_fallback_rejects_only_the_invalid_contact(self):
+        l, c, b, e, k = self.fixture(n="triangle_fallback")
+        check_outputs(l, c, b, e, e, k)
+        rows = e["Output"].reshape(-1, l["feature_manifold_words"])
+        self.assertEqual(int(rows[0, l["feature_manifold"]["count"]]), 0)
+        self.assertGreater(int(rows[1, l["feature_manifold"]["count"]]), 0)
 
     def test_native_secondary_misses_remain_visible(self):
         l, c, b, e, k = self.fixture()

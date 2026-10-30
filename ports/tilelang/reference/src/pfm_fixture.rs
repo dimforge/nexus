@@ -22,6 +22,12 @@ fn shape(ty: usize) -> Shape {
 }
 
 pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
+    fixture_impl(dir, kind, n, false)
+}
+pub fn triangle_fixture(dir: &Path) -> Value {
+    fixture_impl(dir, "pfm_manifold", 2, true)
+}
+fn fixture_impl(dir: &Path, kind: &str, n: usize, triangle_case: bool) -> Value {
     fs::create_dir_all(dir).unwrap();
     let storage = n + 3;
     let guard = 0xdeadbeefu32;
@@ -67,6 +73,23 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
             ..Pose::IDENTITY
         };
         input[i][0] = 0.02f32.to_bits();
+    }
+    if triangle_case {
+        let f = f32::from_bits;
+        let pose = Pose::from_parts(
+            Vec3::new(f(1067869798), f(1045220559), f(3184315596)),
+            Quat::from_xyzw(f(1048315297), f(3189969584), f(1051360326), f(1063611899)),
+        );
+        let a = Vec3::new(-0.6, -0.5, 0.0);
+        let b = Vec3::new(0.6, -0.5, 0.0);
+        let c = Vec3::new(0.6, 0.5, 0.0);
+        let d = Vec3::new(-0.6, 0.5, 0.0);
+        shapes[0] = Shape::from_triangle(&Triangle::new(a, b, c));
+        shapes[1] = shape(5);
+        shapes[2] = Shape::from_triangle(&Triangle::new(a, c, d));
+        shapes[3] = shape(5);
+        poses[0] = pose;
+        poses[1] = pose;
     }
     macro_rules! write {
         ($name:expr,$values:expr) => {
@@ -135,7 +158,7 @@ pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
     .into_iter()
     .map(|(k, v)| (k.to_owned(), json!(v)))
     .collect::<serde_json::Map<_, _>>();
-    let c = json!({"name":format!("n{n}"),"kind":kind,"count":n,"storage":storage,"groups":1,"iterations":1,"buffer_words":sizes});
+    let c = json!({"name":if triangle_case {"triangle_fallback".to_owned()} else {format!("n{n}")},"kind":kind,"count":n,"storage":storage,"groups":1,"iterations":1,"buffer_words":sizes});
     fs::write(
         dir.join("case.json"),
         serde_json::to_vec_pretty(&c).unwrap(),
