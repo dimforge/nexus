@@ -1,0 +1,273 @@
+test_contract_is_selected_by_feature (test_parity.MultiFeatureTests.test_contract_is_selected_by_feature) ... ok
+test_one_operation_cannot_certify_another (test_parity.MultiFeatureTests.test_one_operation_cannot_certify_another) ... ok
+test_baseline_hash_bump_does_not_refresh_evidence (test_parity.ParityTests.test_baseline_hash_bump_does_not_refresh_evidence) ... ok
+test_deleted_dependency_invalidates_evidence (test_parity.ParityTests.test_deleted_dependency_invalidates_evidence) ... ok
+test_duplicate_overrides_cannot_hide_a_failed_report (test_parity.ParityTests.test_duplicate_overrides_cannot_hide_a_failed_report) ... ok
+test_failed_incomplete_or_wrong_toolchain_report_is_rejected (test_parity.ParityTests.test_failed_incomplete_or_wrong_toolchain_report_is_rejected) ... ok
+test_missing_or_unsafe_cpu_oracle_is_rejected (test_parity.ParityTests.test_missing_or_unsafe_cpu_oracle_is_rejected) ... ok
+test_modifying_accepted_evidence_or_change_record_is_visible (test_parity.ParityTests.test_modifying_accepted_evidence_or_change_record_is_visible) ... ok
+test_new_implementation_file_invalidates_evidence (test_parity.ParityTests.test_new_implementation_file_invalidates_evidence) ... ok
+test_new_rust_feature_cannot_be_silently_unmapped (test_parity.ParityTests.test_new_rust_feature_cannot_be_silently_unmapped) ... ok
+test_reconciliation_requires_execution_and_change_record (test_parity.ParityTests.test_reconciliation_requires_execution_and_change_record) ... ok
+test_reconciling_cpu_keeps_old_metal_evidence_stale (test_parity.ParityTests.test_reconciling_cpu_keeps_old_metal_evidence_stale) ... ok
+test_release_gate_rejects_explicit_known_gap (test_parity.ParityTests.test_release_gate_rejects_explicit_known_gap) ... ok
+test_rust_semantic_change_invalidates_evidence (test_parity.ParityTests.test_rust_semantic_change_invalidates_evidence) ... ok
+test_success_is_scoped_and_ascend_is_unvalidated (test_parity.ParityTests.test_success_is_scoped_and_ascend_is_unvalidated) ... ok
+test_tolerance_change_invalidates_evidence (test_parity.ParityTests.test_tolerance_change_invalidates_evidence) ... ok
+test_deferred_scope_requires_explicit_reason_and_keeps_coverage (test_inventory.InventoryTests.test_deferred_scope_requires_explicit_reason_and_keeps_coverage) ... ok
+test_duplicate_dispositions_are_rejected (test_inventory.InventoryTests.test_duplicate_dispositions_are_rejected) ... ok
+test_mapped_subset_passes (test_inventory.InventoryTests.test_mapped_subset_passes) ... ok
+test_mirrored_path_is_required (test_inventory.InventoryTests.test_mirrored_path_is_required) ... ok
+test_missing_symbol_and_unmapped_shader_are_rejected (test_inventory.InventoryTests.test_missing_symbol_and_unmapped_shader_are_rejected) ... ok
+test_new_and_removed_rust_modules_need_review (test_inventory.InventoryTests.test_new_and_removed_rust_modules_need_review) ... ok
+test_new_operation_needs_module_and_capability_mapping (test_inventory.InventoryTests.test_new_operation_needs_module_and_capability_mapping) ... ok
+test_unported_file_cannot_certify_an_operation (test_inventory.InventoryTests.test_unported_file_cannot_certify_an_operation) ... ok
+test_workspace_registry_has_module_and_capability_mappings (test_inventory.InventoryTests.test_workspace_registry_has_module_and_capability_mappings) ... ok
+test_every_registered_operation_exactly_once (test_matrix.MatrixTests.test_every_registered_operation_exactly_once) ... ok
+test_every_routed_command_uses_its_registered_runner (test_matrix.MatrixTests.test_every_routed_command_uses_its_registered_runner) ... ok
+test_invalid_shards_fail (test_matrix.MatrixTests.test_invalid_shards_fail) ... ok
+test_missing_specialized_runner_and_duplicate_fail (test_matrix.MatrixTests.test_missing_specialized_runner_and_duplicate_fail) ... ok
+test_unsupported_execution_is_not_lowering_evidence (test_matrix.MatrixTests.test_unsupported_execution_is_not_lowering_evidence) ... ok
+test_export_requires_matching_compiled_schedule_and_real_gates (test_frame_manifest.FrameManifestTests.test_export_requires_matching_compiled_schedule_and_real_gates) ... ok
+test_gate_after_commit_or_outside_counter_is_rejected (test_frame_manifest.FrameManifestTests.test_gate_after_commit_or_outside_counter_is_rejected) ... ok
+test_native_regions_exclude_variable_capacity_guards (test_frame_manifest.FrameManifestTests.test_native_regions_exclude_variable_capacity_guards) ... ok
+test_outer_iterations_and_trace_limit_cannot_advance_extra_frames (test_frame_manifest.FrameManifestTests.test_outer_iterations_and_trace_limit_cannot_advance_extra_frames) ... ok
+test_persistent_ranges_reject_overlap_and_truncation (test_frame_manifest.FrameManifestTests.test_persistent_ranges_reject_overlap_and_truncation) ... ok
+test_unbounded_control_requires_an_explicit_limit_and_no_trace (test_frame_manifest.FrameManifestTests.test_unbounded_control_requires_an_explicit_limit_and_no_trace) ... ok
+test_valid_control_abi (test_frame_manifest.FrameManifestTests.test_valid_control_abi) ... ok
+test_checkpoint_rejections_do_not_change_live_state (test_frame_cpu.FrameCpuTests.test_checkpoint_rejections_do_not_change_live_state) ... ok
+test_checkpoint_restore_and_reset_preserve_continuation (test_frame_cpu.FrameCpuTests.test_checkpoint_restore_and_reset_preserve_continuation) ... ok
+test_exhaustion_does_not_advance (test_frame_cpu.FrameCpuTests.test_exhaustion_does_not_advance) ... ok
+test_failed_growth_compilation_keeps_state (test_frame_cpu.FrameCpuTests.test_failed_growth_compilation_keeps_state) ... ok
+test_growth_after_prior_frame_preserves_state_and_limits (test_frame_cpu.FrameCpuTests.test_growth_after_prior_frame_preserves_state_and_limits) ... ok
+test_invalid_variant_cannot_shrink_or_change_meaning (test_frame_cpu.FrameCpuTests.test_invalid_variant_cannot_shrink_or_change_meaning) ... ok
+test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace (test_frame_cpu.FrameCpuTests.test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace) ... ok
+test_partial_commit_failure_poisoned (test_frame_cpu.FrameCpuTests.test_partial_commit_failure_poisoned) ... ok
+test_rejected_extension_does_not_mutate_the_session (test_frame_cpu.FrameCpuTests.test_rejected_extension_does_not_mutate_the_session) ... ok
+test_same_stage_limits_retry_before_commit (test_frame_cpu.FrameCpuTests.test_same_stage_limits_retry_before_commit) ... ok
+test_updates_migrate_and_rejections_preserve_guards (test_frame_cpu.FrameCpuTests.test_updates_migrate_and_rejections_preserve_guards) ... ok
+test_capacity_return_extend_step_and_explicit_read (test_runtime_service.RuntimeServiceTests.test_capacity_return_extend_step_and_explicit_read) ... ok
+test_checkpoint_restore_and_reset_protocol (test_runtime_service.RuntimeServiceTests.test_checkpoint_restore_and_reset_protocol) ... ok
+test_modified_or_missing_artifact_inventory_rejects_load (test_runtime_service.RuntimeServiceTests.test_modified_or_missing_artifact_inventory_rejects_load) ... ok
+test_write_protocol_checks_words_and_preserves_updates (test_runtime_service.RuntimeServiceTests.test_write_protocol_checks_words_and_preserves_updates) ... ok
+test_full_ir_and_target_key_lowering_reuse (test_ordered_cpu.OrderedCpuTests.test_full_ir_and_target_key_lowering_reuse) ... ok
+test_repeated_kernels_keep_buffer_mappings_and_iteration_counts (test_ordered_cpu.OrderedCpuTests.test_repeated_kernels_keep_buffer_mappings_and_iteration_counts) ... ok
+test_grid_and_thread_extents_are_both_required (test_launch.LaunchTests.test_grid_and_thread_extents_are_both_required) ... ok
+test_serial_c_does_not_dispatch_gpu_workgroups (test_launch.LaunchTests.test_serial_c_does_not_dispatch_gpu_workgroups) ... ok
+test_singleton_grid_cannot_be_overlaunched (test_launch.LaunchTests.test_singleton_grid_cannot_be_overlaunched) ... ok
+
+----------------------------------------------------------------------
+Ran 57 tests in 11.601s
+
+OK
+Source reconciliation: current
+Known gap: numeric-boundary: Unresolved boundary
+solve / c: executed
+solve / metal: unvalidated
+solve / ascend: unvalidated
+
+running 2 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test cooperative_hub_average ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 3 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test tests::coulomb_native_fused_tail_equal_ordered ... ok
+test tests::twist_native_fused_tail_equal_ordered ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+running 2 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test cooperative_hub_average ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 3 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test tests::twist_native_fused_tail_equal_ordered ... ok
+test tests::coulomb_native_fused_tail_equal_ordered ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 19 tests
+test metal_runtime::tests::permits_compiler_eliminated_bindings ... ok
+test metal_runtime::tests::rejects_invalid_binding_and_dispatch_contracts ... ok
+test metal_runtime::tests::rejects_missing_misaligned_or_unknown_buffer_sizes ... ok
+test metal_runtime::tests::rejects_invalid_program_dependencies ... ok
+test scene_lifecycle::tests::remaps_must_be_one_to_one_and_inside_active_storage ... ok
+test frame::tests::unbounded_manifest_cannot_silently_overrun_a_trace ... ok
+test frame::tests::invalid_gates_regions_and_variant_meanings_are_rejected ... ok
+test metal_runtime::tests::reused_metal_pipeline_keeps_bindings_iterations_and_launch_checks ... ok
+test frame::tests::failed_dispatch_requires_explicit_recovery ... ok
+test frame::tests::stage_ranges_run_once_and_reject_invalid_ranges_before_writes ... ok
+test frame::tests::rejected_extension_preserves_the_current_session ... ok
+test frame::tests::exhausted_capacity_never_advances_physics_or_frame_count ... ok
+test metal_runtime::tests::ordered_native_stages_share_storage_across_iterations ... ok
+test frame::tests::failed_growth_keeps_the_previous_frame_available ... ok
+test frame::tests::same_stage_limits_retry_before_commit ... ok
+test frame::tests::growth_retries_before_commit_and_relocates_state_on_device ... ok
+test frame::tests::input_updates_survive_relocation_and_reject_invalid_ranges ... ok
+test frame::tests::unbounded_session_accepts_capacity_compiled_after_exhaustion ... ok
+test frame::tests::checkpoint_restore_reset_and_rejections_are_transactional ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test c_runtime_preserves_unreduced_contacts_through_lazy_growth ... ignored, requires the local TileLang compiler and fresh unreduced native scene fixtures
+test c_runtime_steps_real_native_scene_with_lazy_growth ... ignored, requires the local TileLang compiler and fresh native scene fixtures
+test metal_runtime_preserves_unreduced_contacts_through_lazy_growth ... ignored, requires Metal, the local TileLang compiler and fresh unreduced scene fixtures
+test metal_runtime_steps_real_native_scene_with_lazy_growth ... ignored, requires Metal, the local TileLang compiler and fresh native scene fixtures
+
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_dense_coloring_growth_and_native_tail_parity ... ignored, requires the local compiler and independent native CPU pipeline
+test metal_dense_coloring_growth_and_native_tail_parity ... ignored, requires Metal, the local compiler and independent native CPU pipeline
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_configuration_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+test metal_configuration_updates_match_production_pipeline ... ignored, requires Metal, the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_live_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+test metal_live_updates_match_production_pipeline ... ignored, requires Metal, the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_twist_and_model_switches_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+test metal_twist_and_model_switches_match_production_pipeline ... ignored, requires Metal, the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_hubs_survive_runtime_growth ... ignored, requires compiler and fresh split-hubs-f8 fixture
+test metal_hubs_survive_runtime_growth ... ignored, requires Metal, compiler and fresh split-hubs-f8 fixture
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_reconstructs_inserted_and_removed_scenes ... ignored, requires compiler, runtime workspace and NEXUS_DISABLE_BF=1
+test metal_reconstructs_inserted_and_removed_scenes ... ignored, requires Metal, compiler, runtime workspace and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 1 test
+test scene_lifecycle::tests::remaps_must_be_one_to_one_and_inside_active_storage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_runtime_preserves_unreduced_contacts_through_lazy_growth ... ignored, requires the local TileLang compiler and fresh unreduced native scene fixtures
+test c_runtime_steps_real_native_scene_with_lazy_growth ... ignored, requires the local TileLang compiler and fresh native scene fixtures
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_dense_coloring_growth_and_native_tail_parity ... ignored, requires the local compiler and independent native CPU pipeline
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_configuration_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_live_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_twist_and_model_switches_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_hubs_survive_runtime_growth ... ignored, requires compiler and fresh split-hubs-f8 fixture
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_reconstructs_inserted_and_removed_scenes ... ignored, requires compiler, runtime workspace and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 3 tests
+test articulated_upload_is_rejected_explicitly ... ok
+test empty_upload_retains_capacity_without_inventing_active_objects ... ok
+test upload_preserves_native_multi_collider_and_batch_layout ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+All checks passed!

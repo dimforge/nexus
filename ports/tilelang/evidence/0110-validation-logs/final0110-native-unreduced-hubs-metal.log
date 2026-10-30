@@ -1,0 +1,12 @@
+running 1 test
+test metal_runtime_preserves_unreduced_contacts_through_lazy_growth ... Native runtime artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/Metal-reduced-false-695-1793380570016596000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 453.65s
+
+
+running 1 test
+test metal_hubs_survive_runtime_growth ... Hub runtime artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/hubs-Metal-7022-1793381024474188000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 280.18s

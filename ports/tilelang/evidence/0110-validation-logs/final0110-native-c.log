@@ -1,0 +1,45 @@
+running 1 test
+test c_dense_coloring_growth_and_native_tail_parity ... Coloring runtime artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/coloring-C-63501-1793376603187583000
+C: dense native comparison frame 10
+C: dense native comparison frame 20
+C: dense native comparison frame 30
+C: dense native comparison frame 40
+C: dense native comparison frame 50
+C: dense native comparison frame 60
+C: dense native comparison frame 70
+C: dense native comparison frame 80
+C: dense native comparison frame 90
+C: dense native comparison frame 100
+C: dense native comparison frame 110
+C: dense native comparison frame 120
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 778.86s
+
+
+running 1 test
+test c_configuration_updates_match_production_pipeline ... Runtime configuration artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/configuration-C-67882-1793377382055524000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 536.81s
+
+
+running 1 test
+test c_live_updates_match_production_pipeline ... Runtime control artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/control-C-71909-1793377918887074000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 348.13s
+
+
+running 1 test
+test c_twist_and_model_switches_match_production_pipeline ... Runtime friction artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/friction-C-75366-1793378267037527000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 743.71s
+
+
+running 1 test
+test c_reconstructs_inserted_and_removed_scenes ... Runtime lifecycle artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/lifecycle-C-82249-1793379010763601000
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 725.82s

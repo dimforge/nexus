@@ -1,0 +1,7 @@
+running 2 tests
+test c_runtime_steps_real_native_scene_with_lazy_growth ... Native runtime artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/C-reduced-true-65615-1793376894275083000
+ok
+test metal_runtime_steps_real_native_scene_with_lazy_growth ... Native runtime artifacts: /private/tmp/nexus-frame-runtime/final0110-runtime/Metal-reduced-true-65615-1793377311313653000
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 764.18s

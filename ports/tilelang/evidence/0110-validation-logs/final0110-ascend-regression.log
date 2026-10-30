@@ -1,0 +1,9 @@
+test_ascend_pair_scratch_is_private (ports.tilelang.tests.test_lbvh.LbvhTests.test_ascend_pair_scratch_is_private) ... ok
+test_grid_and_thread_extents_are_both_required (ports.tilelang.tests.test_launch.LaunchTests.test_grid_and_thread_extents_are_both_required) ... ok
+test_serial_c_does_not_dispatch_gpu_workgroups (ports.tilelang.tests.test_launch.LaunchTests.test_serial_c_does_not_dispatch_gpu_workgroups) ... ok
+test_singleton_grid_cannot_be_overlaunched (ports.tilelang.tests.test_launch.LaunchTests.test_singleton_grid_cannot_be_overlaunched) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.114s
+
+OK
