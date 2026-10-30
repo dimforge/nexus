@@ -1,0 +1,726 @@
+{
+  "scope": "Convex support and GJK only; global reconciliation and generic collision integration remain pending",
+  "inputs_sha256": "09dfc6286a5df51a124ec6f3fd6dc9e3a4a99b5d9a5e834d63f798ae863134ee",
+  "reports": [
+    {
+      "operation": "support_local",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "b36c498051fa15c2851906aadf1ed58a850edd21f5ff90d90b397d4b0cc8aa22",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "support_local",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "1f6990974c4de45d3e6862624b5f589b9dd556cbedc8e78d6923822731539e6d",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "support_local",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "587fdabc5ffd6fb409c41cde00d087579a604eab8d747d8febeb30e2997025a4",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "support_world",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "e20176595cef158c12fd0e85583ee7086fae9cdd4eb67733bbdebaaec7448bc3",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "support_world",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "604d6b3fe81c764b16b9ecfbc4fa53635404d2269aadfa88385bc5d36e3bde38",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "support_world",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "ec0e323b208a702bb43c99d220446cdb5e40bb326b7a8d2c46d35673ad51dfb4",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "cso_support",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "29ad8fe0493e7b1620a15c28f757799406e4909ff4f8508a49f9855f11d29435",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "cso_support",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "07e1c2409ef7c4b1a86260656141f0948ffc2243847b30031d3234e020f51aa7",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 1.1920928955078125e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "cso_support",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "7cda70abb88a2286635c7b932fe2fb4854fbbc9c260330f5da02a4953bb66f3e",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "gjk_closest",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "3f7cec7f6566e65c3c60334686e198e93de871de277160efbf7d596de45e95ed",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "gjk_closest",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "c12574b45cc7a620d424312f98e4573db80191d9c7662a0c995edf009a4963be",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 5.960464477539063e-08,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 2.384185791015625e-07,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": {
+            "Inputs": 0.0,
+            "Output": 9.611248970031738e-07,
+            "Poses": 0.0,
+            "Shapes": 0.0,
+            "State": 3.49879264831543e-05,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "gjk_closest",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "2c1e7792dc8e065f9399ecf31123c47008a5167e9f1328bd11ea9dd6cdc3317e",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n49",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n343",
+          "max_absolute_errors": null
+        }
+      ]
+    }
+  ]
+}
