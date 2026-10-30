@@ -1,0 +1,6414 @@
+{
+  "scope": "Twelve isolated native 3D LBVH stages. Connected composition, production integration and global reconciliation remain in progress.",
+  "inputs_sha256": "6bcb269b3e3f27f1bc7c16db6ef1eb40ef859a1523f95e3594253da9c9739b39",
+  "reports": [
+    {
+      "operation": "lbvh_domain",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "180709159a6a0f4f9815d020c6fd0410961196f40c7d563837035d12f5cda625",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_domain",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "a5771bc52e896629483270e7e35be4d6f8cfe410d3d707889df33adf7ce53977",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_domain",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "cbb935ce33178636b068025c3c6e3b49e9fa2293ea12695b75b2c8646d955b78",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_domain_merge",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "a98cea1413732294c9b93df7992d619aadcbe94f22fc7ca97182a05cc6f0eb5e",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_domain_merge",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "c68ebe37f77a51c36fa27762c9c0062adf99c510ff5c4ea24520ae26952e2608",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_domain_merge",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "28fc9b461fcdeb4bccaaeb850304db8f4f0fd0c21ead69165c3b80b5c153a81b",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_morton",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "e289e01dd046636b0c0c8ea06543dd8af4c5593f82fb8735ffb750a21e0323d3",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_morton",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "7de681613adabb793f3d572da7507e341fdd6015f000345ae6ea8b5bbcfb8aae",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_morton",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "b46e167be2f4c16c9ef8119b99558edc654a0fee9e29e686374c39c31da8d3bb",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_build",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "efa1198ac259812333c2f6f4c7e88fcabb1a9e99d8d6542b57762a14fbb27f38",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_build",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "e24a2a8dbfe0c770e081d19e90f836418da9d1ce9f2b34c073d9d960f92082f5",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_build",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "ad87158e1b619b5de511a567a80d67d10dea47e53129bd55ad8d9136e774f676",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_escapes",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "63731e35e3372d99a1be2800e8806cf6d6e3b8687fad9e9122ec3e88718b7f71",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_escapes",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "15547c93759bb22084fc09618a57b8061b14ff1910d2a2ce700cba8aea67244c",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_escapes",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "1e89e30c21f0b85aac7a7abc84571d6f26c37da6d74946e300b7a9136c49bf82",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_leaves",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "1b6abd579693dd02b92543640da73c84a05d8f266b672169a715f84d0b72e331",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.9802322387695312e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_leaves",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "3faa3f95729c87368de073231e75bd3d7eef7968570d921909645d885ecdee0c",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.9802322387695312e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 2.384185791015625e-07,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 5.960464477539063e-08,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_leaves",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "69cac3cf7eee4de34ee361f3bf252e48ccdba2bddadbc2da3199e81bcbfab3e8",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_chunks",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "f507bfd433692bd5c51f80d9f97d6d2f4499331634a8981d080a2df00ed8ec17",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_chunks",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "d7b31ee9e8e39d0625ed03c4ae2477c9d6a9d3c97585ed2dcef7826c8ad8459d",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_chunks",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "f0c68021f0927b21c9f27c69aa10ac7d08be8a8dee1b7010ac3410afcfc3530f",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_frontier",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "4df7d650e30953b680ec57c2d99adb213f1c3bb4b6f8ec8bc85c8010fc578db0",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_frontier",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "c822db54bf85ba625107eb1ee99678eaf73fc12171b217a4a85eb90baf786285",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_frontier",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "595132093b2aeb6ede9183ac69d6a43273f8c59421e18174e557bc620574b366",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_pairs",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "88b4c4520eaa7a07d1113577d19d04ff54247a3eee4557b77cd37dc0df36c234",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_pairs",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "19a1d337ca62e0fb33871f48f2c41a8fa679724877e1a92bc4039ecbbf7ee562",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_pairs",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "c272e9d7fe377d184f98634ef1fe8e0a64c44121a6b301ba203b2b5e20711779",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_plan",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "213fdf0eac7a5c1eb346b6579928c2a5725f6283686425d0ea9b51db1054448a",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_plan",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "1e0efb5c8989f51d8c59d54d41aab75fc513f5508295042f2f100e2689307073",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_refit_plan",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "69158137baa6a8ccf380a16f093561f966fcdf9beabffd0a35c0a6c17fcc90a5",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_reset",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "de1e142b407c63a5a7bc6baa3da8d485693f4694ce4d6b7fdc69086a8b0a28e8",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_reset",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "c21a62728a62fb7d32bdae21fb0d22ad16d1233db8305769a21438f228e632f2",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "lbvh_reset",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "f181c2b61b5d00864d94bb76b0ba8da77b18f38e3d6d33b5c2215d2df2454ed0",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "flat_list_dispatch",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "8e31fe324096fb56ba62af9e5830a26dc9f2f66310c28f45087493bf4b255886",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "flat_list_dispatch",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "6e64abb017c434d4cde941666332ffccf814f15651a9f6f4836198ca68903166",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Domain": 0.0,
+            "Filters": 0.0,
+            "Frontier": 0.0,
+            "FrontierLen": 0.0,
+            "Groups": 0.0,
+            "Indirect": 0.0,
+            "Keys": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Partials": 0.0,
+            "Poses": 0.0,
+            "Rounds": 0.0,
+            "Shapes": 0.0,
+            "Sorted": 0.0,
+            "Tree": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "flat_list_dispatch",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "4c287e8debfc28f975f5c61fbba964007b2a7e4e",
+      "report_sha256": "19f830caca61ff1d0a8bec793a5837d861fca7ea217f87bb0158682499a7aaf1",
+      "cases": [
+        {
+          "name": "n0-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-b2-g1-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n2-b1-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b3-g1-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-flat",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-b1-g1-duplicates",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n257-b2-g3-mixed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n513-b1-g2-collapsed",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n33-b2-g1-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n65-b2-g2-filters",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Ascend source lowering only; no vendor compiler, device execution or memory-model qualification.",
+    "Ascend pair traversal emitted a conservative shared-memory barrier-hoisting warning around lane-owned pair scratch writes; follow-up source adaptation is required before handoff."
+  ]
+}
