@@ -1,0 +1,354 @@
+{
+  "scope": "Support faces and generic polygonal clipping only; global reconciliation and full PFM scene integration remain pending",
+  "inputs_sha256": "f84d168fd6c36af3ffd553c90cfd60b8796572d4e8f999d54406b2b1e7583229",
+  "reports": [
+    {
+      "operation": "support_face",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "7aece4251d1264fe2669a9bd3aec52fa623a90efe556c552d96bdb03e30b3c46",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n7",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n168",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "support_face",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "d5c319d50734f456fdb3746a38b38f0754b58d7b790264fd9a7234aa7d3f8017",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n7",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        },
+        {
+          "name": "n168",
+          "max_absolute_errors": {
+            "Indices": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "support_face",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "a5b5827243030b024bce44771b69e1fb5f5f82c5bcad6152037a035d962892ae",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n7",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n33",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n168",
+          "max_absolute_errors": null
+        }
+      ]
+    },
+    {
+      "operation": "polygonal_contacts",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "b08718b755ad47347f4a96baafb33e30b01bbfbd6f0eacbc6857f381ee4cd629",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n25",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n300",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 2.9802322387695312e-08,
+            "Poses": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "polygonal_contacts",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "7e0abd14f0fdd8267c1a64f357b3859b1c22f828883799cdc6c389477ce5113a",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n25",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 0.0,
+            "Poses": 0.0
+          }
+        },
+        {
+          "name": "n300",
+          "max_absolute_errors": {
+            "Features": 0.0,
+            "Inputs": 0.0,
+            "Output": 2.9802322387695312e-08,
+            "Poses": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "operation": "polygonal_contacts",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "c667efaea9416a72342bd42bd4e9d1afb4b7387d14172cef4e4d638aff249f25",
+      "cases": [
+        {
+          "name": "n0",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n1",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n25",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n65",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n129",
+          "max_absolute_errors": null
+        },
+        {
+          "name": "n300",
+          "max_absolute_errors": null
+        }
+      ]
+    }
+  ]
+}
