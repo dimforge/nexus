@@ -24,6 +24,7 @@ class ProductionReferenceTests(unittest.TestCase):
         }
         case = {
             "name": "production-test",
+            "contact_reduction": True,
             "body_count": 1,
             "batches": 1,
             "trace_stride": 16,

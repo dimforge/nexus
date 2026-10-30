@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -108,7 +109,18 @@ class RecordedHandoff(unittest.TestCase):
         )
 
     def compare(self):
-        return handoff.verify_results(
-            self.bundle, self.returned, self.output, root=self.snapshot
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(self.snapshot / "ports/tilelang/handoff.py"),
+                "verify-results",
+                str(self.bundle),
+                str(self.returned),
+                "--output",
+                str(self.output),
+            ],
+            capture_output=True,
+            text=True,
         )
-
+        self.assertTrue(self.output.is_file(), result.stderr)
+        return result.returncode != 0

@@ -15,7 +15,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-fn upload() -> RbdSceneUpload {
+fn upload(overlapping_mesh: bool) -> RbdSceneUpload {
     futures::executor::block_on(async {
         let backend = GpuBackend::Cpu;
         let mesh = SharedShape::trimesh_with_flags(
@@ -24,7 +24,7 @@ fn upload() -> RbdSceneUpload {
                 Vec3::new(2., 0., -2.),
                 Vec3::new(0., 0., 2.),
             ],
-            vec![[0, 1, 2]],
+            vec![[0, 1, 2]; if overlapping_mesh { 3 } else { 1 }],
             TriMeshFlags::MERGE_DUPLICATE_VERTICES,
         )
         .unwrap();
@@ -66,13 +66,17 @@ fn compare(actual: &[f32], expected: &[f32], label: &str) {
         );
     }
 }
-fn exercise(backend: TileLangBackend) {
+fn exercise(backend: TileLangBackend, contact_reduction: bool) {
     let python = PathBuf::from(
         std::env::var_os("NEXUS_TILELANG_RUNTIME_PYTHON").expect("Set compiler Python"),
     );
     let expected = PathBuf::from(
-        std::env::var_os("NEXUS_TILELANG_RUNTIME_EXPECTED")
-            .expect("Set fresh native mesh-contact-joint-f8 fixture directory"),
+        std::env::var_os(if contact_reduction {
+            "NEXUS_TILELANG_RUNTIME_EXPECTED"
+        } else {
+            "NEXUS_TILELANG_RUNTIME_EXPECTED_UNREDUCED"
+        })
+        .expect("Set the fresh native fixture for the selected contact-reduction mode"),
     );
     let root = PathBuf::from(
         std::env::var_os("NEXUS_TILELANG_RUNTIME_WORK").expect("Set runtime test output directory"),
@@ -83,7 +87,7 @@ fn exercise(backend: TileLangBackend) {
         .as_nanos();
     let workspace = root.join(format!("{backend:?}-{}-{now}", std::process::id()));
     println!("Native runtime artifacts: {}", workspace.display());
-    let upload = upload();
+    let upload = upload(!contact_reduction);
     let count =
         upload.batch_indices.bodies_len as usize * upload.batch_indices.num_batches as usize;
     let poses = count * size_of::<nexus_rbd3d::math::Pose>() / 4;
@@ -100,6 +104,7 @@ fn exercise(backend: TileLangBackend) {
         initial_pair_capacity: 1,
         max_pair_capacity: 64,
         trace_steps: None,
+        contact_reduction,
     };
     let mut runtime = unsafe { TileLangSimulation::from_upload(&upload, options) }.unwrap();
     for frame in 0..8 {
@@ -135,11 +140,23 @@ fn exercise(backend: TileLangBackend) {
 #[test]
 #[ignore = "requires the local TileLang compiler and fresh native scene fixtures"]
 fn c_runtime_steps_real_native_scene_with_lazy_growth() {
-    exercise(TileLangBackend::C);
+    exercise(TileLangBackend::C, true);
 }
 #[cfg(feature = "metal")]
 #[test]
 #[ignore = "requires Metal, the local TileLang compiler and fresh native scene fixtures"]
 fn metal_runtime_steps_real_native_scene_with_lazy_growth() {
-    exercise(TileLangBackend::Metal);
+    exercise(TileLangBackend::Metal, true);
+}
+
+#[test]
+#[ignore = "requires the local TileLang compiler and fresh unreduced native scene fixtures"]
+fn c_runtime_preserves_unreduced_contacts_through_lazy_growth() {
+    exercise(TileLangBackend::C, false);
+}
+#[cfg(feature = "metal")]
+#[test]
+#[ignore = "requires Metal, the local TileLang compiler and fresh unreduced scene fixtures"]
+fn metal_runtime_preserves_unreduced_contacts_through_lazy_growth() {
+    exercise(TileLangBackend::Metal, false);
 }

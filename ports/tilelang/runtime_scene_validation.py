@@ -16,6 +16,10 @@ def validate_case(l, c, b):
         or c.get("general_collision") is not True
     ):
         raise ValueError("Invalid native runtime scene configuration")
+    if type(c.get("contact_reduction")) is not bool or c["rounds"] != max(
+        c["color_stride"] - 3, 2
+    ):
+        raise ValueError("Invalid native pipeline configuration")
     nb = c["batches"]
     if (
         nb < 1

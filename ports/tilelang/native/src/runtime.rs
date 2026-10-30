@@ -42,6 +42,8 @@ pub struct RuntimeOptions {
     pub max_pair_capacity: u32,
     /// None avoids trajectory allocation and permits ongoing frame stepping.
     pub trace_steps: Option<u32>,
+    /// Merge per-subshape manifolds before solving. Native Nexus defaults to false.
+    pub contact_reduction: bool,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -255,6 +257,9 @@ fn compile(
         .arg(options.backend.target())
         .arg("--pair-capacity")
         .arg(capacity.to_string());
+    if options.contact_reduction {
+        command.arg("--contact-reduction");
+    }
     if let Some(steps) = options.trace_steps {
         command.arg("--trace-steps").arg(steps.to_string());
     }
@@ -270,10 +275,13 @@ fn compile(
     if metadata["target"] != options.backend.target()
         || metadata["pair_capacity"] != capacity
         || metadata["max_steps"] != json!(options.trace_steps)
+        || metadata["contact_reduction"] != json!(options.contact_reduction)
     {
         return Err("Compiler specialization differs from requested configuration".into());
     }
-    Ok(json!({"source": metadata["inputs"], "archive": metadata["archive_sha256"]}))
+    Ok(
+        json!({"source": metadata["inputs"], "archive": metadata["archive_sha256"], "contact_reduction": metadata["contact_reduction"]}),
+    )
 }
 #[cfg(feature = "metal")]
 fn load_metal(directory: &Path) -> Result<crate::frame::FrameVariant, String> {

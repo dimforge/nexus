@@ -55,7 +55,7 @@ def check_case(layout, case, before, expected, trace, metadata, contract):
         or metadata.get("batches") != case["batches"]
         or metadata.get("broadphase") != "lbvh"
         or metadata.get("deterministic") is not True
-        or metadata.get("contact_reduction") is not True
+        or metadata.get("contact_reduction") is not case.get("contact_reduction")
         or case["trace_stride"] != stride
         or trace.dtype != np.uint32
         or trace.shape != (frames * stride,)

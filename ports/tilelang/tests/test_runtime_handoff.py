@@ -23,7 +23,13 @@ class RuntimeHandoffTests(RecordedHandoff):
     operations = ("runtime_scene",)
 
     def test_all_native_scenes_round_trip(self):
-        self.assertEqual(len(handoff.verify_bundle(self.bundle)["cases"]), 6)
+        contract = json.loads(
+            (self.snapshot / "ports/tilelang/contracts/runtime_scene.json").read_text()
+        )
+        self.assertEqual(
+            {c["case"]["name"] for c in handoff.verify_bundle(self.bundle)["cases"]},
+            set(contract["required_cases"]),
+        )
         self.assertFalse(self.compare(), self.output.read_text())
         result = json.loads(self.output.read_text())
         self.assertEqual(result["level"], "external_output_comparison")

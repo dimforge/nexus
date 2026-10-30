@@ -56,6 +56,8 @@ def make_program(l, c, target):
     def stage(kind):
         mapping = identity(deferred.BUFFERS)
         mapping.update(Order="PfmOrder", Keys="PfmKeys")
+        if kind == "deferred_manifolds" and not c.get("contact_reduction", True):
+            mapping["Order"] = "PfmIdentity"
         if kind == "reduce_contacts":
             mapping["Keys"] = "PfmSortedKeys"
         dc = case(mapping, kind=kind, groups=c["contact_groups"])
@@ -128,12 +130,14 @@ def make_program(l, c, target):
             }
         )
 
-    for first, kind in ((True, "pfm_subshape_keys"), (False, "pfm_permuted_keys")):
-        stage(kind)
-        sorting("radix_dispatch", 0, first)
-        for p in range(8):
-            for kind in radix.STAGES:
-                sorting(kind, p, first)
+    if c.get("contact_reduction", True):
+        for first, kind in ((True, "pfm_subshape_keys"), (False, "pfm_permuted_keys")):
+            stage(kind)
+            sorting("radix_dispatch", 0, first)
+            for p in range(8):
+                for kind in radix.STAGES:
+                    sorting(kind, p, first)
     stage("deferred_manifolds")
-    stage("reduce_contacts")
+    if c.get("contact_reduction", True):
+        stage("reduce_contacts")
     return plans

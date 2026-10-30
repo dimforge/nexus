@@ -77,6 +77,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &state.read_scene_upload(&backend).await?,
             &output.join("many-batches"),
         )?;
+        let mesh = SharedShape::trimesh_with_flags(
+            vec![
+                Vec3::new(-2., 0., -2.),
+                Vec3::new(2., 0., -2.),
+                Vec3::new(0., 0., 2.),
+            ],
+            vec![[0, 1, 2]; 3],
+            TriMeshFlags::MERGE_DUPLICATE_VERTICES,
+        )?;
+        let scenes = [scene(0., mesh.clone()), scene(10., mesh)];
+        let refs: Vec<_> = scenes
+            .iter()
+            .map(|(b, c, j)| (b, c, j, &multibodies, &params))
+            .collect();
+        let mut caps = capacities(2);
+        caps.collisions_capacity = 64;
+        let mut state = RbdState::from_rapier(&backend, &refs, caps);
+        state.set_gravity(&backend, [0., -3., 0.5]);
+        state.set_deterministic(&backend, true);
+        let mut upload = state.read_scene_upload(&backend).await?;
+        for i in 0..4 {
+            upload.body_poses[i].translation.y -= 2.45;
+        }
+        for label in ["mesh-overlap-reduced", "mesh-overlap-unreduced"] {
+            write_inputs(&upload, &output.join(label))?;
+        }
         println!("Exported native CPU joint, mesh-contact and multi-workgroup uploads");
         Ok(())
     })

@@ -25,6 +25,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "mesh-contact-joint",
             "wide-contacts",
             "many-batches",
+            "mesh-overlap-reduced",
+            "mesh-overlap-unreduced",
         ] {
             let mesh = SharedShape::trimesh_with_flags(
                 vec![
@@ -32,7 +34,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Vec3::new(2., 0., -2.),
                     Vec3::new(0., 0., 2.),
                 ],
-                vec![[0, 1, 2]],
+                vec![
+                    [0, 1, 2];
+                    if label.starts_with("mesh-overlap") {
+                        3
+                    } else {
+                        1
+                    }
+                ],
                 TriMeshFlags::MERGE_DUPLICATE_VERTICES,
             )?;
             let scenes = if label == "wide-contacts" {
@@ -63,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 },
             );
             state.set_deterministic(&backend, true);
-            if label == "mesh-contact-joint" {
+            if label == "mesh-contact-joint" || label.starts_with("mesh-overlap") {
                 let mut poses = backend.slow_read_vec(state.body_poses().buffer()).await?;
                 for p in &mut poses[..4] {
                     p.translation.y -= 2.45;
@@ -77,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fs::create_dir(&directory)?;
             nexus_tilelang_native::upload::write_inputs(&initial, &directory.join("upload"))?;
             let mut pipeline = RbdPipeline::new(&backend)?;
-            pipeline.contact_reduction = true;
+            pipeline.contact_reduction = !label.ends_with("unreduced");
             let mut trace = Vec::<u32>::new();
             for frame in 1..=8 {
                 pipeline.step(&backend, &mut state, None)?;
@@ -95,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fs::write(
                 directory.join("scene.json"),
                 serde_json::to_vec_pretty(
-                    &serde_json::json!({"kind":"production_rbd_pipeline", "frames":8,"bodies":count,"batches":scenes.len(),"broadphase":"lbvh","deterministic":true,"contact_reduction":true}),
+                    &serde_json::json!({"kind":"production_rbd_pipeline", "frames":8,"bodies":count,"batches":scenes.len(),"broadphase":"lbvh","deterministic":true,"contact_reduction":pipeline.contact_reduction}),
                 )?,
             )?;
         }

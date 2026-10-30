@@ -14,8 +14,8 @@ mod scene_program;
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     assert!(
-        args.len() == 6 || (args.len() == 4 && args[3] == "suite"),
-        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|upload OR OUTPUT INPUT_ROOT suite"
+        (args.len() == 6 || args.len() == 7) || (args.len() == 4 && args[3] == "suite"),
+        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|upload [reduced|unreduced] OR OUTPUT INPUT_ROOT suite"
     );
     let root = Path::new(&args[1]);
     fs::create_dir_all(root).unwrap();
@@ -47,6 +47,8 @@ fn main() {
             ("mesh-contact-joint", 64),
             ("wide-contacts", 512),
             ("many-batches", 64),
+            ("mesh-overlap-reduced", 64),
+            ("mesh-overlap-unreduced", 64),
         ]
         .into_iter()
         .flat_map(|(name, capacity)| {
@@ -80,7 +82,16 @@ fn main() {
     };
     let mut cases = Vec::new();
     for (name, input, frames, capacity, execute) in configurations {
-        let upload = scene_program::scene_upload::SceneUpload::read(&input).unwrap();
+        let mut upload = scene_program::scene_upload::SceneUpload::read(&input).unwrap();
+        upload.contact_reduction = if args[3] == "suite" {
+            !name.contains("unreduced")
+        } else {
+            match args.get(6).map(String::as_str).unwrap_or("unreduced") {
+                "reduced" => true,
+                "unreduced" => false,
+                _ => panic!("Invalid reduction mode"),
+            }
+        };
         let case = scene_program::scene_storage(
             &directory.join(name),
             "runtime",

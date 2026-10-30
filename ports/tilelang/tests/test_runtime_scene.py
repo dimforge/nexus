@@ -53,6 +53,23 @@ class RuntimeSceneTests(unittest.TestCase):
             with self.subTest(buffer=name), self.assertRaises(AssertionError):
                 check_outputs(l, c, b, actual, e, k)
 
+    def test_reduction_mode_changes_composite_contacts(self):
+        counts = []
+        for mode in ("reduced", "unreduced"):
+            l, c, b, e, k = self.fixture(f"mesh-overlap-{mode}-f1")
+            self.assertEqual(c["contact_reduction"], mode == "reduced")
+            self.assertEqual(c["rounds"], c["color_stride"] - 3)
+            check_outputs(l, c, b, e, e, k)
+            rows = e["Contacts"].reshape(-1, l["contact_words"])
+            length = l["contact"]["contact"] + l["manifold"]["len"]
+            counts.append(
+                int(
+                    np.count_nonzero(rows[: int(e["Plan"][l["plan"]["bound"]]), length])
+                )
+            )
+        self.assertGreater(counts[1], counts[0])
+        self.assertGreater(counts[0], 0)
+
     def test_real_multi_collider_upload_and_expected_outputs(self):
         l, c, b, e, k = self.fixture()
         self.assertNotEqual(c["body_count"], c["collider_count"])
@@ -85,7 +102,15 @@ class RuntimeSceneTests(unittest.TestCase):
                 lbvh_vertices(l, b)
 
     def test_runtime_counts_schedule_and_parents_are_checked(self):
-        for mutation in ("batch_parent", "body_count", "schedule", "pose", "mass"):
+        for mutation in (
+            "batch_parent",
+            "body_count",
+            "schedule",
+            "pose",
+            "mass",
+            "rounds",
+            "reduction",
+        ):
             l, c, b, _, _ = self.fixture()
             if mutation == "batch_parent":
                 b["Parents"][0] = 1
@@ -95,6 +120,10 @@ class RuntimeSceneTests(unittest.TestCase):
                 c["substeps"] += 1
             elif mutation == "pose":
                 b["LocalPoses"].view(np.float32)[l["pose_rotation"] + 3] = 2
+            elif mutation == "rounds":
+                c["rounds"] += 1
+            elif mutation == "reduction":
+                c["contact_reduction"] = 1
             else:
                 b["LocalMass"].view(np.float32)[l["local_inv_mass"]] = -1
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):

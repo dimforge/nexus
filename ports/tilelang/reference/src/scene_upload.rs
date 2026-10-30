@@ -12,6 +12,7 @@ use serde_json::Value;
 use std::{collections::BTreeSet, fs, path::Path};
 
 pub(crate) struct SceneUpload {
+    pub contact_reduction: bool,
     pub batch: BatchIndices,
     pub params: RbdSimParams,
     pub gravity: Vec4,
@@ -110,6 +111,7 @@ impl SceneUpload {
             ));
         }
         let result = Self {
+            contact_reduction: false,
             batch: scalar(directory, "BatchIds", &meta)?,
             params: scalar(directory, "RbdParams", &meta)?,
             gravity: scalar(directory, "Gravity", &meta)?,

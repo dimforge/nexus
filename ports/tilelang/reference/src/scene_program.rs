@@ -136,6 +136,12 @@ pub(crate) fn scene_storage(
     };
     let bg = (n as u32).div_ceil(64).max(1);
     let color_stride = upload.map_or(8, |u| u.batch.solver_color_buckets_stride.max(4) as usize);
+    let rounds = if upload.is_some() {
+        (color_stride - 3).max(2)
+    } else {
+        16
+    };
+    let contact_reduction = upload.is_none_or(|u| u.contact_reduction);
     let joint_scene =
         upload.is_some_and(|u| u.batch.impulse_joints_len != 0) || label.starts_with("joint_");
     let joint_per = upload.map_or(if joint_scene { columns * levels } else { 0 }, |u| {
@@ -858,104 +864,106 @@ pub(crate) fn scene_storage(
             );
         }
         if general_scene {
-            for pass_kind in 0..2 {
-                for i in 0..groups * 64 {
-                    if pass_kind == 0 {
-                        gpu_pfm_sub_shape_sort_keys(
-                            UVec3::new(i, 0, 0),
-                            UVec3::new(groups, 1, 1),
-                            &pfm_pairs,
-                            &plan[0],
-                            &mut pfm_keys,
-                        );
-                    } else {
-                        gpu_pfm_pair_sort_keys_permuted(
-                            UVec3::new(i, 0, 0),
-                            UVec3::new(groups, 1, 1),
-                            &pfm_pairs,
-                            &plan[0],
-                            &pfm_order,
-                            &mut pfm_keys,
-                        );
+            if contact_reduction {
+                for pass_kind in 0..2 {
+                    for i in 0..groups * 64 {
+                        if pass_kind == 0 {
+                            gpu_pfm_sub_shape_sort_keys(
+                                UVec3::new(i, 0, 0),
+                                UVec3::new(groups, 1, 1),
+                                &pfm_pairs,
+                                &plan[0],
+                                &mut pfm_keys,
+                            );
+                        } else {
+                            gpu_pfm_pair_sort_keys_permuted(
+                                UVec3::new(i, 0, 0),
+                                UVec3::new(groups, 1, 1),
+                                &pfm_pairs,
+                                &plan[0],
+                                &pfm_order,
+                                &mut pfm_keys,
+                            );
+                        }
                     }
-                }
-                sorting.insert("PfmKeys".into(), GpuBuffer::Cpu(pfm_keys.clone()));
-                sorting.insert("PfmIdentity".into(), GpuBuffer::Cpu(pfm_identity.clone()));
-                sorting.insert("PfmOrder".into(), GpuBuffer::Cpu(pfm_order.clone()));
-                sorting.insert(
-                    "PfmSortedKeys".into(),
-                    GpuBuffer::Cpu(pfm_sorted_keys.clone()),
-                );
-                sorting.insert("PfmSortLen".into(), GpuBuffer::Cpu(pfm_sort_len.to_vec()));
-                for pass in 0..8 {
-                    let (ik, iv) = if pass == 0 {
-                        (
-                            "PfmKeys",
-                            if pass_kind == 0 {
-                                "PfmIdentity"
-                            } else {
-                                "PfmOrder"
-                            },
-                        )
-                    } else if pass % 2 == 1 {
-                        ("PongKeys", "PongValues")
-                    } else {
-                        ("PfmSortedKeys", "PfmOrder")
-                    };
-                    let (ok, ov) = if pass % 2 == 0 {
-                        ("PongKeys", "PongValues")
-                    } else {
-                        ("PfmSortedKeys", "PfmOrder")
-                    };
-                    let mapping = [
-                        ("Config", "Config"),
-                        ("NumKeys", "PfmSortLen"),
-                        ("Keys", ik),
-                        ("Values", iv),
-                        ("OutKeys", ok),
-                        ("OutValues", ov),
-                        ("Aux", "RadixAux"),
-                        ("OutAux", "RadixOutAux"),
-                        ("BatchIds", "RadixBatchIds"),
-                        ("Counts", "Counts"),
-                        ("Reduced", "Reduced"),
-                        ("SortGrid", "SortGrid"),
-                        ("ReduceGrid", "ReduceGrid"),
-                    ];
-                    let mut a = radix::Arrays::new();
-                    for (local, physical) in mapping {
-                        a.insert(
-                            local.into(),
-                            GpuBuffer::Cpu(sorting[physical].unwrap_slice().to_vec()),
-                        );
+                    sorting.insert("PfmKeys".into(), GpuBuffer::Cpu(pfm_keys.clone()));
+                    sorting.insert("PfmIdentity".into(), GpuBuffer::Cpu(pfm_identity.clone()));
+                    sorting.insert("PfmOrder".into(), GpuBuffer::Cpu(pfm_order.clone()));
+                    sorting.insert(
+                        "PfmSortedKeys".into(),
+                        GpuBuffer::Cpu(pfm_sorted_keys.clone()),
+                    );
+                    sorting.insert("PfmSortLen".into(), GpuBuffer::Cpu(pfm_sort_len.to_vec()));
+                    for pass in 0..8 {
+                        let (ik, iv) = if pass == 0 {
+                            (
+                                "PfmKeys",
+                                if pass_kind == 0 {
+                                    "PfmIdentity"
+                                } else {
+                                    "PfmOrder"
+                                },
+                            )
+                        } else if pass % 2 == 1 {
+                            ("PongKeys", "PongValues")
+                        } else {
+                            ("PfmSortedKeys", "PfmOrder")
+                        };
+                        let (ok, ov) = if pass % 2 == 0 {
+                            ("PongKeys", "PongValues")
+                        } else {
+                            ("PfmSortedKeys", "PfmOrder")
+                        };
+                        let mapping = [
+                            ("Config", "Config"),
+                            ("NumKeys", "PfmSortLen"),
+                            ("Keys", ik),
+                            ("Values", iv),
+                            ("OutKeys", ok),
+                            ("OutValues", ov),
+                            ("Aux", "RadixAux"),
+                            ("OutAux", "RadixOutAux"),
+                            ("BatchIds", "RadixBatchIds"),
+                            ("Counts", "Counts"),
+                            ("Reduced", "Reduced"),
+                            ("SortGrid", "SortGrid"),
+                            ("ReduceGrid", "ReduceGrid"),
+                        ];
+                        let mut a = radix::Arrays::new();
+                        for (local, physical) in mapping {
+                            a.insert(
+                                local.into(),
+                                GpuBuffer::Cpu(sorting[physical].unwrap_slice().to_vec()),
+                            );
+                        }
+                        for i in 0..8 {
+                            let key = format!("Config{i}");
+                            a.insert(
+                                key.clone(),
+                                GpuBuffer::Cpu(sorting[&key].unwrap_slice().to_vec()),
+                            );
+                        }
+                        if pass == 0 {
+                            radix::exec(&mut a, "radix_dispatch", cs as u32, 1, None);
+                        }
+                        for stage in radix::STAGES {
+                            radix::exec(&mut a, stage, cs as u32, 1, Some(pass));
+                        }
+                        for (local, physical) in mapping {
+                            sorting.insert(physical.into(), a.remove(local).unwrap());
+                        }
                     }
-                    for i in 0..8 {
-                        let key = format!("Config{i}");
-                        a.insert(
-                            key.clone(),
-                            GpuBuffer::Cpu(sorting[&key].unwrap_slice().to_vec()),
-                        );
+                    pfm_order.copy_from_slice(sorting["PfmOrder"].unwrap_slice());
+                    pfm_sorted_keys.copy_from_slice(sorting["PfmSortedKeys"].unwrap_slice());
+                    for key in [
+                        "PfmKeys",
+                        "PfmOrder",
+                        "PfmIdentity",
+                        "PfmSortedKeys",
+                        "PfmSortLen",
+                    ] {
+                        sorting.remove(key);
                     }
-                    if pass == 0 {
-                        radix::exec(&mut a, "radix_dispatch", cs as u32, 1, None);
-                    }
-                    for stage in radix::STAGES {
-                        radix::exec(&mut a, stage, cs as u32, 1, Some(pass));
-                    }
-                    for (local, physical) in mapping {
-                        sorting.insert(physical.into(), a.remove(local).unwrap());
-                    }
-                }
-                pfm_order.copy_from_slice(sorting["PfmOrder"].unwrap_slice());
-                pfm_sorted_keys.copy_from_slice(sorting["PfmSortedKeys"].unwrap_slice());
-                for key in [
-                    "PfmKeys",
-                    "PfmOrder",
-                    "PfmIdentity",
-                    "PfmSortedKeys",
-                    "PfmSortLen",
-                ] {
-                    sorting.remove(key);
                 }
             }
             for i in 0..groups * 64 {
@@ -964,7 +972,11 @@ pub(crate) fn scene_storage(
                     UVec3::new(groups, 1, 1),
                     &mut raw,
                     &pfm_pairs,
-                    &pfm_order,
+                    if contact_reduction {
+                        &pfm_order
+                    } else {
+                        &pfm_identity
+                    },
                     &plan[0],
                     &vertices,
                     &geometry_indices,
@@ -973,15 +985,17 @@ pub(crate) fn scene_storage(
                     &p,
                 );
             }
-            for i in 0..groups * 64 {
-                gpu_reduce_contacts(
-                    UVec3::new(i, 0, 0),
-                    UVec3::new(groups, 1, 1),
-                    &mut raw,
-                    &pfm_sorted_keys,
-                    &plan[0],
-                    &p,
-                );
+            if contact_reduction {
+                for i in 0..groups * 64 {
+                    gpu_reduce_contacts(
+                        UVec3::new(i, 0, 0),
+                        UVec3::new(groups, 1, 1),
+                        &mut raw,
+                        &pfm_sorted_keys,
+                        &plan[0],
+                        &p,
+                    );
+                }
             }
         }
         {
@@ -1179,7 +1193,7 @@ pub(crate) fn scene_storage(
             &contacts_grid,
             &mut coloring_grid,
             groups,
-            16,
+            rounds as u32,
             true,
         );
         let mut bucket_state = bucket_program::State {
@@ -1536,7 +1550,7 @@ pub(crate) fn scene_storage(
             (name, json!(size))
         })
         .collect::<serde_json::Map<_, _>>();
-    let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":joint_color_count,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"bodies_per_batch":body_per,"body_capacity_per_batch":body_capacity,"collider_count":collider_count,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"bucket_strides":&bucket_strides[..4],"bucket_levels":bucket_levels,"buffer_words":sizes});
+    let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":joint_color_count,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"bodies_per_batch":body_per,"body_capacity_per_batch":body_capacity,"collider_count":collider_count,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":rounds,"contact_reduction":contact_reduction,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"bucket_strides":&bucket_strides[..4],"bucket_levels":bucket_levels,"buffer_words":sizes});
     if upload.is_some() {
         case["kind"] = json!("runtime_scene");
         case["general_collision"] = json!(true);

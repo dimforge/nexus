@@ -27,6 +27,7 @@ let options = RuntimeOptions {
     initial_pair_capacity: 64,
     max_pair_capacity: 1_048_576,
     trace_steps: None,
+    contact_reduction: false,
 };
 // The compiler, generated executable code and artifact workspace are trusted.
 let mut simulation = unsafe { TileLangSimulation::from_upload(&upload, options)? };
@@ -79,3 +80,8 @@ check exact static-body state and exercise a ninth untraced frame. They are igno
 in ordinary Cargo tests because they explicitly require the compiler environment
 and fresh reference artifacts. The registry and all remaining source-bound checks
 are still required for full qualification.
+
+`contact_reduction` selects native per-pair manifold merging. Set it to `false` to
+match the default Nexus pipeline, or `true` to merge composite contacts. It is
+part of the immutable compilation configuration and survives capacity growth.
+The imported color palette determines the native bounded Topo iteration count.
