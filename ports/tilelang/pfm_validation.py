@@ -123,6 +123,94 @@ def secondary_inside(l, shape, vertices, q, shift, point, normal):
     )
 
 
+def check_manifold_row(
+    l, sa, sb, vertices, q, shift, prediction, aa, an, ac, ee, en, ec, k
+):
+    pi, di = l["feature_point"]["pt"], l["feature_point"]["dist"]
+    if ac != ec or not 0 <= ac <= 4:
+        raise AssertionError("Exact PFM contact count")
+    for points, normal, count in ((aa, an, ac), (ee, en, ec)):
+        if not np.isfinite(points).all() or not np.isfinite(normal).all():
+            raise AssertionError("Nonfinite PFM output")
+        if count:
+            np.testing.assert_allclose(
+                np.linalg.norm(normal),
+                1,
+                atol=2e-6,
+                rtol=0,
+                err_msg="PFM unit normal",
+            )
+            minimum = (
+                np.dot(normal, shift)
+                - support_value(l, sa, vertices, normal)
+                - support_value(l, sb, vertices, inverse(q, -normal))
+            )
+            for point in points[:count]:
+                if not contains(l, sa, vertices, point[pi : pi + 3]):
+                    raise AssertionError("PFM primary point outside shape")
+                if point[di] > prediction + 2e-6 or point[di] < minimum - 1e-5:
+                    raise AssertionError(
+                        "PFM distance violates prediction/support bound"
+                    )
+        else:
+            np.testing.assert_array_equal(
+                points, np.zeros_like(points), err_msg="Empty PFM points"
+            )
+            np.testing.assert_array_equal(
+                normal, np.zeros(3), err_msg="Empty PFM normal"
+            )
+    flipped = (
+        ac > 0
+        and np.dot(an, en) < 0
+        and np.array_equal(shift, np.zeros(3))
+        and symmetric(l, sa, vertices)
+        and symmetric(l, sb, vertices)
+    )
+    np.testing.assert_allclose(
+        an,
+        -en if flipped else en,
+        atol=k["atol"],
+        rtol=k["rtol"],
+        err_msg="PFM normal",
+    )
+    np.testing.assert_allclose(
+        aa[:ac, di], ee[:ec, di], atol=k["atol"], rtol=k["rtol"], err_msg="PFM depth"
+    )
+    for j in range(ac):
+        ap, ep = aa[j, pi : pi + 3], ee[j, pi : pi + 3]
+        different = not np.allclose(ap, ep, atol=k["atol"], rtol=k["rtol"])
+        inside = [
+            secondary_inside(l, sb, vertices, q, shift, point, normal)
+            for point, normal in ((aa[j], an), (ee[j], en))
+        ]
+        if inside[1] and not inside[0]:
+            raise AssertionError("PFM secondary witness regressed")
+        if different:
+            # Nonunique points must be valid witnesses in BOTH implementations.
+            # Native approximate clipping misses never unlock relaxed comparison.
+            if flipped:
+                np.testing.assert_allclose(
+                    ap,
+                    -ep,
+                    atol=k["atol"],
+                    rtol=k["rtol"],
+                    err_msg="PFM symmetric reflection",
+                )
+            elif np.linalg.norm(ap - ep) > k["max_tangent_drift"]:
+                raise AssertionError("PFM nonunique tangent drift exceeded")
+            if not all(inside):
+                raise AssertionError(
+                    "PFM nonunique point lacks valid secondary witness"
+                )
+            np.testing.assert_allclose(
+                np.dot(ap, an),
+                np.dot(ep, en),
+                atol=k["atol"],
+                rtol=k["rtol"],
+                err_msg="PFM contact plane",
+            )
+
+
 def check_outputs(l, c, b, a, e, k):
     validate_case(l, c, b)
     n = c["count"]
@@ -150,7 +238,6 @@ def check_outputs(l, c, b, a, e, k):
     if not manifold:
         return dict.fromkeys(BUFFERS, 0.0)
     shapes, vertices, q, shift = geometry(l, b)
-    pi, di = l["feature_point"]["pt"], l["feature_point"]["dist"]
     for i in range(n):
         aa, an, ac = manifold_fields(l, a, i)
         ee, en, ec = manifold_fields(l, e, i)
@@ -164,91 +251,9 @@ def check_outputs(l, c, b, a, e, k):
             ]
             .view(np.float32)[0]
         )
-        for points, normal, count in ((aa, an, ac), (ee, en, ec)):
-            if not np.isfinite(points).all() or not np.isfinite(normal).all():
-                raise AssertionError("Nonfinite PFM output")
-            if count:
-                np.testing.assert_allclose(
-                    np.linalg.norm(normal),
-                    1,
-                    atol=2e-6,
-                    rtol=0,
-                    err_msg="PFM unit normal",
-                )
-                minimum = (
-                    np.dot(normal, shift[i])
-                    - support_value(l, sa, vertices, normal)
-                    - support_value(l, sb, vertices, inverse(q[i], -normal))
-                )
-                for point in points[:count]:
-                    if not contains(l, sa, vertices, point[pi : pi + 3]):
-                        raise AssertionError("PFM primary point outside shape")
-                    if point[di] > prediction + 2e-6 or point[di] < minimum - 1e-5:
-                        raise AssertionError(
-                            "PFM distance violates prediction/support bound"
-                        )
-            else:
-                np.testing.assert_array_equal(
-                    normal, np.zeros(3), err_msg="Empty PFM normal"
-                )
-        flipped = (
-            ac > 0
-            and np.dot(an, en) < 0
-            and np.array_equal(shift[i], np.zeros(3))
-            and symmetric(l, sa, vertices)
-            and symmetric(l, sb, vertices)
+        check_manifold_row(
+            l, sa, sb, vertices, q[i], shift[i], prediction, aa, an, ac, ee, en, ec, k
         )
-        np.testing.assert_allclose(
-            an,
-            -en if flipped else en,
-            atol=k["atol"],
-            rtol=k["rtol"],
-            err_msg="PFM normal",
-        )
-        np.testing.assert_allclose(
-            aa[:, di], ee[:, di], atol=k["atol"], rtol=k["rtol"], err_msg="PFM depth"
-        )
-        # Dedup retains old clipped entries. Under proven central symmetry those
-        # entries must reflect too; their scalar distances still compare strictly.
-        unused = ee[ec:].copy()
-        if flipped:
-            unused[:, pi : pi + 3] *= -1
-        np.testing.assert_allclose(
-            aa[ac:], unused, atol=k["atol"], rtol=k["rtol"], err_msg="Unused PFM points"
-        )
-        for j in range(ac):
-            ap, ep = aa[j, pi : pi + 3], ee[j, pi : pi + 3]
-            different = not np.allclose(ap, ep, atol=k["atol"], rtol=k["rtol"])
-            inside = [
-                secondary_inside(l, sb, vertices, q[i], shift[i], point, normal)
-                for point, normal in ((aa[j], an), (ee[j], en))
-            ]
-            if inside[1] and not inside[0]:
-                raise AssertionError("PFM secondary witness regressed")
-            if different:
-                # Nonunique points must be valid witnesses in BOTH implementations.
-                # Native approximate clipping misses never unlock relaxed comparison.
-                if flipped:
-                    np.testing.assert_allclose(
-                        ap,
-                        -ep,
-                        atol=k["atol"],
-                        rtol=k["rtol"],
-                        err_msg="PFM symmetric reflection",
-                    )
-                elif np.linalg.norm(ap - ep) > k["max_tangent_drift"]:
-                    raise AssertionError("PFM nonunique tangent drift exceeded")
-                if not all(inside):
-                    raise AssertionError(
-                        "PFM nonunique point lacks valid secondary witness"
-                    )
-                np.testing.assert_allclose(
-                    np.dot(ap, an),
-                    np.dot(ep, en),
-                    atol=k["atol"],
-                    rtol=k["rtol"],
-                    err_msg="PFM contact plane",
-                )
     af, ef = [
         r["Output"].reshape(-1, mw)[:n, : mf["count"]].view(np.float32) for r in (a, e)
     ]

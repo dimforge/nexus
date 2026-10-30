@@ -9,34 +9,28 @@ from .convex_polyhedron import aabb as convex_aabb
 from .triangle import aabb as triangle_aabb
 
 
-def compute_aabb(layout):
+def compute_aabb_at(layout):
     sf = layout["shape"]
     types = layout["shape_types"]
     convex = convex_aabb(layout)
 
     @T.macro
-    def one(Shapes, Poses, Vertices, index, mins, maxs):
+    def one(Shapes, Vertices, index, q, translation, mins, maxs):
         base = index * layout["shape_words"]
-        pose = index * layout["pose_words"]
-        ty = Shapes[base + sf["a"] + 3]
+        ty = T.cast(Shapes[base + sf["a"] + 3], "int32")
         a = T.alloc_local((3,), "float32")
         b = T.alloc_local((3,), "float32")
         c = T.alloc_local((3,), "float32")
-        q = T.alloc_local((4,), "float32")
-        translation = T.alloc_local((3,), "float32")
         local_min = T.alloc_local((3,), "float32")
         local_max = T.alloc_local((3,), "float32")
         for d in T.serial(3):
             a[d] = f32(Shapes, base + sf["a"] + d)
             b[d] = f32(Shapes, base + sf["b"] + d)
             c[d] = f32(Shapes, base + sf["c"] + d)
-            translation[d] = f32(Poses, pose + layout["pose_translation"] + d)
             mins[d] = T.float32(0)
             maxs[d] = T.float32(0)
             local_min[d] = T.float32(0)
             local_max[d] = T.float32(0)
-        for d in T.serial(4):
-            q[d] = f32(Poses, pose + layout["pose_rotation"] + d)
         if ty == types["ball"]:
             for d in T.serial(3):
                 mins[d] = translation[d] - a[0]
@@ -85,6 +79,45 @@ def compute_aabb(layout):
                 valid[0] = False
             if valid[0]:
                 transform_by(local_min, local_max, q, translation, mins, maxs)
+
+    return one
+
+
+def compute_aabb(layout):
+    at = compute_aabb_at(layout)
+
+    @T.macro
+    def one(Shapes, Poses, Vertices, index, mins, maxs):
+        q = T.alloc_local((4,), "float32")
+        translation = T.alloc_local((3,), "float32")
+        for d in T.serial(4):
+            q[d] = f32(
+                Poses, index * layout["pose_words"] + layout["pose_rotation"] + d
+            )
+        for d in T.serial(3):
+            translation[d] = f32(
+                Poses, index * layout["pose_words"] + layout["pose_translation"] + d
+            )
+        at(Shapes, Vertices, index, q, translation, mins, maxs)
+
+    return one
+
+
+def local_extent(layout):
+    at = compute_aabb_at(layout)
+
+    @T.macro
+    def one(Shapes, Vertices, index, Output):
+        q = T.alloc_local((4,), "float32")
+        translation = T.alloc_local((3,), "float32")
+        mins = T.alloc_local((3,), "float32")
+        maxs = T.alloc_local((3,), "float32")
+        for d in T.serial(3):
+            q[d] = 0.0
+            translation[d] = 0.0
+        q[3] = 1.0
+        at(Shapes, Vertices, index, q, translation, mins, maxs)
+        Output[0] = T.max(T.sqrt(dot(mins, mins)), T.sqrt(dot(maxs, maxs)))
 
     return one
 

@@ -47,6 +47,19 @@ class PfmTests(unittest.TestCase):
         self.assertEqual(int(rows[0, l["feature_manifold"]["count"]]), 0)
         self.assertGreater(int(rows[1, l["feature_manifold"]["count"]]), 0)
 
+    def test_inactive_dedup_payload_is_not_a_contact(self):
+        l, c, b, e, k = self.fixture()
+        a = {name: v.copy() for name, v in e.items()}
+        row = a["Output"].reshape(-1, l["feature_manifold_words"])[78]
+        self.assertEqual(int(row[l["feature_manifold"]["count"]]), 1)
+        row.view(np.float32)[
+            l["feature_point_words"] : 2 * l["feature_point_words"]
+        ] = [9, 8, 7, 6]
+        check_outputs(l, c, b, a, e, k)
+        row[l["feature_manifold"]["count"]] = 2
+        with self.assertRaises(AssertionError):
+            check_outputs(l, c, b, a, e, k)
+
     def test_native_secondary_misses_remain_visible(self):
         l, c, b, e, k = self.fixture()
         misses = diagnostics(l, c, b, e, e, k)

@@ -69,19 +69,34 @@
     {
       "reference": "src_rbd_shaders/broad_phase/narrow_phase.rs",
       "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.collision.analytic_contacts3d",
         "rbd.collision.reset_narrow3d",
         "rbd.collision.contact_plan3d",
-        "rbd.pipeline.analytic_collision3d"
+        "rbd.pipeline.analytic_collision3d",
+        "rbd.collision.deferred_pairs3d",
+        "rbd.collision.deferred_manifolds3d",
+        "rbd.collision.pfm_pair_keys3d",
+        "rbd.collision.pfm_subshape_keys3d",
+        "rbd.collision.pfm_permuted_keys3d",
+        "rbd.collision.reduce_contacts3d"
       ],
       "symbols": [
         "gpu_narrow_phase_shape_shape",
         "gpu_reset_narrow_phase",
-        "gpu_contact_plan"
+        "gpu_contact_plan",
+        "gpu_narrow_phase_shape_shape_deferred",
+        "gpu_narrow_phase_pfm_pfm",
+        "gpu_pfm_sort_keys",
+        "gpu_pfm_sub_shape_sort_keys",
+        "gpu_pfm_pair_sort_keys_permuted",
+        "gpu_reduce_contacts",
+        "pool_dedup",
+        "trimesh_convex",
+        "polyline_convex"
       ],
-      "remaining": "Analytic first pass, PFM counter reset and ContactPlan publication implemented, with resident ball/box collision composition. PFM lists, deferred geometry, sort keys and composite reduction remain unported."
+      "remaining": "All native 3D narrow-phase functions are translated. Resident sort/dispatch composition, runtime overflow retry and full scene qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/dynamics/body.rs",
@@ -1026,10 +1041,16 @@
     {
       "reference": "src_rbd_shaders/shapes/polyline.rs",
       "implementation": "ports/tilelang/shaders/shapes/polyline.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.collision.deferred_pairs3d"
+      ],
+      "symbols": [
+        "bvh_node_idx",
+        "bvh_node_aabb",
+        "segment"
+      ],
+      "remaining": "All polyline collision geometry is covered by shape bounds and deferred segment extraction; construction/accessors are host layout operations."
     },
     {
       "reference": "src_rbd_shaders/shapes/segment.rs",
@@ -1063,7 +1084,8 @@
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
         "rbd.query.support_face3d",
-        "rbd.query.pfm_subshape3d"
+        "rbd.query.pfm_subshape3d",
+        "rbd.collision.deferred_pairs3d"
       ],
       "symbols": [
         "compute_aabb",
@@ -1075,9 +1097,10 @@
         "local_support_point",
         "support_point",
         "support_face",
-        "pfm_subshape"
+        "pfm_subshape",
+        "local_extent"
       ],
-      "remaining": "Seven convex support maps, support faces and PFM conversion are implemented; general collider dispatch and production runtime remain."
+      "remaining": "Bounds, convex supports/faces and subshape conversion are connected to deferred collision; remaining public point-query conveniences and production runtime remain."
     },
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
@@ -1129,10 +1152,17 @@
     {
       "reference": "src_rbd_shaders/shapes/trimesh.rs",
       "implementation": "ports/tilelang/shaders/shapes/trimesh.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.collision.deferred_pairs3d"
+      ],
+      "symbols": [
+        "bvh_node_idx",
+        "bvh_node_aabb",
+        "triangle_vids",
+        "triangle"
+      ],
+      "remaining": "BVH and primitive extraction are connected to deferred work-list generation. Mesh pseudo-normal/point projection queries remain unported."
     },
     {
       "reference": "src_rbd_shaders/tests/coloring.rs",
@@ -1500,7 +1530,13 @@
         "rbd.query.support_face3d",
         "rbd.query.polygonal_contacts3d",
         "rbd.query.pfm_subshape3d",
-        "rbd.query.pfm_manifold3d"
+        "rbd.query.pfm_manifold3d",
+        "rbd.collision.deferred_pairs3d",
+        "rbd.collision.deferred_manifolds3d",
+        "rbd.collision.pfm_pair_keys3d",
+        "rbd.collision.pfm_subshape_keys3d",
+        "rbd.collision.pfm_permuted_keys3d",
+        "rbd.collision.reduce_contacts3d"
       ],
       "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
@@ -1527,7 +1563,13 @@
         "rbd.query.support_face3d",
         "rbd.query.polygonal_contacts3d",
         "rbd.query.pfm_subshape3d",
-        "rbd.query.pfm_manifold3d"
+        "rbd.query.pfm_manifold3d",
+        "rbd.collision.deferred_pairs3d",
+        "rbd.collision.deferred_manifolds3d",
+        "rbd.collision.pfm_pair_keys3d",
+        "rbd.collision.pfm_subshape_keys3d",
+        "rbd.collision.pfm_permuted_keys3d",
+        "rbd.collision.reduce_contacts3d"
       ],
       "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
     },
@@ -1553,7 +1595,13 @@
         "rbd.query.support_face3d",
         "rbd.query.polygonal_contacts3d",
         "rbd.query.pfm_subshape3d",
-        "rbd.query.pfm_manifold3d"
+        "rbd.query.pfm_manifold3d",
+        "rbd.collision.deferred_pairs3d",
+        "rbd.collision.deferred_manifolds3d",
+        "rbd.collision.pfm_pair_keys3d",
+        "rbd.collision.pfm_subshape_keys3d",
+        "rbd.collision.pfm_permuted_keys3d",
+        "rbd.collision.reduce_contacts3d"
       ],
       "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },

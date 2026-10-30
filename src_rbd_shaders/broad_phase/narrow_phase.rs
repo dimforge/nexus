@@ -836,21 +836,23 @@ fn polyline_convex(
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(not(target_arch_is_gpu), derive(bytemuck::Pod, bytemuck::Zeroable))]
 #[repr(C)]
+/// Native deferred-contact work item. Public fields let alternate device backends
+/// export the exact native layout and inspect/upload work lists without a duplicate ABI.
 pub struct NarrowPhasePfmPair {
-    shape1: Shape,
-    shape2: Shape,
-    pose12: Pose,
-    thickness1: f32,
-    thickness2: f32,
-    colliders: UVec2,
+    pub shape1: Shape,
+    pub shape2: Shape,
+    pub pose12: Pose,
+    pub thickness1: f32,
+    pub thickness2: f32,
+    pub colliders: UVec2,
     /// Index of the originating pair in the flat collision-pair list; the
     /// per-pair sort key of the contact-reduction path.
-    pair_index: u32,
+    pub pair_index: u32,
     /// See [`IndexedManifold::subshape`].
-    subshape: u32,
+    pub subshape: u32,
     /// See [`IndexedManifold::recycle_extent`].
-    recycle_extent: f32,
-    _padding: [u32; 1],
+    pub recycle_extent: f32,
+    pub _padding: [u32; 1],
 }
 
 /// PFM (GJK/EPA) manifold computation for the deferred work-list entries.

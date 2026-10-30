@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "feature": "rbd.collision.deferred_pairs3d",
+  "scope": "Native 3D gpu_narrow_phase_shape_shape_deferred including mixed convex tags, mesh triangles, thick polyline segments, reversed pair frames and strided lanes",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Pairs",
+    "PairCount",
+    "Poses",
+    "Shapes",
+    "PfmPairs",
+    "PfmCount",
+    "Vertices",
+    "Indices",
+    "BatchIds",
+    "RbdParams",
+    "Contacts",
+    "Order",
+    "Plan",
+    "Parents",
+    "Materials",
+    "Keys",
+    "PfmCandidates"
+  ],
+  "outputs": [
+    "PfmPairs",
+    "PfmCount"
+  ],
+  "comparison": "deferred_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "max_tangent_drift": 0.0001,
+  "tolerance_reason": "Work-list identities, shape words, thickness copies, sort keys, counts, guards and provenance are exact. Work-list pose/extent arithmetic uses 2e-6/2e-5. Atomic emission order may differ, including a legal unique subset on overflow; the requested total stays exact. Manifold numeric policy matches pfm_manifold, including bounded valid nonunique witnesses and reflected symmetry, with inactive post-dedup point payload excluded. Reduction only selects/copies native values and remains bit exact.",
+  "preconditions": [
+    "Valid finite native collider geometry and normalized poses; global collider/body identity maps and finite materials",
+    "Composite BVHs have in-range acyclic entry/exit links, unique leaf subshape identities and valid primitive/index/vertex ranges",
+    "Counters fit u32; capacity-clamped positional contact storage is twice pair capacity; caller resizes and reruns on overflow before full simulation use",
+    "PFM order is a permutation of the clamped prefix; reduction keys are sorted with one collider frame per run",
+    "PfmCandidates is a live native diagnostic superset for validation only; no generated kernel reads it"
+  ],
+  "invariants": [
+    "Exact requested work-list totals, legal membership, unique ownership and untouched capacity tails",
+    "Same-body PFM contacts write only an inert length; live contacts preserve collider/body/subshape/material provenance",
+    "Every valid contact has a unit normal, in-shape primary point and independent support/prediction bounds; secondary reference misses remain visible",
+    "Reduction preserves disjoint run ownership and selects only supplied candidate points",
+    "No host collision computation inside any translated stage"
+  ],
+  "outside_scope": [
+    "Composition with resident radix sorting, overflow resize/retry and production scene stepping",
+    "Composite-composite contact generation, which the native PFM dispatcher does not support",
+    "Triangle-mesh point projection/pseudo-normal queries and full scene stability qualification",
+    "Ascend vendor compilation, execution, memory-model qualification and performance"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-c1-g1-normal",
+    "n1-c4-g1-normal",
+    "n81-c200-g1-normal",
+    "n129-c400-g2-same-body",
+    "n567-c1200-g3-normal",
+    "n567-c17-g2-overflow",
+    "n567-c1200-g2-merge-all"
+  ]
+}

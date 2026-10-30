@@ -5,7 +5,7 @@ pub(crate) mod contacts;
 use nexus_rbd_shaders3d::{
     PaddedVector,
     bounding_volumes::Aabb,
-    broad_phase::{CollisionPair, ContactPlan},
+    broad_phase::{CollisionPair, ContactPlan, NarrowPhasePfmPair},
     dynamics::RbdSimParams,
     queries::{ColliderMaterial, IndexedManifold},
     rapier::geometry::InteractionGroups,
@@ -19,6 +19,20 @@ pub(crate) fn layout() -> Value {
     l["query_constants"] = json!({"max_flt":nexus_rbd_shaders3d::MAX_FLT});
     macro_rules! fields {($ty:ty,$($field:ident),+)=>{json!({$(stringify!($field):offset_of!($ty,$field)/4),+})};}
     l["contact"]["recycle_extent"] = json!(offset_of!(IndexedManifold, recycle_extent) / 4);
+    l["pfm_pair_words"] = json!(size_of::<NarrowPhasePfmPair>() / 4);
+    l["pfm_pair"] = fields!(
+        NarrowPhasePfmPair,
+        shape1,
+        shape2,
+        pose12,
+        thickness1,
+        thickness2,
+        colliders,
+        pair_index,
+        subshape,
+        recycle_extent,
+        _padding
+    );
     l["plan_words"] = json!(size_of::<ContactPlan>() / 4);
     l["plan"] = fields!(ContactPlan, bound, pfm_base, pfm_len);
     l["material_words"] = json!(size_of::<ColliderMaterial>() / 4);
@@ -50,7 +64,12 @@ pub(crate) fn layout() -> Value {
         collision_pairs_capacity
     );
     l["rbd_params_words"] = json!(size_of::<RbdSimParams>() / 4);
-    l["rbd_params"] = fields!(RbdSimParams, normalized_prediction_distance, length_unit);
+    l["rbd_params"] = fields!(
+        RbdSimParams,
+        normalized_prediction_distance,
+        length_unit,
+        contact_merge_cos
+    );
     l["batch"]["contacts_capacity"] = json!(offset_of!(BatchIndices, contacts_capacity) / 4);
     l["batch"]["multibodies_batch_capacity"] =
         json!(offset_of!(BatchIndices, multibodies_batch_capacity) / 4);

@@ -1396,6 +1396,84 @@
       "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
       "contract": "ports/tilelang/contracts/pfm_manifold.json",
       "test_command": "python ports/tilelang/pfm_replay.py --operation pfm_manifold --target c"
+    },
+    {
+      "id": "rbd.collision.deferred_pairs3d",
+      "operation": "deferred_pairs",
+      "runner": "deferred_replay.py",
+      "coverage": "Native 3D deferred narrow-phase stage gpu_narrow_phase_shape_shape_deferred",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_narrow_phase_shape_shape_deferred"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_narrow_phase_shape_shape_deferred",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/deferred_pairs.json",
+      "test_command": "python ports/tilelang/deferred_replay.py --operation deferred_pairs --target c"
+    },
+    {
+      "id": "rbd.collision.deferred_manifolds3d",
+      "operation": "deferred_manifolds",
+      "runner": "deferred_replay.py",
+      "coverage": "Native 3D deferred narrow-phase stage gpu_narrow_phase_pfm_pfm",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_narrow_phase_pfm_pfm"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_narrow_phase_pfm_pfm",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/deferred_manifolds.json",
+      "test_command": "python ports/tilelang/deferred_replay.py --operation deferred_manifolds --target c"
+    },
+    {
+      "id": "rbd.collision.pfm_pair_keys3d",
+      "operation": "pfm_pair_keys",
+      "runner": "deferred_replay.py",
+      "coverage": "Native 3D deferred narrow-phase stage gpu_pfm_sort_keys",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_pfm_sort_keys"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_pfm_sort_keys",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/pfm_pair_keys.json",
+      "test_command": "python ports/tilelang/deferred_replay.py --operation pfm_pair_keys --target c"
+    },
+    {
+      "id": "rbd.collision.pfm_subshape_keys3d",
+      "operation": "pfm_subshape_keys",
+      "runner": "deferred_replay.py",
+      "coverage": "Native 3D deferred narrow-phase stage gpu_pfm_sub_shape_sort_keys",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_pfm_sub_shape_sort_keys"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_pfm_sub_shape_sort_keys",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/pfm_subshape_keys.json",
+      "test_command": "python ports/tilelang/deferred_replay.py --operation pfm_subshape_keys --target c"
+    },
+    {
+      "id": "rbd.collision.pfm_permuted_keys3d",
+      "operation": "pfm_permuted_keys",
+      "runner": "deferred_replay.py",
+      "coverage": "Native 3D deferred narrow-phase stage gpu_pfm_pair_sort_keys_permuted",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_pfm_pair_sort_keys_permuted"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_pfm_pair_sort_keys_permuted",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/pfm_permuted_keys.json",
+      "test_command": "python ports/tilelang/deferred_replay.py --operation pfm_permuted_keys --target c"
+    },
+    {
+      "id": "rbd.collision.reduce_contacts3d",
+      "operation": "reduce_contacts",
+      "runner": "deferred_replay.py",
+      "coverage": "Native 3D deferred narrow-phase stage gpu_reduce_contacts",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/narrow_phase.rs::gpu_reduce_contacts"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py::gpu_reduce_contacts",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/reduce_contacts.json",
+      "test_command": "python ports/tilelang/deferred_replay.py --operation reduce_contacts --target c"
     }
   ],
   "targets": [
