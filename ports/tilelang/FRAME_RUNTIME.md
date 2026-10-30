@@ -108,3 +108,12 @@ unrestricted lifecycle support remain outstanding. `runtime_scene_validation.py`
 checks separate index spaces and geometry in addition to differential output.
 The native geometry validator recognizes exact empty leaf-bound sentinels without
 changing the bytes sent to kernels; it still rejects nonfinite primitive geometry.
+
+
+`runtime_replay.py --target c|metal|ascend` registers six native-upload scenes,
+with `--compile-only` required for Ascend. Each run rebuilds real native uploads
+and fresh Rust expected outputs before lowering. The report records both compiler
+profile and native archive hashes. The registered cases use eleven color buckets;
+body and collider indexing remain separate. `runtime_scene_fields` also validates
+external returned buffers through `handoff.py`. `test_runtime_handoff.py` uses
+recorded Metal results against Ascend source artifacts to test that protocol only.

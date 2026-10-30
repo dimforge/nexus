@@ -318,6 +318,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from primitives import check_outputs as check_integer_outputs
     from radix_replay import check_outputs as check_radix_outputs
     from replay import check_outputs
+    from runtime_scene_validation import check_outputs as check_runtime_scene_outputs
     from scan_replay import check_outputs as check_scan_outputs
     from scene_replay import check_outputs as check_scene_outputs
     from scene_restart_validation import check_outputs as check_scene_restart_outputs
@@ -398,6 +399,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "lbvh_fields": check_lbvh_outputs,
                     "lbvh_program_fields": check_lbvh_program_outputs,
                     "lbvh_scene_fields": check_lbvh_scene_outputs,
+                    "runtime_scene_fields": check_runtime_scene_outputs,
                     "geometry_fields": check_geometry_outputs,
                     "support_fields": check_support_outputs,
                     "epa_fields": check_epa_outputs,

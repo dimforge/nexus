@@ -36,7 +36,7 @@ class RuntimeSceneTests(unittest.TestCase):
             else v.copy()
             for n, v in b.items()
         }
-        k = json.loads((HERE / "contracts/joint_scene.json").read_text())
+        k = json.loads((HERE / "contracts/runtime_scene.json").read_text())
         k.pop("numeric_policies", None)
         return l, c, b, e, k
 

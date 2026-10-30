@@ -36,7 +36,7 @@ Remaining implementation sequence:
    labeled intermediate hybrid milestone.
 3. Native world bounds for every 3D shape tag and brute-force candidate-pair
    kernels are implemented, including an ordered bounds/pairs program. All twelve 3D LBVH stages and the resident Morton/radix/build/refit/traversal program are translated;
-   connected analytic/general/joint scene variants now use LBVH; a native resident frame executor now supports guarded capacity retries and device state migration. Native typed capacity uploads and registered delayed/deferred/batched/joint retry scenes are implemented; current target qualification and public runtime upload remain. The complete native
+   connected analytic/general/joint scene variants now use LBVH; a native resident frame executor now supports guarded capacity retries and device state migration. Native typed capacity uploads and registered delayed/deferred/batched/joint retry scenes are implemented; current target qualification remains. Native public cold-start upload and generic frame specialization are implemented; six real upload scene cases are registered. Public backend selection and lifecycle remain. The complete native
    analytic first pass now handles ball/primitive and box/box contacts, including
    material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; Bounded EPA and its GJK composition are translated; polygonal support faces and generic 3D clipping are also implemented. Composed convex PFM manifolds are translated with exact conversion, independent witness checks and paired Rust/TileLang secondary-witness corrections. Deferred convex/mesh/polyline dispatch, work-list keys and contact reduction are now translated as isolated stages. Resident deferred ordering and reduction are now connected to fifteen general collision scenes with all-frame trajectory checks. Runtime overflow retry and production composition remain. PFM counter reset and contact-plan publication are implemented;
    a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
@@ -48,7 +48,7 @@ Remaining implementation sequence:
    completed TileLang features.
 4. Ordinary rigid-joint stages (motor coefficients, COM-centered initialization,
    row construction, orthogonalization and colored solve) are ported. They are connected to analytic frames, with sixteen joint scenes and all-frame
-   device trajectory checks. General runtime scene upload remains. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
+   device trajectory checks. Native generic runtime scene upload with combined general collision and joints is registered; current target qualification and public backend lifecycle remain. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
    restitution, empty inputs and interleaved batches through connected steps and
    1/8/120-frame checkpoints with independent physical assertions. Analytic, ordinary-joint and
    general collision scenes now have all-frame traces; broader scene coverage and

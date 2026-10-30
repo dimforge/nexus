@@ -13,21 +13,11 @@ mod radix;
 mod scene_program;
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    assert_eq!(
-        args.len(),
-        6,
-        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|upload"
+    assert!(
+        args.len() == 6 || (args.len() == 4 && args[3] == "suite"),
+        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|upload OR OUTPUT INPUT_ROOT suite"
     );
     let root = Path::new(&args[1]);
-    let upload = scene_program::scene_upload::SceneUpload::read(Path::new(&args[2])).unwrap();
-    let frames: u32 = args[3].parse().unwrap();
-    let capacity: usize = args[4].parse().unwrap();
-    let execute = match args[5].as_str() {
-        "execute" => true,
-        "upload" => false,
-        _ => panic!("Unknown runtime export mode"),
-    };
-    assert!(frames > 0 && capacity > 0);
     fs::create_dir_all(root).unwrap();
     let mut layout = joint_layout::layout();
     use nexus_rbd_shaders3d::broad_phase::LbvhNode;
@@ -51,22 +41,63 @@ fn main() {
     )
     .unwrap();
     let directory = root.join("runtime_scene");
-    let case = scene_program::scene_storage(
-        &directory.join("native-upload"),
-        "runtime",
-        0,
-        1,
-        upload.batch.num_batches as usize,
-        frames,
-        &[],
-        true,
-        Some(capacity),
-        execute,
-        Some(&upload),
-    );
+    let configurations = if args[3] == "suite" {
+        [
+            ("multi-collider-joint", 64),
+            ("mesh-contact-joint", 64),
+            ("wide-contacts", 512),
+        ]
+        .into_iter()
+        .flat_map(|(name, capacity)| {
+            [1, 8].map(|frames| {
+                (
+                    format!("{name}-f{frames}"),
+                    Path::new(&args[2]).join(name),
+                    frames,
+                    capacity,
+                    true,
+                )
+            })
+        })
+        .collect::<Vec<_>>()
+    } else {
+        let frames: u32 = args[3].parse().unwrap();
+        let capacity: usize = args[4].parse().unwrap();
+        let execute = match args[5].as_str() {
+            "execute" => true,
+            "upload" => false,
+            _ => panic!("Unknown runtime export mode"),
+        };
+        assert!(frames > 0 && capacity > 0);
+        vec![(
+            "native-upload".to_owned(),
+            Path::new(&args[2]).to_owned(),
+            frames,
+            capacity,
+            execute,
+        )]
+    };
+    let mut cases = Vec::new();
+    for (name, input, frames, capacity, execute) in configurations {
+        let upload = scene_program::scene_upload::SceneUpload::read(&input).unwrap();
+        let case = scene_program::scene_storage(
+            &directory.join(name),
+            "runtime",
+            0,
+            1,
+            upload.batch.num_batches as usize,
+            frames,
+            &[],
+            true,
+            Some(capacity),
+            execute,
+            Some(&upload),
+        );
+        cases.push(case);
+    }
     fs::write(
         directory.join("suite.json"),
-        serde_json::to_vec_pretty(&json!({"cases":[case]})).unwrap(),
+        serde_json::to_vec_pretty(&json!({"cases":cases})).unwrap(),
     )
     .unwrap();
 }
