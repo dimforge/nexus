@@ -8,6 +8,7 @@ import collision_kernels
 import colored_kernels
 import coloring_kernels
 import contact_kernels
+import general_collision_kernels
 import graph_kernels
 import joint_kernels
 import link_kernels
@@ -108,8 +109,13 @@ def make_program(l, c, target):
         pm,
         bg,
     )
-    cm = identity(collision_kernels.BUFFERS)
+    collision = (
+        general_collision_kernels if c["kind"] == "general_scene" else collision_kernels
+    )
+    cm = identity(collision.BUFFERS)
     cm.update(Poses="ColliderPoses", Contacts="RawContacts")
+    if c["kind"] == "general_scene":
+        cm["Indices"] = "GeometryIndices"
     cc = local(
         cm,
         count=n,
@@ -121,9 +127,9 @@ def make_program(l, c, target):
         groups=max((per * per * nb + 63) // 64, 1),
         contact_groups=1,
         iterations=1,
-        vertices=1,
+        vertices=c.get("vertex_count", 1),
     )
-    program("collision", collision_kernels.make_program(l, cc, target), cm)
+    program("collision", collision.make_program(l, cc, target), cm)
     cm = identity(canonical_kernels.BUFFERS)
     cm.update(Contacts="RawContacts", Output="Contacts", Counts="RadixCounts")
     cc = local(
@@ -300,7 +306,7 @@ def make_program(l, c, target):
         for col in range(1, c["color_stride"] - 1):
             color("colored_solve", col, "Color0")
     body("finalize")
-    if c["kind"] == "joint_scene":
+    if c["kind"] in ("joint_scene", "general_scene"):
         from trajectory_kernels import make_kernel as trajectory_kernel
 
         add(

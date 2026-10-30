@@ -294,6 +294,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from deferred_validation import check_outputs as check_deferred_outputs
     from epa_validation import check_outputs as check_epa_outputs
     from feature_validation import check_outputs as check_feature_outputs
+    from general_scene_validation import check_outputs as check_general_scene_outputs
     from geometry_validation import check_outputs as check_geometry_outputs
     from graph_replay import check_outputs as check_graph_outputs
     from hub_replay import check_outputs as check_hub_outputs
@@ -378,6 +379,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "scene_fields": check_scene_outputs,
                     "joint_fields": check_joint_outputs,
                     "joint_scene_fields": check_joint_scene_outputs,
+                    "general_scene_fields": check_general_scene_outputs,
                     "geometry_fields": check_geometry_outputs,
                     "support_fields": check_support_outputs,
                     "epa_fields": check_epa_outputs,

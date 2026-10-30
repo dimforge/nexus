@@ -133,3 +133,7 @@ path = "src/geometry.rs"
 [[bin]]
 name = "deferred"
 path = "src/deferred.rs"
+
+[[bin]]
+name = "general-scenes"
+path = "src/general_scenes.rs"

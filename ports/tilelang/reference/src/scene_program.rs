@@ -36,7 +36,9 @@ pub fn fixture(
     };
     let n = per * nb;
     let storage = (per + 3) * nb;
-    let pair_capacity = per * per * nb;
+    let general_scene = label.starts_with("general_");
+    let traced = general_scene || label.starts_with("joint_");
+    let pair_capacity = per * per * nb * if general_scene { 2 } else { 1 };
     let capacity = pair_capacity * 2;
     let cs = capacity + 3;
     let groups = 1u32;
@@ -80,7 +82,8 @@ pub fn fixture(
     let parents = (0..storage as u32).collect::<Vec<_>>();
     let filters = parents.iter().map(|i| [*i, 0]).collect::<Vec<_>>();
     let interaction = vec![InteractionGroups::all(); storage];
-    let vertices = [PaddedVector::new(Vec3::ZERO)];
+    let mut vertices = vec![PaddedVector::new(Vec3::ZERO)];
+    let mut geometry_indices = vec![guard];
     for b in 0..nb {
         poses[b].translation = Vec3::new(0., -0.5, b as f32 * 4.);
         shapes[b] = Shape::cuboid(Vec3::new(20., 0.5, 20.));
@@ -111,6 +114,90 @@ pub fn fixture(
                 if label == "impact" { -2. } else { 0. },
                 0.,
             );
+        }
+    }
+    if general_scene {
+        // Shared convex cube, then a two-triangle ground mesh or two thick segments.
+        vertices.extend((0..8).map(|i| {
+            PaddedVector::new(Vec3::new(
+                if i & 1 == 0 { -0.5 } else { 0.5 },
+                if i & 2 == 0 { -0.5 } else { 0.5 },
+                if i & 4 == 0 { -0.5 } else { 0.5 },
+            ))
+        }));
+        geometry_indices.extend([
+            0, 0, 0, 0, 4, 6, 0, 6, 2, 1, 3, 7, 1, 7, 5, 0, 1, 5, 0, 5, 4, 2, 6, 7, 2, 7, 3, 0, 2,
+            3, 0, 3, 1, 4, 5, 7, 4, 7, 6,
+        ]);
+        let vb = vertices.len() as u32;
+        let ib = geometry_indices.len() as u32;
+        let lo = Vec3::new(-20., 0., -20.);
+        let hi = Vec3::new(20., 0., 20.);
+        for _ in 0..3 {
+            vertices.push(PaddedVector::new(lo));
+            vertices.push(PaddedVector::new(hi));
+        }
+        for p in [lo, Vec3::new(-20., 0., 20.), hi, Vec3::new(20., 0., -20.)] {
+            vertices.push(PaddedVector::new(p));
+        }
+        geometry_indices.extend([1, 3, 0, u32::MAX, 2, 0, u32::MAX, 3, 1, 0, 1, 2, 0, 2, 3]);
+        let pib = geometry_indices.len() as u32;
+        geometry_indices.extend([1, 3, 0, u32::MAX, 2, 0, u32::MAX, 3, 1, 0, 3, 1, 2]);
+        let pvb = vertices.len() as u32;
+        for _ in 0..3 {
+            vertices.push(PaddedVector::new(Vec3::new(-20., 0., -0.1)));
+            vertices.push(PaddedVector::new(Vec3::new(20., 0., 0.1)));
+        }
+        for p in [
+            Vec3::new(-20., 0., -0.1),
+            Vec3::new(-20., 0., 0.1),
+            Vec3::new(20., 0., 0.1),
+            Vec3::new(20., 0., -0.1),
+        ] {
+            vertices.push(PaddedVector::new(p));
+        }
+        for b in 0..nb {
+            if label == "general_mesh" {
+                shapes[b] = Shape::trimesh(vb, ib, 3, 2, 4, lo, hi);
+                poses[b].translation.y = 0.;
+            } else if label == "general_polyline" {
+                shapes[b] = Shape::polyline(
+                    pvb,
+                    pib,
+                    3,
+                    Vec3::new(-20., 0., -0.1),
+                    Vec3::new(20., 0., 0.1),
+                );
+                poses[b].translation.y = -0.4;
+            }
+        }
+        for i in nb..n {
+            let kind = match label {
+                "general_capsule" => 2,
+                "general_cone" => 3,
+                "general_cylinder" => 4,
+                "general_convex" | "general_mesh" => 5,
+                "general_triangle" => 6,
+                "general_polyline" => 0,
+                _ => (i / nb - 1) % 7,
+            };
+            shapes[i] = match kind {
+                0 => Shape::ball(0.5),
+                1 => Shape::cuboid(Vec3::splat(0.5)),
+                2 => Shape::capsule(Vec3::new(0., -0.3, 0.), Vec3::new(0., 0.3, 0.), 0.2),
+                3 => Shape::cone(0.5, 0.5),
+                4 => Shape::cylinder(0.5, 0.5),
+                5 => Shape::convex_poly(1, 9, 1, 40),
+                _ => Shape::from_triangle(&Triangle::new(
+                    Vec3::new(-0.5, -0.5, -0.4),
+                    Vec3::new(0.5, -0.5, -0.4),
+                    Vec3::new(0., 0.5, 0.4),
+                )),
+            };
+            local[i].inv_principal_inertia = Vec3::splat(6.);
+            if label == "general_triangle" {
+                poses[i].translation.y += 0.5;
+            }
         }
     }
     let mut joints = vec![ImpulseJoint::zeroed(); js];
@@ -345,6 +432,12 @@ pub fn fixture(
         sorting.insert(key, GpuBuffer::Cpu(vec![shift, cs as u32, 0]));
     }
 
+    let mut pfm_pairs = vec![NarrowPhasePfmPair::default(); pair_capacity + 3];
+    bytemuck::cast_slice_mut::<_, u32>(&mut pfm_pairs).fill(guard);
+    let pfm_identity: Vec<u32> = (0..cs as u32).collect();
+    let mut pfm_order = vec![guard; cs];
+    let mut pfm_keys = vec![guard; cs];
+    let mut pfm_sorted_keys = vec![guard; cs];
     macro_rules! buffers {
         ($suffix:expr) => {{
             if joint_scene {
@@ -363,8 +456,26 @@ pub fn fixture(
                     &[0u32, guard],
                 );
                 write(dir, &format!("MotorParams{}.bin", $suffix), &motor_params);
+            }
+            if traced {
                 write(dir, &format!("Trajectory{}.bin", $suffix), &trajectory);
                 write(dir, &format!("FrameIndex{}.bin", $suffix), &frame_index);
+            }
+            if general_scene {
+                write(
+                    dir,
+                    &format!("GeometryIndices{}.bin", $suffix),
+                    &geometry_indices,
+                );
+                write(dir, &format!("PfmPairs{}.bin", $suffix), &pfm_pairs);
+                write(dir, &format!("PfmIdentity{}.bin", $suffix), &pfm_identity);
+                write(dir, &format!("PfmOrder{}.bin", $suffix), &pfm_order);
+                write(dir, &format!("PfmKeys{}.bin", $suffix), &pfm_keys);
+                write(
+                    dir,
+                    &format!("PfmSortedKeys{}.bin", $suffix),
+                    &pfm_sorted_keys,
+                );
             }
             write(dir, &format!("Poses{}.bin", $suffix), &poses);
             write(dir, &format!("LocalPoses{}.bin", $suffix), &local_poses);
@@ -541,6 +652,28 @@ pub fn fixture(
                 &p,
             );
         }
+        if general_scene {
+            for i in 0..groups * 64 {
+                gpu_narrow_phase_shape_shape_deferred(
+                    UVec3::new(i, 0, 0),
+                    UVec3::new(groups, 1, 1),
+                    &pairs,
+                    &mut pair_count,
+                    &collider_poses,
+                    &shapes,
+                    &mut pfm_pairs,
+                    &mut pfm_count,
+                    &vertices,
+                    &geometry_indices,
+                    &batch,
+                    &p,
+                );
+            }
+            assert!(
+                pair_count[0] <= pair_capacity as u32 && pfm_count[0] <= pair_capacity as u32,
+                "Resize and rerun collision before integrating an overflowing scene"
+            );
+        }
         gpu_contact_plan(
             &mut pair_count,
             &mut pfm_count,
@@ -564,6 +697,133 @@ pub fn fixture(
                 &materials,
                 &p,
             );
+        }
+        if general_scene {
+            for pass_kind in 0..2 {
+                for i in 0..groups * 64 {
+                    if pass_kind == 0 {
+                        gpu_pfm_sub_shape_sort_keys(
+                            UVec3::new(i, 0, 0),
+                            UVec3::new(groups, 1, 1),
+                            &pfm_pairs,
+                            &plan[0],
+                            &mut pfm_keys,
+                        );
+                    } else {
+                        gpu_pfm_pair_sort_keys_permuted(
+                            UVec3::new(i, 0, 0),
+                            UVec3::new(groups, 1, 1),
+                            &pfm_pairs,
+                            &plan[0],
+                            &pfm_order,
+                            &mut pfm_keys,
+                        );
+                    }
+                }
+                sorting.insert("PfmKeys".into(), GpuBuffer::Cpu(pfm_keys.clone()));
+                sorting.insert("PfmIdentity".into(), GpuBuffer::Cpu(pfm_identity.clone()));
+                sorting.insert("PfmOrder".into(), GpuBuffer::Cpu(pfm_order.clone()));
+                sorting.insert(
+                    "PfmSortedKeys".into(),
+                    GpuBuffer::Cpu(pfm_sorted_keys.clone()),
+                );
+                sorting.insert("PfmSortLen".into(), GpuBuffer::Cpu(pfm_sort_len.to_vec()));
+                for pass in 0..8 {
+                    let (ik, iv) = if pass == 0 {
+                        (
+                            "PfmKeys",
+                            if pass_kind == 0 {
+                                "PfmIdentity"
+                            } else {
+                                "PfmOrder"
+                            },
+                        )
+                    } else if pass % 2 == 1 {
+                        ("PongKeys", "PongValues")
+                    } else {
+                        ("PfmSortedKeys", "PfmOrder")
+                    };
+                    let (ok, ov) = if pass % 2 == 0 {
+                        ("PongKeys", "PongValues")
+                    } else {
+                        ("PfmSortedKeys", "PfmOrder")
+                    };
+                    let mapping = [
+                        ("Config", "Config"),
+                        ("NumKeys", "PfmSortLen"),
+                        ("Keys", ik),
+                        ("Values", iv),
+                        ("OutKeys", ok),
+                        ("OutValues", ov),
+                        ("Aux", "RadixAux"),
+                        ("OutAux", "RadixOutAux"),
+                        ("BatchIds", "RadixBatchIds"),
+                        ("Counts", "Counts"),
+                        ("Reduced", "Reduced"),
+                        ("SortGrid", "SortGrid"),
+                        ("ReduceGrid", "ReduceGrid"),
+                    ];
+                    let mut a = radix::Arrays::new();
+                    for (local, physical) in mapping {
+                        a.insert(
+                            local.into(),
+                            GpuBuffer::Cpu(sorting[physical].unwrap_slice().to_vec()),
+                        );
+                    }
+                    for i in 0..8 {
+                        let key = format!("Config{i}");
+                        a.insert(
+                            key.clone(),
+                            GpuBuffer::Cpu(sorting[&key].unwrap_slice().to_vec()),
+                        );
+                    }
+                    if pass == 0 {
+                        radix::exec(&mut a, "radix_dispatch", cs as u32, 1, None);
+                    }
+                    for stage in radix::STAGES {
+                        radix::exec(&mut a, stage, cs as u32, 1, Some(pass));
+                    }
+                    for (local, physical) in mapping {
+                        sorting.insert(physical.into(), a.remove(local).unwrap());
+                    }
+                }
+                pfm_order.copy_from_slice(sorting["PfmOrder"].unwrap_slice());
+                pfm_sorted_keys.copy_from_slice(sorting["PfmSortedKeys"].unwrap_slice());
+                for key in [
+                    "PfmKeys",
+                    "PfmOrder",
+                    "PfmIdentity",
+                    "PfmSortedKeys",
+                    "PfmSortLen",
+                ] {
+                    sorting.remove(key);
+                }
+            }
+            for i in 0..groups * 64 {
+                gpu_narrow_phase_pfm_pfm(
+                    UVec3::new(i, 0, 0),
+                    UVec3::new(groups, 1, 1),
+                    &mut raw,
+                    &pfm_pairs,
+                    &pfm_order,
+                    &plan[0],
+                    &vertices,
+                    &geometry_indices,
+                    &parents,
+                    &materials,
+                    &p,
+                );
+            }
+            for i in 0..groups * 64 {
+                gpu_reduce_contacts(
+                    UVec3::new(i, 0, 0),
+                    UVec3::new(groups, 1, 1),
+                    &mut raw,
+                    &pfm_sorted_keys,
+                    &plan[0],
+                    &p,
+                );
+            }
         }
         {
             let src = &raw;
@@ -950,7 +1210,7 @@ pub fn fixture(
                 &batch,
             );
         }
-        if joint_scene {
+        if traced {
             let off = frame as usize * trace_stride;
             let pose_words: &[u32] = bytemuck::cast_slice(&poses[..n]);
             let vel_words: &[u32] = bytemuck::cast_slice(&vels[..n]);
@@ -1083,10 +1343,24 @@ pub fn fixture(
                 "JointConstraints",
                 "JointColors",
                 "MotorParams",
-                "Trajectory",
-                "FrameIndex",
                 "JointBias",
                 "JointUnbiased",
+            ]
+            .map(str::to_owned),
+        );
+    }
+    if traced {
+        inputs.extend(["Trajectory", "FrameIndex"].map(str::to_owned));
+    }
+    if general_scene {
+        inputs.extend(
+            [
+                "GeometryIndices",
+                "PfmPairs",
+                "PfmIdentity",
+                "PfmOrder",
+                "PfmKeys",
+                "PfmSortedKeys",
             ]
             .map(str::to_owned),
         );
@@ -1098,7 +1372,7 @@ pub fn fixture(
             (name, json!(size))
         })
         .collect::<serde_json::Map<_, _>>();
-    let case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":3,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"buffer_words":sizes});
+    let case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":3,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"buffer_words":sizes});
     fs::write(
         dir.join("case.json"),
         serde_json::to_vec_pretty(&case).unwrap(),

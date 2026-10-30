@@ -170,7 +170,7 @@ def buffer_sizes(l, c):
     ):
         sizes.update({name: records * width for name in names})
     sizes.update(
-        Vertices=l["vertex_words"],
+        Vertices=c.get("vertex_count", 1) * l["vertex_words"],
         PairCount=3,
         PfmCount=3,
         Plan=2 * l["plan_words"],
@@ -210,6 +210,17 @@ def buffer_sizes(l, c):
         )
     for i in range(8):
         sizes.update({f"Color{i}": 2, f"Config{i}": l["sort_uniforms_words"]})
+    if c["kind"] == "general_scene":
+        sizes.update(
+            GeometryIndices=c["geometry_indices"],
+            PfmPairs=(pc + 3) * l["pfm_pair_words"],
+            PfmIdentity=cs,
+            PfmOrder=cs,
+            PfmKeys=cs,
+            PfmSortedKeys=cs,
+            Trajectory=c["frames"] * c["trace_stride"] + 3,
+            FrameIndex=2,
+        )
     return sizes
 
 
@@ -238,7 +249,8 @@ def validate_case(l, c, a):
         "old_base",
         "new_base",
     )
-    if c["kind"] != "analytic_scene" or any(
+    general = c["kind"] == "general_scene"
+    if c["kind"] not in ("analytic_scene", "general_scene") or any(
         type(c[k]) is not int or not 0 <= c[k] < 2**20 for k in fields
     ):
         raise ValueError("Invalid scene dimensions")
@@ -266,7 +278,7 @@ def validate_case(l, c, a):
     if (
         n != per * nb
         or bs != (per + 3) * nb
-        or c["pair_capacity"] != per * per * nb
+        or c["pair_capacity"] != per * per * nb * (2 if general else 1)
         or c["pair_storage"] != c["pair_capacity"] + 3
         or c["contact_capacity"] != 2 * c["pair_capacity"]
         or cs != c["contact_capacity"] + 3
@@ -274,7 +286,7 @@ def validate_case(l, c, a):
         or c["new_base"] != cs
     ):
         raise ValueError("Invalid scene capacity or persistence ranges")
-    if c["scene"] not in (
+    if not general and c["scene"] not in (
         "empty",
         "ground",
         "stack",
@@ -292,7 +304,7 @@ def validate_case(l, c, a):
         raise ValueError("Invalid scene adjacency scan")
     sizes = buffer_sizes(l, c)
     if (
-        set(a) != set(BUFFERS)
+        set(a) != set(sizes)
         or c["buffer_words"] != sizes
         or any(
             size <= 0
@@ -371,7 +383,7 @@ def validate_case(l, c, a):
         raise ValueError("Scene requires one identity-attached collider per body")
     shapes = a["Shapes"].reshape(-1, l["shape_words"])
     tags = shapes[:n, l["shape"]["a"] + 3]
-    if np.any(
+    if not general and np.any(
         (tags != l["shape_types"]["ball"]) & (tags != l["shape_types"]["cuboid"])
     ):
         raise ValueError("Unsupported scene shape")
@@ -392,26 +404,29 @@ def validate_case(l, c, a):
         raise ValueError("Scene fixture gravity changed")
     if p[f["dt"]] != np.float32(1 / 240) or p[f["length_unit"]] != 1:
         raise ValueError("Scene fixture timestep or units changed")
-    for i in range(n):
-        off = l["shape"]["a"]
-        shape = shapes[i]
-        values = shape.view(np.float32)
-        fixed = i < nb
-        box = fixed or c["scene"] == "boxes"
-        if shape[off + 3] != l["shape_types"]["cuboid" if box else "ball"]:
-            raise ValueError("Scene fixture shape type changed")
-        expected = np.array([20.0, 0.5, 20.0] if fixed else [0.5, 0.5, 0.5], np.float32)
-        width = 3 if box else 1
-        if not np.array_equal(values[off : off + width], expected[:width]):
-            raise ValueError("Scene fixture shape dimensions changed")
-        if not fixed:
-            expected_inertia = 6.0 if box else 10.0
-            if np.any(
-                mass[i, l["local_inv_mass"] : l["local_inv_mass"] + 3] != 1
-            ) or np.any(
-                mass[i, l["local_inv_inertia"] : l["local_inv_inertia"] + 3]
-                != expected_inertia
-            ):
-                raise ValueError("Scene fixture mass changed")
+    if not general:
+        for i in range(n):
+            off = l["shape"]["a"]
+            shape = shapes[i]
+            values = shape.view(np.float32)
+            fixed = i < nb
+            box = fixed or c["scene"] == "boxes"
+            if shape[off + 3] != l["shape_types"]["cuboid" if box else "ball"]:
+                raise ValueError("Scene fixture shape type changed")
+            expected = np.array(
+                [20.0, 0.5, 20.0] if fixed else [0.5, 0.5, 0.5], np.float32
+            )
+            width = 3 if box else 1
+            if not np.array_equal(values[off : off + width], expected[:width]):
+                raise ValueError("Scene fixture shape dimensions changed")
+            if not fixed:
+                expected_inertia = 6.0 if box else 10.0
+                if np.any(
+                    mass[i, l["local_inv_mass"] : l["local_inv_mass"] + 3] != 1
+                ) or np.any(
+                    mass[i, l["local_inv_inertia"] : l["local_inv_inertia"] + 3]
+                    != expected_inertia
+                ):
+                    raise ValueError("Scene fixture mass changed")
     if np.any(mass[:, l["local_com"] : l["local_com"] + 3] != 0):
         raise ValueError("Scene physical checks require centered mass")
