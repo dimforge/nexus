@@ -12,7 +12,7 @@ Use Python 3.13, the [pinned TileLang requirements](../ports/tilelang/requiremen
 a C++17 compiler, and Rust 1.98.1. Metal additionally needs Apple silicon and the
 Xcode command-line tools. The port's POSIX compiler runner does not currently
 support native Windows; C execution is available on the supported Linux/macOS
-setup. See the [port setup](../ports/tilelang/README.md#running-the-pilot).
+setup. See the [port setup](../ports/tilelang/README.md).
 
 From the repository root:
 
@@ -76,7 +76,7 @@ Nexus full rebuilds can themselves reset bodies from the host Rapier world.
 ## Compilation and errors
 
 Initial specialization can take several minutes. The window presents a compilation
-banner before blocking; compiler progress is in the terminal. Capacity growth,
+banner before blocking; the artifact path and any errors are printed in the terminal. Capacity growth,
 solver specialization changes and scene rebuilds can also compile and pause the
 window. Large existing stress scenes remain large: start with the comparison
 scene. The adapter reads native inputs and body outputs each frame and adds host

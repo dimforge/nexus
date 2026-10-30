@@ -1,4 +1,5 @@
 *.lock
+!/Cargo.lock
 !flake.lock
 .vscode
 .idea

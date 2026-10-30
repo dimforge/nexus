@@ -199,10 +199,10 @@ fn topology(upload: &RbdSceneUpload) -> Vec<u8> {
 fn changed_ranges<T: bytemuck::NoUninit>(before: &[T], after: &[T]) -> Vec<std::ops::Range<usize>> {
     let mut ranges = Vec::new();
     let mut start = None;
-    for i in 0..after.len() {
+    for (i, value) in after.iter().enumerate() {
         let changed = before
             .get(i)
-            .is_none_or(|old| bytemuck::bytes_of(old) != bytemuck::bytes_of(&after[i]));
+            .is_none_or(|old| bytemuck::bytes_of(old) != bytemuck::bytes_of(value));
         if changed {
             start.get_or_insert(i);
         } else if let Some(first) = start.take() {

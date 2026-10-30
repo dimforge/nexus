@@ -158,7 +158,9 @@ fn parse_command_line() -> CliOptions {
         match arg.as_str() {
             "--example" => opts.example = args.next(),
             "--list" => opts.list = true,
-            "--tilelang" => opts.tilelang = args.next(),
+            "--tilelang" => {
+                opts.tilelang = Some(args.next().expect("--tilelang requires c or metal"))
+            }
             "--compare" => opts.compare = true,
             "--reference-view" => {
                 opts.compare = true;

@@ -1206,16 +1206,16 @@ impl NexusViewer {
                 .slow_read_buffer(poses.buffer(), &mut cache)
                 .await;
             #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
-            if self.ui.backend_type.is_tilelang() {
-                if let Some(driver) = &self.tilelang {
-                    cache.clone_from(
-                        if self.ui.tilelang.compare && self.ui.tilelang.show_reference {
-                            &driver.reference_poses
-                        } else {
-                            &driver.poses
-                        },
-                    );
-                }
+            if self.ui.backend_type.is_tilelang()
+                && let Some(driver) = &self.tilelang
+            {
+                cache.clone_from(
+                    if self.ui.tilelang.compare && self.ui.tilelang.show_reference {
+                        &driver.reference_poses
+                    } else {
+                        &driver.poses
+                    },
+                );
             }
             self.nexus_render.update_instances_from_poses(state, &cache);
 
@@ -1567,6 +1567,12 @@ impl NexusViewer {
     /// `COMPILE_BANNER_PRESENT_FRAMES`).
     pub async fn show_compile_banner(&mut self) {
         for _ in 0..COMPILE_BANNER_PRESENT_FRAMES {
+            let gpu_available = self.webgpu.is_some();
+            self.window.draw_ui(|ctx| {
+                crate::ui::setup_custom_theme(ctx);
+                crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
+                crate::ui::compiling_overlay(ctx, self.ui.backend_type.is_tilelang());
+            });
             let _ = self
                 .window
                 .render(
@@ -1578,12 +1584,6 @@ impl NexusViewer {
                     None,
                 )
                 .await;
-            let gpu_available = self.webgpu.is_some();
-            self.window.draw_ui(|ctx| {
-                crate::ui::setup_custom_theme(ctx);
-                crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
-                crate::ui::compiling_overlay(ctx, self.ui.backend_type.is_tilelang());
-            });
         }
     }
 
@@ -1649,7 +1649,10 @@ impl NexusViewer {
                         .map(|r| r.collision_pairs_capacity())
                         .unwrap_or(1);
                     let options = crate::tilelang::options(self.ui.backend_type, capacity)?;
+                    eprintln!("Preparing {:?} kernels in {} (first specialization can take several minutes)", self.ui.backend_type, options.workspace.display());
                     self.ui.tilelang.workspace = Some(options.workspace.clone());
+                    // SAFETY: these paths are explicitly selected trusted local
+                    // compiler code; options() creates a fresh artifact path.
                     self.tilelang = Some(unsafe {
                         crate::tilelang::TileLangDriver::new(
                             state,
@@ -1733,6 +1736,21 @@ impl NexusViewer {
     /// selected). This is the no-scene-argument counterpart of the legacy
     /// scene-argument `render`.
     pub async fn render_frame(&mut self) -> bool {
+        // Build the panel after the caller's last sync, so diagnostics and
+        // snapshots describe the body poses rendered in this same frame.
+        let gpu_available = self.webgpu.is_some();
+        // Disjoint closure capture (edition 2024): the closure borrows `self.ui`
+        // and `scene_ui` while `self.window` is the receiver.
+        if self.draw_ui {
+            self.window.draw_ui(|ctx| {
+                crate::ui::setup_custom_theme(ctx);
+                crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
+            });
+        }
+
+        if self.ui.transition.is_some() {
+            return false;
+        }
         // Added before `render`, which draws then clears the point/line renderers.
         self.draw_debug_render();
 
@@ -1777,16 +1795,6 @@ impl NexusViewer {
             }
             self.ui.transition = Some(Transition::Quit);
             return false;
-        }
-
-        let gpu_available = self.webgpu.is_some();
-        // Disjoint closure capture (edition 2024): the closure borrows `self.ui`
-        // and `scene_ui` while `self.window` is the receiver.
-        if self.draw_ui {
-            self.window.draw_ui(|ctx| {
-                crate::ui::setup_custom_theme(ctx);
-                crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
-            });
         }
 
         self.ui.transition.is_none()

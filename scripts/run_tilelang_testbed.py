@@ -12,6 +12,15 @@ sys.path.insert(0, str(ROOT / "ports/tilelang"))
 import cpu_oracle  # noqa: E402
 
 
+def interpreter_path(value):
+    # A venv's python is commonly a symlink. Dereferencing it changes sys.prefix
+    # and loses the environment's installed compiler packages.
+    path = Path(os.path.abspath(Path(value).expanduser()))
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    return str(path)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend", choices=("c", "metal"), default="c")
@@ -23,7 +32,7 @@ def main():
     if not args.python:
         parser.error("--python or NEXUS_TILELANG_PYTHON must name the pinned TileLang interpreter")
     env = cpu_oracle.environment()
-    env["NEXUS_TILELANG_PYTHON"] = str(Path(args.python).expanduser().resolve(strict=True))
+    env["NEXUS_TILELANG_PYTHON"] = interpreter_path(args.python)
     env["NEXUS_TILELANG_PORT"] = str(ROOT / "ports/tilelang")
     evidence = ROOT / "target/tilelang-testbed"
     profile = cpu_oracle.verify(evidence, env)

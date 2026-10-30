@@ -109,7 +109,7 @@ pub fn compiling_overlay(ctx: &egui::Context, tilelang: bool) {
         .show(ctx, |ui| {
             ui.colored_label(
                 Color32::from_rgb(82, 130, 150),
-                if tilelang { "Preparing TileLang kernels…\nFirst specialization can take several minutes.\nThe window waits during compilation; progress is printed in the terminal." } else { "Compiling shaders…\nThe window waits during compilation. Check the terminal for progress." },
+                if tilelang { "Preparing TileLang kernels…\nFirst specialization can take several minutes.\nThe window waits during compilation. Errors are reported in the terminal." } else { "Compiling shaders…\nThe window waits during compilation. Check the terminal for progress." },
             );
         });
 }
