@@ -1,0 +1,2742 @@
+{
+  "scope": "Six deferred/composite collision stages, including corrected symbolic contact reduction; full resident scene composition and global reconciliation remain in progress",
+  "inputs_sha256": "b6931c878a948baa13a4d2cd19ded4591e77c55e3b6b451a816e42ed2a447598",
+  "reports": [
+    {
+      "operation": "deferred_pairs",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "d7218dd9ef301f6f5158c7adb66b04e8860217563e640b996974e83ac9fe6147",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 39,
+            "written": 39
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 81,
+            "written": 81
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 3.725290298461914e-09,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 17,
+            "requested": 34,
+            "written": 17
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_pairs",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "09ee8e2bac1292545439cea39e3cf350b832b5c4b49137ec4428aa18e3bcde7e",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 0,
+            "written": 0
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 39,
+            "written": 39
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 5.960464477539063e-08,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 81,
+            "written": 81
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 3.725290298461914e-09,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 17,
+            "requested": 34,
+            "written": 17
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 2.384185791015625e-07,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "overflow": 0,
+            "requested": 485,
+            "written": 485
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_pairs",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "297009d66ef2b6902a6dc379f094d393df74dc6ddb708adab91cd92d8c2951cf",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "e22e8a5d91d9dd4477d5074057fcad239d0d44588df8b1414d40e14b6684245c",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.8605180978775024,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "8215af5df900ecea122309df3ffe631935a24ab73031a8207bd965e86f4af79b",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.8605180978775024,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [],
+            "reference_secondary_containment_misses": []
+          }
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 1.6562658548355103,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {
+            "actual_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ],
+            "reference_secondary_containment_misses": [
+              {
+                "pair": 125,
+                "point": 0,
+                "subshape": 1
+              },
+              {
+                "pair": 183,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 191,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 265,
+                "point": 1,
+                "subshape": 0
+              },
+              {
+                "pair": 269,
+                "point": 0,
+                "subshape": 2
+              },
+              {
+                "pair": 272,
+                "point": 0,
+                "subshape": 0
+              },
+              {
+                "pair": 272,
+                "point": 1,
+                "subshape": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "deferred_manifolds",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "525409bd20f0d1a0cbc03bb86ee37d907a4d48adb8a3ddb38f985751b69f2781",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_pair_keys",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "5b844304b46781f2e2ed994eb6b2ee1f907a2fa3f02517b4d2c91619ff00ef7d",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_pair_keys",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "82e7c48f4f150216674ca968218ae6466f987908444fe8034690a02488db5ffe",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_pair_keys",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "53447a5d2096d9a26023a68d3094a8264ec0fffeb364f9a0acebb369ad768952",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape_keys",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "20f43f9a858c7f9d6247e069d2dee4599f8d4317cedf57745b3b530409786bdf",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape_keys",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "bd1710ecff5c7b14c6694beca3636ae952ccd6e88ccd21358ef6518117f3376a",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_subshape_keys",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "353aa95aa0c43b509a099a768fef5adb790dd4966aadb0bafe735b6bf369a378",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "pfm_permuted_keys",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "477358f0dbd041459379c0f6e578bc738dffd18a84d963bd24eeafb20fdb8e34",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_permuted_keys",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "8dc3809a332a10efc5965f9c71b84eea31428fb63ea00e2bb1320fe2ebf5be8e",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "pfm_permuted_keys",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "30469da5d87eda9759057ae4e85d8b4d93d7b681b319a21c070087b83c6415a2",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "c",
+      "state": "executed",
+      "report_sha256": "4899b4115030d7be109c2d6f31f314ace8b640a93a4bd0dbf9949e48a0ceb992",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "metal",
+      "state": "executed",
+      "report_sha256": "5da77950ad18221e99991f8228da46fa4e3c8567171a679c6bf7e885d31877b1",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": {
+            "BatchIds": 0.0,
+            "Contacts": 0.0,
+            "Indices": 0.0,
+            "Keys": 0.0,
+            "Materials": 0.0,
+            "Order": 0.0,
+            "PairCount": 0.0,
+            "Pairs": 0.0,
+            "Parents": 0.0,
+            "PfmCandidates": 0.0,
+            "PfmCount": 0.0,
+            "PfmPairs": 0.0,
+            "Plan": 0.0,
+            "Poses": 0.0,
+            "RbdParams": 0.0,
+            "Shapes": 0.0,
+            "Vertices": 0.0
+          },
+          "diagnostics": {}
+        }
+      ]
+    },
+    {
+      "operation": "reduce_contacts",
+      "target": "ascend",
+      "state": "source_lowered",
+      "report_sha256": "ad2edfdb933d3aa615808e0e57f0b5397c8d06e679001f672e66f57426bab821",
+      "cases": [
+        {
+          "name": "n0-c1-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n1-c4-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n81-c200-g1-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n129-c400-g2-same-body",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g3-normal",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c17-g2-overflow",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "n567-c1200-g2-merge-all",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    }
+  ]
+}
