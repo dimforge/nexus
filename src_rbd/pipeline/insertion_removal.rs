@@ -107,9 +107,18 @@ impl RbdState {
         };
 
         // Shared shape vertex/index buffers: dummy data to avoid empty bindings.
-        let vertex_buffers =
-            Tensor::vector(backend, [Point::ZERO.into()], BufferUsages::STORAGE).unwrap();
-        let index_buffers = Tensor::vector(backend, [0u32, 0, 0], BufferUsages::STORAGE).unwrap();
+        let vertex_buffers = Tensor::vector(
+            backend,
+            [Point::ZERO.into()],
+            BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        )
+        .unwrap();
+        let index_buffers = Tensor::vector(
+            backend,
+            [0u32, 0, 0],
+            BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        )
+        .unwrap();
         let body_group = Tensor::vector(backend, &all_body_group, BufferUsages::STORAGE).unwrap();
         // Appended bodies are free bodies: no multibody link flag is ever set.
         let body_is_multibody =

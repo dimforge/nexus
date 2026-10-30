@@ -67,3 +67,19 @@ changed counter meanings, invalid upload sizes and inconsistent output storage.
 Returned sessions must include `stats.json` as well as every final buffer; the
 existing independent scene checks apply to returned trajectories. This prepares
 an offline engineering handoff and does not certify a CANN runtime or device.
+
+The native `RbdState::read_scene_upload` bridge exposes cold-start body/collider
+inputs, native geometry and ordinary joint coloring without repeating Rapier's
+shape or joint conversion. Collider parents are global interleaved body indices;
+joint body IDs remain environment-local. Multiple colliders may share a body.
+The arrays retain native capacity padding and substep parameters. It reads the
+current state without stepping or mutating it and rejects articulated multibodies.
+Contact persistence and scratch must be rebuilt by the receiving runtime.
+
+Three Metal integration tests cover two differing batches, offset colliders,
+aggregate centers of mass, parentless mesh geometry, materials/groups, ordinary
+joint limits/motors, empty allocated capacity and articulated rejection. Group
+readback checks the native enum discriminant before constructing Rust values;
+geometry and joint input allocations now permit readback. No shader arithmetic
+or shape/joint conversion changes in this bridge. Connecting these public inputs
+to arbitrary compiled frame storage and backend selection remains in progress.

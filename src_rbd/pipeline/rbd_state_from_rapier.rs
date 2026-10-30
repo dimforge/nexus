@@ -32,7 +32,7 @@ impl RbdState {
     /// Creates a new GPU physics state from per-environment Rapier data structures.
     ///
     /// Environments with fewer colliders/joints are padded with dummy fixed bodies.
-    /// Panics if any rigid body has more than one collider attached.
+    /// Multiple colliders may share one body; body and collider indices are distinct.
     pub fn from_rapier(
         backend: &GpuBackend,
         environments: &[(
@@ -420,10 +420,18 @@ impl RbdState {
             shape_buffers.indices.extend_from_slice(&[0; 3]);
         }
 
-        let vertex_buffers =
-            Tensor::vector(backend, &shape_buffers.vertices, BufferUsages::STORAGE).unwrap();
-        let index_buffers =
-            Tensor::vector(backend, &shape_buffers.indices, BufferUsages::STORAGE).unwrap();
+        let vertex_buffers = Tensor::vector(
+            backend,
+            &shape_buffers.vertices,
+            BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        )
+        .unwrap();
+        let index_buffers = Tensor::vector(
+            backend,
+            &shape_buffers.indices,
+            BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        )
+        .unwrap();
 
         let joint_env_refs: Vec<(
             &ImpulseJointSet,
