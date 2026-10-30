@@ -127,7 +127,7 @@ def closest_points(l):
         initial_length = T.sqrt(dot(point, point))
         active[0] = initial_length != 0.0
         publish[0] = False
-        bound[0] = T.float32(3.4028234663852886e38)
+        bound[0] = T.float32(l["query_constants"]["max_flt"])
         if initial_length == 0.0:
             gjk_result_intersection(Output, Status)
         else:

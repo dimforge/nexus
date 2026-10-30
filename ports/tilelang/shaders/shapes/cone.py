@@ -76,3 +76,36 @@ def local_support_point(height, radius, direction, Output):
             Output[0] = 0.0
             Output[1] = height
             Output[2] = 0.0
+
+
+@T.macro
+def support_face(half_height, radius, direction, Output, Count):
+    planar = T.alloc_local((2,), "float32")
+    length = T.sqrt(direction[0] * direction[0] + direction[2] * direction[2])
+    if length < T.float32(1.1920929e-7):
+        planar[0] = 1.0
+        planar[1] = 0.0
+    else:
+        planar[0] = direction[0] / length
+        planar[1] = direction[2] / length
+    if direction[1] > 0.0:
+        Output[0, 0] = planar[0] * radius
+        Output[0, 1] = -half_height
+        Output[0, 2] = planar[1] * radius
+        Output[1, 0] = 0.0
+        Output[1, 1] = half_height
+        Output[1, 2] = 0.0
+        Count[0] = 2
+    else:
+        height = -half_height
+        Output[0, 0] = planar[0] * radius
+        Output[0, 2] = planar[1] * radius
+        Output[1, 0] = -planar[1] * radius
+        Output[1, 2] = planar[0] * radius
+        Output[2, 0] = -planar[0] * radius
+        Output[2, 2] = -planar[1] * radius
+        Output[3, 0] = planar[1] * radius
+        Output[3, 2] = -planar[0] * radius
+        for i in T.serial(4):
+            Output[i, 1] = height
+        Count[0] = 4

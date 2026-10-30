@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "feature": "rbd.query.polygonal_contacts3d",
+  "scope": "Native 3D polygonal face/edge contact clipping, candidate reduction and both output frames",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Features",
+    "Poses",
+    "Inputs",
+    "Output"
+  ],
+  "outputs": [
+    "Output"
+  ],
+  "comparison": "feature_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Arithmetic outputs use the existing f32 policy. Cardinalities, readonly buffers and guards remain exact. Non-arithmetic support-feature vertices copied from shapes/indices remain bitwise exact.",
+  "preconditions": [
+    "Finite coordinates and directions bounded by 1e6; valid native-exported record strides and capacities",
+    "At most four vertices per feature, normalized relative poses and separating axes, nonnegative finite predictions and boolean output-frame flags",
+    "Empty and degenerate features preserve native clipping behavior; output frame is chosen explicitly"
+  ],
+  "invariants": [
+    "Exact feature/manifold cardinality and untouched storage",
+    "Every emitted contact lies within the selected output feature and satisfies prediction distance",
+    "No host geometry substitution in the kernel program"
+  ],
+  "outside_scope": [
+    "General PFM manifold composition, deferred narrow-phase and production scene integration",
+    "Ascend vendor compilation, device execution and performance"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n25",
+    "n65",
+    "n129",
+    "n300"
+  ]
+}

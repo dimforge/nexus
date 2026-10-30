@@ -861,16 +861,22 @@
       "implementation": "ports/tilelang/shaders/queries/polygonal_feature.py",
       "coverage": "partial",
       "operations": [
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.query.polygonal_contacts3d"
       ],
       "symbols": [
         "is_outside",
         "closest_points_line2d",
         "push_candidate",
         "manifold_reduction",
-        "contacts_face_face"
+        "contacts_face_face",
+        "candidate",
+        "closest_points_segment_segment",
+        "clip_segment_segment",
+        "contacts_edge_edge",
+        "contacts"
       ],
-      "remaining": "Unflipped face clipping/reduction used by cuboid-cuboid. Edge-edge, flipped and generic feature paths remain unported."
+      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/queries/projection.rs",
@@ -924,15 +930,17 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.support_face3d"
       ],
       "symbols": [
         "project_local_point_on_boundary",
         "orthonormal_basis3",
         "any_orthogonal_vector",
-        "local_support_point"
+        "local_support_point",
+        "support_face"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/cone.rs",
@@ -943,13 +951,15 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.support_face3d"
       ],
       "symbols": [
         "project_local_point_on_boundary",
-        "local_support_point"
+        "local_support_point",
+        "support_face"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/convex_polyhedron.rs",
@@ -961,13 +971,15 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.support_face3d"
       ],
       "symbols": [
         "aabb",
-        "local_support_point"
+        "local_support_point",
+        "support_face"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/cylinder.rs",
@@ -978,13 +990,15 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.support_face3d"
       ],
       "symbols": [
         "project_local_point_on_boundary",
-        "local_support_point"
+        "local_support_point",
+        "support_face"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/mod.rs",
@@ -1040,7 +1054,8 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.support_face3d"
       ],
       "symbols": [
         "compute_aabb",
@@ -1050,9 +1065,10 @@
         "cuboid_support_point",
         "cuboid_support_face",
         "local_support_point",
-        "support_point"
+        "support_point",
+        "support_face"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
@@ -1089,15 +1105,17 @@
         "rbd.query.support_local3d",
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
-        "rbd.query.gjk_closest3d"
+        "rbd.query.gjk_closest3d",
+        "rbd.query.support_face3d"
       ],
       "symbols": [
         "aabb",
         "stable_check_edges_voronoi",
         "project_local_point_and_get_location",
-        "local_support_point"
+        "local_support_point",
+        "support_face"
       ],
-      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
+      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/trimesh.rs",
@@ -1469,7 +1487,9 @@
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
         "rbd.query.epa_closest3d",
-        "rbd.query.gjk_epa3d"
+        "rbd.query.gjk_epa3d",
+        "rbd.query.support_face3d",
+        "rbd.query.polygonal_contacts3d"
       ],
       "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
@@ -1492,7 +1512,9 @@
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
         "rbd.query.epa_closest3d",
-        "rbd.query.gjk_epa3d"
+        "rbd.query.gjk_epa3d",
+        "rbd.query.support_face3d",
+        "rbd.query.polygonal_contacts3d"
       ],
       "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
     },
@@ -1514,7 +1536,9 @@
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
         "rbd.query.epa_closest3d",
-        "rbd.query.gjk_epa3d"
+        "rbd.query.gjk_epa3d",
+        "rbd.query.support_face3d",
+        "rbd.query.polygonal_contacts3d"
       ],
       "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },

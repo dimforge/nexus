@@ -166,3 +166,12 @@ def local_support_point(a, b, c, direction, Output):
             T.if_then_else(da > dc, a[d], c[d]),
             T.if_then_else(db > dc, b[d], c[d]),
         )
+
+
+@T.macro
+def support_face(a, b, c, Output, Count):
+    for d in T.serial(3):
+        Output[0, d] = a[d]
+        Output[1, d] = b[d]
+        Output[2, d] = c[d]
+    Count[0] = 3

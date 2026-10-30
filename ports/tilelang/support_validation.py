@@ -8,6 +8,43 @@ OPERATIONS = ("support_local", "support_world", "cso_support", "gjk_closest")
 BUFFERS = ("Shapes", "Poses", "Vertices", "Inputs", "Output", "State")
 
 
+def validate_shapes(l, shapes, vertices):
+    sf = l["shape"]
+    types = l["shape_types"]
+    for shape in shapes:
+        ty = int(shape[sf["a"] + 3])
+        a = shape.view(np.float32)[sf["a"] : sf["a"] + 3]
+        bvec = shape.view(np.float32)[sf["b"] : sf["b"] + 4]
+        if ty not in [
+            types[name]
+            for name in (
+                "ball",
+                "cuboid",
+                "capsule",
+                "cone",
+                "cylinder",
+                "convex_poly",
+                "triangle",
+            )
+        ]:
+            raise ValueError("Unsupported convex shape")
+        if not np.isfinite(shape.view(np.float32)).all() or np.any(
+            np.abs(shape.view(np.float32)) > 1e6
+        ):
+            raise ValueError("Invalid shape floats")
+        if (
+            (ty == types["ball"] and a[0] < 0)
+            or (ty == types["cuboid"] and np.any(a < 0))
+            or (ty == types["capsule"] and bvec[3] < 0)
+            or (ty in (types["cone"], types["cylinder"]) and np.any(a[:2] <= 0))
+        ):
+            raise ValueError("Invalid convex dimensions")
+        if ty == types["convex_poly"] and not 0 <= int(shape[sf["a"]]) < int(
+            shape[sf["a"] + 1]
+        ) <= len(vertices):
+            raise ValueError("Invalid convex vertex range")
+
+
 def validate_inputs(l, c, b, operations):
     if (
         l.get("wire_format") != "explicit_geometry_diagnostics_v1"
@@ -50,41 +87,8 @@ def validate_inputs(l, c, b, operations):
     )
     if not np.isfinite(vertices).all() or np.any(np.abs(vertices) > 1e6):
         raise ValueError("Invalid support vertices")
-    sf = l["shape"]
-    types = l["shape_types"]
     shapes = b["Shapes"].reshape(-1, l["shape_words"])
-    for shape in shapes[: 2 * n]:
-        ty = int(shape[sf["a"] + 3])
-        a = shape.view(np.float32)[sf["a"] : sf["a"] + 3]
-        bvec = shape.view(np.float32)[sf["b"] : sf["b"] + 4]
-        if ty not in [
-            types[name]
-            for name in (
-                "ball",
-                "cuboid",
-                "capsule",
-                "cone",
-                "cylinder",
-                "convex_poly",
-                "triangle",
-            )
-        ]:
-            raise ValueError("Unsupported convex shape")
-        if not np.isfinite(shape.view(np.float32)).all() or np.any(
-            np.abs(shape.view(np.float32)) > 1e6
-        ):
-            raise ValueError("Invalid shape floats")
-        if (
-            (ty == types["ball"] and a[0] < 0)
-            or (ty == types["cuboid"] and np.any(a < 0))
-            or (ty == types["capsule"] and bvec[3] < 0)
-            or (ty in (types["cone"], types["cylinder"]) and np.any(a[:2] <= 0))
-        ):
-            raise ValueError("Invalid convex dimensions")
-        if ty == types["convex_poly"] and not 0 <= int(shape[sf["a"]]) < int(
-            shape[sf["a"] + 1]
-        ) <= len(vertices):
-            raise ValueError("Invalid convex vertex range")
+    validate_shapes(l, shapes[: 2 * n], vertices)
     poses = b["Poses"].view(np.float32).reshape(-1, l["pose_words"])[:n]
     q = poses[:, l["pose_rotation"] : l["pose_rotation"] + 4]
     t = poses[:, l["pose_translation"] : l["pose_translation"] + 3]

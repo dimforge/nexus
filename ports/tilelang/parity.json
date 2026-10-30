@@ -1344,6 +1344,32 @@
       "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
       "contract": "ports/tilelang/contracts/gjk_epa.json",
       "test_command": "python ports/tilelang/epa_replay.py --operation gjk_epa --target c"
+    },
+    {
+      "id": "rbd.query.support_face3d",
+      "operation": "support_face",
+      "runner": "feature_replay.py",
+      "coverage": "Native 3D support_face with exact feature cardinality, guarded storage and independent shape/feature containment",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::support_face"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::support_face",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/support_face.json",
+      "test_command": "python ports/tilelang/feature_replay.py --operation support_face --target c"
+    },
+    {
+      "id": "rbd.query.polygonal_contacts3d",
+      "operation": "polygonal_contacts",
+      "runner": "feature_replay.py",
+      "coverage": "Native 3D polygonal_contacts with exact feature cardinality, guarded storage and independent shape/feature containment",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/polygonal_feature.rs::contacts"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/polygonal_feature.py::contacts",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/polygonal_contacts.json",
+      "test_command": "python ports/tilelang/feature_replay.py --operation polygonal_contacts --target c"
     }
   ],
   "targets": [

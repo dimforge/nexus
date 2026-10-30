@@ -99,3 +99,25 @@ def local_support_point(a, b, radius, direction, Output):
                 normal[d] = direction[d] / length
         for d in T.serial(3):
             Output[d] = Output[d] + normal[d] * radius
+
+
+@T.macro
+def support_face(a, b, radius, direction, Output, Count):
+    segment = T.alloc_local((3,), "float32")
+    for d in T.serial(3):
+        segment[d] = b[d] - a[d]
+    value = dot(segment, direction)
+    if (radius == 0.0) | (
+        T.if_then_else(value < 0.0, -value, value) <= T.float32(1e-6)
+    ):
+        for d in T.serial(3):
+            Output[0, d] = a[d]
+            Output[1, d] = b[d]
+        Count[0] = 2
+    else:
+        scale = radius / T.sqrt(dot(direction, direction))
+        for d in T.serial(3):
+            Output[0, d] = (
+                T.if_then_else(value >= 0.0, b[d], a[d]) + direction[d] * scale
+            )
+        Count[0] = 1

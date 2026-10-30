@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "feature": "rbd.query.support_face3d",
+  "scope": "Native 3D support_face including cone/cylinder approximations, capsule endpoints and indexed convex faces",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Shapes",
+    "Vertices",
+    "Indices",
+    "Inputs",
+    "Output"
+  ],
+  "outputs": [
+    "Output"
+  ],
+  "comparison": "feature_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Arithmetic outputs use the existing f32 policy. Cardinalities, readonly buffers and guards remain exact. Non-arithmetic support-feature vertices copied from shapes/indices remain bitwise exact.",
+  "preconditions": [
+    "Finite coordinates and directions bounded by 1e6; valid native-exported record strides and capacities",
+    "Indexed convex faces use valid local vertex indices and contain at least one nondegenerate triangle",
+    "Zero support directions and nonunit directions preserve native support-face branching"
+  ],
+  "invariants": [
+    "Exact feature/manifold cardinality and untouched storage",
+    "Every emitted support vertex lies within its source convex shape",
+    "No host geometry substitution in the kernel program"
+  ],
+  "outside_scope": [
+    "General PFM manifold composition, deferred narrow-phase and production scene integration",
+    "Ascend vendor compilation, device execution and performance"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n7",
+    "n33",
+    "n65",
+    "n129",
+    "n168"
+  ]
+}

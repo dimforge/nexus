@@ -20,7 +20,10 @@ mod queries {
         pub use crate::voronoi_simplex3::VoronoiSimplex;
     }
 }
+mod feature_fixture;
+mod feature_layout;
 mod geometry_layout;
+mod polygonal_fixture;
 mod projection_fixture;
 mod simplex_fixture;
 mod support_fixture;
@@ -33,7 +36,7 @@ fn main() {
     fs::create_dir_all(root).unwrap();
     fs::write(
         root.join("layout.json"),
-        serde_json::to_vec_pretty(&support_layout::layout()).unwrap(),
+        serde_json::to_vec_pretty(&feature_layout::layout()).unwrap(),
     )
     .unwrap();
     for kind in [
@@ -49,6 +52,8 @@ fn main() {
         "gjk_closest",
         "epa_closest",
         "gjk_epa",
+        "support_face",
+        "polygonal_contacts",
     ] {
         let mut cases = vec![];
         let support = kind.starts_with("support_")
@@ -56,14 +61,22 @@ fn main() {
             || kind == "gjk_closest"
             || kind == "epa_closest"
             || kind == "gjk_epa";
-        let counts = if support {
-            [0, 1, 49, 65, 129, 343]
+        let counts: &[usize] = if kind == "support_face" {
+            &[0, 1, 7, 33, 65, 129, 168]
+        } else if kind == "polygonal_contacts" {
+            &[0, 1, 25, 65, 129, 300]
+        } else if support {
+            &[0, 1, 49, 65, 129, 343]
         } else {
-            [0, 1, 24, 33, 65, 129]
+            &[0, 1, 24, 33, 65, 129]
         };
-        for count in counts {
+        for &count in counts {
             let directory = root.join(kind).join(format!("n{count}"));
-            cases.push(if support {
+            cases.push(if kind == "support_face" {
+                feature_fixture::fixture(&directory, count)
+            } else if kind == "polygonal_contacts" {
+                polygonal_fixture::fixture(&directory, count)
+            } else if support {
                 support_fixture::fixture(&directory, kind, count)
             } else if kind.starts_with("simplex_") {
                 simplex_fixture::fixture(&directory, kind, count, root)

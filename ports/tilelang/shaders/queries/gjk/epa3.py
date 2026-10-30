@@ -460,7 +460,7 @@ def closest_points(l):
         original_adj = T.alloc_local((3,), "int32")
         opposite = T.alloc_local((1,), "int32")
         best[0] = 0
-        maxdist[0] = T.float32(3.4028234663852886e38)
+        maxdist[0] = T.float32(l["query_constants"]["max_flt"])
         old_dist[0] = 0.0
         if done[0] == 0:
             if counts[3] == 0:

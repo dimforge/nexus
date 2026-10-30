@@ -37,7 +37,7 @@ Remaining implementation sequence:
    kernels are implemented, including an ordered bounds/pairs program. LBVH,
    scene integration and deferred contact generation remain. The complete native
    analytic first pass now handles ball/primitive and box/box contacts, including
-   material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; Bounded EPA and its GJK composition are translated; polygonal support faces and manifolds remain. Generic PFM, meshes,
+   material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; Bounded EPA and its GJK composition are translated; polygonal support faces and generic 3D clipping are also implemented. Composed PFM manifolds remain. Generic PFM, meshes,
    polylines remain. PFM counter reset and contact-plan publication are implemented;
    a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
    collision detection. Native radix stages and contact canonicalization are now

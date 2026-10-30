@@ -290,3 +290,57 @@ def support_point(l):
             Output[d] = Output[d] + translation[d]
 
     return one
+
+
+def support_face(l):
+    from .capsule import support_face as capsule_face
+    from .cone import support_face as cone_face
+    from .convex_polyhedron import support_face as poly_face
+    from .cylinder import support_face as cylinder_face
+    from .triangle import support_face as triangle_face
+
+    poly = poly_face(l)
+    sf = l["shape"]
+    types = l["shape_types"]
+
+    @T.macro
+    def one(Shapes, index, Vertices, Indices, direction, Output, Count):
+        base = index * l["shape_words"]
+        ty = T.cast(Shapes[base + sf["a"] + 3], "int32")
+        a = T.alloc_local((3,), "float32")
+        b = T.alloc_local((3,), "float32")
+        c = T.alloc_local((3,), "float32")
+        for d in T.serial(3):
+            a[d] = f32(Shapes, base + sf["a"] + d)
+            b[d] = f32(Shapes, base + sf["b"] + d)
+            c[d] = f32(Shapes, base + sf["c"] + d)
+        Count[0] = 0
+        for v in T.serial(4):
+            for d in T.serial(3):
+                Output[v, d] = 0.0
+        if ty == types["cuboid"]:
+            cuboid_support_face(a, direction, Output)
+            Count[0] = 4
+        elif ty == types["capsule"]:
+            capsule_face(
+                a, b, f32(Shapes, base + sf["b"] + 3), direction, Output, Count
+            )
+        elif ty == types["cone"]:
+            cone_face(a[0], a[1], direction, Output, Count)
+        elif ty == types["cylinder"]:
+            cylinder_face(a[0], a[1], direction, Output, Count)
+        elif ty == types["triangle"]:
+            triangle_face(a, b, c, Output, Count)
+        elif ty == types["convex_poly"]:
+            poly(
+                Vertices,
+                Indices,
+                T.cast(Shapes[base + sf["a"]], "int32"),
+                T.cast(Shapes[base + sf["b"]], "int32"),
+                T.cast(Shapes[base + sf["b"] + 1], "int32"),
+                direction,
+                Output,
+                Count,
+            )
+
+    return one

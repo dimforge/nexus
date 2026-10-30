@@ -292,6 +292,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from contact_plan_replay import check_outputs as check_contact_plan_outputs
     from contact_replay import check_outputs as check_contact_outputs
     from epa_validation import check_outputs as check_epa_outputs
+    from feature_validation import check_outputs as check_feature_outputs
     from geometry_validation import check_outputs as check_geometry_outputs
     from graph_replay import check_outputs as check_graph_outputs
     from hub_replay import check_outputs as check_hub_outputs
@@ -378,6 +379,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "geometry_fields": check_geometry_outputs,
                     "support_fields": check_support_outputs,
                     "epa_fields": check_epa_outputs,
+                    "feature_fields": check_feature_outputs,
                     "broadphase_fields": check_broadphase_outputs,
                     "narrow_fields": check_narrow_outputs,
                     "contact_plan_fields": check_contact_plan_outputs,

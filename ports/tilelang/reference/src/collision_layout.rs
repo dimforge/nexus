@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use std::mem::{offset_of, size_of};
 pub(crate) fn layout() -> Value {
     let mut l = contacts::layout();
+    l["query_constants"] = json!({"max_flt":nexus_rbd_shaders3d::MAX_FLT});
     macro_rules! fields {($ty:ty,$($field:ident),+)=>{json!({$(stringify!($field):offset_of!($ty,$field)/4),+})};}
     l["contact"]["recycle_extent"] = json!(offset_of!(IndexedManifold, recycle_extent) / 4);
     l["plan_words"] = json!(size_of::<ContactPlan>() / 4);

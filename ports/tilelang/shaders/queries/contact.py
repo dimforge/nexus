@@ -2,11 +2,11 @@
 
 import tilelang.language as T
 from kernel_support import dot, quat_rotate
-from ..shapes.shape import project_local_point_on_boundary
+
 from ..bounding_volumes.aabb import absolute
+from ..shapes.shape import cuboid_support_face, project_local_point_on_boundary
 from . import sat
 from .polygonal_feature import contacts_face_face
-from ..shapes.shape import cuboid_support_face
 
 
 def combine_coefficient(a, b, rule1, rule2):
@@ -153,5 +153,15 @@ def cuboid_cuboid(q12, t12, he1, he2, prediction, points, normal, length):
                 cuboid_support_face(he1, normal, face1)
                 cuboid_support_face(he2, normal2, face2)
                 contacts_face_face(
-                    q12, t12, face1, normal, face2, 4, 4, prediction, points, length
+                    q12,
+                    t12,
+                    face1,
+                    normal,
+                    face2,
+                    4,
+                    4,
+                    prediction,
+                    points,
+                    length,
+                    False,
                 )
