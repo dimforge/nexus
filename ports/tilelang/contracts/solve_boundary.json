@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.coulomb.boundary3d",
+  "scope": "Retained cancellation-generated zero-distance stress: one ambiguous CFM point per disjoint manifold, fixed poses and at most three solve iterations",
+  "inputs": [
+    "Tiles",
+    "Velocities",
+    "Poses",
+    "Params",
+    "SoftTiles",
+    "HardTiles",
+    "SoftVelocities",
+    "HardVelocities",
+    "Uncertain"
+  ],
+  "outputs": [
+    "Tiles",
+    "Velocities"
+  ],
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "All original cases and the original 2e-6/2e-5 output tolerance are retained. An outward f32 interval over scalar and SIMD quaternion transforms may admit either CFM branch only if the distance sign is unresolved. The complete impulse and velocity vector of one manifold must match a single native counterfactual branch; per-component mixtures and values between branches are rejected.",
+  "preconditions": [
+    "finite input floats",
+    "unit quaternions and contact frames",
+    "0..4 active points",
+    "valid body and velocity indices",
+    "no velocity slot shared by two active manifolds",
+    "At most one ambiguous point per manifold; fixed body poses and one to three complete Gauss-Seidel passes",
+    "Outward distance intervals are finite and no wider than 1e-5; independently recomputed uncertainty mask agrees exactly",
+    "Counterfactual source is extracted from the current Rust solver, changing only the CFM selector; its unforced output must match the original solver bit for bit"
+  ],
+  "invariants": [
+    "normal impulses nonnegative",
+    "friction inside Coulomb disk when enabled",
+    "outputs finite",
+    "all other words unchanged",
+    "Readonly counterfactual buffers and uncertainty masks remain bit exact",
+    "Native output and target output each match one complete allowed branch per manifold with unchanged output tolerances",
+    "Points whose sign is resolved and all unbiased solves retain the unique native output"
+  ],
+  "outside_scope": [
+    "contact preparation",
+    "warmstart",
+    "color construction",
+    "integration",
+    "joints",
+    "twist friction",
+    "2D",
+    "full simulation scheduling",
+    "Ascend execution",
+    "Multiple ambiguous points per manifold or changing poses across solve passes",
+    "This does not prescribe one floating-point branch on every hardware target"
+  ],
+  "required_cases": [
+    "n0-b1-f1-i1-s20261029",
+    "n1-b1-f1-i1-s20261030",
+    "n31-b1-f1-i1-s20261060",
+    "n32-b1-f1-i1-s20261061",
+    "n33-b1-f1-i1-s20261062",
+    "n63-b1-f1-i1-s20261092",
+    "n64-b1-f1-i1-s20261093",
+    "n65-b1-f1-i1-s20261094",
+    "n127-b1-f1-i1-s20261156",
+    "n129-b0-f0-i3-s17",
+    "n129-b0-f0-i3-s42",
+    "n129-b0-f1-i3-s17",
+    "n129-b0-f1-i3-s42",
+    "n129-b1-f0-i3-s17",
+    "n129-b1-f0-i3-s42",
+    "n129-b1-f1-i3-s17",
+    "n129-b1-f1-i3-s42"
+  ],
+  "known_gaps": [],
+  "execution": "ordered_kernels",
+  "comparison": "boundary_fields"
+}

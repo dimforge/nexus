@@ -145,3 +145,7 @@ path = "src/lbvh.rs"
 [[bin]]
 name="scene-restarts"
 path="src/scene_restarts.rs"
+
+[[bin]]
+name = "boundary"
+path = "src/boundary.rs"

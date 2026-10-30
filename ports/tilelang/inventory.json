@@ -260,7 +260,8 @@
         "rbd.contact.coulomb.solve3d",
         "rbd.contact.coulomb.prepare3d",
         "rbd.contact.coulomb.scale_impulses3d",
-        "rbd.contact.coulomb.hub_warmstart3d"
+        "rbd.contact.coulomb.hub_warmstart3d",
+        "rbd.contact.coulomb.boundary3d"
       ],
       "symbols": [
         "validate_layout",
@@ -688,7 +689,8 @@
         "rbd.contact.coulomb.solve3d",
         "rbd.contact.coulomb.warmstart3d",
         "rbd.contact.coulomb.prepare3d",
-        "rbd.contact.coulomb.scale_impulses3d"
+        "rbd.contact.coulomb.scale_impulses3d",
+        "rbd.contact.coulomb.boundary3d"
       ],
       "symbols": [
         "solve_points",
@@ -717,7 +719,8 @@
         "rbd.contact.coulomb.colored_solve3d",
         "rbd.contact.coulomb.colored_warmstart3d",
         "rbd.contact.coulomb.colored_cached3d",
-        "rbd.contact.coulomb.colored_program3d"
+        "rbd.contact.coulomb.colored_program3d",
+        "rbd.contact.coulomb.boundary3d"
       ],
       "symbols": [
         "gpu_solve_constraints",
@@ -1530,7 +1533,8 @@
         "rbd.contact.coulomb.colored_program3d",
         "rbd.contact.coefficients3d",
         "rbd.pipeline.general_restart3d",
-        "rbd.pipeline.joint_restart3d"
+        "rbd.pipeline.joint_restart3d",
+        "rbd.contact.coulomb.boundary3d"
       ],
       "remaining": "Preparation, warmstart, native ordered color ranges and resident analytic/joint/general fixture frames are translated. Remaining fused/tail variants, production scheduling and numerical qualification remain."
     },

@@ -74,7 +74,9 @@ The two contact-sensitive 120-frame triangle and joint-chain fixtures now have
 explicit per-case, per-field numeric policies backed by required identical-state
 single-frame restart fixtures and independent geometry, effective-response and
 all-frame physical checks. Their final registered matrix remains required after
-source changes. The isolated zero-distance CFM stress case remains unresolved. A paired Rust/TileLang
+source changes. The isolated zero-distance CFM stress cases now have a separately registered
+branch policy with outward f32 intervals and complete native branch alternatives;
+its registered matrix is required. A paired Rust/TileLang
 clipping fix now rejects tangentially separated edge witnesses; its registered
 geometry and scene matrix remains required. No global float tolerance or
 physics arithmetic is changed by this classification.

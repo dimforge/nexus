@@ -29,8 +29,8 @@
 7. Reconcile using the new change record and current execution reports. Merely
    editing hashes, loosening tolerances, or deleting a failing case is not a fix.
    `contract.json` is hashed; adding/removing cases and changing tolerances must
-   have an explicit explanation. Keep the zero-distance cancellation stress case
-   and its release block until the numerical policy is resolved.
+   have an explicit explanation. Keep every zero-distance stress case required in
+   `solve_boundary`; follow `BOUNDARY_NUMERICS.md` for its scoped branch policy.
 8. Finish with `parity.py check`. Missing hardware results remain unvalidated;
    old results remain stale after relevant changes. The default check accepts
    the documented experimental pilot. `--release` also rejects blocking gaps.
@@ -82,3 +82,9 @@ hashed per-case contracts. Keep their registered identical-state restart cases
 required. Exact IDs/counters/guards, all-frame physical bounds and independently
 reconstructed contact response matrices must remain mandatory. An exception for
 a named scene and field does not authorize a global tolerance change.
+
+The CFM boundary policy requires current native source extraction, a bitwise check
+of its unforced output, independently recomputed outward distance intervals, and
+one complete branch outcome per manifold. Do not widen intervals or mix output
+components to accept a mismatch. The policy does not cover multiple ambiguous
+points, changing poses or more than three passes; extend its proof and tests first.

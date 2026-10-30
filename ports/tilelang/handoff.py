@@ -261,7 +261,7 @@ def probe(output):
     if tool:
         try:
             command = subprocess.run(
-                [tool, "info"], capture_output=True, text=True, timeout=15
+                [tool, "info"], capture_output=True, text=True, timeout=15, check=False
             )
             result.update(
                 returncode=command.returncode,
@@ -282,6 +282,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     import numpy as np
     from body_uniform_replay import check_outputs as check_body_uniform_outputs
     from body_validation import check_outputs as check_body_outputs
+    from boundary_validation import check_outputs as check_boundary_outputs
     from broadphase_replay import check_outputs as check_broadphase_outputs
     from bucket_replay import check_outputs as check_bucket_outputs
     from canonical_replay import check_outputs as check_canonical_outputs
@@ -365,6 +366,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                 buffers = contract["inputs"]
                 compare = {
                     None: check_outputs,
+                    "boundary_fields": check_boundary_outputs,
                     "exact_u32": check_integer_outputs,
                     "body_fields": check_body_outputs,
                     "pose_fields": check_pose_outputs,

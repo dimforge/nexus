@@ -33,7 +33,9 @@
     "ports/tilelang/session.schema.json",
     "ports/tilelang/COMPLETION.md",
     "ports/tilelang/reference/build.rs",
-    "ports/tilelang/reference/noalias_probe.rs"
+    "ports/tilelang/reference/noalias_probe.rs",
+    "ports/tilelang/SCENE_NUMERICS.md",
+    "ports/tilelang/BOUNDARY_NUMERICS.md"
   ],
   "features": [
     {
@@ -1741,6 +1743,23 @@
       "test_command": "python ports/tilelang/scene_restart_replay.py --operation joint_restart --target c",
       "runner": "scene_restart_replay.py",
       "operation": "joint_restart"
+    },
+    {
+      "id": "rbd.contact.coulomb.boundary3d",
+      "coverage": "Retained zero-distance cancellation stress with outward distance intervals and coupled complete native CFM branch alternatives; no change to physics arithmetic or global tolerances.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/solver_utils.rs::ContactSolverData::solve_points",
+        "src_rbd_shaders/dynamics/solver_utils.rs::maybe_inv",
+        "src_rbd_shaders/dynamics/solver_utils.rs::cap_magnitude",
+        "src_rbd_shaders/dynamics/constraint.rs::SymInertia::mul",
+        "src_rbd_shaders/dynamics/coulomb_tiles.rs::CoulombTile"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/solver_utils.py::solve_points",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/solve_boundary.json",
+      "test_command": "python ports/tilelang/boundary_replay.py --target c",
+      "operation": "solve_boundary",
+      "runner": "boundary_replay.py"
     }
   ],
   "targets": [
