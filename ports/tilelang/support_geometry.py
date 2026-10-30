@@ -150,9 +150,13 @@ def check(l, c, b, a):
                     .astype(np.float64)
                 )
                 for p, aa, bb in points:
-                    assert np.max(np.abs(p - (aa - bb))) < 3e-6, (
-                        "CSO decomposition",
-                        i,
+                    # A CSO vertex is the rounded f32 subtraction of its two
+                    # witnesses. Check that construction exactly: a fixed f64
+                    # residual threshold incorrectly rejects larger valid shapes.
+                    np.testing.assert_array_equal(
+                        p,
+                        (aa - bb).astype(np.float32).astype(np.float64),
+                        err_msg=f"CSO decomposition {i}",
                     )
                     assert contains(l, sa, vertices, aa, True), (
                         "simplex A surface",

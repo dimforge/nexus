@@ -28,12 +28,15 @@ fn shape(ty: usize) -> Shape {
 use crate::simplex_fixture::pack;
 
 pub fn fixture(dir: &Path, kind: &str, n: usize) -> Value {
-    fixture_impl(dir, kind, n, false)
+    fixture_impl(dir, kind, n, false, false)
 }
 pub fn touching_fixture(dir: &Path, kind: &str) -> Value {
-    fixture_impl(dir, kind, 1, true)
+    fixture_impl(dir, kind, 1, true, false)
 }
-fn fixture_impl(dir: &Path, kind: &str, n: usize, touching: bool) -> Value {
+pub fn floor_cylinder_fixture(dir: &Path, kind: &str) -> Value {
+    fixture_impl(dir, kind, 8, false, true)
+}
+fn fixture_impl(dir: &Path, kind: &str, n: usize, touching: bool, floor_cylinder: bool) -> Value {
     fs::create_dir_all(dir).unwrap();
     let storage = n + 3;
     let guard = 0xdeadbeefu32;
@@ -90,11 +93,23 @@ fn fixture_impl(dir: &Path, kind: &str, n: usize, touching: bool) -> Value {
             poses[i] = Pose::from_translation(Vec3::X);
             direction = Vec3::X;
         }
+        if floor_cylinder {
+            let scale = [0.1, 1.0, 10.0, 100.0][i / 2];
+            shapes[2 * i] = Shape::cuboid(Vec3::new(20.0, 0.5, 20.0) * scale);
+            shapes[2 * i + 1] = Shape::cylinder(0.5 * scale, 0.5 * scale);
+            poses[i] =
+                Pose::from_translation(Vec3::Y * (if i % 2 == 0 { 0.995 } else { 1.005 }) * scale);
+            direction = Vec3::Y;
+        }
         for (dest, value) in input[i][..3].iter_mut().zip(direction.to_array()) {
             *dest = value.to_bits();
         }
         input[i][3] = [0.0f32, 0.1, 1.0, 10.0][i % 4].to_bits();
         input[i][4] = (i % 2) as u32;
+        if floor_cylinder {
+            input[i][3] = (0.08f32 * [0.1, 1.0, 10.0, 100.0][i / 2]).to_bits();
+            input[i][4] = 1;
+        }
         simplexes[i] = VoronoiSimplex::init(cso_point_from_shapes(
             poses[i],
             &shapes[2 * i],
@@ -225,6 +240,8 @@ fn fixture_impl(dir: &Path, kind: &str, n: usize, touching: bool) -> Value {
     .collect::<serde_json::Map<_, _>>();
     let name = if touching {
         "point_touch".to_owned()
+    } else if floor_cylinder {
+        "floor_cylinder".to_owned()
     } else {
         format!("n{n}")
     };

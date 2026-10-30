@@ -43,6 +43,20 @@ class SupportTests(unittest.TestCase):
                     l, c, b, e, k = self.fixture(operation, "n" + str(count))
                     check_outputs(l, c, b, e, e, k)
 
+    def test_scaled_floor_contact_and_exact_cso_construction(self):
+        l, c, b, e, k = self.fixture("gjk_closest", "floor_cylinder")
+        check_outputs(l, c, b, e, e, k)
+        rows = e["Output"].reshape(-1, l["support_output_words"])
+        np.testing.assert_array_equal(
+            rows[:8, l["support_output"]["status"]], [0, 1] * 4
+        )
+        changed = {name: value.copy() for name, value in e.items()}
+        # One ULP of fabricated CSO geometry must fail, even for the largest pair.
+        off = 6 * l["simplex_words"] + l["simplex"]["vertices"]
+        changed["State"][off] ^= 1
+        with self.assertRaisesRegex(AssertionError, "CSO decomposition"):
+            check_outputs(l, c, b, changed, e, k)
+
     def test_invalid_shape_pose_or_direction(self):
         for mutation in ("tag", "radius", "pose", "direction", "exact", "seed_b"):
             l, c, b, _, _ = self.fixture("gjk_closest", "n1")

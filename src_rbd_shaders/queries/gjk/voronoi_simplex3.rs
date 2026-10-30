@@ -147,6 +147,7 @@ impl VoronoiSimplex {
                 );
                 let proj = tri.project_local_point_and_get_location(Vec3::ZERO, true);
 
+                let mut point = proj.point;
                 match proj.feature_type {
                     FEATURE_VERTEX => {
                         let i = proj.id as usize;
@@ -195,14 +196,19 @@ impl VoronoiSimplex {
                     }
                     FEATURE_FACE => {
                         s.proj = proj.bcoords;
+                        // The face projection is perpendicular to its plane. Barycentric
+                        // reconstruction can leave a tangential cancellation residual
+                        // that GJK mistakes for a separating direction near the origin.
+                        let normal = (tri.b - tri.a).cross(tri.c - tri.a);
+                        let norm_sq = normal.length_squared();
+                        if norm_sq > 0.0 {
+                            point = normal * (normal.dot(tri.a) / norm_sq);
+                        }
                     }
                     _ => { /* unreachable */ }
                 }
 
-                SimplexProjectionResult {
-                    simplex: s,
-                    point: proj.point,
-                }
+                SimplexProjectionResult { simplex: s, point }
             }
             _ => {
                 let tetra = Tetrahedron::new(

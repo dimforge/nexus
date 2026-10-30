@@ -90,6 +90,12 @@ fn main() {
                 projection_fixture::fixture(&directory, kind, count)
             });
         }
+        if kind == "gjk_closest" {
+            cases.push(support_fixture::floor_cylinder_fixture(
+                &root.join(kind).join("floor_cylinder"),
+                kind,
+            ));
+        }
         if kind == "pfm_manifold" {
             cases.push(pfm_fixture::triangle_fixture(
                 &root.join(kind).join("triangle_fallback"),

@@ -166,6 +166,20 @@ def project_origin_and_reduce(
             if before == 2:
                 for k in T.serial(3):
                     Projection[k] = values[3 + k]
+                # Match the native perpendicular face projection. Reconstructing
+                # from barycentrics can leave a false tangential GJK direction.
+                ab = T.alloc_local((3,), "float32")
+                ac = T.alloc_local((3,), "float32")
+                normal = T.alloc_local((3,), "float32")
+                for k in T.serial(3):
+                    ab[k] = b[k] - a[k]
+                    ac[k] = c[k] - a[k]
+                cross(ab, ac, normal)
+                norm_sq = dot(normal, normal)
+                if norm_sq > 0.0:
+                    offset = dot(normal, a) / norm_sq
+                    for k in T.serial(3):
+                        values[k] = normal[k] * offset
             else:
                 if index == 0:
                     for k in T.serial(3):

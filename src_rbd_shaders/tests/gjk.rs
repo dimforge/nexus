@@ -219,3 +219,44 @@ fn epa_coincident_cuboids_preserve_depth_after_support_roundoff() {
         assert!((result.normal.length() - 1.0).abs() < 1.0e-6);
     }
 }
+
+#[cfg(feature = "dim3")]
+#[test]
+fn gjk_face_projection_does_not_invent_tangential_separation() {
+    use crate::queries::gjk::Epa;
+    use glamx::Vec3;
+    for scale in [0.1, 1.0, 10.0, 100.0] {
+        let floor = Shape::cuboid(Vec3::new(20.0, 0.5, 20.0) * scale);
+        let cylinder = Shape::cylinder(0.5 * scale, 0.5 * scale);
+        for separation in [-0.005, 0.005] {
+            let pose = Pose::from_translation(Vec3::Y * ((1.0 + separation) * scale));
+            let mut simplex =
+                VoronoiSimplex::init(cso_point_from_shapes(pose, &floor, &cylinder, Vec3::Y, &[]));
+            let result = closest_points(
+                pose,
+                &floor,
+                &cylinder,
+                0.08 * scale,
+                true,
+                &mut simplex,
+                &[],
+            );
+            if separation < 0.0 {
+                assert_eq!(result.status, INTERSECTION, "scale {scale}");
+                let penetration =
+                    Epa::default().closest_points(pose, &floor, &cylinder, &simplex, &[]);
+                assert!(penetration.valid, "scale {scale}");
+                assert!(penetration.normal.dot(Vec3::Y) > 0.99999);
+                let depth = (penetration.pt_a - penetration.pt_b).dot(penetration.normal);
+                assert!((depth + separation * scale).abs() < 1.0e-5 * scale);
+            } else {
+                assert_eq!(result.status, CLOSEST_POINTS, "scale {scale}");
+                assert!(result.dir.dot(Vec3::Y) > 0.99999);
+                assert!(
+                    ((result.b - result.a).dot(Vec3::Y) - separation * scale).abs()
+                        < 1.0e-5 * scale
+                );
+            }
+        }
+    }
+}
