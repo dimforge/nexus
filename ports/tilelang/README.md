@@ -1,641 +1,183 @@
-# TileLang rigid-body parity pilot
+# TileLang 3D rigid-body port
 
 This experimental port connects the 3D rigid-body solver to a Rust-owned runtime
 that executes generated TileLang kernels on C or Metal. It includes Coulomb and
 simplified twist friction, ordinary joints, analytic and general collision,
 convex/mesh/polyline geometry, LBVH traversal, contact recycling, hub splitting,
 coloring, scene reconstruction, live controls and continuation checkpoints.
-See [NATIVE_RUNTIME.md](NATIVE_RUNTIME.md) for the public backend and
-[COMPLETION.md](COMPLETION.md) for remaining qualification work.
+[COMPLETION.md](COMPLETION.md) defines the agreed scope and final acceptance gates;
+current qualification comes from `parity.py report`, not historical milestone notes.
 
 The offline Ascend path generates kernels, binding manifests and source-bound
-fixtures for a future CANN execution adapter. No Ascend vendor compilation, device
-execution, synchronization or performance is certified. Articulated multibodies,
-MPM and 2D are deferred by the user.
+fixtures for a future CANN execution adapter. Ascend vendor compilation, device
+execution, synchronization and performance remain unvalidated. Articulated
+multibodies, MPM and 2D are explicitly deferred. CUDA execution and native Windows
+replay are also unvalidated. Available C and Metal execution is not NPU emulation.
 
-Rust remains the behavioral reference. `parity.json` maps stable operation IDs
-to reference symbols, implementations, contracts, and per-target evidence. Each
-operation has its own required cases; a passing solve cannot certify integration.
-The checker conservatively watches the whole rigid-body source envelope. Watching
-a Rust file does not mean all of its features have been ported.
+## Use the runtime
 
-## Shader organization
+See [NATIVE_RUNTIME.md](NATIVE_RUNTIME.md) for `TileLangSimulation`, compiler setup,
+backend selection and integration tests. Enable the `runtime` feature of
+`ports/tilelang/native`; choose `TileLangBackend::C` or `TileLangBackend::Metal`.
+The API accepts a typed `RbdState::read_scene_upload` archive and owns subsequent
+frame execution. It is a separate public simulation API, rather than an enum
+variant inside the existing `RbdPipeline`.
 
-The Python shader tree mirrors `src_rbd_shaders`, preserving Rust function names
-and their module boundaries wherever practical:
+Metal uses the native Rust/khal executor after specialization. C uses a persistent
+Python control process and compiled native C++ kernels. Both execute translated
+physics kernels, retain device/runtime storage between frames and support ongoing
+stepping without a trajectory allocation. The compiler is needed on first upload,
+capacity growth and configuration changes. Explicit reads return typed body state.
+[FRAME_RUNTIME.md](FRAME_RUNTIME.md) defines ordered dispatch, capacity gates,
+persistent-region migration and retry behavior.
 
-| Rust file under `src_rbd_shaders/dynamics` | TileLang file under `ports/tilelang/shaders/dynamics` | Implemented subset |
-| --- | --- | --- |
-| `body.rs` | `body.py` | `Velocity::integrate_linearized` |
-| `mprops_update.rs` | `mprops_update.py` | world inertia/COM updates and indexed collider pose propagation (3D) |
-| `solver.rs` | `solver.py` | cleanup, COM pose initialization, gravity/increment application, integration, finalization |
-| `constraint.rs` | `constraint.py` | `compute_effective_masses` |
-| `solver_utils.rs` | `solver_utils.py` | solve/warmstart, impulse scaling, manifold headers/points, recycled points |
-| `coulomb_tiles.rs` | `coulomb_tiles.py` | Rust-derived ABI validation, tagged cache and tiled warmstart deltas |
-| `tile_kernels.rs` | `tile_kernels.py` | prepared-color adapters, preparation/impulse transfer, scaling and body/hub warmstart |
-| `contact_links.rs` | `contact_links.py` | complete 3D link initialization, matching, recycling decisions and color seeding |
-| `mass_splitting.rs` | `mass_splitting.py` | hub assignment, splitting, dispatch sizes, scatter and 64-lane averaging |
-| `canonical_order.rs` | `canonical_order.py` | `gpu_stabilize_body_constraint_ids` |
+Cold-start uploads rebuild contact caches. Checkpoints preserve continuation state.
+Insertion/removal uses scene reconstruction with explicit surviving-body mappings;
+it does not promise the cache behavior of native incremental append/remove calls.
+Live poses, velocities, gravity, solver parameters and friction-model changes are
+supported with validation before publication. Unsupported articulated inputs fail
+explicitly. Performance has not been qualified; ordered color launches preserve
+dependencies but do not reproduce the native fused-launch optimization.
 
-A counterpart file does not imply the whole Rust module is ported. Launch-target
-wrappers and scalar compiler utilities live in `kernel_support.py`; build-time
-entry selection lives in `kernels.py`. Replay, native execution, compiler builds,
-and evidence tracking stay outside `shaders/`.
+## Shader organization and behavioral reference
 
-## Run locally
+The Python shader tree mirrors `src_rbd_shaders`, retaining corresponding Rust
+module paths and function names wherever practical. `inventory.json` lists every
+Rust shader module, its mirrored path, mapped symbols and explicit disposition.
+A counterpart file does not imply the entire Rust module or convenience API was
+translated. Typed native constructors supply the ABI; accessors may be represented
+by checked field indexing in callers. Namespace modules contain no separate kernel.
 
-Use Python 3.13, a C++17 compiler, and Rust 1.98.1 for the CPU oracle (the native
-Metal adapter retains Rust 1.99.1). The reference toolchain and Cargo
-lockfile are pinned separately from Nexus's general workspace. The Rust exporter
-calls the current `TwoBodyConstraint::solve_constraint_gauss_seidel`; it contains
-no copied solver arithmetic and does not require cargo-gpu or a GPU runtime.
+Compiler utilities, launch adapters, replay controllers and evidence tooling live
+outside `shaders/`. `parity.json` maps stable feature IDs to reference symbols,
+implementations, contracts, replay runners and target evidence. Each operation has
+its own required cases. Watching a Rust file does not imply coverage of all its
+features. Keep paired Rust bug fixes, port changes, new features, numerical policies
+and intentional differences distinguishable in classified `changes/` records.
 
-The khal CPU backend requires mutable-reference `noalias` disabled. Every fixture
-export goes through `cpu_oracle.py`, which sets `RUSTC_BOOTSTRAP=1` and the exact
-Cargo encoded flags `-Zmutable-noalias=no`, builds the live Rust sources, and checks
-LLVM IR to confirm that mutable references lack `noalias` while shared references
-retain it. Rust 1.99.1 removed this option, so only the CPU oracle is pinned back
-to 1.98.1. Custom flags and compiler wrappers are rejected; effective settings and
-probe hashes are recorded in each report. The build script rejects direct builds
-missing the required flags. This is a required backend workaround, not a proof of
-Rust aliasing soundness or a replacement for GPU validation.
+## Run the complete local matrix
 
-Fused and tail-color CPU entry points also require cooperative coroutine dispatch:
-they exchange storage writes at barriers without a shared-memory parameter that
-would otherwise enable it. The native kernels explicitly request this mode.
-`schedule-variants` compares native separate, fused and tail dispatches on
-cross-lane shared-body graphs for both contact models, including cached output
-and warmstart. Run it through `cpu_oracle.py` in debug and release modes.
-
-
-For direct exporter checks, use `python3 ports/tilelang/cpu_oracle.py clippy --locked
---all-targets -- -D warnings` and `python3 ports/tilelang/cpu_oracle.py test --locked
---release --bin cpu-dispatch-check`. The latter runs the actual Rust shared-memory
-hub reduction, including more hubs than workgroups and repeated dispatches.
-
-From the repository root:
+Use Python 3.13, a C++17 compiler and the pinned requirements. The portable compiler
+is TileLang 0.1.15. Rust fixture export uses 1.98.1 through `cpu_oracle.py`; the
+standalone Metal replay adapter has its own pinned toolchain. Run from the root:
 
 ```sh
 python3 -m venv ports/tilelang/.venv
 ports/tilelang/.venv/bin/python -m pip install -r ports/tilelang/requirements.txt
-ports/tilelang/.venv/bin/python ports/tilelang/replay.py --operation all --target c
+ports/tilelang/.venv/bin/python ports/tilelang/matrix.py --target c
+ports/tilelang/.venv/bin/python ports/tilelang/matrix.py --target metal
 ports/tilelang/.venv/bin/python -m unittest discover -s ports/tilelang/tests -v
-python3 ports/tilelang/parity.py check --require c \
-  --evidence-dir ports/tilelang/results
 ```
 
-On Linux, install the pinned CPU-only PyTorch wheel before the requirements to
-avoid downloading CUDA libraries:
+Metal requires Apple silicon and the Xcode command-line tools. On Linux install
+`torch==2.9.1` from `https://download.pytorch.org/whl/cpu` before the requirements
+to avoid pulling CUDA libraries. The POSIX compiler commands do not implement a
+native Windows runner. The base `replay.py --operation all` covers only its four
+base operations; use `matrix.py` for the complete registry. `--list` prints the
+chosen operations without execution. `--shard-count N --shard-index I` partitions
+every registered operation exactly once for parallel local or CI runs.
+
+`--output DIR` selects an ignored result root. Set `NEXUS_TILELANG_RESULTS=DIR`
+for regression tests against that root. Reports retain generated source, bindings,
+initial buffers, fresh Rust expected outputs, actual outputs and toolchain hashes.
+Each run rebuilds its live native reference; cached golden outputs are insufficient.
+
+The khal CPU backend requires mutable-reference `noalias` disabled. Always use
+`cpu_oracle.py` for reference Cargo commands and native `runtime` feature builds:
 
 ```sh
-ports/tilelang/.venv/bin/python -m pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+python3 ports/tilelang/cpu_oracle.py clippy --locked --all-targets -- -D warnings
+python3 ports/tilelang/cpu_oracle.py test --locked --bin cpu-dispatch-check --bin schedule-variants
+python3 ports/tilelang/cpu_oracle.py test --locked --release --bin cpu-dispatch-check --bin schedule-variants
+python3 ports/tilelang/cpu_oracle.py --native test --locked --features runtime
 ```
 
-On Apple silicon with the Xcode command-line tools, run the same suite through
-native Metal:
+The wrapper enforces `RUSTC_BOOTSTRAP=1`, `-Zmutable-noalias=no` and the pinned
+compiler, rejects custom flags/wrappers, and retains an LLVM attribute probe.
+Native fused/tail CPU entry points additionally request cooperative coroutines:
+they exchange storage writes at barriers even without a workgroup-memory argument.
+The schedule regression compares separate, fused and tail dispatches bitwise for
+both friction models, warmstart and cached output. This is a required CPU backend
+configuration, not a proof of Rust aliasing soundness or Ascend synchronization.
 
-```sh
-ports/tilelang/.venv/bin/python ports/tilelang/replay.py --operation all --target metal
-```
+The expensive public runtime tests are explicitly ignored by ordinary Cargo tests.
+Run them with the compiler, existing workspace directory and fresh scene fixtures
+as documented in [NATIVE_RUNTIME.md](NATIVE_RUNTIME.md). They cover capacity growth,
+live controls, hubs, checkpoints, scene reconstruction, model switching and dense
+120-frame production comparisons with sleeping disabled. Ordinary unit tests alone
+do not satisfy the runtime acceptance gate.
 
-Python and TileLang compile the kernel. The Metal execution process uses generated
-MSL directly through `native/`, a pinned Rust/khal adapter with no Python, PyTorch,
-or TVM runtime. It accepts existing native buffers and flushes prior khal writes
-before each synchronous execution sequence. The runner validates binding names,
-dispatch dimensions and device identity; callers must uphold the shader memory
-safety contract. It is not yet selectable in the full Nexus simulation pipeline.
-The original Swift harness remains available as a historical independent runner.
-The CPU runner similarly calls compiled generated C++ through a native function.
-Native Windows replay is not implemented by these POSIX compiler commands.
+## Numerical policy
 
-`--output DIR` changes the result root. For the replay guard tests, set
-`NEXUS_TILELANG_RESULTS=DIR` when using that option. Full binaries, generated source,
-ABI bindings, actual outputs, and Rust expected outputs stay under that root.
-The default `results/` directory is ignored by Git.
+Computed floats normally use `atol=2e-6, rtol=2e-5`; each hashed contract defines its
+exact fields and exceptions. IDs, counts, copied words, inactive storage and guards
+retain exact checks. Independent geometry, contact-response and physical checks
+must reject matching corrupt target/reference results.
 
-## What is tested
+[BOUNDARY_NUMERICS.md](BOUNDARY_NUMERICS.md) defines the retained zero-distance CFM
+stress policy, with native source extraction, independently recomputed outward
+intervals and complete branch outcomes. [SCENE_NUMERICS.md](SCENE_NUMERICS.md)
+records narrowly scoped scene/frame/field budgets and mandatory identical-state
+restart tests. Neither policy authorizes global tolerance widening or case deletion.
+C compilation disables floating contraction; Metal also disables contraction in
+source. Genuine dispatch and reference bugs remain separate classified fixes.
 
-The three warmstart graph operations have 27 cases. Native batch uniforms, bucket
-totals, adjacency and ID indirections drive the kernels. Ordinary bodies gather
-cached deltas in list order; split slots recompute their constraint deltas. Tests
-deliberately distinguish those values, exercise shared bodies, static bodies,
-empty points, fractional/zero/unit scaling, multiple batches, bounded hub capacity,
-exact cache tags and untouched padding. A cancellation-sensitive cache detects
-reassociation or reordering.
+## Maintain parity and detect drift
 
-The five hub contracts add 61 cases. They cover actual atomic slot reservations,
-shared constraints between hubs, overflow/zero pool capacity, runtime batches,
-capacity beyond active bodies, static and partially locked masses, exact copied
-velocity padding, counter clipping and 257 hubs sharing 256 workgroups. Averaging
-preserves each lane's accumulation and the six-step Rust reduction tree. A
-cancellation-sensitive fixture rejects a sequential or reassociated sum. CPU
-lowering serializes those phases; Metal uses shared memory and barriers. The
-Rust average oracle uses khal's cooperative CPU runtime with noalias disabled.
-Allocation outputs accept legal atomic orderings while requiring exact totals,
-valid membership, contiguous capacity-bounded reservations and untouched storage.
-Full solver/color scheduling and scene integration remain separate work.
-
-There are 239 required cases across twenty-six contracts. The eight body/collider
-contracts added after the original pilot have 56 cases, including empty/zero-batch launches, 63/64/65 boundaries,
-multiple batches, capacity beyond active bodies, static and partially locked
-masses, nonzero local COMs, zero gravity, and up to 32 frames of four substeps.
-`body_replay.py` calls the actual Rust entry points in order; computed fields use
-the existing float tolerances, while copied values, counters, padding and inactive
-storage compare exactly. `free_step` fuses the per-body sequence because it has no
-cross-body dependencies; it is a validation composition, not a contact schedule.
-The cleanup port preserves Rust's full-capacity range, including unused slots.
-Gravity deliberately follows Rust's vector-wide static test rather than masking
-individual mass axes. World inertia updates include anisotropic and singular principal inertias and
-rotated mass frames. Collider propagation covers indexed parents and multiple
-colliders per body. Native scene integration remains incomplete.
-
-Contact preparation has 21 cases covering empty and inactive launches, tile and
-workgroup boundaries, shared readonly bodies, split velocity slots, reordered
-nearest-point matching, strict ties, rotated friction bases, threshold-adjacent
-anchors, no/empty previous contacts, refreshed recycled masses/restitution, and
-both signs and zero in tangent-frame construction. Copied distances, selected
-normal impulses, recycled geometry, IDs and cache tags remain bitwise exact.
-Computed fields use the original contact tolerances. The source of fresh point
-restitution is the manifold; recycled point restitution comes from the link,
-matching the Rust reference. Preparation does not itself decide recycle eligibility.
-
-Contact-link persistence adds 36 cases across initialization, matching, color
-seeding and their per-contact composition. Tests cover shorter nonempty adjacency
-lists, static/empty lists, first matches among duplicate identities, stale gap
-indices, disjoint state halves in either order, translation/rotation reuse limits,
-quaternion sign equivalence, multibody exclusion and invalid previous colors.
-All output words compare exactly: decisions and identities are integers, states
-are copied, and refreshed drift limits use a single f32 product. The composite
-fixture fuses only independent per-contact work against immutable old topology;
-it is not yet the production frame lifecycle or graph-color conflict pass.
-
-The original five contracts retain their 38 cases. Six integer sorting cases
-cover empty/skewed rows, duplicates, high unsigned IDs, workgroup boundaries and
-a 513-entry row. Inputs and trailing sentinels remain bitwise unchanged.
-`primitives.py` compares the exact Rust entry-point results without floating-point
-conversion or tolerance. Atomics, collective scans and BVH traversal remain
-unvalidated.
-
-The four solver operations have 32 required cases. The three new operations each
-cover 0/1/32/65/129 items and three sequential passes. Effective-mass fixtures
-poison the output fields before recomputation. Integration includes zero and
-capped velocities, quaternion normalization, and sentinel bodies. Warmstart
-must leave every cached impulse unchanged. Every output is compared against the
-current Rust function with the same fixed tolerances as the solve pilot.
-
-
-The 17 solve cases cover 0/1/31/32/33/63/64/65/127/129 manifolds, 0–4 points per
-manifold, static bodies on either side, locked mass axes, zero friction, singular
-friction mass, restitution terms, penetrating/speculative contacts, all four
-bias/friction flag combinations, and up to three sequential passes. Two seeds
-exercise the multi-pass cases. Pose indices deliberately differ from velocity
-slots. Sleeping is not involved in this isolated operation.
-
-The Rust exporter derives offsets and strides with `size_of`/`offset_of` and emits
-raw typed buffers. IDs remain integer bits. The kernel preserves point order:
-all normal rows first, then all friction rows. Poses and parameters are inputs;
-only active impulses and velocity components may change. Unchanged words,
-including padding, inactive points, and sentinel bodies, are compared bitwise.
-Floating outputs use the tolerances in the contract and must remain finite;
-normal impulses must be nonnegative and enabled friction must remain inside its
-Coulomb disk. Solve and direct-warmstart validation reject overlapping velocity slots before dispatch; preparation permits shared readonly body inputs.
-
-Arguments are bound in the order found in the lowered device IR. TileLang may
-reorder them or remove all arguments from an empty-input kernel. Never infer the
-native order from the Python function signature.
-
-## Known numerical gap: cancellation at zero contact distance
-
-Rust host SIMD, original Rust Metal and scalar TileLang transforms or dot products
-can differ by a few ULPs. If
-`point.dist + dot(world_a - world_b, normal)` was constructed by cancellation to
-be exactly zero, the result can acquire the opposite sign on another backend.
-Rust's `distance <= 0` then selects a different soft-contact CFM branch. This can
-produce a much larger impulse difference than the original rounding error.
-
-The portable suite still checks exact zero, with zero local anchors so it does
-not depend on cancellation of rotated points. The original adversarial case is
-retained as a diagnostic:
-
-```sh
-ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target c --boundary-stress --output ports/tilelang/results-boundary
-```
-
-A numerical failure in this diagnostic is expected on the initially tested ARM
-host; it may differ by compiler/device. It is never accepted as parity evidence,
-even if a particular configuration passes. The contract exposes this unresolved
-gap, and `parity.py check --release` fails while it is present. Do not remove the
-case, widen a global tolerance, or modify Rust silently to get a green report.
-The `numerics.py` diagnostic now compares the Rust CPU oracle, the unchanged
-production Rust Metal kernel, and TileLang Metal on identical input buffers.
-It preserves all comparison failures in `results-numerics/report.json` and exits
-nonzero when they occur. Two unbiased/no-friction cases are explicitly unavailable
-in the production GPU kernel, which has only three modes; they remain required
-in the portable suite. Same-GPU adversarial comparisons still fail, so a numerical
-policy and scene-level validation remain necessary. The additional `--portable`
-three-way diagnostic also finds disagreements with production Rust Metal in nine
-cases (six pass; two modes are unavailable), even though TileLang C/Metal agree
-with Rust CPU on all 17. Zero local anchors avoid rotated-point cancellation but
-leave translation/dot-product cancellation; the original GPU compiler can evaluate
-that expression differently. These diagnostic failures remain visible. A separate `--zero-frame` diagnostic
-sets frame translations to zero and passes all 15 production-supported cases
-across all three implementations. This isolates the cancellation sensitivity; it
-does not replace the original suites or clear the release block. Run:
-
-```sh
-ports/tilelang/.venv/bin/python ports/tilelang/numerics.py
-ports/tilelang/.venv/bin/python ports/tilelang/numerics.py --portable --output ports/tilelang/results-numerics-portable
-ports/tilelang/.venv/bin/python ports/tilelang/numerics.py --zero-frame --output ports/tilelang/results-numerics-zero-frame
-```
-
-CPU parity compilation uses `-ffp-contract=off`. Metal additionally needs
-`#pragma clang fp contract(off)`; `fastMathEnabled=false` alone did not prevent the
-observed contraction differences. A source-level explicit branch also avoids
-invalid MSL emitted by TileLang 0.1.15 for a mutable `if_then_else` assignment.
-These choices are included in the implementation fingerprint.
-
-## Maintain parity
-
-Start with:
+Read [AGENTS.md](AGENTS.md), then inspect:
 
 ```sh
 python3 ports/tilelang/parity.py report --json
+python3 ports/tilelang/inventory.py
 ```
 
-The report identifies modified, added, and deleted reference/implementation files,
-affected feature IDs, explicit gaps, and separate backend states. File additions
-inside the watched scope cannot silently become untracked capabilities. The impact
-envelope is deliberately broad for this first pilot; narrow it only with evidence
-that transitive helpers and newly added modules remain covered.
-
-After a change, add a new structured record under `changes/`: classify its intent,
-explain the disposition, identify regressions, and list differences. Classifications
-are explicit because textual diffs cannot prove whether a change is a feature,
-bug fix, or equivalent refactor. Reusing an old record for changed inputs is rejected.
-Then regenerate results and reconcile:
+The conservative impact envelope covers Rust helpers/layouts, new and removed
+files, Python shaders, runtime/controller code, contracts, tests, compiler pins and
+maintenance documentation. Changing any watched input invalidates evidence. Add a
+new classified change record, regenerate the full matrix and regressions, then:
 
 ```sh
 python3 ports/tilelang/parity.py reconcile \
   --change ports/tilelang/changes/NEW-CHANGE.json \
-  --evidence-dir ports/tilelang/results \
-  --evidence-dir ports/tilelang/results-ascend-source
-python3 ports/tilelang/parity.py check
+  --evidence-dir ports/tilelang/results
+python3 ports/tilelang/parity.py check --require c --require metal --release
 ```
 
-Each evidence directory contributes its replay reports; failed or stale reports are rejected.
-The Ascend source directory and Metal reports are optional when unavailable. Its previous report remains
-visible as stale after relevant changes. Reconciliation requires the complete
-current CPU execution suite, pinned package versions, a change record, and passing
-change-tracking tests. It archives reports and updates `baseline.json`. Hashes
-are change detectors, not proofs of equivalence. Updating baseline hashes alone
-cannot refresh an old execution report. Changing the contract, tests, compiler
-pins, reference lockfile, launch wrappers, or maintenance instructions invalidates
-evidence too. Git preserves older baselines and change records.
+Reconciliation requires all registered C execution reports and archives accepted
+reports under `evidence/`. Additional evidence roots may supply Metal and Ascend
+source reports. Old evidence remains stale; editing baseline hashes cannot refresh
+it. A result certifies its recorded source, fixtures, toolchain and device only.
+`--release` rejects unresolved blocking gaps. `--require ascend` requires actual
+Ascend execution and cannot be satisfied by source lowering.
 
-The report records the base Git commit **and exact file hashes**, so uncommitted
-implementation changes are distinguished. It also records the Rust/compiler/runtime
-versions, target device, OS, generated source hashes, and binding order. Evidence
-certifies the recorded environment and case set, not every hardware configuration.
-The standalone reference lockfile defines its dependency versions; update it
-explicitly when reconciling dependency changes in the main workspace.
+The Linux workflow `.github/workflows/tilelang.yml` runs source/oracle checks,
+exhaustive C replay shards, corruption/return-protocol regressions and the public
+CPU runtime. Remote CI has not run while this branch remains local. No workflow
+or local completion step authorizes a Git push.
 
-The standard `check` gate applies to this experimental scope. `--require metal`
-requires current Metal execution; `--require ascend` cannot pass without an actual
-Ascend execution runner and evidence. `--release` additionally rejects unresolved
-blocking gaps. The workflow in `.github/workflows/tilelang.yml` runs a fresh CPU
-replay on Linux; it does not pretend to run an NPU. Its first remote CI run is not
-part of local validation. Make the new CI job a required branch-protection check
-when adopting the port; this change does not modify GitHub settings.
+## Prepare the Ascend handoff
 
-## Roadmap without Ascend access
-
-This roadmap assumes no Ascend device, emulator, or paid NPU VM is available
-throughout development. An early Ascend smoke test is **not a prerequisite** for
-expanding the port. The objective is to complete an explicitly inventoried
-rigid-body scope on available hardware, with reproducible evidence and an Ascend
-handoff package. Ascend execution and performance remain unvalidated until tested
-on a real device. The current implemented subset is described above. The milestones below retain
-the remaining work explicitly; this branch is not a completed rigid-body backend.
-
-Keep Rust as the behavioral reference and retain its public API, scene/state
-ownership, and host scheduling. TileLang supplies generated native kernels. Keep
-backend launch, synchronization, memory, and artifact-loading details separate
-from shared physics, with explicit target capability requirements. Preserve the
-current ABI initially; any later packing/layout adaptation needs its own mapping,
-round-trip tests, and change record. Do not assume Metal-optimal layouts or launch
-sizes will be efficient on an NPU.
-
-### 1. Establish the checks we can run without an NPU
-
-Resolve the existing zero-distance numerical discrepancy by comparing the Rust
-CPU reference, the original Rust GPU kernel, and TileLang on the same available
-GPU. Preserve the failing stress case. Investigate transforms, contraction, and
-branch selection before deciding a scoped numerical policy; do not widen global
-tolerances or alter the Rust reference to obtain a passing port. Independent
-compiler/runtime work can continue while this gap remains release-blocking.
-
-In parallel, establish an ordinary Linux CPU build of a pinned TileLang revision
-with the Ascend code generator enabled, then lower the pilot and representative
-portability probes to Ascend source. Upstream's [Ascend build configuration](https://github.com/tile-ai/tilelang/blob/main/src/ascend/CMakeLists.txt)
-explicitly separates code generation from CANN and provides runtime stubs. The pinned source build now succeeds on macOS without CANN, and all 17 pilot
-specializations generate Ascend source. `evidence/ascend.json` records this
-source-lowering result; `evidence/compiler-build.json` records the build. A stub permits loading the compiler/runtime
-library; it does not emulate an NPU or validate the generated device program.
-
-The original published macOS wheel lacks the required Ascend backend. Use a Linux environment
-or a separate source build rather than treating that wheel's missing backend as a
-kernel failure. Pin the compiler commit and submodules as well as package versions;
-replay C/Metal if adopting a different compiler. Do not silently compare reports
-from different compiler builds as if they certified the same configuration.
-
-The shared arithmetic has separate C, Metal/CUDA, and experimental Ascend SIMT
-launch wrappers. The CUDA wrapper remains unvalidated; the Ascend wrapper has source-lowering evidence only. On a build
-containing those backends, source lowering can be attempted with:
-
-```sh
-ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target cuda --compile-only
-ports/tilelang/.venv/bin/python ports/tilelang/replay.py --target ascend --compile-only
-```
-
-Here `--compile-only` means **source lowering only**. Once established, repeat it
-for relevant kernels and specializations and archive generated source and binding
-metadata. Add vendor-toolkit binary compilation only if a compatible compiler is
-accessible and usable without a device; neither toolkit availability nor such a
-build is assumed. Neither check is execution evidence.
-
-Use the upstream [Ascend 950 backend](https://github.com/tile-ai/tilelang/blob/main/tilelang/ascend/README.md)
-as the provisional high-end capability profile. The actual device and CANN
-version remain undecided. This does not promise support for other Ascend
-architectures. Record required capabilities so a later target change exposes the
-operations that need rework.
-
-The build can be reproduced in a dedicated directory (requires Git, CMake, Ninja,
-a C++ compiler, Python and network access for the pinned dependencies):
+The provisional high-end target is the pinned Ascend 950 SIMT backend; the actual
+device and CANN combination still need confirmation. `compiler.lock.json` pins
+the source build and submodules. A separate compiler built with Ascend code
+generation and runtime stubs can lower source without CANN or an NPU. The portable
+macOS wheel alone lacks that backend. The stubs do not emulate hardware.
 
 ```sh
 python3 ports/tilelang/compiler.py /tmp/nexus-ascend-compiler
+/path/to/ascend-compiler/python ports/tilelang/matrix.py --target ascend --compile-only
 ```
 
-Install the resulting wheel and pinned runtime dependencies in a separate venv.
-Keep Z3 and TVM FFI installed inside that environment so native-library rpaths
-resolve. The build helper does not change the pilot's execution environment.
-`--record-only --source CHECKOUT` records existing wheels without rebuilding;
-that path has been exercised locally. The full helper's clean Linux build has
-not yet been run; the local build used the equivalent pinned source/build flags.
+The source-build configuration has been exercised locally. The complete helper's
+clean Linux build remains unverified. Keep its environment separate from portable
+C/Metal, retain exact compiler-library fingerprints, and never treat distinct
+compiler builds as interchangeable evidence. Here `--compile-only` means source
+lowering, not vendor device-binary compilation.
 
-### 2. Exercise difficult operations before broad translation
-
-Before translating large collision modules, extract small operations from the
-Rust pipeline: indexed gather/scatter, bounded variable-length loops, reductions,
-scan/compaction/sort, required atomics, and representative BVH traversal or convex
-contact control flow. Test their semantics on C/Metal and attempt Ascend lowering.
-Use real algorithm fragments rather than only dense matrix examples.
-
-Keep dispatch ordering explicit. Do not rely on a fixed subgroup width, implicit
-warp synchronization, or a global in-kernel barrier. Initially prefer separate
-ordered dispatches and disjoint writes. When an operation needs atomics or shared
-memory, specify ownership, bounds, ordering, and synchronization in its contract.
-Host-side scheduling checks and mock runtime tests can test our assumptions; they
-cannot establish the Ascend memory model or driver behavior.
-
-If a probe fails, isolate the requirement, implement a portable alternative, or
-record a target-specific gap and a small reproducer. This need not stop unrelated
-features, but a required operation with no viable Ascend lowering path must stay
-visible when deciding whether to expand the affected subsystem. Preserve an
-escape hatch for a small native Ascend implementation with the same ABI/contract
-if the TileLang backend cannot express it; avoid creating a second physics spec.
-
-### 3. Integrate a complete stepping slice on available hardware
-
-Add native generated-kernel loading to Rust/khal, initially using Metal. Keep
-Python/TileLang in the build/export tooling. Add explicit buffer, binding,
-specialization, dispatch, lifetime, and error-handling contracts at the backend
-boundary, with a replaceable execution adapter for the future NPU runtime.
-
-Port contact preparation, warmstart, Coulomb solving, and integration using the
-same semantic-ID/replay pattern. Exercise the real color schedule, including
-shared static bodies; the pilot's disjoint-slot restriction is not sufficient for
-arbitrary production colors. Retain the existing collision pipeline for this
-first hybrid stepping milestone and make that dependency visible in reports.
-
-Validate free motion, impacts, stacks, friction, restitution, and contact
-creation/removal. Compare intermediate buffers and short-run checkpoints against
-Rust, then run longer stability/invariant regressions. Long-run trajectory
-agreement needs a separately justified policy; the pilot's per-operation
-thresholds do not automatically apply to full simulations. Benchmark unchanged
-physics settings with sleeping disabled, and report timings by stage plus state
-validation. Metal measurements describe Metal only.
-
-Metal is the primary accessible GPU. CUDA replay and benchmarks are useful
-additional evidence when a CUDA machine becomes available, but neither CUDA nor
-Ascend access blocks this milestone.
-
-### 4. Expand to the agreed rigid-body feature inventory
-
-Inventory Rust capabilities before claiming a full port. Add stable IDs and
-explicit dispositions for collision primitives, convex/mesh paths, broadphase,
-contact persistence, scheduling, joints, other contact models, and any remaining
-rigid-body features. Port the simple collision path first, then more complex
-geometry and constraints. Track unsupported capabilities explicitly and fail
-clearly if a scene requests them. A hybrid scene is not a complete TileLang port.
-
-Each addition needs a live Rust oracle where possible, replay fixtures,
-intermediate-state checks, integration regressions, and evidence for each target.
-Reuse this infrastructure for MPM later; MPM is outside this rigid-body milestone.
-Complete the chosen 3D scope on available hardware without waiting for an NPU.
-Any deferred Rust capabilities, including 2D if deferred, remain inventory gaps.
-
-### 5. Make the eventual Huawei session reproducible and short
-
-The kernel handoff tooling is implemented in `handoff.py`; see `HANDOFF.md` for
-its stages and return protocol. It packages a clean committed source snapshot,
-current Ascend source reports, hash-bound fixtures/bindings/contracts, explicit
-gaps and a machine-readable return schema. `verify-results` checks all returned
-buffers offline and preserves missing/failing cases. It does not itself certify
-execution provenance. The SDK adapter, scene and timing stages remain outstanding.
-
-
-Prepare a versioned handoff containing source/compiler pins, capability
-requirements, generated sources, ABI/binding manifests, deterministic fixtures,
-expected outputs and tolerances, known failures, and a machine-readable results
-schema. Include a small environment probe followed by compile, kernel replay,
-scene regression, and timing stages. Each stage must fail clearly and preserve
-logs and a minimized failing input; environment failure must not become a passed
-or silently skipped device test.
-
-Prepare the native Ascend adapter against the selected SDK when available, and
-keep it explicitly unvalidated until it runs. Runtime mocks test allocation,
-binding, dispatch ordering, and failure handling, not device correctness. Keep
-hardware-specific tuning and resource-limit decisions behind the adapter.
-
-When Huawei or a paid VM becomes available, confirm the actual device/CANN
-combination, build/load the generated artifacts, replay kernels first, then run
-scenes and benchmarks. Return exact fingerprints, environment details, and outputs
-so most diagnosis can continue offline. Cache reusable builds and support targeted
-reruns to avoid consuming paid device time on unrelated setup or repeated cases.
-
-### Evidence and AI maintenance throughout
-
-Continue to require source-impact review and classified change records for Rust
-changes, new features, bug fixes, optimizations, numerical changes, and intentional
-differences. The registry now supports per-feature, per-target evidence for every registered
-operation. `inventory.json` separately lists every Rust shader module and 19 capability
-groups, with explicit partial/unported dispositions. `inventory.py` checks mirrored
-paths and mapped symbols without importing TileLang. New or removed Rust modules
-require a disposition before reconciliation. These coverage groups are an audit
-index, not evidence for unported code.
-
-Keep these evidence levels distinct, bound to exact inputs and toolchains:
-
-| Evidence | Meaning |
-| --- | --- |
-| C/Metal execution | The recorded cases passed on the recorded host/GPU |
-| Ascend source lowered | The pinned TileLang compiler generated source |
-| Ascend binary compiled | A recorded vendor toolkit built a device artifact |
-| Ascend execution | The recorded cases ran on the recorded NPU |
-| Ascend performance | Specified workloads were timed and validated on that NPU |
-
-Missing evidence remains unvalidated; old evidence becomes stale after relevant
-changes. Development acceptance uses current C/Metal evidence for the implemented
-scope and, once established, source-generation checks. An unavailable NPU is not a
-development blocker. Ascend release acceptance requires actual NPU execution and
-workload validation. The existing numerical release block remains in force; this
-roadmap does not relax the contract or advance any evidence level.
-
-The point at which hardware is unavoidable is Ascend qualification and tuning.
-Runtime correctness, synchronization, numerical behavior, resource limits, and
-useful performance may still require changes at that point. The architecture,
-contracts, and replay package should keep those changes identifiable and testable;
-no amount of local testing guarantees a fixed amount of remaining NPU work.
-
-Ordered native programs (bindings schema 2) preserve caller-owned buffers across
-multiple generated kernels. The batched prefix scan exercises the complete
-sweep/coarse-scan/add hierarchy, including three levels. This runtime is synchronous
-and currently validated on Metal; full scene stepping is still being implemented.
-
-Contact adjacency now composes count, hierarchical scan and atomic scatter in
-that runtime. It skips empty/stale and multibody-owned manifolds, tests the whole
-inverse-mass vector, and validates exact per-body ID membership independently of
-atomic order. Coloring and production scene scheduling remain in progress.
-
-Color bucket construction now composes reset, count, prefix scan, link scatter and
-solver dispatch sizing. Generic global atomics preserve bucket membership while
-the Rust single-batch histogram optimization remains deferred. Statistics exclude
-the unsolved bucket; inverse indices identify every copied contact link.
-
-Luby and Topo coloring entry points now have 198 phase fixtures, including dynamic
-body zero, shared groups, split hubs, stale inactive slots and colors in both mask
-words. Deterministic fields are exact; nondeterministic picks require a legal
-first-free observation witness. Luby priorities are independently checked against
-immutable round inputs. Rust fixes and port changes are recorded separately in
-changes 0021 and 0022. Full bounded scheduling and palette exhaustion are the next
-implementation step; isolated primitive parity is not complete coloring coverage.
-
-Bounded Topo coloring now runs as an ordered native program: reset (or supplied
-seeds), convergence flags, pick/fix rounds, and finalization. It handles exhausted
-palettes and clears unresolved seed colors before bucket construction. Changes
-0023 and 0024 separate the Rust correctness fixes from the matching port. Sparse
-completion fixtures use eight rounds, backed by a maximum component size of seven;
-dense and seeded 65-contact cliques keep a two-round budget to test safe exhaustion.
-The existing Rust policy stores unresolved contacts in the last bucket for warmstart
-but does not solve them. The port preserves this policy; safe classification does
-not imply every dense-graph contact was solved. Full scene validation remains pending.
-
-
-The `analytic_collision` operation composes native PFM reset, world bounds,
-brute-force candidates, contact-plan publication and ball/box manifold generation
-over resident device buffers. `contact_plan` and `reset_narrow` also have isolated
-integer contracts, including overflow and zero-work grids. Pair allocation order is
-unspecified; the checker matches manifolds by exact collider-pair identity before
-checking the contact fields. Composed box-box coordinates and depths allow a
-scale-aware f32 roundoff budget, with an independent check that both contact
-endpoints lie on their respective box surfaces. Normal and material tolerances
-are unchanged. General scene stepping and Ascend execution remain unvalidated.
-
-
-Native radix shaders are mirrored under `shaders/utils/radix_sort`. The registered
-stages and composed pass/sort use exact integer checks against both cooperative
-Rust kernels and an independent stable-sort specification. `canonical_contacts`
-connects native key generation, radix stages and whole-manifold permutation over
-resident buffers. It preserves contact identity and equal-key order, with inert
-contacts reset to the Rust default. The current adapter uses eight radix passes
-per field and independent batch grids; Rust's variable-bit and flattened-batch
-host optimizations remain pending. These operations still need connection to the
-general scene solver.
-
-Native and TileLang contact scatter skips endpoints whose inverse mass and inverse
-inertia are both zero. Static endpoints may therefore share a color without
-concurrent writes to the same velocity slot. The color contracts reject both
-write/write and read/write aliasing and preserve static velocity bits exactly;
-regressions include negative zero and workgroup tails through 129 constraints.
-
-Contact preparation and link dispatch consume the native `ContactPlan` directly
-from device storage. Their launch adapters support padded capacity and guard
-every invocation with the live device bound before loading contact or body data.
-This matches the native Rust uniform and allows collision generation to feed
-these stages without a host contact-count readback.
-
-
-### Connected analytic scenes
-
-`scene_replay.py --target c` (or `--target metal`) runs `analytic_scene` using the
-live noalias-disabled Rust oracle. The controller in `scene_kernels.py` composes
-existing mirrored shaders; device buffers remain resident through collision,
-canonical contact sorting, persistent links, adjacency, bounded Topo coloring,
-color buckets, contact preparation, Coulomb TGS, finalization and state copies.
-Fourteen fixtures cover empty/static scenes, ball/box stacks, falling bodies,
-restitution, friction, interleaved batches, lane tails and 120-frame checkpoints.
-No sleeping or CPU physics fallback is used.
-
-The scene contract checks live identities, graph and bucket ownership, static
-bodies, copy semantics and capacity guards independently of float comparisons.
-It rejects an unsolved color bucket. Checkpoints also check normalized finite
-state, penetration, energy, settling, rebound and rolling contact. Legal atomic
-allocation order is compared by contact identity. Workspace above a published
-count can retain earlier-frame records; guards beyond maximum capacity remain
-exact. Physical measurements are recorded separately from parity errors.
-
-Body and active-constraint tolerances remain `atol=2e-6, rtol=2e-5`. Only cached
-warmstart velocity diagnostics after multiple frames use `atol=1e-5`: the
-120-frame box stack has a `2.744e-6` near-zero angular-cache discrepancy while
-final body velocity and position errors stay below `6.851e-7` and `2.385e-7`.
-The contract and change 0037 explain this scope. Isolated warmstart checks and
-the retained zero-distance stress release block remain unchanged.
-
-This is a connected analytic scene milestone. General collision, rigid joints,
-hubs, production backend selection and continuous trajectory diagnostics remain.
-Ascend `--compile-only` checks source lowering; vendor builds, execution,
-synchronization qualification and performance remain unvalidated.
-
-### Rigid joint stages
-
-`joint_replay.py` registers native motor coefficients, COM-centered initialization,
-row construction, orthogonalization, colored solving and their resident composition.
-The shader modules mirror `dynamics/joint.rs`, `joint_constraint.rs` and
-`joint_constraint_builder.rs`. Six configurations per operation cover empty and
-partial lanes, interleaved batches, zero timestep, both motor models, limits,
-offset centers of mass and anisotropic inertia. All float comparisons keep the
-existing 2e-6 absolute / 2e-5 relative bounds. Joint colors require disjoint **both**
-endpoints, including static and zero-row joints, matching Rust's unconditional stores.
-The fixture validator rejects conflicting writers before launch and checks solved
-impulses independently against their bounds. Coupled angular omissions and the
-coupled linear minimum-limit TODO are recorded as Rust reference limitations.
-Metal uses target-specific `asin` intrinsic registration to correct the pinned
-compiler's unsupported `asinf` spelling; no physics equation is substituted.
-These stages do not yet establish full joint scene integration or Ascend execution.
-
-### Joint scene trajectories
-
-`joint_scene_replay.py` connects ordinary joints to the same analytic collision
-and contact frame sequence. Native greedy endpoint coloring includes static bodies.
-Joint rows rebuild each substep and solve before contacts, in both biased and
-stabilization passes. Sixteen fixtures exercise fixed, spherical, revolute,
-prismatic, motor and chained joints, joint/contact interaction and batched worlds.
-Every frame is copied into device trajectory storage, with no CPU physics or
-intermediate readback. Validation checks each recorded state against Rust and
-independently bounds anchor drift, locked rotation, limits, penetration and energy.
-Motor work is accounted for separately, and the final motor target is checked.
-The last recording must exactly equal published body state. The native scene
-oracle shares its dispatch controller across contact and joint scene suites.
-This remains an explicit analytic scene scope; general collision, hubs and public
-runtime integration still need completion, and Ascend execution is unavailable.
+[HANDOFF.md](HANDOFF.md) documents immutable packaging, ordered and resident-frame
+ABIs, target setup, returned outputs and offline comparison. Prepare and reconcile
+all current reports, commit locally, build the bundle and verify it before delivery.
+The eventual Huawei session must establish the actual toolkit/driver/device,
+implement and review the CANN launcher, compile all sources, replay kernels and
+resident scenes, and qualify synchronization and performance. Until then those
+evidence levels remain unvalidated, without blocking the agreed offline port work.

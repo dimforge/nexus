@@ -12,7 +12,11 @@ A frame manifest identifies capacity gates before contact preparation and solvin
 The broad-phase gate reads the original, unclamped pair demand. General collision
 adds a second gate after deferred traversal, before contact-plan publication.
 The existing native invariant reserves two contact slots per pair-capacity unit,
-so these two successful bounds also establish contact-plan capacity.
+so these two successful bounds also establish contact-plan capacity. Public
+runtime variants additionally check active color demand and unfinished coloring
+after the feedback stage. Multiple named gates may follow the same stage; all
+must pass before any solver work. Never combine their distinct meanings into one
+maximum capacity.
 
 If demand exceeds capacity, the runtime selects the first later exported variant
 that fits it, compiles its kernels, allocates and initializes its storage, and uses
@@ -33,16 +37,18 @@ is not equivalent to their Rust defaults.
 
 Construction is unsafe for the same reason as `NativeProgram::dispatch`: shader
 source is trusted executable code, and a binding manifest cannot prove index
-bounds or race freedom. Additionally, every gate must precede writes to persistent
-regions. `frame_manifest.from_program` derives control gates from the collision
+bounds or race freedom. Additionally, every gate must precede publication of persistent
+physics state. Preflight may write scratch and the new contact-state half; the
+published old half must remain valid for retries. `frame_manifest.from_program` derives control gates from the collision
 controller and verifies that the lowered schedule has the same names and mappings.
 The controller annotations do not change shader arithmetic or launch order.
 
-The executor supports a finite ladder of exported capacities. It does not yet
-provide arbitrary Nexus scene upload, dynamic specialization compilation, palette
-convergence, hub scheduling, or the public backend selector. Those remain required
-work. Metal and C unit tests exercise real compiled dispatch, migration after a prior
-frame, exhausted capacity and failed growth recovery. Ascend kernel
+The standalone frame executor accepts exported capacity ladders and can extend
+them with additional trusted variants. The public `TileLangSimulation` layer
+connects native scene upload, dynamic specialization, pair/deferred-work growth,
+contact palette/round feedback and hub scheduling; see NATIVE_RUNTIME.md. Metal
+and C tests exercise compiled dispatch, migration after a prior frame, exhausted
+capacity and failed growth recovery. Ascend kernel
 source lowering does not validate a CANN executor, device memory ordering or
 performance; the same frame boundaries must be implemented and qualified there.
 
@@ -81,8 +87,8 @@ aggregate centers of mass, parentless mesh geometry, materials/groups, ordinary
 joint limits/motors, empty allocated capacity and articulated rejection. Group
 readback checks the native enum discriminant before constructing Rust values;
 geometry and joint input allocations now permit readback. No shader arithmetic
-or shape/joint conversion changes in this bridge. Connecting these public inputs
-to arbitrary compiled frame storage and backend selection remains in progress.
+or shape/joint conversion changes in this bridge. The public runtime consumes
+these inputs through `TileLangSimulation::from_upload`.
 
 
 ## Native cold-start specialization
@@ -102,18 +108,19 @@ substep count, PGS count and warmstart coefficient. All actual frame physics use
 the translated shaders. An input body may own several colliders; collider IDs
 must never be substituted for body IDs.
 
-This integration remains bounded: Coulomb friction, deterministic LBVH ordering,
-16 Topo rounds, no split hubs and a finite trace. Public backend selection and
-unrestricted lifecycle support remain outstanding. `runtime_scene_validation.py`
+The connected runtime supports both Coulomb and compact twist friction,
+deterministic LBVH ordering, split hubs and tracing or ongoing untraced stepping.
+Color/round limits can grow before commit. Scene reconstruction implements
+membership changes; it intentionally rebuilds contact caches. `runtime_scene_validation.py`
 checks separate index spaces and geometry in addition to differential output.
 The native geometry validator recognizes exact empty leaf-bound sentinels without
 changing the bytes sent to kernels; it still rejects nonfinite primitive geometry.
 
 
-`runtime_replay.py --target c|metal|ascend` registers six native-upload scenes,
-with `--compile-only` required for Ascend. Each run rebuilds real native uploads
+`runtime_replay.py --target c|metal|ascend` runs the native-upload scene contracts
+for Coulomb and compact twist friction, with `--compile-only` required for Ascend. Each run rebuilds real native uploads
 and fresh Rust expected outputs before lowering. The report records both compiler
-profile and native archive hashes. The registered cases use eleven color buckets;
+profile and native archive hashes. Case metadata records palette and round budgets;
 body and collider indexing remain separate. `runtime_scene_fields` also validates
 external returned buffers through `handoff.py`. `test_runtime_handoff.py` uses
 recorded Metal results against Ascend source artifacts to test that protocol only.
@@ -138,4 +145,6 @@ reference solver. Omit `--trace-steps` for ongoing execution without trajectory
 storage. Artifacts record exact compiler-source and archive hashes. Source lowering
 alone is not target execution. `runtime_service.py VARIANT_DIRECTORY` controls a
 resident generated-C session through JSON lines, with explicit state read requests.
-Rust backend selection and automatic compilation after overflow remain in progress.
+`TileLangSimulation` provides Rust backend selection and automatic specialization
+after capacity pressure. It also records named pair, deferred-work, color and
+round limits in continuation checkpoints.

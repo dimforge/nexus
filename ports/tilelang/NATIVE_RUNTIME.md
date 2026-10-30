@@ -200,7 +200,14 @@ ported and tested; their accumulation order can differ in floating point. Comple
 native scene comparisons and identical-state restart contracts qualify that
 substitution. GPU synchronization and performance on Ascend still need device tests.
 
-`native/tests/runtime_coloring.rs` exercises palette/round growth, high colors,
+`native/tests/runtime_coloring.rs` exercises pair and palette growth, high colors,
 120 native production frames with sleeping disabled, live gravity and fresh-runtime
 checkpoint restoration. It uses the standard compiler/workspace variables and
 `NEXUS_DISABLE_BF=1`; no pre-exported expected fixture is needed.
+
+The dense fixture does not require a round-budget increase. Exact standalone
+`color_requirements` cases cover unfinished coloring and saturating round demand;
+C/Metal frame-control tests cover multiple gates at one stage and preserved state
+when a later gate rejects an attempt. Bounded-coloring fixtures retain deliberate
+round/palette exhaustion cases. These checks do not imply a public scene requiring
+round growth was observed.

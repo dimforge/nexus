@@ -1,7 +1,9 @@
 # Offline Ascend engineering handoff
 
-This package contains individually tested solver operations, not a complete
-simulation backend. Its Ascend qualification is **source lowering only**. The
+This package contains solver-operation replays, connected scene and restart
+fixtures, and resident-frame capacity-retry programs. The Rust-owned runtime runs
+the connected 3D rigid-body path on C and Metal. Its Ascend qualification is
+**source lowering only**; the CANN execution adapter remains to be implemented. The
 provisional profile is Ascend 950 SIMT. Confirm the actual device, CANN, driver,
 and compiler combination before choosing an SDK/runtime adapter. No NPU access
 is required to maintain the port, run C/Metal parity, or build this package.
@@ -14,7 +16,8 @@ The builder rejects dirty or unreconciled source and stale/incomplete evidence.
 It does not push, contact Huawei, or start a paid VM.
 
 ```sh
-python ports/tilelang/handoff.py build --output /tmp/nexus-ascend-handoff
+python ports/tilelang/handoff.py build --output /tmp/nexus-ascend-handoff \
+  --results ports/tilelang/results
 python ports/tilelang/handoff.py verify /tmp/nexus-ascend-handoff
 ```
 
@@ -47,6 +50,29 @@ program iteration. Every referenced source is required in the hash inventory;
 `kernel.ascend` alone does not implement a multi-stage case. Prefix scans exercise
 this with partial blocks, independent batches and multiple hierarchy levels.
 
+Bindings schema 3 denotes **resident frames**. Its `variants` list names every
+capacity specialization, including a schema-1 `frame.json`, initial buffers and
+ordered program sources. Start from variant zero and keep storage resident across
+frames. Execute stages through each named gate, synchronize and read only its
+listed counters. If any demand exceeds that gate's capacity, stop before solver
+commit, select a later fitting variant, initialize it from its own native upload,
+copy the named persistent regions by identity, and retry the frame. Do not advance
+the frame counter on a rejected attempt. Check every gate even when multiple
+gates follow the same stage; pair, deferred-work, color and round limits have
+different meanings. Missing capacity is an explicit error, never permission to
+truncate work or continue with unresolved contacts.
+
+Preserve native initialized defaults in new storage, not arbitrary zero fills.
+Only copy the manifest's live persistent regions; preserve guards. Complete every
+successful frame before beginning the next. Return all final storage buffers with
+the sizes declared in the outer bindings and a `stats.json` array containing one
+record per committed frame: `step` (one-based), `variant` (zero-based), `retries`
+and `counts` by gate ID. The validator requires the fixture's exact growth frames,
+no committed overflow and the final specialization. See FRAME_RUNTIME.md and
+`frame_scene_validation.py` for the full contract. These resident fixtures test
+retries and continuation; the public application API can additionally compile new
+variants on demand, without a pre-exported ladder.
+
 The six-float `Params` replay ABI is distinct from `RbdSimParams`. Body lifecycle
 contracts name its fields: dt, linear/angular speed caps, and gravity xyz. The
 corresponding full Rust uniforms are included for reproduction. Batch counts and
@@ -65,14 +91,15 @@ joints, hubs or other cross-body dependencies. It is not the production schedule
    unavailable/failed. Probe success is not kernel execution evidence. Record
    the actual device model/ID, driver, CANN and vendor compiler versions in the
    returned `session.json`; do not infer compatibility from an environment path.
-3. Build the generated `kernel.ascend` sources with a compatible vendor toolchain
+3. Build every generated `.ascend` source referenced by bindings/variants with a compatible vendor toolchain
    and the pinned TileLang headers. The selected SDK's host launcher is not yet
    implemented in this port. Preserve compiler command lines, versions, logs,
    resource reports and device binaries. A binary build is not an execution pass.
 4. Implement/review the native adapter's allocation, byte sizes, binding order,
    device ownership and ordered dispatch contracts. Initialize every storage
-   buffer from its `.bin`, run exactly the listed iterations in order, wait for
-   completion, and save **all storage** buffers as `<Name>.actual.bin`. Never use an
+   buffer from its `.bin`, follow the applicable single-kernel, ordered-program or
+   resident-frame schema above, wait for completion, and save **all storage**
+   buffers as `<Name>.actual.bin` (plus resident `stats.json`). Never use an
    expected output as an input. Do not substitute the CPU interpreter on errors.
 5. Return the environment, compiler and runtime logs, exact binary/source hashes,
    and outputs in the same `cases/<operation>/<case>/` hierarchy. Keep failed
@@ -111,9 +138,16 @@ with actual target information):
 }
 ```
 
-Full-scene regression and timing stages remain unavailable because the production
-scene backend has not been ported. Do not turn their absence into passing or
-skipped qualification. Once implemented, run kernel replays first, then scene
-checkpoints, long-run stability and timings with sleeping disabled. The retained
-zero-distance numerical discrepancy is still release-blocking. Performance and
-memory-model correctness require actual device work.
+Run operation replays before connected native-upload scenes, identical-state
+restarts and resident retry scenes. The package includes these scene regressions;
+the target adapter must execute their complete schedules. Keep sleeping disabled.
+The scoped zero-distance CFM and contact-sensitive scene policies are documented
+in BOUNDARY_NUMERICS.md and SCENE_NUMERICS.md and enforced by hashed contracts;
+do not widen tolerances or drop a failing stress case to obtain a device pass.
+
+C/Metal return-protocol tests validate packaging and comparisons only. Even a
+complete passing numerical comparison does not establish that outputs came from
+an NPU. Preserve compiler/runtime provenance separately. Ascend synchronization,
+resource limits, stability on broader workloads and performance require actual
+device qualification. No performance claim or fixed amount of remaining NPU work
+is implied by this offline package.

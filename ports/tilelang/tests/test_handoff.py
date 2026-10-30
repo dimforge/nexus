@@ -227,10 +227,6 @@ class WarmstartHandoffTests(HandoffTests):
     fixture_index = 8
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class HubHandoffTests(HandoffTests):
     operation = "hub_average"
     fixture_index = 8
@@ -368,3 +364,12 @@ class ShapeQueryHandoffTests(HandoffTests):
 class RuntimeRestartHandoffTests(HandoffTests):
     operation = "runtime_twist_restart"
     mutable_buffer = "Velocities"
+
+
+class ColorRequirementsHandoffTests(HandoffTests):
+    operation = "color_requirements"
+    mutable_buffer = "Requirements"
+
+
+if __name__ == "__main__":
+    unittest.main()
