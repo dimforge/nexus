@@ -340,12 +340,23 @@ def _colored_constraint_body(layout, case, operation):
             pass
 
         return empty
+    solve_factory = solve_points
+    warmstart_factory = warmstart_constraint
+    if layout.get("friction_model") == "twist":
+        from .twist_friction import (
+            solve as solve_factory,
+        )
+        from .twist_friction import (
+            warmstart as warmstart_factory,
+        )
+        from .twist_tiles import constraint_warmstart
+
     variants = [
-        solve_points(layout, dict(case, use_bias=bias, solve_friction=friction))
+        solve_factory(layout, dict(case, use_bias=bias, solve_friction=friction))
         for bias, friction in [(False, True), (True, False), (True, True)]
     ]
     unbiased, biased, both = variants
-    warmstart = warmstart_constraint(layout, case)
+    warmstart = warmstart_factory(layout, case)
     cache = constraint_warmstart(layout)
     coefficients = contact_coefficients(layout)
     batch = layout["batch"]

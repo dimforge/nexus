@@ -2142,6 +2142,60 @@
       "contract": "ports/tilelang/contracts/twist_prepare.json",
       "test_command": "python ports/tilelang/twist_contact_replay.py --target c",
       "operation": "twist_prepare"
+    },
+    {
+      "id": "rbd.contact.twist.colored_solve3d",
+      "operation": "twist_colored_solve",
+      "runner": "colored_replay.py",
+      "coverage": "Native compact twist color dispatch and ordered composition, with shared static bodies and exact cache tags.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_solve_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_colored_solve.json",
+      "test_command": "python ports/tilelang/twist_colored_replay.py --operation twist_colored_solve --target c"
+    },
+    {
+      "id": "rbd.contact.twist.colored_warmstart3d",
+      "operation": "twist_colored_warmstart",
+      "runner": "colored_replay.py",
+      "coverage": "Native compact twist color dispatch and ordered composition, with shared static bodies and exact cache tags.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_warmstart_constraints"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_warmstart_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_colored_warmstart.json",
+      "test_command": "python ports/tilelang/twist_colored_replay.py --operation twist_colored_warmstart --target c"
+    },
+    {
+      "id": "rbd.contact.twist.colored_cached3d",
+      "operation": "twist_colored_cached",
+      "runner": "colored_replay.py",
+      "coverage": "Native compact twist color dispatch and ordered composition, with shared static bodies and exact cache tags.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints_unbiased_cached"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_solve_constraints_unbiased_cached",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_colored_cached.json",
+      "test_command": "python ports/tilelang/twist_colored_replay.py --operation twist_colored_cached --target c"
+    },
+    {
+      "id": "rbd.contact.twist.colored_program3d",
+      "operation": "twist_colored_program",
+      "runner": "colored_replay.py",
+      "coverage": "Native compact twist color dispatch and ordered composition, with shared static bodies and exact cache tags.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_warmstart_constraints",
+        "src_rbd_shaders/dynamics/tile_kernels.rs::gpu_solve_constraints_unbiased_cached"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/tile_kernels.py::gpu_solve_constraints",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/twist_colored_program.json",
+      "test_command": "python ports/tilelang/twist_colored_replay.py --operation twist_colored_program --target c"
     }
   ],
   "targets": [

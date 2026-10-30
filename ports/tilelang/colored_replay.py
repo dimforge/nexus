@@ -135,14 +135,21 @@ def validate_case(layout, case, arrays):
                         or abs(float(np.linalg.norm(quat)) - 1) > 2e-6
                     ):
                         raise ValueError("Invalid pose rotation")
-            if solve:
-                for k in range(length):
-                    point = base + layout["points"] + k * layout["point_words"]
-                    floats["Tiles"][point + p["arm_a"] + 3] = True
-                    if friction:
-                        floats["Tiles"][
-                            point + p["friction"] : point + p["friction"] + 2
-                        ] = True
+            if layout.get("friction_model") == "twist":
+                from twist_colored_validation import mark_impulses, validate_tile
+
+                validate_tile(layout, arrays, base, length)
+                if solve:
+                    mark_impulses(layout, base, length, friction, floats["Tiles"])
+            else:
+                if solve:
+                    for k in range(length):
+                        point = base + layout["points"] + k * layout["point_words"]
+                        floats["Tiles"][point + p["arm_a"] + 3] = True
+                        if friction:
+                            floats["Tiles"][
+                                point + p["friction"] : point + p["friction"] + 2
+                            ] = True
             if cached:
                 cache = (
                     i // 32 * layout["tile_words"]
@@ -217,6 +224,11 @@ def check_outputs(layout, case, before, actual, expected, contract):
                     )
         if case["kind"] != "colored_warmstart":
             count = int(before["Tiles"][base + h["normal"] + 3])
+            if layout.get("friction_model") == "twist":
+                from twist_colored_validation import check_bounds
+
+                check_bounds(layout, actual["Tiles"], base, count, friction, contract)
+                continue
             for k in range(count):
                 offset = base + layout["points"] + k * layout["point_words"]
                 normal = float(tiles[offset + point["arm_a"] + 3])
