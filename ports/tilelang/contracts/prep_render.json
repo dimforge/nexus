@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "feature": "rbd.render.prepare3d",
+  "scope": "Direct native instance preparation from indexed body poses and local render descriptors, with tight 3/9/4-float output strides.",
+  "inputs": [
+    "Poses",
+    "Descriptors",
+    "Count",
+    "Positions",
+    "Deformations",
+    "Colors"
+  ],
+  "outputs": [
+    "Positions",
+    "Deformations",
+    "Colors"
+  ],
+  "comparison": "render_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Native f32 quaternion composition and matrix construction; exact descriptor colors, guards and readonly words.",
+  "preconditions": [
+    "Bounded native descriptor pose indices; unit body/local quaternions; finite translations and signed/zero/nonuniform scale."
+  ],
+  "invariants": [
+    "Shared and reversed body indices are read-only; each instance owns its tightly packed output region.",
+    "Colors preserve all bits including negative zero. Deformation columns are independently checked for the requested scales and orthogonality."
+  ],
+  "outside_scope": [
+    "2D render layout",
+    "Renderer interoperability and presentation",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n31",
+    "n32",
+    "n33",
+    "n63",
+    "n64",
+    "n65",
+    "n129"
+  ]
+}

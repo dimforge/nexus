@@ -2280,6 +2280,19 @@
       "test_command": "python ports/tilelang/runtime_replay.py --operation runtime_twist_scene --target c",
       "runner": "runtime_replay.py",
       "operation": "runtime_twist_scene"
+    },
+    {
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "id": "rbd.render.prepare3d",
+      "operation": "prep_render",
+      "runner": "render_replay.py",
+      "coverage": "Direct native instance preparation from indexed body poses and local render descriptors, with tight 3/9/4-float output strides.",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/prep_render.rs::gpu_rbd_prep_render"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/prep_render.py::gpu_rbd_prep_render",
+      "contract": "ports/tilelang/contracts/prep_render.json",
+      "test_command": "python ports/tilelang/render_replay.py --operation prep_render --target c"
     }
   ],
   "targets": [

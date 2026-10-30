@@ -177,3 +177,7 @@ path = "src/twist_colored.rs"
 [[bin]]
 name = "twist-warmstarts"
 path = "src/twist_warmstarts.rs"
+
+[[bin]]
+name = "render"
+path = "src/render.rs"

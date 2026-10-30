@@ -653,10 +653,14 @@
     {
       "reference": "src_rbd_shaders/dynamics/prep_render.rs",
       "implementation": "ports/tilelang/shaders/dynamics/prep_render.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.render.prepare3d"
+      ],
+      "symbols": [
+        "gpu_rbd_prep_render"
+      ],
+      "remaining": "Native 3D instance preparation is ported; 2D is deferred and renderer interoperability is application-specific."
     },
     {
       "reference": "src_rbd_shaders/dynamics/sim_params.rs",
@@ -2010,9 +2014,11 @@
     {
       "id": "rbd.render",
       "description": "Render preparation",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "complete",
+      "operations": [
+        "rbd.render.prepare3d"
+      ],
+      "remaining": "Direct 3D instance preparation is ported; final target qualification remains source-bound. No Ascend renderer interoperability is claimed."
     }
   ]
 }
