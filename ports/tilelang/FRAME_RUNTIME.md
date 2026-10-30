@@ -1,7 +1,9 @@
 # Resident frame execution
 
 `native::frame::FrameSession` advances a compiled frame on an existing khal Metal
-device. A `FrameVariant` contains the ordered program, its kernel sources, a
+device. `frame_cpu.CpuFrameSession` applies the same control contract to compiled
+TileLang C kernels. `native-frame` executes trusted exported capacity ladders from
+a directory containing `variants.json` and per-variant `frame.json` files. A `FrameVariant` contains the ordered program, its kernel sources, a
 complete initial upload, and a `FrameManifest`. Python/TVM are unnecessary during
 execution. Only the small capacity counters are read between stages. Explicit
 `read` calls return requested outputs for diagnostics or application use.
@@ -39,6 +41,7 @@ The controller annotations do not change shader arithmetic or launch order.
 The executor supports a finite ladder of exported capacities. It does not yet
 provide arbitrary Nexus scene upload, dynamic specialization compilation, palette
 convergence, hub scheduling, or the public backend selector. Those remain required
-work. Metal unit tests exercise real dispatch and device migration. Ascend kernel
+work. Metal and C unit tests exercise real compiled dispatch, migration after a prior
+frame, exhausted capacity and failed growth recovery. Ascend kernel
 source lowering does not validate a CANN executor, device memory ordering or
 performance; the same frame boundaries must be implemented and qualified there.
