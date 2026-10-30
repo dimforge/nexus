@@ -1,0 +1,22 @@
+{
+  "id": "0072-resident-return-protocol",
+  "features": [
+    "rbd.pipeline.analytic_frame_retry3d",
+    "rbd.pipeline.general_frame_retry3d",
+    "rbd.pipeline.joint_frame_retry3d"
+  ],
+  "kinds": [
+    "test",
+    "tooling"
+  ],
+  "disposition": "implementation_updated",
+  "summary": "Exercise the resident handoff protocol with actual Ascend source ladders and recorded Metal execution outputs.",
+  "regressions": [
+    "All four registered resident cases pass full returned-buffer and growth-statistics comparison.",
+    "Missing or changed retry statistics, missing later-variant artifacts, incomplete hash inventories and corrupted body states fail validation."
+  ],
+  "differences": [
+    "These tests reuse the exact a6c58ac47 runtime source snapshot and its recorded Metal outputs; they do not claim Ascend execution.",
+    "Global current-source reconciliation remains required."
+  ]
+}
