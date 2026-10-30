@@ -1,7 +1,7 @@
 """Checks for public Nexus scene imports, with separate body/collider index spaces."""
 
 import numpy as np
-from general_scene_validation import check_checkpoint
+from general_scene_validation import check_checkpoint as check_general_checkpoint
 from joint_scene_validation import check_joint_rows
 from lbvh_scene_validation import check_trees
 from native_geometry import lbvh_vertices
@@ -128,9 +128,8 @@ def validate_case(l, c, b):
         raise ValueError("Runtime warmstart schedule differs from native parameters")
 
 
-def check_outputs(l, c, b, a, e, k):
-    validate_case(l, c, b)
-    errors = check_checkpoint(l, c, b, a, e, k)
+def check_runtime_checkpoint(l, c, b, a, e, k):
+    errors = check_general_checkpoint(l, c, b, a, e, k)
     if c["joint_count"]:
         errors.update(check_joint_rows(l, c, b, a, e, k))
     else:
@@ -154,7 +153,11 @@ def check_outputs(l, c, b, a, e, k):
                 np.testing.assert_array_equal(
                     result[name], b[name], err_msg=f"Runtime color uniform {name}"
                 )
-    errors["Trajectory"] = check_trajectory(l, c, b, a, e, k)
+    return errors
+
+
+def check_states(l, c, b, a, e, frame_indices=None):
+    frame_indices = range(c["frames"]) if frame_indices is None else frame_indices
     n, pw, vw = c["body_count"], l["pose_words"], l["velocity_words"]
     mass = b["LocalMass"].view(np.float32).reshape(-1, l["local_words"])
     initial_vel = b["Velocities"].view(np.float32).reshape(-1, vw)
@@ -170,8 +173,8 @@ def check_outputs(l, c, b, a, e, k):
         trace = result["Trajectory"][: c["frames"] * c["trace_stride"]].reshape(
             c["frames"], c["trace_stride"]
         )
-        for frame in trace:
-            poses = frame[: n * pw].reshape(n, pw)
+        for index in frame_indices:
+            poses = trace[index, : n * pw].reshape(n, pw)
             rotation = poses.view(np.float32)[
                 :, l["pose_rotation"] : l["pose_rotation"] + 4
             ]
@@ -194,4 +197,15 @@ def check_outputs(l, c, b, a, e, k):
                     raise AssertionError(
                         "Runtime joint references inactive body padding"
                     )
+
+
+def check_outputs(l, c, b, a, e, k):
+    validate_case(l, c, b)
+    errors = check_runtime_checkpoint(l, c, b, a, e, k)
+    errors["Trajectory"] = check_trajectory(l, c, b, a, e, k)
+    check_states(l, c, b, a, e)
+    from runtime_scene_physics import check
+
+    for result in (a, e):
+        check(l, c, b, result, k)
     return errors

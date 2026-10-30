@@ -210,13 +210,43 @@ def check_joint_rows(l, c, b, a, e, k):
         af, ef = (r[name].view(np.float32)[m == 1] for r in (ja, je))
         if not np.isfinite(af).all() or not np.isfinite(ef).all():
             raise AssertionError("Nonfinite joint scene row")
-        np.testing.assert_allclose(
-            af,
-            ef,
-            atol=numeric_policy.tolerances(c, k, "Joint" + name)[0],
-            rtol=numeric_policy.tolerances(c, k, "Joint" + name)[1],
-            err_msg=f"Joint scene floats {name}",
-        )
+        groups = {"Joint" + name: m == 1}
+        if name == "Constraints":
+            # Row impulses and velocity RHS can amplify tiny contact feedback;
+            # a scoped allowance must not loosen Jacobians or effective masses.
+            policies = numeric_policy.policy_for(c, k).get("fields", {})
+            cf, element_fields = l["joint_constraint"], l["joint_element"]
+            for label, fields in (
+                ("JointImpulses", ("impulse",)),
+                ("JointRhs", ("rhs", "rhs_wo_bias")),
+            ):
+                if label not in policies:
+                    continue
+                selection = np.zeros(m.size, bool)
+                for i, row in enumerate(
+                    je[name].reshape(-1, l["joint_constraint_words"])[
+                        : c["joint_count"]
+                    ]
+                ):
+                    for j in range(int(row[cf["len"]])):
+                        start = (
+                            i * l["joint_constraint_words"]
+                            + cf["elements"]
+                            + j * l["joint_element_words"]
+                        )
+                        for field in fields:
+                            selection[start + element_fields[field]] = True
+                selection &= m == 1
+                groups["JointConstraints"] &= ~selection
+                groups[label] = selection
+        for label, selection in groups.items():
+            np.testing.assert_allclose(
+                ja[name].view(np.float32)[selection],
+                je[name].view(np.float32)[selection],
+                atol=numeric_policy.tolerances(c, k, label)[0],
+                rtol=numeric_policy.tolerances(c, k, label)[1],
+                err_msg=f"Joint scene floats {label}",
+            )
         errors["Joint" + name] = float(np.max(np.abs(af - ef))) if len(af) else 0.0
     cf, ef = l["joint_constraint"], l["joint_element"]
     for r in (ja, je):

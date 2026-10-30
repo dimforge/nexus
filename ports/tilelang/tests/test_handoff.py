@@ -363,3 +363,8 @@ class RayQueryHandoffTests(HandoffTests):
 class ShapeQueryHandoffTests(HandoffTests):
     operation = "shape_project_world_boundary"
     mutable_buffer = "Results"
+
+
+class RuntimeRestartHandoffTests(HandoffTests):
+    operation = "runtime_twist_restart"
+    mutable_buffer = "Velocities"

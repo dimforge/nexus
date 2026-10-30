@@ -18,7 +18,7 @@ fn main() {
     assert!(
         (args.len() == 6 || args.len() == 7)
             || (args.len() == 4 && matches!(args[3].as_str(), "suite" | "suite-twist")),
-        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|upload [reduced|unreduced] OR OUTPUT INPUT_ROOT suite"
+        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|snapshots|upload [reduced|unreduced] OR OUTPUT INPUT_ROOT suite"
     );
     let root = Path::new(&args[1]);
     fs::create_dir_all(root).unwrap();
@@ -92,7 +92,7 @@ fn main() {
         let frames: u32 = args[3].parse().unwrap();
         let capacity: usize = args[4].parse().unwrap();
         let execute = match args[5].as_str() {
-            "execute" => true,
+            "execute" | "snapshots" => true,
             "upload" => false,
             _ => panic!("Unknown runtime export mode"),
         };
@@ -122,6 +122,11 @@ fn main() {
                 == nexus_rbd_shaders3d::dynamics::FrictionModel::Simplified,
             twist_model
         );
+        let snapshots = if args.get(5).map(String::as_str) == Some("snapshots") {
+            (0..frames).collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
         let case = scene_program::scene_storage(
             &directory.join(name),
             "runtime",
@@ -129,7 +134,7 @@ fn main() {
             1,
             upload.batch.num_batches as usize,
             frames,
-            &[],
+            &snapshots,
             true,
             Some(capacity),
             execute,

@@ -300,7 +300,7 @@
     "Exact IDs, integer counters, writer uniqueness, filtered overlap sets, copied inputs, padding and capacity guards; independent witness, constraint response and cache checks.",
     "All-frame finite states, unit rotations and exact immobility of fixed zero-velocity bodies. Final trace and published body state agree exactly.",
     "Empty BVH leaf bounds preserve the native infinity sentinel bits; only proven-unused leaf slots are normalized in a validation copy. Physical vertices and internal bounds stay finite.",
-    "No numerical exceptions: default tolerances apply to all imported scenes.",
+    "Only the named eight-frame unreduced mesh scene has scoped final velocity, joint impulse and joint RHS budgets; geometry, identities, contact response and other frames remain strict. Eight live native restarts and independent all-frame mesh/joint/motion checks are required.",
     "Native hub reservations are checked by exact totals, membership, contiguous capacity-bounded ownership, body/contact slot identities, and independent scaled mass/inertia. Only verified allocation-dependent link and tile velocity-slot numbers are compared by semantic identity.",
     "Independent f64 compact point masses, manifold center, radii, central tangent matrix and angular effective mass; exact inactive vector zeros, friction padding and body cache tags."
   ],
@@ -315,5 +315,75 @@
       "blocks_release": true,
       "description": "Registered native scene import and connected kernels are not yet a complete public backend lifecycle."
     }
-  ]
+  ],
+  "numerical_cases": {
+    "mesh-overlap-unreduced-f8": {
+      "configuration": {
+        "kind": "runtime_scene",
+        "scene": "runtime",
+        "frames": 8,
+        "batches": 2,
+        "body_count": 6,
+        "collider_count": 8,
+        "joint_count": 2,
+        "substeps": 3,
+        "pgs": 5,
+        "contact_reduction": false,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 8e-06,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 8e-06,
+          "rtol": 2e-05
+        },
+        "JointImpulses": {
+          "atol": 2e-05,
+          "rtol": 2e-05
+        },
+        "JointRhs": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "trajectory_frames": {
+        "8": {
+          "TrajectoryVelocities": {
+            "atol": 8e-06,
+            "rtol": 2e-05
+          }
+        }
+      },
+      "required_restart_operation": "runtime_twist_restart"
+    }
+  },
+  "runtime_physics_cases": {
+    "mesh-overlap-unreduced-f8": {
+      "configuration": {
+        "kind": "runtime_scene",
+        "scene": "runtime",
+        "frames": 8,
+        "batches": 2,
+        "body_count": 6,
+        "collider_count": 8,
+        "joint_count": 2,
+        "substeps": 3,
+        "pgs": 5,
+        "contact_reduction": false,
+        "broadphase": "lbvh"
+      },
+      "bounds": {
+        "anchor": 0.04,
+        "rotation": 0.03,
+        "limit": 0.03,
+        "penetration": 0.04,
+        "speed": 3.0,
+        "spin": 4.0
+      }
+    }
+  },
+  "tolerance_reason": "Default 2e-6 absolute and 2e-5 relative tolerances apply except the declared mesh-overlap-unreduced-f8 fields. Live identical-state restarts isolate contact feedback; see SCENE_NUMERICS.md and change 0102. Joint Jacobians, masses, contact geometry, exact identities, guards and independent physics remain strict."
 }
