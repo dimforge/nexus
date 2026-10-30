@@ -14,6 +14,8 @@ from scene_restart_validation import check_outputs, validate_case
 
 
 class SceneRestartTests(unittest.TestCase):
+    operations = ("general_restart", "joint_restart")
+
     def fixture(self, op="general_restart", name="general_triangle-restart-19"):
         root = Path(
             os.environ.get(
@@ -36,7 +38,7 @@ class SceneRestartTests(unittest.TestCase):
         return l, c, b, e, k
 
     def test_all_native_restarts(self):
-        for op in ["general_restart", "joint_restart"]:
+        for op in self.operations:
             k = json.loads((HERE / f"contracts/{op}.json").read_text())
             for name in k["required_cases"]:
                 with self.subTest(case=name):

@@ -14,9 +14,30 @@ fn main() {
     let path = std::env::args().nth(1).unwrap();
     let root = Path::new(&path);
     fs::create_dir_all(root).unwrap();
+    let selected = std::env::args().nth(2);
+    let use_lbvh = selected.as_deref() == Some("general_lbvh_restart");
+    let mut layout = joint_layout::layout();
+    if use_lbvh {
+        use nexus_rbd_shaders3d::broad_phase::LbvhNode;
+        macro_rules! fields {($ty:ty,$($f:ident),+)=>{json!({$(stringify!($f):std::mem::offset_of!($ty,$f)/4),+})}}
+        layout["max_flt_bits"] = json!(nexus_rbd_shaders3d::MAX_FLT.to_bits());
+        layout["lbvh_node_words"] = json!(std::mem::size_of::<LbvhNode>() / 4);
+        layout["lbvh_node"] = fields!(
+            LbvhNode,
+            aabb,
+            left,
+            right,
+            parent,
+            refit_count,
+            first_leaf,
+            last_leaf,
+            escape,
+            max_extent
+        );
+    }
     fs::write(
         root.join("layout.json"),
-        serde_json::to_vec_pretty(&joint_layout::layout()).unwrap(),
+        serde_json::to_vec_pretty(&layout).unwrap(),
     )
     .unwrap();
     let mut cases = [Vec::new(), Vec::new()];
@@ -28,13 +49,23 @@ fn main() {
         ),
         ("joint_chain", 3, vec![3u32, 80, 90, 98, 99, 100, 109, 119]),
     ] {
+        if use_lbvh && label != "general_triangle" {
+            continue;
+        }
+        let snapshots = if use_lbvh {
+            vec![0, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 119]
+        } else {
+            snapshots
+        };
         let source = root.join("native_trajectories").join(label);
         let case =
-            scene_program::fixture_with_snapshots(&source, label, 1, levels, 1, 120, &snapshots);
+            scene_program::fixture_config(&source, label, 1, levels, 1, 120, &snapshots, use_lbvh);
         for frame in snapshots {
             let name = format!("{label}-restart-{frame}");
             let index = usize::from(label.starts_with("joint_"));
-            let operation = if index == 0 {
+            let operation = if use_lbvh {
+                "general_lbvh_restart"
+            } else if index == 0 {
                 "general_restart"
             } else {
                 "joint_restart"
@@ -69,7 +100,20 @@ fn main() {
             cases[index].push(restart);
         }
     }
-    for (op, rows) in ["general_restart", "joint_restart"].into_iter().zip(cases) {
+    for (op, rows) in [
+        if use_lbvh {
+            "general_lbvh_restart"
+        } else {
+            "general_restart"
+        },
+        "joint_restart",
+    ]
+    .into_iter()
+    .zip(cases)
+    {
+        if rows.is_empty() {
+            continue;
+        }
         fs::write(
             root.join(op).join("suite.json"),
             serde_json::to_vec_pretty(&json!({"cases":rows})).unwrap(),
