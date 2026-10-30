@@ -12,6 +12,7 @@ cpu-parallel = ["cpu", "nexus_viewer3d/cpu-parallel"]
 cuda = ["nexus_viewer3d/cuda"]
 cuda-oxide = ["cuda", "nexus_viewer3d/cuda-oxide"]
 metal = ["nexus_viewer3d/metal"]
+tilelang = ["nexus_viewer3d/tilelang"]
 
 [dependencies]
 glamx = { workspace = true }

@@ -101,3 +101,5 @@ URDF/MJCF robots).
 ## License
 
 MIT OR Apache-2.0
+
+The experimental [TileLang testbed integration](src_viewer/TILELANG.md) adds feature-gated C/Metal execution and visual comparison with the Rust solver.

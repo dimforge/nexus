@@ -168,8 +168,8 @@ pub async fn run(
                 live_water += n;
             }
 
-            pipeline
-                .simulate(viewer.backend(), &mut state, Some(&mut timestamps))
+            viewer
+                .simulate(pipeline, &mut state, Some(&mut timestamps))
                 .await?;
             t += dt;
             step += 1;

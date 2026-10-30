@@ -121,8 +121,8 @@ pub async fn run(
                 total_particles += n;
             }
 
-            pipeline
-                .simulate(viewer.backend(), &mut state, Some(&mut timestamps))
+            viewer
+                .simulate(pipeline, &mut state, Some(&mut timestamps))
                 .await?;
             t += dt;
             step += 1;

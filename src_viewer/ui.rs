@@ -101,7 +101,7 @@ pub fn setup_custom_theme(ctx: &egui::Context) {
 /// while the (blocking) shader compilation freezes the app for a few seconds —
 /// otherwise the window looks frozen with no explanation. Uses a distinct
 /// window id from [`main_panel`] to avoid an egui id collision.
-pub fn compiling_overlay(ctx: &egui::Context) {
+pub fn compiling_overlay(ctx: &egui::Context, tilelang: bool) {
     egui::Window::new("⏳ Compiling shaders")
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .collapsible(false)
@@ -109,7 +109,7 @@ pub fn compiling_overlay(ctx: &egui::Context) {
         .show(ctx, |ui| {
             ui.colored_label(
                 Color32::from_rgb(82, 130, 150),
-                "Compiling shaders…\nThe app will freeze for a few seconds.\n\nIf nothing happens after a minute or two, check the dev console for an error.",
+                if tilelang { "Preparing TileLang kernels…\nFirst specialization can take several minutes.\nThe window waits during compilation; progress is printed in the terminal." } else { "Compiling shaders…\nThe window waits during compilation. Check the terminal for progress." },
             );
         });
 }
@@ -128,6 +128,9 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                 );
                 ui.separator();
             }
+
+            #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+            if state.backend_type.is_tilelang() { tilelang_status(ui, state); }
 
             // Tabs: one section at a time. Clicking the open tab again closes it.
             ui.horizontal(|ui| {
@@ -155,14 +158,16 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                     }
                     Some(UiSection::Performance) => {
                         ui.separator();
-                        performance_ui(
+                        if state.backend_type.is_tilelang() {
+                            ui.label("TileLang wall time is shown above; includes runtime dispatch/readback. This adapter is for correctness comparison, not throughput benchmarking.");
+                        } else { performance_ui(
                             ui,
                             &state.counts,
                             &state.run_stats,
                             state.sync_time,
                             state.steps,
                             &mut state.wait_for_render,
-                        );
+                        ); }
                     }
                     Some(UiSection::Examples) if !state.demos.is_empty() => {
                         ui.separator();
@@ -170,7 +175,9 @@ pub fn main_panel(ctx: &egui::Context, state: &mut UiState, gpu_available: bool)
                     }
                     Some(UiSection::DebugRender) => {
                         ui.separator();
-                        debug_render_settings(ui, &mut state.debug_render, state.debug_lbvh);
+                        if state.backend_type.is_tilelang() {
+                            ui.label("Contact and LBVH debug geometry is unavailable for TileLang. Body rendering uses the selected solver’s poses.");
+                        } else { debug_render_settings(ui, &mut state.debug_render, state.debug_lbvh); }
                     }
                     _ => {}
                 });
@@ -717,8 +724,84 @@ fn backend_selector(ui: &mut egui::Ui, state: &mut UiState, gpu_available: bool)
         new_backend = Some(BackendType::Cpu);
     }
 
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    {
+        if ui
+            .radio(state.backend_type == BackendType::TileLangC, "TileLang (C)")
+            .clicked()
+            && state.backend_type != BackendType::TileLangC
+        {
+            new_backend = Some(BackendType::TileLangC);
+        }
+        #[cfg(feature = "metal")]
+        if ui
+            .radio(
+                state.backend_type == BackendType::TileLangMetal,
+                "TileLang (Metal)",
+            )
+            .clicked()
+            && state.backend_type != BackendType::TileLangMetal
+        {
+            new_backend = Some(BackendType::TileLangMetal);
+        }
+        if state.backend_type.is_tilelang()
+            && ui
+                .checkbox(
+                    &mut state.tilelang.compare,
+                    "Compare with Rust CPU (restarts scene)",
+                )
+                .changed()
+        {
+            state.transition = Some(Transition::Switch);
+        }
+    }
     if let Some(bt) = new_backend {
         state.backend_type = bt;
         state.transition = Some(Transition::Switch);
     }
+}
+
+#[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+fn tilelang_status(ui: &mut egui::Ui, state: &mut UiState) {
+    let t = &mut state.tilelang;
+    ui.label(RichText::new(format!("{:?} · frame {}", state.backend_type, t.frames)).strong());
+    if let Some(error) = &t.error {
+        ui.colored_label(Color32::from_rgb(200, 60, 60), error);
+        ui.label("Restart after correcting the error, or choose another backend.");
+    }
+    ui.label(format!(
+        "TileLang {:.2} ms · capacity retries {} · scene rebuilds {}",
+        t.step_ms, t.retries, t.reconstructions
+    ));
+    if t.reconstructions > 0 {
+        ui.label("Scene rebuild: comparison restarted from the native upload.");
+    }
+    if t.compare {
+        ui.checkbox(&mut t.show_reference, "Display Rust reference");
+        ui.label(if t.show_reference {
+            "Showing Rust CPU poses"
+        } else {
+            "Showing TileLang poses"
+        });
+        if let Some(c) = &t.comparison {
+            ui.label(format!(
+                "{} bodies · Rust {:.2} ms",
+                c.bodies,
+                t.rust_ms.unwrap_or(0.0)
+            ));
+            ui.label(format!(
+                "Position error: RMS {:.3e}, max {:.3e} m",
+                c.rms_position, c.max_position
+            ));
+            ui.label(format!(
+                "Max angle {:.3e} rad · velocity {:.3e} m/s",
+                c.max_angle, c.max_linear_velocity
+            ));
+            ui.label(format!(
+                "Max angular velocity error {:.3e} rad/s",
+                c.max_angular_velocity
+            ));
+        }
+    }
+    ui.separator();
 }

@@ -23,7 +23,8 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 default = ["dim3", "webgpu"]
 dim3 = []
 webgpu = ["khal/webgpu"]
-metal = ["khal/metal", "nexus3d/metal"]
+metal = ["khal/metal", "nexus3d/metal", "nexus-tilelang-native?/metal"]
+tilelang = ["cpu", "dep:nexus-tilelang-native"]
 cpu = ["nexus3d/cpu", "vortx/cpu"]
 cpu-parallel = ["cpu", "nexus3d/cpu-parallel", "vortx/cpu-parallel"]
 cuda = ["nexus3d/cuda"]
@@ -40,3 +41,6 @@ bytemuck = { workspace = true }
 futures = { workspace = true }
 kiss3d = { workspace = true, features = ["egui", "rt_switcher"] }
 web-time = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+nexus-tilelang-native = { path = "../../ports/tilelang/native", optional = true, default-features = false, features = ["runtime"] }

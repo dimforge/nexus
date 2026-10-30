@@ -46,6 +46,7 @@ use kiss3d::camera::{FixedView3d, PanZoomCamera2d};
 use nexus::mpm::solver::prep_readback::{
     GpuReadbackData, ReadbackData, RenderConfig, WgPrepReadback,
 };
+use nexus::prelude::NexusPipeline;
 use nexus::rbd::dynamics::WgRbdPrepRender;
 use nexus::rbd::math::{Pose, Vector};
 use nexus::rbd::pipeline::RunStats;
@@ -103,6 +104,8 @@ impl MpmRenderMode {
 /// UI / runtime state that is independent from the GPU/window resources. Kept in
 /// its own struct so [`NexusViewer::render_frame`] can split-borrow it from `window`.
 pub struct UiState {
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    pub tilelang: crate::tilelang::TileLangUi,
     pub run_state: RunState,
     pub run_stats: RunStats,
     pub sync_time: Duration,
@@ -211,6 +214,8 @@ const DEFAULT_SHADOW_RESOLUTION: u32 = 4096;
 const DEFAULT_SHADOW_ATLAS_LAYERS: u32 = 4;
 
 pub struct NexusViewer {
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    tilelang: Option<crate::tilelang::TileLangDriver>,
     window: Window,
     scene2d: SceneNode2d,
     scene3d: SceneNode3d,
@@ -416,6 +421,8 @@ impl NexusViewer {
                     None
                 }
             },
+            #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+            tilelang: None,
             nexus_render: RenderContext::new(),
             rbd_prep_render: None,
             mpm_node: None,
@@ -449,6 +456,8 @@ impl NexusViewer {
             debug_renderer: DebugRenderer::default(),
             scene_synced: false,
             ui: UiState {
+                #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+                tilelang: crate::tilelang::TileLangUi::default(),
                 run_state: RunState::Paused,
                 run_stats: RunStats::default(),
                 sync_time: Duration::default(),
@@ -720,6 +729,8 @@ impl NexusViewer {
             BackendType::Cuda => self.cuda.as_ref().unwrap(),
             #[cfg(feature = "metal")]
             BackendType::Metal => self.metal.as_ref().unwrap(),
+            #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+            bt if bt.is_tilelang() => self.cpu.as_ref().expect("tilelang enables cpu"),
             BackendType::Cpu => self
                 .cpu
                 .as_ref()
@@ -1194,6 +1205,18 @@ impl NexusViewer {
                 .backend()
                 .slow_read_buffer(poses.buffer(), &mut cache)
                 .await;
+            #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+            if self.ui.backend_type.is_tilelang() {
+                if let Some(driver) = &self.tilelang {
+                    cache.clone_from(
+                        if self.ui.tilelang.compare && self.ui.tilelang.show_reference {
+                            &driver.reference_poses
+                        } else {
+                            &driver.poses
+                        },
+                    );
+                }
+            }
             self.nexus_render.update_instances_from_poses(state, &cache);
 
             // Body-attached visual meshes follow the body-origin poses, since
@@ -1201,12 +1224,7 @@ impl NexusViewer {
             // the same poses.
             #[cfg(feature = "dim3")]
             if self.nexus_render.has_visual_nodes() || self.sensors.iter().any(Option::is_some) {
-                let body_poses = rbd.body_poses();
-                let mut body_cache = vec![Pose::default(); body_poses.len() as usize];
-                let _ = self
-                    .backend()
-                    .slow_read_buffer(body_poses.buffer(), &mut body_cache)
-                    .await;
+                let body_cache = cache;
                 self.nexus_render.update_visual_nodes(state, &body_cache);
                 self.body_pose_cache = body_cache;
                 self.update_sensor_attachments(state);
@@ -1469,6 +1487,9 @@ impl NexusViewer {
             self.sync_with_readback(state).await?;
         }
 
+        if self.ui.backend_type.is_tilelang() {
+            self.ui.debug_render.enabled = false;
+        }
         let debug_settings = self.ui.debug_render.clone();
         let debug_backend = self.backend().clone();
         self.debug_renderer
@@ -1487,6 +1508,10 @@ impl NexusViewer {
         }
 
         self.ui.steps = state.steps();
+        #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+        if self.ui.backend_type.is_tilelang() {
+            self.ui.steps = self.ui.tilelang.frames;
+        }
         self.ui.run_stats = state.run_stats.clone();
         self.ui.sync_time = t0.elapsed();
         self.ui.counts = state.counts();
@@ -1557,7 +1582,7 @@ impl NexusViewer {
             self.window.draw_ui(|ctx| {
                 crate::ui::setup_custom_theme(ctx);
                 crate::ui::main_panel(ctx, &mut self.ui, gpu_available);
-                crate::ui::compiling_overlay(ctx);
+                crate::ui::compiling_overlay(ctx, self.ui.backend_type.is_tilelang());
             });
         }
     }
@@ -1593,6 +1618,86 @@ impl NexusViewer {
         self.mpm_node = None;
         self.debug_renderer.clear_scene();
         self.scene_synced = false;
+        #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+        {
+            self.tilelang = None;
+            self.ui.tilelang.clear_run();
+        }
+    }
+
+    /// Advance the selected solver. Demos must use this entry point so the
+    /// selected backend owns physics as well as rendering.
+    pub async fn simulate(
+        &mut self,
+        pipeline: &mut NexusPipeline,
+        state: &mut NexusState,
+        timestamps: Option<&mut GpuTimestamps>,
+    ) -> Result<(), GpuBackendError> {
+        #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+        if self.ui.backend_type.is_tilelang() {
+            if self.ui.tilelang.error.is_some() {
+                return Ok(());
+            }
+            if self.tilelang.is_none() {
+                self.show_compile_banner().await;
+            }
+            let result: Result<(), String> = async {
+                if self.tilelang.is_none() {
+                    let capacity = state
+                        .rbd
+                        .as_ref()
+                        .map(|r| r.collision_pairs_capacity())
+                        .unwrap_or(1);
+                    let options = crate::tilelang::options(self.ui.backend_type, capacity)?;
+                    self.ui.tilelang.workspace = Some(options.workspace.clone());
+                    self.tilelang = Some(unsafe {
+                        crate::tilelang::TileLangDriver::new(
+                            state,
+                            options,
+                            self.ui.tilelang.compare,
+                        )
+                        .await?
+                    });
+                }
+                self.tilelang
+                    .as_mut()
+                    .unwrap()
+                    .step(state, pipeline, &mut self.ui.tilelang)
+                    .await
+            }
+            .await;
+            if let Err(error) = result {
+                eprintln!("TileLang stopped: {error}");
+                self.ui.tilelang.error = Some(error);
+                self.ui.run_state = RunState::Paused;
+                // Headless snapshot runs must fail instead of saving a plausible
+                // image of a solver which did not advance.
+                if self.snapshot.is_some() {
+                    return Err(GpuBackendError::Unsupported(
+                        "TileLang simulation failed; see stderr",
+                    ));
+                }
+            }
+            return Ok(());
+        }
+        pipeline.simulate(self.backend(), state, timestamps).await
+    }
+
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    pub fn with_tilelang_comparison(mut self, compare: bool, show_reference: bool) -> Self {
+        self.ui.tilelang.compare = compare;
+        self.ui.tilelang.show_reference = show_reference;
+        self
+    }
+
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    pub fn tilelang_error(&self) -> Option<&str> {
+        self.ui.tilelang.error.as_deref()
+    }
+
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    pub fn tilelang_status(&self) -> &crate::tilelang::TileLangUi {
+        &self.ui.tilelang
     }
 
     /// Whether the simulation should advance this frame, honoring the
@@ -1605,6 +1710,11 @@ impl NexusViewer {
     /// Always `false` before the first [`Self::sync`] of a scene, so the first step
     /// already uses the viewer settings (e.g. the deterministic mode).
     pub fn simulating(&mut self) -> bool {
+        #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+        if self.ui.backend_type.is_tilelang() && self.ui.tilelang.error.is_some() {
+            self.ui.run_state = RunState::Paused;
+            return false;
+        }
         if !self.scene_synced {
             return false;
         }

@@ -15,6 +15,8 @@ pub mod debug_render;
 mod graphics;
 #[cfg(feature = "dim3")]
 pub mod sensors;
+#[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+pub mod tilelang;
 mod ui;
 pub mod viewer;
 

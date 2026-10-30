@@ -835,8 +835,8 @@ pub async fn run(
                     settings.actuator_strength,
                 );
             }
-            pipeline
-                .simulate(viewer.backend(), &mut state, Some(&mut timestamps))
+            viewer
+                .simulate(pipeline, &mut state, Some(&mut timestamps))
                 .await?;
         }
         viewer.sync(&mut state, Some(&mut timestamps)).await?;

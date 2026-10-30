@@ -16,6 +16,7 @@ mod rbd_joints3;
 mod rbd_keva3;
 mod rbd_many_pyramids3;
 mod rbd_many_pyramids_batch3;
+mod rbd_tilelang_comparison3;
 // The robot loaders read URDF/MJCF assets from the filesystem, so they are
 // native-only.
 #[cfg(not(target_arch = "wasm32"))]
@@ -84,6 +85,7 @@ macro_rules! demos {
 }
 
 demos! {
+    "TileLang comparison" => Rbd : rbd_tilelang_comparison3,
     "Balls" => Rbd : rbd_balls3,
     "Boxes" => Rbd : rbd_boxes3,
     "Boxes & balls" => Rbd : rbd_boxes_and_balls3,
@@ -121,6 +123,9 @@ demos! {
 struct CliOptions {
     example: Option<String>,
     list: bool,
+    tilelang: Option<String>,
+    compare: bool,
+    reference_view: bool,
     cpu: bool,
     cuda: bool,
     compute_graphs: bool,
@@ -136,6 +141,9 @@ fn parse_command_line() -> CliOptions {
     let mut opts = CliOptions {
         example: None,
         list: false,
+        tilelang: None,
+        compare: false,
+        reference_view: false,
         cpu: false,
         cuda: false,
         compute_graphs: false,
@@ -150,6 +158,12 @@ fn parse_command_line() -> CliOptions {
         match arg.as_str() {
             "--example" => opts.example = args.next(),
             "--list" => opts.list = true,
+            "--tilelang" => opts.tilelang = args.next(),
+            "--compare" => opts.compare = true,
+            "--reference-view" => {
+                opts.compare = true;
+                opts.reference_view = true;
+            }
             "--cpu" => opts.cpu = true,
             "--cuda" => opts.cuda = true,
             "--compute-graphs" => opts.compute_graphs = true,
@@ -172,6 +186,19 @@ fn parse_command_line() -> CliOptions {
 pub async fn main() {
     env_logger::init();
     let opts = parse_command_line();
+    if let Some(target) = &opts.tilelang {
+        if !matches!(target.as_str(), "c" | "metal") {
+            panic!("--tilelang expects c or metal");
+        }
+        if !cfg!(all(feature = "tilelang", not(target_arch = "wasm32"))) {
+            panic!("Rebuild with --features tilelang on a native target");
+        }
+        if target == "metal" && !cfg!(feature = "metal") {
+            panic!("Rebuild with --features tilelang,metal");
+        }
+    } else if opts.compare {
+        panic!("--compare/--reference-view require --tilelang c or metal");
+    }
     let demos = demo_list();
 
     if opts.list {
@@ -220,6 +247,18 @@ pub async fn main() {
     if opts.metal {
         viewer = viewer.with_backend(nexus_viewer3d::BackendType::Metal);
     }
+    #[cfg(all(feature = "tilelang", not(target_arch = "wasm32")))]
+    if let Some(target) = &opts.tilelang {
+        let backend = match target.as_str() {
+            "c" => BackendType::TileLangC,
+            #[cfg(feature = "metal")]
+            "metal" => BackendType::TileLangMetal,
+            _ => unreachable!(),
+        };
+        viewer = viewer
+            .with_backend(backend)
+            .with_tilelang_comparison(opts.compare, opts.reference_view);
+    }
     if opts.run {
         viewer = viewer.with_running();
     }
@@ -252,12 +291,15 @@ pub async fn main() {
         let backend_type = viewer.backend_type();
         if compiled_backend != Some(backend_type) {
             pipeline = NexusPipeline::default();
-            if backend_type != BackendType::Cpu {
-                viewer.show_compile_banner().await;
-            }
-            if let Err(err) = pipeline.preload_pipelines(viewer.backend(), NexusPipelineMask::all())
-            {
-                eprintln!("Failed to preload GPU pipelines: {err:?}");
+            if !backend_type.is_tilelang() {
+                if backend_type != BackendType::Cpu {
+                    viewer.show_compile_banner().await;
+                }
+                if let Err(err) =
+                    pipeline.preload_pipelines(viewer.backend(), NexusPipelineMask::all())
+                {
+                    eprintln!("Failed to preload GPU pipelines: {err:?}");
+                }
             }
             compiled_backend = Some(backend_type);
         }
@@ -265,6 +307,15 @@ pub async fn main() {
         let sel = viewer.selected_demo();
         let demo_backend = viewer.backend().clone();
         dispatch(&demos[sel].0, &mut viewer, &mut pipeline).await;
+        #[cfg(all(feature = "tilelang", not(target_arch = "wasm32")))]
+        {
+            if opts.snapshot.is_some() && viewer.tilelang_error().is_some() {
+                std::process::exit(1);
+            }
+            if viewer.backend_type().is_tilelang() {
+                println!("TileLang testbed result: {:?}", viewer.tilelang_status());
+            }
+        }
         // The demo's state is dropped: let its backend release that memory. CUDA frees
         // asynchronously and only hands the memory back on a synchronization, which never
         // comes once the UI switched to another backend.

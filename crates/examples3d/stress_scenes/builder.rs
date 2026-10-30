@@ -443,9 +443,7 @@ async fn simulate(
 
     while viewer.render_frame().await {
         if viewer.simulating() {
-            pipeline
-                .simulate(viewer.backend(), state, Some(timestamps))
-                .await?;
+            viewer.simulate(pipeline, state, Some(timestamps)).await?;
         }
         viewer.sync(state, Some(timestamps)).await?;
     }

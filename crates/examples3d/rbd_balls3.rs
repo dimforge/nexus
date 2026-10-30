@@ -81,8 +81,8 @@ pub async fn run(
 
     while viewer.render_frame().await {
         if viewer.simulating() {
-            pipeline
-                .simulate(viewer.backend(), &mut state, Some(&mut timestamps))
+            viewer
+                .simulate(pipeline, &mut state, Some(&mut timestamps))
                 .await?;
         }
         viewer.sync(&mut state, Some(&mut timestamps)).await?;
