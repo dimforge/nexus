@@ -2,7 +2,7 @@
 
 import numpy as np
 from geometry_validation import closest_on_hull
-from support_geometry import contains
+from support_geometry import contains, inverse, rotate
 from support_validation import validate_shapes
 
 OPERATIONS = ("support_face", "polygonal_contacts")
@@ -190,6 +190,7 @@ def check_outputs(l, c, b, a, e, k):
         inputs = b["Inputs"].reshape(-1, l["polygonal_input_words"])
         features = b["Features"].reshape(-1, l["feature_words"])
         ff = l["feature"]
+        poses = b["Poses"].view(np.float32).reshape(-1, l["pose_words"]).astype(float)
         for r in (a, e):
             rows = r["Output"].reshape(-1, width)
             for i in range(c["count"]):
@@ -235,6 +236,44 @@ def check_outputs(l, c, b, a, e, k):
                     ):
                         raise AssertionError(
                             "Clipped contact outside its output feature"
+                        )
+                    normal = (
+                        inputs[
+                            i,
+                            l["polygonal_input"]["normal"] : l["polygonal_input"][
+                                "normal"
+                            ]
+                            + 3,
+                        ]
+                        .copy()
+                        .view(np.float32)
+                        .astype(float)
+                    )
+                    q = poses[i, l["pose_rotation"] : l["pose_rotation"] + 4]
+                    t = poses[i, l["pose_translation"] : l["pose_translation"] + 3]
+                    distance = float(point[l["feature_point"]["dist"]])
+                    secondary = (
+                        rotate(q, position) + t - normal * distance
+                        if side
+                        else inverse(q, position + normal * distance - t)
+                    )
+                    other = features[i * 2 + 1 - side]
+                    other_hull = (
+                        other[ff["vertices"] : ff["count"]]
+                        .copy()
+                        .view(np.float32)
+                        .reshape(4, 3)[: other[ff["count"]]]
+                        .astype(float)
+                    )
+                    if (
+                        len(other_hull) == 0
+                        or np.linalg.norm(
+                            closest_on_hull(other_hull, secondary) - secondary
+                        )
+                        > 1e-5
+                    ):
+                        raise AssertionError(
+                            "Clipped secondary contact outside its feature"
                         )
                     if point[l["feature_point"]["dist"]] > prediction + 1e-6:
                         raise AssertionError("Clipped contact exceeds prediction")

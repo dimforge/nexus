@@ -211,7 +211,7 @@
     "Every recorded frame checks finite normalized state, unchanged static bodies, bounded penetration and energy",
     "Internal workspace above a published count may retain earlier-frame allocations; it is not interpreted as current state, and storage beyond the declared maximum capacity remains exact",
     "Deferred work is stably sorted by subshape then originating pair; reduction runs before contact canonicalization",
-    "Primary witnesses lie inside their shape; normal, support distance, prediction and secondary-witness regression checks apply independently of numeric parity",
+    "Both witnesses lie inside their shapes; normal, support distance and prediction checks apply independently of numeric parity",
     "Final trajectory frame equals published body state exactly; counter, copied words and guard regions remain exact",
     "Every preceding and future trajectory word remains exactly unchanged; the new row equals published final state exactly",
     "Position, geometry, matrix coefficients and identities retain their strict default checks; only one-frame velocity/impulse/joint-row arithmetic has an explicit 1e-4 absolute allowance",

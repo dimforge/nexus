@@ -41,6 +41,12 @@ fn feature(count: u32, degenerate: bool) -> nexus_rbd_shaders3d::queries::Polygo
     f
 }
 pub fn fixture(dir: &Path, n: usize) -> Value {
+    fixture_impl(dir, n, false)
+}
+pub fn witness_fixture(dir: &Path) -> Value {
+    fixture_impl(dir, 24, true)
+}
+fn fixture_impl(dir: &Path, n: usize, witness_case: bool) -> Value {
     fs::create_dir_all(dir).unwrap();
     let storage = n + 3;
     let guard = 0xdeadbeefu32;
@@ -82,6 +88,42 @@ pub fn fixture(dir: &Path, n: usize) -> Value {
         input[i][2] = 1.0f32.to_bits();
         input[i][3] = if i % 3 == 0 { 0.0f32 } else { 0.02f32 }.to_bits();
         input[i][4] = ((i / 150) % 2) as u32;
+    }
+    if witness_case {
+        for i in 0..n {
+            let scale = [0.001, 1.0, 1000.0][i / 8];
+            let mode = i % 4;
+            let direction = if mode == 3 { Vec3::Y } else { Vec3::X };
+            let a = feature(2, false);
+            let mut b = a;
+            b.vertices[0] = -direction;
+            b.vertices[1] = direction;
+            if mode == 1 {
+                b.vertices.swap(0, 1);
+            }
+            let mut a = a;
+            a.vertices[0] = -Vec3::X;
+            a.vertices[1] = Vec3::X;
+            for f in [&mut a, &mut b] {
+                for v in &mut f.vertices {
+                    *v *= scale;
+                }
+            }
+            fs[i] = (a, b);
+            for (side, f) in [a, b].iter().enumerate() {
+                for v in 0..4 {
+                    for d in 0..3 {
+                        features[i * 2 + side][v * 3 + d] = f.vertices[v].to_array()[d].to_bits();
+                    }
+                }
+                features[i * 2 + side][12] = 2;
+            }
+            poses[i] = Pose::from_translation(
+                Vec3::new(0.0, if mode < 2 { 0.1 } else { 0.0 }, -0.1) * scale,
+            );
+            input[i][3] = (0.02f32 * scale).to_bits();
+            input[i][4] = ((i / 4) % 2) as u32;
+        }
     }
     macro_rules! write {
         ($name:expr,$values:expr) => {
@@ -126,7 +168,7 @@ pub fn fixture(dir: &Path, n: usize) -> Value {
     .into_iter()
     .map(|(k, v)| (k.to_owned(), json!(v)))
     .collect::<serde_json::Map<_, _>>();
-    let c = json!({"name":format!("n{n}"),"kind":"polygonal_contacts","count":n,"storage":storage,"groups":1,"iterations":1,"buffer_words":sizes});
+    let c = json!({"name":if witness_case { "edge_witnesses".to_owned() } else {format!("n{n}")},"kind":"polygonal_contacts","count":n,"storage":storage,"groups":1,"iterations":1,"buffer_words":sizes});
     std::fs::write(
         dir.join("case.json"),
         serde_json::to_vec_pretty(&c).unwrap(),

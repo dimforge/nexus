@@ -90,6 +90,11 @@ fn main() {
                 projection_fixture::fixture(&directory, kind, count)
             });
         }
+        if kind == "polygonal_contacts" {
+            cases.push(polygonal_fixture::witness_fixture(
+                &root.join(kind).join("edge_witnesses"),
+            ));
+        }
         if kind == "gjk_closest" {
             cases.push(support_fixture::floor_cylinder_fixture(
                 &root.join(kind).join("floor_cylinder"),

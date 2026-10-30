@@ -60,15 +60,23 @@ class PfmTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             check_outputs(l, c, b, a, e, k)
 
-    def test_native_secondary_misses_remain_visible(self):
+    def test_native_secondary_witness_regressions_are_fixed(self):
         l, c, b, e, k = self.fixture()
         misses = diagnostics(l, c, b, e, e, k)
-        self.assertEqual(
-            misses["actual_secondary_containment_misses"],
-            misses["reference_secondary_containment_misses"],
-        )
-        pairs = {v["pair"] for v in misses["reference_secondary_containment_misses"]}
-        self.assertEqual(pairs, {115, 121, 165, 228})
+        self.assertEqual(misses["actual_secondary_containment_misses"], [])
+        self.assertEqual(misses["reference_secondary_containment_misses"], [])
+        rows = e["Output"].reshape(-1, l["feature_manifold_words"])
+        for i in (115, 121, 165, 228):
+            self.assertEqual(int(rows[i, l["feature_manifold"]["count"]]), 1)
+
+    def test_matching_bad_secondary_geometry_is_rejected(self):
+        l, c, b, e, k = self.fixture()
+        # The former capsule/cone edge candidate lies on the capsule, but its
+        # implicit second witness misses the cone. Keep the original f32 bits.
+        row = e["Output"].reshape(-1, l["feature_manifold_words"])[121]
+        row[:4] = [1023907314, 1054707559, 1047452852, 3171626680]
+        with self.assertRaisesRegex(AssertionError, "secondary point outside"):
+            check_outputs(l, c, b, e, e, k)
 
     def test_matching_bad_geometry_is_rejected(self):
         for mutation in ("point", "normal", "distance"):
@@ -147,9 +155,9 @@ class PfmTests(unittest.TestCase):
     def test_bad_secondary_witness_does_not_unlock_relaxation(self):
         l, c, b, e, k = self.fixture()
         a = {name: v.copy() for name, v in e.items()}
-        row = a["Output"].reshape(-1, l["feature_manifold_words"])[121].view(np.float32)
-        row[l["feature_manifold"]["points"] + l["feature_point_words"]] += 1e-5
-        with self.assertRaises(AssertionError):
+        row = a["Output"].reshape(-1, l["feature_manifold_words"])[121]
+        row[:4] = [1023907314, 1054707559, 1047452852, 3171626680]
+        with self.assertRaisesRegex(AssertionError, "secondary point outside"):
             check_outputs(l, c, b, a, e, k)
 
 

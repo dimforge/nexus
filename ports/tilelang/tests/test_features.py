@@ -49,6 +49,21 @@ class FeatureTests(unittest.TestCase):
                     l, c, b, e, k = self.fixture(op, "n" + str(n))
                     check_outputs(l, c, b, e, e, k)
 
+    def test_scaled_edge_witnesses_and_matching_corruption(self):
+        l, c, b, e, k = self.fixture("polygonal_contacts", "edge_witnesses")
+        check_outputs(l, c, b, e, e, k)
+        rows = e["Output"].reshape(-1, l["feature_manifold_words"])
+        count = l["feature_manifold"]["count"]
+        for i in range(c["count"]):
+            self.assertEqual(
+                int(rows[i, count]), 0 if i % 4 < 2 else 2 if i % 4 == 2 else 1
+            )
+        # A depth change leaves the stored point on its first edge while moving
+        # the implicit point off the second edge. Matching outputs must fail.
+        rows[10].view(np.float32)[l["feature_point"]["dist"]] -= 0.01
+        with self.assertRaisesRegex(AssertionError, "secondary contact outside"):
+            check_outputs(l, c, b, e, e, k)
+
     def test_invalid_index_ranges_and_degenerate_hull(self):
         for mutation in ("first", "last", "index", "degenerate"):
             l, c, b, _, _ = self.fixture()

@@ -40,7 +40,7 @@
   "invariants": [
     "Exact requested work-list totals, legal membership, unique ownership and untouched capacity tails",
     "Same-body PFM contacts write only an inert length; live contacts preserve collider/body/subshape/material provenance",
-    "Every valid contact has a unit normal, in-shape primary point and independent support/prediction bounds; secondary reference misses remain visible",
+    "Every valid contact has a unit normal, in-shape primary point and independent support/prediction bounds; reconstructed secondary witnesses lie in their shape",
     "Reduction preserves disjoint run ownership and selects only supplied candidate points",
     "No host collision computation inside any translated stage"
   ],
@@ -53,8 +53,8 @@
   "known_gaps": [
     {
       "id": "pfm-secondary-witness-approximation",
-      "description": "Native edge-feature clipping can reconstruct secondary witnesses outside their shape; strict matching and per-pair diagnostics retain this limitation pending scene qualification or a paired fix.",
-      "blocks_release": true
+      "description": "Paired Rust/TileLang fix 0060 rejects edge candidates whose tangent displacement cannot be represented by the implicit secondary witness. Scaled edge tests and both-witness geometric checks retain the regression; current execution evidence is still required.",
+      "blocks_release": false
     }
   ],
   "required_cases": [

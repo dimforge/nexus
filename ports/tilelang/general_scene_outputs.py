@@ -245,14 +245,14 @@ def check_collision(l, c, b, a, e, k):
             err_msg=f"General active contact {i}",
         )
         largest = max(largest, float(np.max(np.abs(av - ev), initial=0)))
-    if secondary_misses[0] - secondary_misses[1]:
-        raise AssertionError("New general secondary witness containment failure")
+    if secondary_misses[0] or secondary_misses[1]:
+        raise AssertionError("General secondary witness containment failure")
     errors["Contacts"] = largest
     return errors
 
 
 def witness_diagnostics(l, c, b, r):
-    """Keep the inherited clipping limitation visible in each scene report."""
+    """Record independent secondary witness containment in each scene report."""
     shapes = b["Shapes"].reshape(-1, l["shape_words"])
     vtx = vertices(l, b)
     geometry = [primitives(l, s, vtx, b["GeometryIndices"]) for s in shapes]

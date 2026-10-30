@@ -38,7 +38,7 @@ Remaining implementation sequence:
    kernels are implemented, including an ordered bounds/pairs program. All twelve 3D LBVH stages and the resident Morton/radix/build/refit/traversal program are translated;
    production scene integration and overflow retry remain. The complete native
    analytic first pass now handles ball/primitive and box/box contacts, including
-   material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; Bounded EPA and its GJK composition are translated; polygonal support faces and generic 3D clipping are also implemented. Composed convex PFM manifolds are translated with exact conversion, independent witness checks and a retained native secondary-witness approximation gap. Deferred convex/mesh/polyline dispatch, work-list keys and contact reduction are now translated as isolated stages. Resident deferred ordering and reduction are now connected to fifteen general collision scenes with all-frame trajectory checks. Runtime overflow retry and production composition remain. PFM counter reset and contact-plan publication are implemented;
+   material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; Bounded EPA and its GJK composition are translated; polygonal support faces and generic 3D clipping are also implemented. Composed convex PFM manifolds are translated with exact conversion, independent witness checks and paired Rust/TileLang secondary-witness corrections. Deferred convex/mesh/polyline dispatch, work-list keys and contact reduction are now translated as isolated stages. Resident deferred ordering and reduction are now connected to fifteen general collision scenes with all-frame trajectory checks. Runtime overflow retry and production composition remain. PFM counter reset and contact-plan publication are implemented;
    a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
    collision detection. Native radix stages and contact canonicalization are now
    implemented as resident programs. Canonicalization is connected to analytic scene solving. Generic awake fixture scene integration is implemented; public runtime integration remains.
@@ -74,6 +74,7 @@ The two contact-sensitive 120-frame triangle and joint-chain fixtures now have
 explicit per-case, per-field numeric policies backed by required identical-state
 single-frame restart fixtures and independent geometry, effective-response and
 all-frame physical checks. Their final registered matrix remains required after
-source changes. The isolated zero-distance CFM stress case and the inherited
-secondary-witness clipping gap remain unresolved. No global float tolerance or
+source changes. The isolated zero-distance CFM stress case remains unresolved. A paired Rust/TileLang
+clipping fix now rejects tangentially separated edge witnesses; its registered
+geometry and scene matrix remains required. No global float tolerance or
 physics arithmetic is changed by this classification.

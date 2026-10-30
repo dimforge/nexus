@@ -1,4 +1,4 @@
-"""PFM ABI and geometric parity, including explicitly reported native limitations."""
+"""PFM ABI and geometric parity, including independent primary and secondary witnesses."""
 
 import numpy as np
 from epa_validation import symmetric
@@ -148,6 +148,8 @@ def check_manifold_row(
             for point in points[:count]:
                 if not contains(l, sa, vertices, point[pi : pi + 3]):
                     raise AssertionError("PFM primary point outside shape")
+                if not secondary_inside(l, sb, vertices, q, shift, point, normal):
+                    raise AssertionError("PFM secondary point outside shape")
                 if point[di] > prediction + 2e-6 or point[di] < minimum - 1e-5:
                     raise AssertionError(
                         "PFM distance violates prediction/support bound"
@@ -183,11 +185,8 @@ def check_manifold_row(
             secondary_inside(l, sb, vertices, q, shift, point, normal)
             for point, normal in ((aa[j], an), (ee[j], en))
         ]
-        if inside[1] and not inside[0]:
-            raise AssertionError("PFM secondary witness regressed")
         if different:
             # Nonunique points must be valid witnesses in BOTH implementations.
-            # Native approximate clipping misses never unlock relaxed comparison.
             if flipped:
                 np.testing.assert_allclose(
                     ap,

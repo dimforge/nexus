@@ -112,7 +112,8 @@
         "rbd.collision.pfm_subshape_keys3d",
         "rbd.collision.pfm_permuted_keys3d",
         "rbd.collision.reduce_contacts3d",
-        "rbd.pipeline.general_scene3d"
+        "rbd.pipeline.general_scene3d",
+        "rbd.pipeline.general_restart3d"
       ],
       "symbols": [
         "gpu_narrow_phase_shape_shape",
@@ -279,7 +280,8 @@
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
         "rbd.joint.program3d",
-        "rbd.pipeline.joint_scene3d"
+        "rbd.pipeline.joint_scene3d",
+        "rbd.pipeline.joint_restart3d"
       ],
       "symbols": [
         "motor_params"
@@ -297,7 +299,8 @@
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
         "rbd.joint.program3d",
-        "rbd.pipeline.joint_scene3d"
+        "rbd.pipeline.joint_scene3d",
+        "rbd.pipeline.joint_restart3d"
       ],
       "symbols": [
         "gpu_init_joint_constraints",
@@ -318,7 +321,8 @@
         "rbd.joint.orthogonalize3d",
         "rbd.joint.solve3d",
         "rbd.joint.program3d",
-        "rbd.pipeline.joint_scene3d"
+        "rbd.pipeline.joint_scene3d",
+        "rbd.pipeline.joint_restart3d"
       ],
       "symbols": [
         "orthogonalize_constraints",
@@ -660,7 +664,9 @@
         "rbd.pipeline.tgs_frame3d",
         "rbd.pipeline.analytic_scene3d",
         "rbd.pipeline.joint_scene3d",
-        "rbd.pipeline.general_scene3d"
+        "rbd.pipeline.general_scene3d",
+        "rbd.pipeline.general_restart3d",
+        "rbd.pipeline.joint_restart3d"
       ],
       "symbols": [
         "gpu_integrate_linearized",
@@ -779,7 +785,8 @@
       "coverage": "complete",
       "operations": [
         "rbd.query.pfm_manifold3d",
-        "rbd.pipeline.general_scene3d"
+        "rbd.pipeline.general_scene3d",
+        "rbd.pipeline.general_restart3d"
       ],
       "symbols": [
         "contact_support_map_support_map",
@@ -787,7 +794,7 @@
         "dedup_manifold_points",
         "contact_manifold_pfm_pfm"
       ],
-      "remaining": "All native 3D functions are translated; native secondary-witness approximation remains an explicit release gap until scene qualification or a paired fix."
+      "remaining": "All native 3D functions are translated. Paired edge-witness correction and mandatory containment checks are implemented; exact-source execution and production scene integration remain required."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/cso_point.rs",
@@ -1078,7 +1085,8 @@
       "coverage": "complete",
       "operations": [
         "rbd.collision.deferred_pairs3d",
-        "rbd.pipeline.general_scene3d"
+        "rbd.pipeline.general_scene3d",
+        "rbd.pipeline.general_restart3d"
       ],
       "symbols": [
         "bvh_node_idx",
@@ -1121,7 +1129,8 @@
         "rbd.query.support_face3d",
         "rbd.query.pfm_subshape3d",
         "rbd.collision.deferred_pairs3d",
-        "rbd.pipeline.general_scene3d"
+        "rbd.pipeline.general_scene3d",
+        "rbd.pipeline.general_restart3d"
       ],
       "symbols": [
         "compute_aabb",
@@ -1191,7 +1200,8 @@
       "coverage": "partial",
       "operations": [
         "rbd.collision.deferred_pairs3d",
-        "rbd.pipeline.general_scene3d"
+        "rbd.pipeline.general_scene3d",
+        "rbd.pipeline.general_restart3d"
       ],
       "symbols": [
         "bvh_node_idx",

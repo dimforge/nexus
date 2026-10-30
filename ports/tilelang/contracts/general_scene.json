@@ -214,7 +214,7 @@
     "Every recorded frame checks finite normalized state, unchanged static bodies, bounded penetration and energy",
     "Internal workspace above a published count may retain earlier-frame allocations; it is not interpreted as current state, and storage beyond the declared maximum capacity remains exact",
     "Deferred work is stably sorted by subshape then originating pair; reduction runs before contact canonicalization",
-    "Primary witnesses lie inside their shape; normal, support distance, prediction and secondary-witness regression checks apply independently of numeric parity",
+    "Both witnesses lie inside their shapes; normal, support distance and prediction checks apply independently of numeric parity",
     "Final trajectory frame equals published body state exactly; counter, copied words and guard regions remain exact",
     "Contact bases are orthonormal, inertia is positive semidefinite and effective response is independently reconstructed from stored geometry",
     "The numerical exception is tied to this exact bounded scene configuration and its required restart fixtures; other cases and unknown fields keep default tolerances"
@@ -228,8 +228,8 @@
   "known_gaps": [
     {
       "id": "general-secondary-witness-approximation",
-      "description": "Inherited native PFM clipping can produce a reconstructed secondary witness outside its shape. Reports list such contacts, and new target-only misses fail; the native limitation remains a release block.",
-      "blocks_release": true
+      "description": "Paired Rust/TileLang fix 0060 rejects edge candidates whose tangent displacement cannot be represented by the implicit secondary witness. Scaled edge tests and both-witness geometric checks retain the regression; current execution evidence is still required.",
+      "blocks_release": false
     },
     {
       "id": "general-triangle-feedback-roundoff",

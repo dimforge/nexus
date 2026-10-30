@@ -23,7 +23,7 @@
   ],
   "invariants": [
     "Exact feature/manifold cardinality and untouched storage",
-    "Every emitted contact lies within the selected output feature and satisfies prediction distance",
+    "Both the stored contact and its reconstructed secondary witness lie within their features and satisfy prediction distance",
     "No host geometry substitution in the kernel program"
   ],
   "outside_scope": [
@@ -37,6 +37,7 @@
     "n25",
     "n65",
     "n129",
-    "n300"
+    "n300",
+    "edge_witnesses"
   ]
 }
