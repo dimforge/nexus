@@ -943,7 +943,8 @@ def gpu_reduce_contacts(l, c):
                                                     + v * l["manifold_point_words"]
                                                     + pf["dist"],
                                                 )
-                                                deep1[0] = min(deep1[0], value)
+                                                if value < deep1[0]:  # noqa: PLR1730 -- Python min cannot compare TIR expressions
+                                                    deep1[0] = value
                                             for v in T.serial(1, nb):
                                                 value = f32(
                                                     im,
@@ -952,7 +953,8 @@ def gpu_reduce_contacts(l, c):
                                                     + v * l["manifold_point_words"]
                                                     + pf["dist"],
                                                 )
-                                                deep2[0] = min(deep2[0], value)
+                                                if value < deep2[0]:  # noqa: PLR1730 -- Python min cannot compare TIR expressions
+                                                    deep2[0] = value
                                             normal = T.alloc_local((3,), "float32")
                                             points = T.alloc_local((4, 4), "float32")
                                             count = T.alloc_local((1,), "int32")

@@ -1,5 +1,6 @@
 """Deferred collision ownership, BVH safety, and contact provenance regressions."""
 
+import importlib.util
 import json
 import os
 import sys
@@ -38,6 +39,14 @@ class DeferredTests(unittest.TestCase):
             for name, v in b.items()
         }
         return l, c, b, e, k
+
+    @unittest.skipUnless(importlib.util.find_spec("tilelang"), "TileLang unavailable")
+    def test_promoted_reduction_constructs_tir(self):
+        # A Python min introduced by lint autofix previously failed before lowering.
+        from deferred_kernels import make_kernel
+
+        l, c, _, _, _ = self.fixture("reduce_contacts", "n0-c1-g1-normal")
+        self.assertIsNotNone(make_kernel(l, c, "c", "reduce_contacts"))
 
     def test_all_live_native_cases(self):
         for op in OPERATIONS:
