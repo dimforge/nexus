@@ -1,7 +1,8 @@
 """Counterpart of shapes/cone.rs boundary projection."""
 
 import tilelang.language as T
-from kernel_support import dot, cross
+from kernel_support import cross, dot
+
 from .segment import project_local_point
 
 
@@ -54,3 +55,24 @@ def project_local_point_on_boundary(height, radius, pt, out, inside):
             if dot(ds, ds) > dot(db, db):
                 for d in T.serial(3):
                     out[d] = base[d]
+
+
+@T.macro
+def local_support_point(height, radius, direction, Output):
+    length = T.sqrt((direction[0] * direction[0] + 0.0) + direction[2] * direction[2])
+    if length == 0.0:
+        Output[0] = 0.0
+        Output[2] = 0.0
+        Output[1] = T.if_then_else(direction[1] >= 0.0, height, -height)
+    else:
+        factor = radius / length
+        Output[0] = direction[0] * factor
+        Output[2] = direction[2] * factor
+        Output[1] = -height
+        projection = (direction[0] * Output[0] + direction[1] * Output[1]) + direction[
+            2
+        ] * Output[2]
+        if projection < direction[1] * height:
+            Output[0] = 0.0
+            Output[1] = height
+            Output[2] = 0.0

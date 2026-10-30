@@ -1,11 +1,12 @@
 """Counterpart of shapes/shape.rs; bounds and analytic primitive operations."""
 
 import tilelang.language as T
-from kernel_support import f32, quat_rotate, dot
-from ..bounding_volumes.aabb import transform_by, absolute
+from kernel_support import dot, f32, quat_rotate
+
+from ..bounding_volumes.aabb import absolute, transform_by
 from . import capsule, cone, cylinder
-from .triangle import aabb as triangle_aabb
 from .convex_polyhedron import aabb as convex_aabb
+from .triangle import aabb as triangle_aabb
 
 
 def compute_aabb(layout):
@@ -222,3 +223,70 @@ def cuboid_support_face(he, direction, vertices):
             vertices[i, 0] = T.if_then_else(i < 2, he[0], -he[0])
             vertices[i, 1] = T.if_then_else(i == 0 or i == 3, he[1], -he[1])
             vertices[i, 2] = he[2] * sign
+
+
+def local_support_point(l):
+    from . import ball_local_support_point, cuboid_local_support_point
+    from .convex_polyhedron import local_support_point as convex_support
+    from .triangle import local_support_point as triangle_support
+
+    convex = convex_support(l)
+    sf = l["shape"]
+    types = l["shape_types"]
+
+    @T.macro
+    def one(Shapes, index, Vertices, direction, Output):
+        base = index * l["shape_words"]
+        ty = T.cast(Shapes[base + sf["a"] + 3], "int32")
+        a = T.alloc_local((3,), "float32")
+        b = T.alloc_local((3,), "float32")
+        c = T.alloc_local((3,), "float32")
+        for d in T.serial(3):
+            a[d] = f32(Shapes, base + sf["a"] + d)
+            b[d] = f32(Shapes, base + sf["b"] + d)
+            c[d] = f32(Shapes, base + sf["c"] + d)
+            Output[d] = 0.0
+        if ty == types["ball"]:
+            ball_local_support_point(a[0], direction, Output)
+        elif ty == types["cuboid"]:
+            cuboid_local_support_point(a, direction, Output)
+        elif ty == types["triangle"]:
+            triangle_support(a, b, c, direction, Output)
+        elif ty == types["capsule"]:
+            capsule.local_support_point(
+                a, b, f32(Shapes, base + sf["b"] + 3), direction, Output
+            )
+        elif ty == types["cone"]:
+            cone.local_support_point(a[0], a[1], direction, Output)
+        elif ty == types["cylinder"]:
+            cylinder.local_support_point(a[0], a[1], direction, Output)
+        elif ty == types["convex_poly"]:
+            convex(
+                Vertices,
+                T.cast(Shapes[base + sf["a"]], "int32"),
+                T.cast(Shapes[base + sf["a"] + 1], "int32"),
+                direction,
+                Output,
+            )
+
+    return one
+
+
+def support_point(l):
+    support = local_support_point(l)
+
+    @T.macro
+    def one(Shapes, index, Vertices, q, translation, direction, Output):
+        inverse = T.alloc_local((4,), "float32")
+        axis = T.alloc_local((3,), "float32")
+        point = T.alloc_local((3,), "float32")
+        for d in T.serial(3):
+            inverse[d] = -q[d]
+        inverse[3] = q[3]
+        quat_rotate(inverse, direction, axis)
+        support(Shapes, index, Vertices, axis, point)
+        quat_rotate(q, point, Output)
+        for d in T.serial(3):
+            Output[d] = Output[d] + translation[d]
+
+    return one

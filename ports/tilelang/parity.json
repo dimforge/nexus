@@ -1264,6 +1264,58 @@
       "dependency_policy": "Conservative: every watched source invalidates evidence, including the private Rust source linked into the oracle.",
       "contract": "ports/tilelang/contracts/simplex_project.json",
       "test_command": "python ports/tilelang/geometry_replay.py --operation simplex_project --target c"
+    },
+    {
+      "id": "rbd.query.support_local3d",
+      "operation": "support_local",
+      "runner": "support_replay.py",
+      "coverage": "Native cold convex support_local query; seven convex tags, bounded GJK and geometric witnesses; EPA remains separate",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::local_support_point"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::local_support_point",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence, including the private GJK source linked into the native oracle.",
+      "contract": "ports/tilelang/contracts/support_local.json",
+      "test_command": "python ports/tilelang/support_replay.py --operation support_local --target c"
+    },
+    {
+      "id": "rbd.query.support_world3d",
+      "operation": "support_world",
+      "runner": "support_replay.py",
+      "coverage": "Native cold convex support_world query; seven convex tags, bounded GJK and geometric witnesses; EPA remains separate",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::support_point"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::support_point",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence, including the private GJK source linked into the native oracle.",
+      "contract": "ports/tilelang/contracts/support_world.json",
+      "test_command": "python ports/tilelang/support_replay.py --operation support_world --target c"
+    },
+    {
+      "id": "rbd.query.cso_support3d",
+      "operation": "cso_support",
+      "runner": "support_replay.py",
+      "coverage": "Native cold convex cso_support query; seven convex tags, bounded GJK and geometric witnesses; EPA remains separate",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/gjk/gjk.rs::cso_point_from_shapes"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/gjk/gjk.py::cso_point_from_shapes",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence, including the private GJK source linked into the native oracle.",
+      "contract": "ports/tilelang/contracts/cso_support.json",
+      "test_command": "python ports/tilelang/support_replay.py --operation cso_support --target c"
+    },
+    {
+      "id": "rbd.query.gjk_closest3d",
+      "operation": "gjk_closest",
+      "runner": "support_replay.py",
+      "coverage": "Native cold convex gjk_closest query; seven convex tags, bounded GJK and geometric witnesses; EPA remains separate",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/gjk/gjk.rs::closest_points"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/gjk/gjk.py::closest_points",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence, including the private GJK source linked into the native oracle.",
+      "contract": "ports/tilelang/contracts/gjk_closest.json",
+      "test_command": "python ports/tilelang/support_replay.py --operation gjk_closest --target c"
     }
   ],
   "targets": [

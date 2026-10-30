@@ -153,3 +153,16 @@ def project_local_point_and_get_location(a, b, c, pt, solid_flag, Values, Flags)
                 for d in T.serial(3):
                     out[d] = b[d] + bc[d] * u
                 edge(out, 1.0 - u, u, T.uint32(1), True, Values, Flags)
+
+
+@T.macro
+def local_support_point(a, b, c, direction, Output):
+    da = dot(direction, a)
+    db = dot(direction, b)
+    dc = dot(direction, c)
+    for d in T.serial(3):
+        Output[d] = T.if_then_else(
+            da > db,
+            T.if_then_else(da > dc, a[d], c[d]),
+            T.if_then_else(db > dc, b[d], c[d]),
+        )

@@ -37,7 +37,7 @@ Remaining implementation sequence:
    kernels are implemented, including an ordered bounds/pairs program. LBVH,
    scene integration and deferred contact generation remain. The complete native
    analytic first pass now handles ball/primitive and box/box contacts, including
-   material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; GJK/EPA and support maps remain. Generic PFM, meshes,
+   material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; EPA and polygonal support faces remain. Generic PFM, meshes,
    polylines remain. PFM counter reset and contact-plan publication are implemented;
    a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
    collision detection. Native radix stages and contact canonicalization are now
@@ -69,3 +69,9 @@ this using branch sensitivity plus scene-level physical/stability evidence.
 A justified scoped numerical policy may accept harmless divergence without changing
 the Rust physics. Do not clear it solely by increasing a global tolerance, deleting
 cases, or declaring every floating-point mismatch harmless.
+
+Current connected-scene gap: the 120-frame joint-chain fixture fails strict
+C/Metal numeric parity (final velocity difference about 6.58e-4), while both
+trajectories satisfy the independent physical assertions. Keep it blocked until
+the contact-sensitive numerical behavior has a justified, tested policy; all
+sixteen scene cases remain required.

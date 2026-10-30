@@ -1,7 +1,8 @@
 """Counterpart of shapes/capsule.rs boundary projection."""
 
 import tilelang.language as T
-from kernel_support import dot, cross
+from kernel_support import cross, dot
+
 from .segment import project_local_point
 
 
@@ -70,3 +71,31 @@ def project_local_point_on_boundary(a, b, radius, pt, out, inside):
         for d in T.serial(3):
             out[d] = axis_point[d] + direction[d] * radius
         inside[0] = True
+
+
+@T.macro
+def local_support_point(a, b, radius, direction, Output):
+    segment = T.alloc_local((3,), "float32")
+    normal = T.alloc_local((3,), "float32")
+    for d in T.serial(3):
+        segment[d] = b[d] - a[d]
+        normal[d] = 0.0
+    normal[1] = 1.0
+    projection = (
+        segment[0] * direction[0]
+        + segment[1] * direction[1]
+        + segment[2] * direction[2]
+    )
+    for d in T.serial(3):
+        Output[d] = T.if_then_else(projection >= 0.0, b[d], a[d])
+    if radius != 0.0:
+        length = T.sqrt(
+            direction[0] * direction[0]
+            + direction[1] * direction[1]
+            + direction[2] * direction[2]
+        )
+        if length != 0.0:
+            for d in T.serial(3):
+                normal[d] = direction[d] / length
+        for d in T.serial(3):
+            Output[d] = Output[d] + normal[d] * radius

@@ -27,3 +27,12 @@ def project_local_point_on_boundary(height, radius, pt, out, inside):
         out[1] = -height
         if radial <= radius:
             out[0], out[2] = pt[0], pt[2]
+
+
+@T.macro
+def local_support_point(height, radius, direction, Output):
+    length = T.sqrt((direction[0] * direction[0] + 0.0) + direction[2] * direction[2])
+    factor = T.if_then_else(length != 0.0, radius / length, 0.0)
+    Output[0] = direction[0] * factor
+    Output[2] = direction[2] * factor
+    Output[1] = T.if_then_else(direction[1] >= 0.0, height, -height)

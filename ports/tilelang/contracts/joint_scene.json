@@ -232,7 +232,13 @@
     "Resolution of the retained zero-distance cancellation stress suite",
     "Ascend vendor compilation, execution, memory-model and performance qualification"
   ],
-  "known_gaps": [],
+  "known_gaps": [
+    {
+      "id": "joint-chain-feedback-roundoff",
+      "description": "The connected 120-frame joint chain currently exceeds strict numeric parity on C and Metal (maximum final velocity difference about 6.58e-4; both pass independent all-frame physical checks). Identical-state restart diagnostics identify late contact-sensitive differences; numerical acceptance remains unresolved. The fixtures are retained.",
+      "blocks_release": true
+    }
+  ],
   "required_cases": [
     "joint_fixed-c1-l1-b1-f1",
     "joint_ball-c1-l1-b1-f1",

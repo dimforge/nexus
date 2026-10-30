@@ -3,7 +3,7 @@ use nexus_rbd_shaders3d::glamx::Vec3;
 use serde_json::json;
 use std::{fs, path::Path};
 
-fn pack(s: &VoronoiSimplex, row: &mut [u32; 64]) {
+pub(crate) fn pack(s: &VoronoiSimplex, row: &mut [u32; 64]) {
     for i in 0..4 {
         for (field, v) in [
             s.vertices[i].point,

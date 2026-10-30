@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "feature": "rbd.query.support_local3d",
+  "scope": "Native 3D support_local for ball, cuboid, capsule, cone, cylinder, convex polyhedron and triangle",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Shapes",
+    "Poses",
+    "Vertices",
+    "Inputs",
+    "Output",
+    "State"
+  ],
+  "outputs": [
+    "Output",
+    "State"
+  ],
+  "comparison": "support_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Public results and simplex weights retain the existing f32 policy. Nonunique active intersection CSO vertices use independent shape-surface, decomposition and origin-containment proofs; their raw differences are still reported. Status, dimensions, indices, copied nonintersection state and guards remain exact.",
+  "preconditions": [
+    "Finite coordinates within the documented validation range; nonzero directions, normalized poses, nonnegative radii and positive cone/cylinder dimensions",
+    "Valid nonempty convex vertex ranges; no composite mesh/polyline dispatch in this operation",
+    "Cold GJK starts from a native support point with dimension zero and cleared unused state; exact-distance flag is boolean and max distance is finite/nonnegative"
+  ],
+  "invariants": [
+    "Independent f64 support-function optimality and surface membership",
+    "Returned closest points lie in their shapes; separating directions are unit vectors and no-intersection witnesses exceed the requested distance",
+    "Intersection result is zero-valued; active CSO vertices decompose into shape-surface points and their convex hull contains the origin",
+    "Nonintersection paths preserve the complete supplied simplex exactly; dimensions and previous indices agree exactly",
+    "No geometry calculation is substituted on the host between device stages"
+  ],
+  "outside_scope": [
+    "EPA penetration and polygonal-feature manifolds",
+    "Warm-started arbitrary input simplexes and production query/runtime integration",
+    "Ascend vendor compilation, execution and performance"
+  ],
+  "reference_limitations": [
+    "Native affine-dependence/repeated-support rejection can return closest points before the relative distance-gap convergence condition is met; the original behavior is preserved",
+    "Native GJK has a 100-iteration bound and a no-intersection fallback"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n49",
+    "n65",
+    "n129",
+    "n343"
+  ]
+}

@@ -738,12 +738,17 @@
       "implementation": "ports/tilelang/shaders/queries/gjk/cso_point.py",
       "coverage": "partial",
       "operations": [
-        "rbd.query.simplex_init3d"
+        "rbd.query.simplex_init3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "symbols": [
-        "origin"
+        "origin",
+        "from_points"
       ],
-      "remaining": "Zero CSO initialization is exercised; from_points is prepared but its support-map caller remains unported."
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/epa2.rs",
@@ -764,10 +769,23 @@
     {
       "reference": "src_rbd_shaders/queries/gjk/gjk.rs",
       "implementation": "ports/tilelang/shaders/queries/gjk/gjk.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
+      ],
+      "symbols": [
+        "result",
+        "gjk_result_intersection",
+        "gjk_result_closest_points",
+        "gjk_result_proximity",
+        "gjk_result_no_intersection",
+        "cso_point_from_shapes",
+        "closest_points"
+      ],
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/mod.rs",
@@ -883,26 +901,36 @@
       "implementation": "ports/tilelang/shaders/shapes/capsule.py",
       "coverage": "partial",
       "operations": [
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "symbols": [
         "project_local_point_on_boundary",
         "orthonormal_basis3",
-        "any_orthogonal_vector"
+        "any_orthogonal_vector",
+        "local_support_point"
       ],
-      "remaining": "Boundary projection and its basis helpers, including shared native near-axis/zero-length fix. Solid projection and support maps remain unported."
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/cone.rs",
       "implementation": "ports/tilelang/shaders/shapes/cone.py",
       "coverage": "partial",
       "operations": [
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "symbols": [
-        "project_local_point_on_boundary"
+        "project_local_point_on_boundary",
+        "local_support_point"
       ],
-      "remaining": "Only boundary projection for analytic ball contacts; support maps and other queries remain unported."
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/convex_polyhedron.rs",
@@ -910,32 +938,50 @@
       "coverage": "partial",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
-        "rbd.broadphase.pairs_program3d"
+        "rbd.broadphase.pairs_program3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "symbols": [
-        "aabb"
+        "aabb",
+        "local_support_point"
       ],
-      "remaining": "Only vertex-range local bounds; support maps and polygonal geometry remain unported."
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/cylinder.rs",
       "implementation": "ports/tilelang/shaders/shapes/cylinder.py",
       "coverage": "partial",
       "operations": [
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "symbols": [
-        "project_local_point_on_boundary"
+        "project_local_point_on_boundary",
+        "local_support_point"
       ],
-      "remaining": "Only boundary projection for analytic ball contacts; support maps and other queries remain unported."
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/mod.rs",
       "implementation": "ports/tilelang/shaders/shapes/__init__.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
+      ],
+      "symbols": [
+        "ball_local_support_point",
+        "cuboid_local_support_point"
+      ],
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/polyline.rs",
@@ -971,7 +1017,11 @@
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.pairs_program3d",
-        "rbd.collision.analytic_contacts3d"
+        "rbd.collision.analytic_contacts3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "symbols": [
         "compute_aabb",
@@ -979,9 +1029,11 @@
         "project_local_point_on_boundary",
         "project_cuboid_boundary",
         "cuboid_support_point",
-        "cuboid_support_face"
+        "cuboid_support_face",
+        "local_support_point",
+        "support_point"
       ],
-      "remaining": "All world bounds, primitive recycling extents and boundary projection for cuboid/capsule/cone/cylinder. Pinned Parry cuboid projection/support adapters sit here beside Shape callers. Generic point queries and support maps remain unported."
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
@@ -1014,14 +1066,19 @@
         "rbd.query.tetrahedron_projection3d",
         "rbd.query.simplex_init3d",
         "rbd.query.simplex_add3d",
-        "rbd.query.simplex_project3d"
+        "rbd.query.simplex_project3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "symbols": [
         "aabb",
         "stable_check_edges_voronoi",
-        "project_local_point_and_get_location"
+        "project_local_point_and_get_location",
+        "local_support_point"
       ],
-      "remaining": "Local projection ported alongside bounds; support-map and support-face methods remain."
+      "remaining": "Native convex support and cold bounded GJK callers are ported; support faces, EPA/manifold composition and production queries remain separate."
     },
     {
       "reference": "src_rbd_shaders/shapes/trimesh.rs",
@@ -1387,7 +1444,11 @@
         "rbd.query.tetrahedron_projection3d",
         "rbd.query.simplex_init3d",
         "rbd.query.simplex_add3d",
-        "rbd.query.simplex_project3d"
+        "rbd.query.simplex_project3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
@@ -1404,7 +1465,11 @@
         "rbd.query.tetrahedron_projection3d",
         "rbd.query.simplex_init3d",
         "rbd.query.simplex_add3d",
-        "rbd.query.simplex_project3d"
+        "rbd.query.simplex_project3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
     },
@@ -1420,7 +1485,11 @@
         "rbd.query.tetrahedron_projection3d",
         "rbd.query.simplex_init3d",
         "rbd.query.simplex_add3d",
-        "rbd.query.simplex_project3d"
+        "rbd.query.simplex_project3d",
+        "rbd.query.support_local3d",
+        "rbd.query.support_world3d",
+        "rbd.query.cso_support3d",
+        "rbd.query.gjk_closest3d"
       ],
       "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },

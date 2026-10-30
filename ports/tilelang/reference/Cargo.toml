@@ -5,6 +5,10 @@ edition = "2024"
 publish = false
 default-run = "nexus-tilelang-reference"
 
+[features]
+default = ["dim3"]
+dim3 = []
+
 # Isolated host-only oracle: no cargo-gpu, Python or accelerator is needed.
 [workspace]
 
