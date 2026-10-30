@@ -75,6 +75,29 @@ class FrameCpuTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
 
+    def test_same_stage_limits_retry_before_commit(self):
+        import copy
+
+        small, large = variant(8), variant(8, 3)
+        for v, limit in ((small, 1), (large, 8)):
+            gate = copy.deepcopy(v["manifest"]["gates"][0])
+            gate.update(id="colors", capacity=limit)
+            v["manifest"]["gates"].append(gate)
+        s = CpuFrameSession([small], self.temp.name)
+        before = s.checkpoint()
+        with self.assertRaises(CapacityError) as error:
+            s.step()
+        self.assertEqual(error.exception.gate, "colors")
+        self.assertEqual(s.checkpoint(), before)
+        s.extend(large)
+        stats = s.step()
+        self.assertEqual(stats["counts"], {"pairs": 5, "colors": 5})
+        self.assertEqual(stats["step"], 1)
+        self.assertEqual(stats["retries"], 1)
+        np.testing.assert_array_equal(
+            s.storage["State"], [0xDEADBEEF] * 3 + [43, 17] + [0xDEADBEEF] * 2
+        )
+
     def test_checkpoint_restore_and_reset_preserve_continuation(self):
         s = CpuFrameSession([variant(1), variant(8, 3)], self.temp.name)
         initial = s.checkpoint()

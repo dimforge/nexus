@@ -13,6 +13,7 @@ use std::{collections::BTreeSet, fs, path::Path};
 
 pub(crate) struct SceneUpload {
     pub contact_reduction: bool,
+    pub coloring_rounds: Option<u32>,
     pub batch: BatchIndices,
     pub params: RbdSimParams,
     pub gravity: Vec4,
@@ -112,6 +113,7 @@ impl SceneUpload {
         }
         let result = Self {
             contact_reduction: false,
+            coloring_rounds: None,
             batch: scalar(directory, "BatchIds", &meta)?,
             params: scalar(directory, "RbdParams", &meta)?,
             gravity: scalar(directory, "Gravity", &meta)?,

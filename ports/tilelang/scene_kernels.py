@@ -249,6 +249,34 @@ def make_program(l, c, target):
         strides=c["bucket_strides"],
         levels=c["bucket_levels"],
     )
+    if c.get("color_checks"):
+        import color_requirement_kernels
+
+        mapping = {
+            "Colors": "Colors",
+            "Links": "Links",
+            "Plan": "Plan",
+            "Budget": "ColorBudget",
+            "Requirements": "ColorRequirements",
+        }
+        add(
+            "color_requirements",
+            color_requirement_kernels.make_kernel(l, local(mapping), target),
+            mapping,
+            threads=1,
+        )
+        plans[-1]["capacity_gates"] = [
+            {
+                "id": "colors",
+                "capacity": c["color_stride"] - 2,
+                "counters": [{"buffer": "Requirements", "word": 0}],
+            },
+            {
+                "id": "coloring_rounds",
+                "capacity": c["rounds"],
+                "counters": [{"buffer": "Requirements", "word": 1}],
+            },
+        ]
     program("buckets", bucket_kernels.make_program(l, bc, target), bm)
     pm = identity(CONTACT)
     pm["Links"] = "SortedLinks"

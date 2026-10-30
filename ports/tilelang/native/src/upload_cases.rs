@@ -103,6 +103,18 @@ pub fn small_contact_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJoi
 
 /// A dynamic plate supported by 33 fixed balls: the plate must be split.
 pub fn hub_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
+    supported_plate_scene(shift, 33)
+}
+
+/// Thirty-two contacts share one dynamic body without crossing the hub threshold.
+pub fn dense_color_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
+    supported_plate_scene(shift, 32)
+}
+
+fn supported_plate_scene(
+    shift: f32,
+    supports: u32,
+) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
     let mut bodies = RigidBodySet::new();
     let mut colliders = ColliderSet::new();
     let plate = bodies.insert(
@@ -112,7 +124,7 @@ pub fn hub_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
             .can_sleep(false),
     );
     colliders.insert_with_parent(ColliderBuilder::cuboid(7., 0.5, 2.), plate, &mut bodies);
-    for i in 0..33 {
+    for i in 0..supports {
         let body = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(
             (i % 11) as f32 * 1.2 - 6.,
             -0.99,

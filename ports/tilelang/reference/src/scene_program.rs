@@ -184,9 +184,15 @@ fn scene_storage_model<M: scene_model::Model>(
         1u32
     };
     let bg = (n as u32).div_ceil(64).max(1);
-    let color_stride = upload.map_or(8, |u| u.batch.solver_color_buckets_stride.max(4) as usize);
-    let rounds = if upload.is_some() {
-        (color_stride - 3).max(2)
+    let color_stride = upload.map_or(8, |u| {
+        u.batch
+            .solver_color_buckets_stride
+            .max(if u.coloring_rounds.is_some() { 3 } else { 4 }) as usize
+    });
+    let rounds = if let Some(upload) = upload {
+        upload
+            .coloring_rounds
+            .map_or((color_stride - 3).max(2), |n| n as usize)
     } else {
         16
     };

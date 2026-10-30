@@ -16,9 +16,9 @@ mod twist_layout;
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     assert!(
-        (args.len() == 6 || args.len() == 7)
+        matches!(args.len(), 6 | 7 | 9)
             || (args.len() == 4 && matches!(args[3].as_str(), "suite" | "suite-twist")),
-        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|snapshots|upload [reduced|unreduced] OR OUTPUT INPUT_ROOT suite"
+        "runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|snapshots|upload [reduced|unreduced [COLORS ROUNDS]] OR OUTPUT INPUT_ROOT suite"
     );
     let root = Path::new(&args[1]);
     fs::create_dir_all(root).unwrap();
@@ -117,6 +117,13 @@ fn main() {
                 _ => panic!("Invalid reduction mode"),
             }
         };
+        if args.len() == 9 {
+            let colors: u32 = args[7].parse().unwrap();
+            let rounds: u32 = args[8].parse().unwrap();
+            assert!((1..=63).contains(&colors) && rounds >= 2 && rounds < u32::MAX);
+            upload.batch.solver_color_buckets_stride = colors + 2;
+            upload.coloring_rounds = Some(rounds);
+        }
         assert_eq!(
             upload.params.friction_model
                 == nexus_rbd_shaders3d::dynamics::FrictionModel::Simplified,

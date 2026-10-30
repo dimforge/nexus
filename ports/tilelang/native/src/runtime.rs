@@ -207,6 +207,8 @@ pub struct TileLangSimulation {
     signature: Value,
     body_count: usize,
     capacity: u32,
+    solver_colors: u32,
+    coloring_rounds: u32,
     next_variant: usize,
     published_variant: usize,
     session: Session,
@@ -297,6 +299,8 @@ fn compile(
     archive: &Path,
     directory: &Path,
     capacity: u32,
+    solver_colors: u32,
+    coloring_rounds: u32,
 ) -> Result<Value, String> {
     let mut command = Command::new(&options.python);
     command
@@ -308,7 +312,11 @@ fn compile(
         .arg("--target")
         .arg(options.backend.target())
         .arg("--pair-capacity")
-        .arg(capacity.to_string());
+        .arg(capacity.to_string())
+        .arg("--solver-colors")
+        .arg(solver_colors.to_string())
+        .arg("--coloring-rounds")
+        .arg(coloring_rounds.to_string());
     if options.contact_reduction {
         command.arg("--contact-reduction");
     }
@@ -326,6 +334,8 @@ fn compile(
     let metadata = verify_artifacts(directory)?;
     if metadata["target"] != options.backend.target()
         || metadata["pair_capacity"] != capacity
+        || metadata["solver_colors"] != solver_colors
+        || metadata["coloring_rounds"] != coloring_rounds
         || metadata["max_steps"] != json!(options.trace_steps)
         || metadata["contact_reduction"] != json!(options.contact_reduction)
     {
@@ -410,7 +420,20 @@ impl TileLangSimulation {
         crate::upload::write_inputs(upload, &archive)?;
         let directory = options.workspace.join("variant-0");
         let capacity = options.initial_pair_capacity;
-        let signature = compile(&options, &archive, &directory, capacity)?;
+        let solver_colors = upload
+            .batch_indices
+            .solver_color_buckets_stride
+            .saturating_sub(2)
+            .clamp(1, 63);
+        let coloring_rounds = solver_colors.saturating_sub(1).max(2);
+        let signature = compile(
+            &options,
+            &archive,
+            &directory,
+            capacity,
+            solver_colors,
+            coloring_rounds,
+        )?;
         let layout = read_json(&directory.join("layout.json"))?;
         let case = read_json(&directory.join("case.json"))?;
         if layout["pose_words"] != size_of::<Pose>() / 4
@@ -441,6 +464,8 @@ impl TileLangSimulation {
             signature,
             body_count,
             capacity,
+            solver_colors,
+            coloring_rounds,
             next_variant: 1,
             published_variant: 0,
             session,
@@ -487,36 +512,61 @@ impl TileLangSimulation {
                 }
                 Err(StepFailure::Runtime(message)) => return Err(RuntimeError::Runtime(message)),
                 Err(StepFailure::Capacity { gate, required }) => {
-                    if required > self.options.max_pair_capacity as u64 {
+                    let (current, limit) = match gate.as_str() {
+                        "pairs" | "deferred_pairs" => {
+                            (self.capacity, self.options.max_pair_capacity)
+                        }
+                        "colors" => (self.solver_colors, 63),
+                        "coloring_rounds" => (self.coloring_rounds, self.round_limit()),
+                        _ => {
+                            return Err(RuntimeError::Runtime(
+                                "Unknown runtime capacity gate".into(),
+                            ));
+                        }
+                    };
+                    let grown = (current as u64 * 2).max(required).min(limit as u64) as u32;
+                    if required > limit as u64 || grown <= current {
                         return Err(RuntimeError::Capacity {
                             gate,
                             required,
-                            limit: self.options.max_pair_capacity,
+                            limit,
                         });
                     }
-                    let capacity = (self.capacity as u64 * 2)
-                        .max(required)
-                        .min(self.options.max_pair_capacity as u64)
-                        as u32;
-                    if capacity <= self.capacity {
-                        return Err(RuntimeError::Capacity {
-                            gate,
-                            required,
-                            limit: self.options.max_pair_capacity,
-                        });
+                    let (mut capacity, mut colors, mut rounds) =
+                        (self.capacity, self.solver_colors, self.coloring_rounds);
+                    match gate.as_str() {
+                        "colors" => colors = grown,
+                        "coloring_rounds" => rounds = grown,
+                        _ => capacity = grown,
                     }
-                    self.compile_capacity(capacity)?;
+                    self.compile_limits(capacity, colors, rounds)?;
                 }
             }
         }
     }
-    fn compile_capacity(&mut self, capacity: u32) -> Result<(), String> {
+    fn round_limit(&self) -> u32 {
+        // Budget for one newly committed contact per deterministic round,
+        // plus validation. An application pair limit bounds compilation resources.
+        self.options
+            .max_pair_capacity
+            .saturating_mul(2)
+            .saturating_add(2)
+            .max(64)
+    }
+    fn compile_limits(&mut self, capacity: u32, colors: u32, rounds: u32) -> Result<(), String> {
         let directory = self
             .options
             .workspace
             .join(format!("variant-{}", self.next_variant));
         self.next_variant += 1;
-        let signature = compile(&self.options, &self.archive, &directory, capacity)?;
+        let signature = compile(
+            &self.options,
+            &self.archive,
+            &directory,
+            capacity,
+            colors,
+            rounds,
+        )?;
         if signature != self.signature {
             return Err("Sources or scene archive changed during the session".into());
         }
@@ -528,6 +578,8 @@ impl TileLangSimulation {
             Session::Metal { frame, .. } => unsafe { frame.extend(load_metal(&directory)?) }?,
         }
         self.capacity = capacity;
+        self.solver_colors = colors;
+        self.coloring_rounds = rounds;
         Ok(())
     }
 
@@ -561,17 +613,29 @@ impl TileLangSimulation {
             return Err("Checkpoint source, scene or configuration differs".into());
         }
         checkpoint.frame.validate()?;
-        let capacity = *checkpoint
-            .frame
-            .capacities
-            .values()
-            .max()
-            .ok_or("Missing checkpoint capacities")?;
-        if capacity > self.options.max_pair_capacity {
-            return Err("Checkpoint exceeds application capacity limit".into());
+        let limits = &checkpoint.frame.capacities;
+        let capacity = *limits.get("pairs").ok_or("Missing checkpoint pair limit")?;
+        let colors = *limits
+            .get("colors")
+            .ok_or("Missing checkpoint color limit")?;
+        let rounds = *limits
+            .get("coloring_rounds")
+            .ok_or("Missing checkpoint coloring round limit")?;
+        if limits.len() != 4
+            || limits.get("deferred_pairs") != Some(&capacity)
+            || capacity > self.options.max_pair_capacity
+            || !(1..=63).contains(&colors)
+            || !(2..=self.round_limit()).contains(&rounds)
+        {
+            return Err("Checkpoint exceeds application capacity or coloring limits".into());
         }
-        if capacity > self.capacity {
-            self.compile_capacity(capacity)?;
+        if capacity > self.capacity || colors > self.solver_colors || rounds > self.coloring_rounds
+        {
+            self.compile_limits(
+                capacity.max(self.capacity),
+                colors.max(self.solver_colors),
+                rounds.max(self.coloring_rounds),
+            )?;
         }
         let index = match &mut self.session {
             Session::C(process) => serde_json::from_value(

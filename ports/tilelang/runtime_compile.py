@@ -22,7 +22,14 @@ def archive_hashes(directory):
 
 
 def specialize(
-    archive, output, target, capacity, trace_steps=None, contact_reduction=False
+    archive,
+    output,
+    target,
+    capacity,
+    trace_steps=None,
+    contact_reduction=False,
+    solver_colors=None,
+    coloring_rounds=None,
 ):
     from runtime_scene_validation import validate_case
     from scene_kernels import make_program
@@ -38,6 +45,15 @@ def specialize(
         type(trace_steps) is not int or not 1 <= trace_steps <= 0xFFFFFFFF
     ):
         raise ValueError("Invalid runtime trace length")
+    if (solver_colors is None) != (coloring_rounds is None):
+        raise ValueError("Specify both coloring limits")
+    if solver_colors is not None and (
+        type(solver_colors) is not int
+        or not 1 <= solver_colors <= 63
+        or type(coloring_rounds) is not int
+        or not 2 <= coloring_rounds < 0xFFFFFFFF
+    ):
+        raise ValueError("Invalid coloring limits")
     output.mkdir(parents=True, exist_ok=False)
     inputs = evidence_inputs(ROOT)
     archive_before = archive_hashes(archive)
@@ -52,6 +68,11 @@ def specialize(
             str(capacity),
             "upload",
             "reduced" if contact_reduction else "unreduced",
+            *(
+                (str(solver_colors), str(coloring_rounds))
+                if solver_colors is not None
+                else ()
+            ),
         ),
     )
     layout = json.loads((output / "native/layout.json").read_text())
@@ -69,6 +90,10 @@ def specialize(
         for name in ("Trajectory", "FrameIndex"):
             del initial[name]
             del case["buffer_words"][name]
+    case["color_checks"] = True
+    initial["ColorBudget"] = np.array([case["rounds"], 0xDEADBEEF], np.uint32)
+    initial["ColorRequirements"] = np.full(5, 0xDEADBEEF, np.uint32)
+    case["buffer_words"].update(ColorBudget=2, ColorRequirements=5)
     validate_case(layout, case, initial)
     plans = make_program(layout, case, target)
     sources, program = lower_program(
@@ -94,6 +119,8 @@ def specialize(
         "archive_sha256": archive_before,
         "cpu_oracle": profile,
         "pair_capacity": capacity,
+        "solver_colors": case["color_stride"] - 2,
+        "coloring_rounds": case["rounds"],
         "contact_reduction": contact_reduction,
         "max_steps": trace_steps,
         "files": {p.name: digest(p) for p in sorted(output.iterdir()) if p.is_file()},
@@ -138,6 +165,8 @@ def main():
     p.add_argument("--pair-capacity", type=int, required=True)
     p.add_argument("--trace-steps", type=int)
     p.add_argument("--contact-reduction", action="store_true")
+    p.add_argument("--solver-colors", type=int)
+    p.add_argument("--coloring-rounds", type=int)
     a = p.parse_args()
     specialize(
         a.upload,
@@ -146,6 +175,8 @@ def main():
         a.pair_capacity,
         a.trace_steps,
         a.contact_reduction,
+        a.solver_colors,
+        a.coloring_rounds,
     )
 
 

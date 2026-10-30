@@ -36,7 +36,7 @@ def validate_frame(frame):
         seen.add(gate["id"])
         end = names.index(gate["after_stage"])
         if (
-            not last < end < len(names) - 1
+            not last <= end < len(names) - 1
             or type(gate["capacity"]) is not int
             or not 0 <= gate["capacity"] <= 0xFFFFFFFF
         ):
@@ -113,8 +113,10 @@ def from_program(l, c, plans, program):
     for plan, stage in zip(plans, program["stages"]):
         if plan["name"] != stage["name"] or plan["buffer_map"] != stage["buffer_map"]:
             raise ValueError("Frame stage differs from the compiled ABI")
+        local_gates = plan.get("capacity_gates", [])
         if "capacity_gate" in plan:
-            gate = plan["capacity_gate"]
+            local_gates = [plan["capacity_gate"], *local_gates]
+        for gate in local_gates:
             gates.append(
                 dict(
                     gate,
@@ -130,6 +132,8 @@ def from_program(l, c, plans, program):
         if c.get("general_collision", c["kind"] == "general_scene")
         else ["pairs"]
     )
+    if c.get("color_checks"):
+        expected += ["colors", "coloring_rounds"]
     if [g["id"] for g in gates] != expected:
         raise ValueError("Missing or changed scene capacity gates")
     return validate_frame(

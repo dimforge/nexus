@@ -72,7 +72,7 @@ impl FrameManifest {
                 .position(|s| s.name == gate.after_stage)
                 .ok_or("Capacity gate stage is missing")?
                 + 1;
-            if end >= self.program.stages.len() || ends.last().is_some_and(|last| *last >= end) {
+            if end >= self.program.stages.len() || ends.last().is_some_and(|last| *last > end) {
                 return Err(
                     "Capacity gates must be ordered before the frame's commit stages".into(),
                 );
@@ -578,6 +578,40 @@ mod tests {
                 ("commit.metal".into(),format!("#include <metal_stdlib>\nusing namespace metal;\nkernel void commit(device uint* state [[buffer(0)]]) {{state[{offset}]+=1;}}"))]),
             initial:BTreeMap::from([("State".into(),state),("Input".into(),vec![5]),("Count".into(),vec![0])]),
         }
+    }
+    #[test]
+    fn same_stage_limits_retry_before_commit() {
+        let backend = Metal::new().unwrap();
+        let mut small = variant(8, 0);
+        let mut large = variant(8, 3);
+        for (v, capacity) in [(&mut small, 1), (&mut large, 8)] {
+            let mut gate = v.manifest.gates[0].clone();
+            gate.id = "colors".into();
+            gate.capacity = capacity;
+            v.manifest.gates.push(gate);
+        }
+        let mut session = unsafe { FrameSession::new(&backend, vec![small]) }.unwrap();
+        let before = serde_json::to_value(session.checkpoint(&backend).unwrap()).unwrap();
+        assert!(
+            matches!(session.step(&backend), Err(StepError::Capacity {gate, ..}) if gate == "colors")
+        );
+        assert_eq!(
+            serde_json::to_value(session.checkpoint(&backend).unwrap()).unwrap(),
+            before
+        );
+        unsafe { session.extend(large) }.unwrap();
+        let stats = session.step(&backend).unwrap();
+        assert_eq!(
+            stats.counts,
+            BTreeMap::from([("pairs".into(), 5), ("colors".into(), 5)])
+        );
+        assert_eq!((stats.step, stats.retries), (1, 1));
+        assert_eq!(
+            session.read(&backend, "State").unwrap(),
+            vec![
+                0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 43, 17, 0xDEADBEEF, 0xDEADBEEF
+            ]
+        );
     }
     #[test]
     fn checkpoint_restore_reset_and_rejections_are_transactional() {

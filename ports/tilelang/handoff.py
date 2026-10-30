@@ -294,6 +294,9 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from canonical_replay import check_outputs as check_canonical_outputs
     from coefficient_replay import check_outputs as check_coefficient_outputs
     from collision_replay import check_outputs as check_collision_outputs
+    from color_requirement_replay import (
+        check_outputs as check_color_requirement_outputs,
+    )
     from colored_replay import check_outputs as check_colored_outputs
     from coloring_replay import check_outputs as check_coloring_outputs
     from contact_plan_replay import check_outputs as check_contact_plan_outputs
@@ -421,6 +424,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "radix_fields": check_radix_outputs,
                     "canonical_fields": check_canonical_outputs,
                     "body_uniform_fields": check_body_uniform_outputs,
+                    "color_requirement_fields": check_color_requirement_outputs,
                     "render_fields": check_render_outputs,
                     "point_query_fields": check_point_query_outputs,
                     "shape_query_fields": check_shape_query_outputs,
