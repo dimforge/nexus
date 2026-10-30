@@ -344,3 +344,37 @@ def support_face(l):
             )
 
     return one
+
+
+def pfm_subshape(l):
+    sf = l["shape"]
+    types = l["shape_types"]
+
+    @T.macro
+    def one(Shapes, index, Output, Thickness, Valid):
+        base = index * l["shape_words"]
+        ty = T.cast(Shapes[base + sf["a"] + 3], "int32")
+        for word in T.serial(l["shape_words"]):
+            Output[word] = Shapes[base + word]
+        Thickness[0] = 0.0
+        Valid[0] = (
+            (ty == types["cuboid"])
+            | (ty == types["cone"])
+            | (ty == types["cylinder"])
+            | (ty == types["convex_poly"])
+            | (ty == types["triangle"])
+        )
+        if (ty == types["ball"]) | (ty == types["capsule"]):
+            for word in T.serial(l["shape_words"]):
+                Output[word] = T.uint32(0)
+            Output[sf["a"] + 3] = T.uint32(types["capsule"])
+            Valid[0] = True
+            if ty == types["ball"]:
+                Thickness[0] = f32(Shapes, base + sf["a"])
+            else:
+                for d in T.serial(3):
+                    Output[sf["a"] + d] = Shapes[base + sf["a"] + d]
+                    Output[sf["b"] + d] = Shapes[base + sf["b"] + d]
+                Thickness[0] = f32(Shapes, base + sf["b"] + 3)
+
+    return one

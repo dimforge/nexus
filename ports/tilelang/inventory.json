@@ -728,10 +728,17 @@
     {
       "reference": "src_rbd_shaders/queries/contact_pfm_pfm.rs",
       "implementation": "ports/tilelang/shaders/queries/contact_pfm_pfm.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.query.pfm_manifold3d"
+      ],
+      "symbols": [
+        "contact_support_map_support_map",
+        "triangle_face_normal_towards",
+        "dedup_manifold_points",
+        "contact_manifold_pfm_pfm"
+      ],
+      "remaining": "All native 3D functions are translated; native secondary-witness approximation remains an explicit release gap until scene qualification or a paired fix."
     },
     {
       "reference": "src_rbd_shaders/queries/gjk/cso_point.rs",
@@ -1055,7 +1062,8 @@
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
-        "rbd.query.support_face3d"
+        "rbd.query.support_face3d",
+        "rbd.query.pfm_subshape3d"
       ],
       "symbols": [
         "compute_aabb",
@@ -1066,9 +1074,10 @@
         "cuboid_support_face",
         "local_support_point",
         "support_point",
-        "support_face"
+        "support_face",
+        "pfm_subshape"
       ],
-      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
+      "remaining": "Seven convex support maps, support faces and PFM conversion are implemented; general collider dispatch and production runtime remain."
     },
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
@@ -1489,7 +1498,9 @@
         "rbd.query.epa_closest3d",
         "rbd.query.gjk_epa3d",
         "rbd.query.support_face3d",
-        "rbd.query.polygonal_contacts3d"
+        "rbd.query.polygonal_contacts3d",
+        "rbd.query.pfm_subshape3d",
+        "rbd.query.pfm_manifold3d"
       ],
       "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
     },
@@ -1514,7 +1525,9 @@
         "rbd.query.epa_closest3d",
         "rbd.query.gjk_epa3d",
         "rbd.query.support_face3d",
-        "rbd.query.polygonal_contacts3d"
+        "rbd.query.polygonal_contacts3d",
+        "rbd.query.pfm_subshape3d",
+        "rbd.query.pfm_manifold3d"
       ],
       "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
     },
@@ -1538,7 +1551,9 @@
         "rbd.query.epa_closest3d",
         "rbd.query.gjk_epa3d",
         "rbd.query.support_face3d",
-        "rbd.query.polygonal_contacts3d"
+        "rbd.query.polygonal_contacts3d",
+        "rbd.query.pfm_subshape3d",
+        "rbd.query.pfm_manifold3d"
       ],
       "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
     },

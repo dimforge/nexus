@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "feature": "rbd.query.pfm_subshape3d",
+  "scope": "Native 3D pfm_subshape for ball, cuboid, capsule, cone, cylinder, indexed convex polyhedron and triangle",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Shapes",
+    "Poses",
+    "Vertices",
+    "Indices",
+    "Inputs",
+    "Output",
+    "SubShapes",
+    "Radii"
+  ],
+  "outputs": [
+    "SubShapes",
+    "Radii"
+  ],
+  "comparison": "pfm_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "max_tangent_drift": 0.0001,
+  "tolerance_reason": "Conversion is bit exact, as are contact counts, readonly storage and guards. Normals, distances and contact planes use 2e-6/2e-5. Nonunique contact coordinates may differ by at most 1e-4 in these unit-scale fixtures only when BOTH results lie inside both original shapes. At exactly coincident independently centrally symmetric shapes, opposite normals require reflected contact points under the original strict tolerance. Raw differences remain reported; approximate native secondary witnesses never unlock relaxed coordinate comparison.",
+  "preconditions": [
+    "Finite supported convex shapes, valid indexed faces, normalized relative poses, nonnegative predictions and native-exported ABI",
+    "Each invocation owns its output row; subshape conversion and contact generation are ordered device stages with resident buffers"
+  ],
+  "invariants": [
+    "Exact converted shapes, border radii, valid flags and contact cardinalities",
+    "Nonempty manifolds have finite unit normals, in-shape primary points and distances within independent support/prediction bounds",
+    "No regression in secondary-witness containment; remaining native misses are reported per pair and point",
+    "No host physics between conversion, GJK/EPA and clipping"
+  ],
+  "outside_scope": [
+    "Deferred mesh/polyline narrow-phase, production scene integration and broad collision stability qualification",
+    "Ascend vendor compilation, device execution and performance"
+  ],
+  "reference_limitations": [
+    "Bounded GJK/EPA may fail and return no contacts; zero-dimensional native fallback is retained",
+    "Native feature approximations and edge clipping can produce reconstructed secondary witnesses outside the second shape; these cases retain strict numeric comparison and explicit diagnostic lists"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n49",
+    "n65",
+    "n129",
+    "n343"
+  ]
+}

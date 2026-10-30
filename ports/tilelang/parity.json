@@ -1370,6 +1370,32 @@
       "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
       "contract": "ports/tilelang/contracts/polygonal_contacts.json",
       "test_command": "python ports/tilelang/feature_replay.py --operation polygonal_contacts --target c"
+    },
+    {
+      "id": "rbd.query.pfm_subshape3d",
+      "operation": "pfm_subshape",
+      "runner": "pfm_replay.py",
+      "coverage": "Native convex PFM subshape conversion",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::pfm_subshape"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::pfm_subshape",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/pfm_subshape.json",
+      "test_command": "python ports/tilelang/pfm_replay.py --operation pfm_subshape --target c"
+    },
+    {
+      "id": "rbd.query.pfm_manifold3d",
+      "operation": "pfm_manifold",
+      "runner": "pfm_replay.py",
+      "coverage": "Native GJK/EPA, support-feature clipping, border radii, triangle backface recovery and contact deduplication",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/contact_pfm_pfm.rs::contact_manifold_pfm_pfm"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/contact_pfm_pfm.py::contact_manifold_pfm_pfm",
+      "dependency_policy": "Every watched Rust and TileLang source conservatively invalidates evidence.",
+      "contract": "ports/tilelang/contracts/pfm_manifold.json",
+      "test_command": "python ports/tilelang/pfm_replay.py --operation pfm_manifold --target c"
     }
   ],
   "targets": [

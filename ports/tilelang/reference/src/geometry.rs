@@ -23,6 +23,8 @@ mod queries {
 mod feature_fixture;
 mod feature_layout;
 mod geometry_layout;
+mod pfm_fixture;
+mod pfm_layout;
 mod polygonal_fixture;
 mod projection_fixture;
 mod simplex_fixture;
@@ -36,7 +38,7 @@ fn main() {
     fs::create_dir_all(root).unwrap();
     fs::write(
         root.join("layout.json"),
-        serde_json::to_vec_pretty(&feature_layout::layout()).unwrap(),
+        serde_json::to_vec_pretty(&pfm_layout::layout()).unwrap(),
     )
     .unwrap();
     for kind in [
@@ -54,6 +56,8 @@ fn main() {
         "gjk_epa",
         "support_face",
         "polygonal_contacts",
+        "pfm_subshape",
+        "pfm_manifold",
     ] {
         let mut cases = vec![];
         let support = kind.starts_with("support_")
@@ -65,7 +69,7 @@ fn main() {
             &[0, 1, 7, 33, 65, 129, 168]
         } else if kind == "polygonal_contacts" {
             &[0, 1, 25, 65, 129, 300]
-        } else if support {
+        } else if support || kind.starts_with("pfm_") {
             &[0, 1, 49, 65, 129, 343]
         } else {
             &[0, 1, 24, 33, 65, 129]
@@ -76,6 +80,8 @@ fn main() {
                 feature_fixture::fixture(&directory, count)
             } else if kind == "polygonal_contacts" {
                 polygonal_fixture::fixture(&directory, count)
+            } else if kind.starts_with("pfm_") {
+                pfm_fixture::fixture(&directory, kind, count)
             } else if support {
                 support_fixture::fixture(&directory, kind, count)
             } else if kind.starts_with("simplex_") {
