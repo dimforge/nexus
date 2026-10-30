@@ -24,8 +24,9 @@ Remaining implementation sequence:
    are implemented with device-loaded coefficients. Connect these to the general production
    frame sequence. A composed native TGS frame now handles fresh supplied
    manifolds and two fixed colors, with body initialization, gravity, contact
-   preparation, substeps and finalization. Collision generation, changing topology,
-   general coloring and hubs still need integration. Unbounded Luby scheduling remains.
+   preparation, substeps and finalization. Collision generation and changing topology
+   are now connected in the general fixture scene controller. Production scheduling
+   and hubs still need integration. Unbounded Luby scheduling remains.
    Palette/iteration exhaustion routes
    unresolved contacts to the Rust unsolved bucket (retained for warmstart, not solved);
    preserve and explicitly assess that limitation in scene tests. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
@@ -34,8 +35,8 @@ Remaining implementation sequence:
    the existing reference collision path may be retained only for an explicitly
    labeled intermediate hybrid milestone.
 3. Native world bounds for every 3D shape tag and brute-force candidate-pair
-   kernels are implemented, including an ordered bounds/pairs program. LBVH,
-   scene integration and deferred contact generation remain. The complete native
+   kernels are implemented, including an ordered bounds/pairs program. All twelve 3D LBVH stages are translated; resident LBVH composition,
+   production scene integration and overflow retry remain. The complete native
    analytic first pass now handles ball/primitive and box/box contacts, including
    material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; Bounded EPA and its GJK composition are translated; polygonal support faces and generic 3D clipping are also implemented. Composed convex PFM manifolds are translated with exact conversion, independent witness checks and a retained native secondary-witness approximation gap. Deferred convex/mesh/polyline dispatch, work-list keys and contact reduction are now translated as isolated stages. Resident deferred ordering and reduction are now connected to fifteen general collision scenes with all-frame trajectory checks. Runtime overflow retry and production composition remain. PFM counter reset and contact-plan publication are implemented;
    a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
@@ -49,8 +50,9 @@ Remaining implementation sequence:
    row construction, orthogonalization and colored solve) are ported. They are connected to analytic frames, with sixteen joint scenes and all-frame
    device trajectory checks. General runtime scene upload remains. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
    restitution, empty inputs and interleaved batches through connected steps and
-   1/8/120-frame checkpoints with independent physical assertions. Add joints,
-   generic collision and continuous trajectory diagnostics. Compare intermediate stages and short-run checkpoints to Rust;
+   1/8/120-frame checkpoints with independent physical assertions. Ordinary joints and
+   general collision have all-frame traces; extend analytic traces and broader scene
+   coverage. Compare intermediate stages and short-run checkpoints to Rust;
    test long-run bounded penetration, energy/momentum behavior and stability.
    Keep sleeping disabled for benchmarks and stability comparisons.
 5. Complete offline Ascend source coverage, immutable scene/kernel handoff bundles,
@@ -73,3 +75,9 @@ C/Metal numeric parity (final velocity difference about 6.58e-4), while both
 trajectories satisfy the independent physical assertions. Keep it blocked until
 the contact-sensitive numerical behavior has a justified, tested policy; all
 sixteen scene cases remain required.
+
+The general triangle 120-frame fixture also fails strict numeric parity on C and
+Metal, with a final pose component difference about 1.04e-4 and transient angular
+velocity difference about 0.00624. Both trajectories satisfy the independent
+physical checks. Identical-state single-frame diagnostics are in progress; this
+case remains required and blocked until a justified numerical policy is tested.

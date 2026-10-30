@@ -1507,6 +1507,162 @@
       "test_command": "python ports/tilelang/general_scene_replay.py --target c",
       "runner": "general_scene_replay.py",
       "operation": "general_scene"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_domain3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_compute_domain"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_compute_domain",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_domain.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_domain --target c",
+      "operation": "lbvh_domain",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_domain_merge3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_domain_merge"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_domain_merge",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_domain_merge.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_domain_merge --target c",
+      "operation": "lbvh_domain_merge",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_morton3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_compute_morton"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_compute_morton",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_morton.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_morton --target c",
+      "operation": "lbvh_morton",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_build3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_build"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_build",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_build.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_build --target c",
+      "operation": "lbvh_build",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_escapes3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_escapes"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_escapes",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_escapes.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_escapes --target c",
+      "operation": "lbvh_escapes",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_leaves3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_refit_leaves"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_refit_leaves",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_leaves.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_leaves --target c",
+      "operation": "lbvh_leaves",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_refit_chunks3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_refit_chunks"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_refit_chunks",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_refit_chunks.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_refit_chunks --target c",
+      "operation": "lbvh_refit_chunks",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_refit_frontier3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_refit_frontier"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_refit_frontier",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_refit_frontier.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_refit_frontier --target c",
+      "operation": "lbvh_refit_frontier",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_pairs3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_find_collision_pairs"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_find_collision_pairs",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_pairs.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_pairs --target c",
+      "operation": "lbvh_pairs",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_refit_plan3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_refit_plan"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_refit_plan",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_refit_plan.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_refit_plan --target c",
+      "operation": "lbvh_refit_plan",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.lbvh_reset3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_lbvh_reset_collision_pairs"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_lbvh_reset_collision_pairs",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/lbvh_reset.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation lbvh_reset --target c",
+      "operation": "lbvh_reset",
+      "runner": "lbvh_replay.py"
+    },
+    {
+      "id": "rbd.broadphase.flat_list_dispatch3d",
+      "coverage": "Native 3D LBVH stage with interleaved collider state and batch-major tree/scratch storage; full resident build/sort/traversal composition and production integration remain",
+      "reference_symbols": [
+        "src_rbd_shaders/broad_phase/lbvh.rs::gpu_flat_list_dispatch"
+      ],
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py::gpu_flat_list_dispatch",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/flat_list_dispatch.json",
+      "test_command": "python ports/tilelang/lbvh_replay.py --operation flat_list_dispatch --target c",
+      "operation": "flat_list_dispatch",
+      "runner": "lbvh_replay.py"
     }
   ],
   "targets": [

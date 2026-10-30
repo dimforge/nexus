@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "feature": "rbd.broadphase.lbvh_domain_merge3d",
+  "scope": "Native gpu_lbvh_domain_merge over bounded validated 3D LBVH inputs",
+  "inputs": [
+    "Pairs",
+    "Groups",
+    "Filters",
+    "Poses",
+    "Shapes",
+    "Vertices",
+    "Partials",
+    "Domain",
+    "Keys",
+    "Sorted",
+    "Tree",
+    "Frontier",
+    "FrontierLen",
+    "Rounds",
+    "PairCount",
+    "Indirect",
+    "BatchIds"
+  ],
+  "outputs": [
+    "Domain"
+  ],
+  "comparison": "lbvh_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "preconditions": [
+    "Finite normalized poses, validated geometry, bounded counts and correctly sized batch-major scratch and interleaved state",
+    "Build consumes stable sorted 30-bit Morton keys and a collider permutation; topology and escape inputs are independently checked",
+    "Empty build/leaves/pair traversal and fewer-than-two-leaf refits are skipped by the controller to preserve native unsigned-count preconditions",
+    "Refit frontier contains unique valid node IDs; collision groups use native And/Or semantics"
+  ],
+  "invariants": [
+    "Integer topology, Morton keys, counters, copied words, read-only inputs and untouched capacity storage remain exact",
+    "Tree graph covers each sorted leaf exactly once, parent links and ranges agree, and escape links implement depth-first traversal",
+    "Leaf AABBs enclose independent shape support; completed internal bounds equal child unions and maximum leaf extent",
+    "Frontier order and pair allocation order may differ, but legal membership, uniqueness, total requested counts and capacity guards are exact",
+    "CPU executes cooperative phases in order; Metal explicitly fences device and threadgroup memory between refit levels",
+    "Morton clamp is evaluated after exact power-of-two scaling to preserve the native value without the compiler truncating its fractional endpoint"
+  ],
+  "outside_scope": [
+    "Full resident Morton sort/build/refit/traversal composition and production backend integration",
+    "2D LBVH and performance qualification",
+    "Ascend vendor compilation, execution and device-memory synchronization qualification"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-g1-mixed",
+    "n1-b2-g1-collapsed",
+    "n2-b1-g1-mixed",
+    "n33-b3-g1-mixed",
+    "n65-b2-g2-flat",
+    "n129-b1-g1-duplicates",
+    "n257-b2-g3-mixed",
+    "n513-b1-g2-collapsed",
+    "n33-b2-g1-overflow",
+    "n65-b2-g2-filters"
+  ],
+  "tolerance_reason": "Only leaf world-bound arithmetic uses 2e-6 absolute / 2e-5 relative; all keys, topology and union-only refit arithmetic remain exact. No relaxed Morton-key comparison."
+}

@@ -46,17 +46,47 @@
     {
       "reference": "src_rbd_shaders/broad_phase/lbvh.rs",
       "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.brute_pairs3d",
         "rbd.broadphase.brute_pairs_serial3d",
-        "rbd.broadphase.pairs_program3d"
+        "rbd.broadphase.pairs_program3d",
+        "rbd.broadphase.lbvh_domain3d",
+        "rbd.broadphase.lbvh_domain_merge3d",
+        "rbd.broadphase.lbvh_morton3d",
+        "rbd.broadphase.lbvh_build3d",
+        "rbd.broadphase.lbvh_escapes3d",
+        "rbd.broadphase.lbvh_leaves3d",
+        "rbd.broadphase.lbvh_refit_chunks3d",
+        "rbd.broadphase.lbvh_refit_frontier3d",
+        "rbd.broadphase.lbvh_pairs3d",
+        "rbd.broadphase.lbvh_refit_plan3d",
+        "rbd.broadphase.lbvh_reset3d",
+        "rbd.broadphase.flat_list_dispatch3d"
       ],
       "symbols": [
-        "scratch_start"
+        "scratch_start",
+        "gpu_lbvh_compute_domain",
+        "gpu_lbvh_domain_merge",
+        "gpu_lbvh_compute_morton",
+        "gpu_lbvh_build",
+        "gpu_lbvh_escapes",
+        "gpu_lbvh_refit_leaves",
+        "gpu_lbvh_refit_chunks",
+        "gpu_lbvh_refit_frontier",
+        "gpu_lbvh_find_collision_pairs",
+        "gpu_lbvh_refit_plan",
+        "gpu_lbvh_reset_collision_pairs",
+        "gpu_flat_list_dispatch",
+        "root_id",
+        "morton_3d",
+        "expand_bits_3d",
+        "prefix_len",
+        "refit_node",
+        "refit_barrier"
       ],
-      "remaining": "Only shared batch-major scratch indexing; LBVH algorithms remain unported."
+      "remaining": "All native 3D entry points translated. Refit uses the native fixed 64-level web-compatible schedule rather than any_lane_active early exits. Full resident composition, production integration, performance and Ascend device memory semantics remain unqualified."
     },
     {
       "reference": "src_rbd_shaders/broad_phase/mod.rs",
@@ -1489,7 +1519,7 @@
         "rbd.contact.coulomb.colored_program3d",
         "rbd.contact.coefficients3d"
       ],
-      "remaining": "Coulomb preparation, cached warmstart, native color ranges and composed contact color passes are ported. Full frame/topology integration, shared static slot policy, fused/tail variants and scene validation remain."
+      "remaining": "Preparation, warmstart, native ordered color ranges and resident analytic/joint/general fixture frames are translated. Remaining fused/tail variants, production scheduling and numerical qualification remain."
     },
     {
       "id": "rbd.broadphase.brute_force",
@@ -1501,14 +1531,27 @@
         "rbd.broadphase.brute_pairs_serial3d",
         "rbd.broadphase.pairs_program3d"
       ],
-      "remaining": "All native brute-force kernels and ordered AABB/pair dispatch are implemented; scene integration and performance validation remain."
+      "remaining": "All native brute-force stages and resident analytic/general fixture scenes are implemented. Production integration, overflow retry and performance qualification remain."
     },
     {
       "id": "rbd.broadphase.lbvh",
       "description": "LBVH construction, refit and traversal",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.broadphase.lbvh_domain3d",
+        "rbd.broadphase.lbvh_domain_merge3d",
+        "rbd.broadphase.lbvh_morton3d",
+        "rbd.broadphase.lbvh_build3d",
+        "rbd.broadphase.lbvh_escapes3d",
+        "rbd.broadphase.lbvh_leaves3d",
+        "rbd.broadphase.lbvh_refit_chunks3d",
+        "rbd.broadphase.lbvh_refit_frontier3d",
+        "rbd.broadphase.lbvh_pairs3d",
+        "rbd.broadphase.lbvh_refit_plan3d",
+        "rbd.broadphase.lbvh_reset3d",
+        "rbd.broadphase.flat_list_dispatch3d"
+      ],
+      "remaining": "All native 3D LBVH stages are translated and independently checked. Resident Morton sort/build/refit/traversal composition, production integration and performance qualification remain."
     },
     {
       "id": "rbd.collision.primitives",
@@ -1545,7 +1588,7 @@
         "rbd.collision.reduce_contacts3d",
         "rbd.pipeline.general_scene3d"
       ],
-      "remaining": "World bounds and the full native analytic first pass are implemented. Deferred/contact-plan composition, generic support queries and scene integration remain."
+      "remaining": "Native world bounds, support maps, analytic and deferred contact generation are connected to resident fixture scenes. Production integration and long-scene numerical qualification remain."
     },
     {
       "id": "rbd.collision.convex",
@@ -1579,7 +1622,7 @@
         "rbd.collision.reduce_contacts3d",
         "rbd.pipeline.general_scene3d"
       ],
-      "remaining": "Bounds plus cuboid SAT/face clipping are implemented; generic convex support, GJK/EPA/PFM and scene integration remain."
+      "remaining": "Native 3D GJK, EPA, SAT and polygonal manifolds are connected to resident general-collision fixture scenes. Secondary-witness clipping and long-scene numerical qualification remain explicit gaps."
     },
     {
       "id": "rbd.collision.composite",
@@ -1612,14 +1655,14 @@
         "rbd.collision.reduce_contacts3d",
         "rbd.pipeline.general_scene3d"
       ],
-      "remaining": "Native shape world-AABB branches only; contact generation, support maps and composite traversal remain unported."
+      "remaining": "Native mesh/polyline deferred traversal, subshape conversion, work sorting and reduction are connected to resident fixture scenes. Point queries, mesh pseudonormals, arbitrary capacity retry and production integration remain."
     },
     {
       "id": "rbd.queries",
       "description": "Ray and point queries",
       "coverage": "unported",
       "operations": [],
-      "remaining": "Unported."
+      "remaining": "Native primitive projection, simplex, support maps, GJK/EPA and polygonal query stages are translated. Remaining mesh point projection, pseudonormals and other public query helpers are tracked by module."
     },
     {
       "id": "rbd.contact.persistence",
@@ -1632,7 +1675,7 @@
         "rbd.contact.persistence3d",
         "rbd.contact.coulomb.prepare3d"
       ],
-      "remaining": "Matching, geometry reuse and impulse transfer are ported; production frame lifecycle and changing-scene validation remain pending."
+      "remaining": "Matching, geometry reuse and impulse transfer are connected to changing-contact fixture scenes. Production runtime integration and contact-sensitive numerical qualification remain."
     },
     {
       "id": "rbd.scheduling.colors",

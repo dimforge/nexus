@@ -137,3 +137,7 @@ path = "src/deferred.rs"
 [[bin]]
 name = "general-scenes"
 path = "src/general_scenes.rs"
+
+[[bin]]
+name = "lbvh"
+path = "src/lbvh.rs"
