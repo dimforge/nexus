@@ -2,7 +2,7 @@
 
 import tilelang.language as T
 from body_validation import dispatch_count
-from shaders.dynamics import solver, mprops_update
+from shaders.dynamics import mprops_update, solver
 
 
 def make_kernel(layout, case, target):
@@ -16,6 +16,7 @@ def make_kernel(layout, case, target):
     integrate = solver._integrate_linearized_body(layout, case["count"])
     n = dispatch_count(case)
     storage = case["storage"]
+    nsv = case.get("solver_storage", storage) * layout["velocity_words"]
     nv = storage * layout["velocity_words"]
     np = storage * layout["pose_words"]
     nl = storage * layout["local_words"]
@@ -61,7 +62,7 @@ def make_kernel(layout, case, target):
         @T.prim_func
         def kernel(
             Velocities: T.Tensor((nv,), "uint32"),
-            SolverVelocities: T.Tensor((nv,), "uint32"),
+            SolverVelocities: T.Tensor((nsv,), "uint32"),
             Increments: T.Tensor((nv,), "uint32"),
             Poses: T.Tensor((np,), "uint32"),
             SolverPoses: T.Tensor((np,), "uint32"),
@@ -94,7 +95,7 @@ def make_kernel(layout, case, target):
         @A.prim_func
         def kernel(
             Velocities: A.Tensor((nv,), "uint32"),
-            SolverVelocities: A.Tensor((nv,), "uint32"),
+            SolverVelocities: A.Tensor((nsv,), "uint32"),
             Increments: A.Tensor((nv,), "uint32"),
             Poses: A.Tensor((np,), "uint32"),
             SolverPoses: A.Tensor((np,), "uint32"),
@@ -126,7 +127,7 @@ def make_kernel(layout, case, target):
         @T.prim_func
         def kernel(
             Velocities: T.Tensor((nv,), "uint32"),
-            SolverVelocities: T.Tensor((nv,), "uint32"),
+            SolverVelocities: T.Tensor((nsv,), "uint32"),
             Increments: T.Tensor((nv,), "uint32"),
             Poses: T.Tensor((np,), "uint32"),
             SolverPoses: T.Tensor((np,), "uint32"),

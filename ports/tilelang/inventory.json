@@ -378,7 +378,8 @@
         "rbd.scheduling.hub_split3d",
         "rbd.scheduling.hub_dispatch3d",
         "rbd.scheduling.hub_scatter3d",
-        "rbd.scheduling.hub_average3d"
+        "rbd.scheduling.hub_average3d",
+        "rbd.pipeline.runtime_scene3d"
       ],
       "symbols": [
         "gpu_hub_assign",
@@ -387,7 +388,7 @@
         "gpu_hub_scatter",
         "gpu_hub_average"
       ],
-      "remaining": "Production orchestration, full contact/color integration and scene stability remain unvalidated."
+      "remaining": "Connected native C/Metal frame coverage includes one and two 33-contact split hubs and allocation-aware ownership validation. Broad dense-scene stability and Ascend hardware synchronization remain to be qualified; standalone contracts cover capacity overflow and cancellation."
     },
     {
       "reference": "src_rbd_shaders/dynamics/mod.rs",

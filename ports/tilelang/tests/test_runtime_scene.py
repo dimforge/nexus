@@ -42,6 +42,109 @@ class RuntimeSceneTests(unittest.TestCase):
         k.pop("numeric_policies", None)
         return l, c, b, e, k
 
+    def test_hub_pool_uses_native_allocation_not_guard_rows(self):
+        l, c, b, e, k = self.fixture("large-batch-storage-f1")
+        self.assertEqual(c["native_body_slots"], 1026)
+        self.assertEqual(c["hub_pool"], 1026)
+        self.assertGreater(c["body_storage"], c["hub_pool"])
+        check_outputs(l, c, b, e, e, k)
+        c["hub_pool"] = c["body_storage"]
+        with self.assertRaises(ValueError):
+            validate_case(l, c, b)
+
+    def test_native_split_hubs_and_corrupt_ownership(self):
+        for name, expected_hubs in (("split-hub-f8", 1), ("split-hubs-f8", 2)):
+            l, c, b, e, k = self.fixture(name)
+            self.assertEqual(int(e["HubCounts"][l["hub"]["hubs"]]), expected_hubs)
+            self.assertEqual(int(e["HubCounts"][l["hub"]["slots"]]), expected_hubs * 33)
+            check_outputs(l, c, b, e, e, k)
+        for mutation in (
+            "slot_body",
+            "slot_constraint",
+            "reservation",
+            "scale",
+            "tile_slot",
+            "tail_counts",
+            "solver_guard",
+        ):
+            l, c, b, e, k = self.fixture("split-hubs-f1")
+            if mutation == "slot_body":
+                e["SlotBody"][0] = c["body_count"]
+            elif mutation == "slot_constraint":
+                e["SlotConstraint"][0] = c["contact_capacity"]
+            elif mutation == "reservation":
+                e["FirstSlot"][int(e["HubList"][1])] = e["FirstSlot"][
+                    int(e["HubList"][0])
+                ]
+            elif mutation == "scale":
+                e["Links"].view(np.float32)[l["link"]["mass_scale_a"]] = 1
+            elif mutation == "tile_slot":
+                e["Tiles"][l["header"]["diag_a"] + 3] = 0
+            elif mutation == "tail_counts":
+                e["Counts"][-1] = 0
+            else:
+                e["SolverVelocities"][-1] ^= 1
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                check_outputs(l, c, b, e, e, k)
+
+    def test_valid_hub_reservation_permutation(self):
+        l, c, b, e, k = self.fixture("split-hubs-f1")
+        a = {n: v.copy() for n, v in e.items()}
+        base = c["body_storage"]
+        degree = 33
+        # Exchange two complete reservations, preserving each exact owner and constraint.
+        for name, width in (
+            ("SlotBody", 1),
+            ("SlotConstraint", 1),
+            ("SolverVelocities", l["velocity_words"]),
+        ):
+            rows = a[name].reshape(-1, width)
+            start = base if name == "SolverVelocities" else 0
+            rows[start : start + 2 * degree] = (
+                rows[start : start + 2 * degree]
+                .reshape(2, degree, width)[::-1]
+                .reshape(2 * degree, width)
+            )
+
+        def remap(slot):
+            return (
+                slot + degree
+                if base <= slot < base + degree
+                else slot - degree
+                if base + degree <= slot < base + 2 * degree
+                else slot
+            )
+
+        for body in a["HubList"][:2]:
+            a["FirstSlot"][body] = remap(int(a["FirstSlot"][body]) + base) - base
+        a["HubList"][:2] = a["HubList"][:2][::-1]
+        for name in ("Links", "OldLinks", "SortedLinks"):
+            rows = a[name].reshape(-1, l["link_words"])
+            for row in rows[: int(a["Plan"][l["plan"]["bound"]])]:
+                if row[l["link"]["len"]]:
+                    for field in ("vel_slot_a", "vel_slot_b"):
+                        row[l["link"][field]] = remap(int(row[l["link"][field]]))
+        for name in ("Tiles", "OldTiles"):
+            for cid in range(int(a["Plan"][l["plan"]["bound"]])):
+                slot = int(a["Indices"][cid])
+                start = slot // 32 * l["tile_words"] + slot % 32 * 4
+                for field in ("diag_a", "off_a"):
+                    i = start + l["header"][field] + 3
+                    a[name][i] = remap(int(a[name][i]))
+        check_outputs(l, c, b, a, e, k)
+
+    def test_native_hub_input_and_body_group_validation(self):
+        for mutation in ("body_group", "pool", "solver_storage"):
+            l, c, b, _, _ = self.fixture()
+            if mutation == "body_group":
+                b["BodyGroup"][1] = 0
+            elif mutation == "pool":
+                c["hub_pool"] -= 1
+            else:
+                c["solver_storage"] -= 1
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                validate_case(l, c, b)
+
     def test_many_batch_prefix_scratch_and_guards(self):
         l, c, b, e, k = self.fixture("many-batches-f8")
         self.assertEqual(c["bucket_strides"], [264, 2, 1, 1])

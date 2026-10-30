@@ -206,7 +206,13 @@ def check_checkpoint(l, c, b, a, e, k):
             v.dtype != np.uint32 or v.shape != b[n].shape for n, v in r.items()
         ):
             raise ValueError("Invalid general scene returned storage")
-    bc, ac, ec = ({n: r[n] for n in base.BUFFERS} for r in (b, a, e))
+    from scene_hub_validation import BUFFERS as HUBS
+    from scene_hub_validation import compare_velocities
+
+    buffers = base.BUFFERS + (HUBS if c.get("hub_pool") else ())
+    bc, ac, ec = ({n: r[n] for n in buffers} for r in (b, a, e))
+    if c.get("hub_pool"):
+        compare_velocities(l, c, a, e, k)
     outputs.check_guards(l, c, bc, ac, ec)
     for r in (a, e):
         for name in ("GeometryIndices", "PfmIdentity"):

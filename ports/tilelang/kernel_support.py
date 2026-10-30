@@ -24,7 +24,7 @@ def relative_velocity(direction, torque_a, torque_b, va, vb):
 
 def launch(one, layout, case, target, n):
     nt = case["tiles"] * layout["tile_words"]
-    nv = case["bodies"] * layout["velocity_words"]
+    nv = case.get("solver_storage", case["bodies"]) * layout["velocity_words"]
     np = case["bodies"] * layout["pose_words"]
     if target == "c":
 

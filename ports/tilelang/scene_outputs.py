@@ -47,6 +47,19 @@ def check_guards(l, c, b, a, e):
             "colliders_per_batch",
         )
     )
+    if c.get("hub_pool"):
+        pool, base = c["hub_pool"], c["body_storage"]
+        for name, size in (
+            ("HubList", pool // l["hub_min_constraints"] + 1),
+            ("SlotBody", pool),
+            ("SlotConstraint", pool),
+            ("SlotsIndirect", 3),
+            ("AverageIndirect", 3),
+        ):
+            prefix(name, size)
+        masks["SolverVelocities"][
+            base * l["velocity_words"] : (base + pool) * l["velocity_words"]
+        ] = True
     prefix("ColliderPoses", c.get("collider_count", n) * l["pose_words"])
     for batch in range(nb):
         start = batch * c.get("body_capacity_per_batch", per + 3) * l["aabb_words"]
@@ -130,6 +143,10 @@ def check_bodies(l, c, b, a, e, contract):
             l, body_case(c, kind), {n: b[n] for n in BODY_BUFFERS}
         ).items():
             masks[name] = np.maximum(masks[name], m)
+    if c.get("hub_pool"):
+        masks["FirstSlot"][:] = (
+            0  # Checked by exact hub ownership, independent of allocation order.
+        )
     # These are body-integration coefficients, all six fields are floating point.
     masks["Params"][:] = 1
     for name in ("ColliderPoses",):
@@ -349,14 +366,15 @@ def check_graph(l, c, a, e):
                 if (
                     body >= n
                     or link[lf["solver_body_" + side]] != body
-                    or link[lf["vel_slot_" + side]] != body
+                    or (not c.get("hub_pool") and link[lf["vel_slot_" + side]] != body)
                 ):
                     raise AssertionError("Scene link body ownership")
                 if dynamic[body]:
                     rows[body].append(i)
-                    if body in writers[color]:
+                    writer = int(link[lf["vel_slot_" + side]])
+                    if writer in writers[color]:
                         raise AssertionError("Scene color has concurrent writable body")
-                    writers[color].add(body)
+                    writers[color].add(writer)
             if bodies[0] % nb != bodies[1] % nb:
                 raise AssertionError("Cross-batch scene contact")
             buckets[color * nb + int(bodies[0]) % nb].append(i)
@@ -411,6 +429,10 @@ def check_graph(l, c, a, e):
     for i in range(count):
         if ar[i, lf["len"]]:
             keep = np.arange(l["link_words"]) != lf["previous_constraint_index"]
+            if c.get("hub_pool"):
+                keep[[lf["vel_slot_a"], lf["vel_slot_b"]]] = (
+                    False  # Exact ownership is checked separately.
+                )
             np.testing.assert_array_equal(
                 ar[i, keep], er[i, keep], err_msg="Scene contact link fields"
             )
@@ -509,7 +531,14 @@ def check_constraints(l, c, a, e, contract, count):
                     cm[l[field] : l[field] + 3] = True
                 mask.extend(cm)
                 labels.extend(["TileCache"] * l["velocity_words"])
-            output.extend((tile[words], np.array(mask), np.array(labels)))
+            compared = tile[words].copy()
+            if c.get("hub_pool"):
+                for side, tag in (("a", "diag_a"), ("b", "off_a")):
+                    # Resolve a checked allocation-dependent slot to its exact body identity.
+                    compared[words.index(base + h[tag] + 3)] = result["Links"][
+                        cid * l["link_words"] + lf["solver_body_" + side]
+                    ]
+            output.extend((compared, np.array(mask), np.array(labels)))
         if not np.array_equal(av[1], ev[1]):
             raise AssertionError("Scene prepared point count differs")
         mask = av[1]

@@ -59,8 +59,9 @@ then rejects further stepping.
 
 The integration remains experimental. Cold-start uploads do not preserve existing
 contact caches. Topo coloring, Coulomb friction, ordinary joints and LBVH are the
-current composed path; body insertion/removal, mutable scene inputs, split hubs,
-other friction models and remaining scheduling variants still need integration.
+current composed path, including native hub splitting. Body insertion/removal,
+continuation checkpoints, mutable solver configuration, other friction models and
+remaining scheduling variants still need integration.
 No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
 prepares source only for a future CANN execution adapter.
 
@@ -69,6 +70,7 @@ Run the explicit integration tests with current native fixtures:
 ```sh
 NEXUS_TILELANG_RUNTIME_PYTHON=/absolute/path/to/compiler/python \
 NEXUS_TILELANG_RUNTIME_EXPECTED=/absolute/path/to/runtime_scene/mesh-contact-joint-f8 \
+NEXUS_TILELANG_RUNTIME_EXPECTED_UNREDUCED=/absolute/path/to/runtime_scene/mesh-overlap-unreduced-f8 \
 NEXUS_TILELANG_RUNTIME_WORK=/absolute/path/to/existing/test-output \
 python3 ports/tilelang/cpu_oracle.py --native test --locked --features runtime \
   --test runtime -- --ignored --nocapture
@@ -93,3 +95,15 @@ unchanged. Gravity and body state migrate through capacity retries. Teleports ke
 the previous contact cache, which the next native matching pass revalidates.
 Changing body/collider membership or solver iteration counts remains a separate
 scene lifecycle operation; these setters do not change the compiled schedule.
+
+Native hubs use the ordinary body allocation followed by `max(native_body_slots, 1024)`
+split velocity slots. Assignment and constraint splitting run before coloring;
+scatter and cooperative averaging bracket each ordered contact pass. The ordinary
+body and collider ID spaces remain separate. Tests compare slot ownership by body
+and contact identity because atomic reservation order can differ across devices.
+Mass scaling, writer uniqueness, guards, physical state and counters remain checked.
+
+The hub runtime integration tests use `NEXUS_TILELANG_HUB_EXPECTED` pointing to the
+fresh `runtime_scene/split-hubs-f8` fixture, plus the compiler/workspace variables
+above. Run `--test runtime_hubs -- --ignored --nocapture`; both C and Metal start
+with capacity one, grow on demand, and compare eight frames plus untraced stepping.

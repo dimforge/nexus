@@ -100,3 +100,28 @@ pub fn small_contact_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJoi
     }
     (bodies, colliders, ImpulseJointSet::new())
 }
+
+/// A dynamic plate supported by 33 fixed balls: the plate must be split.
+pub fn hub_scene(shift: f32) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
+    let mut bodies = RigidBodySet::new();
+    let mut colliders = ColliderSet::new();
+    let plate = bodies.insert(
+        RigidBodyBuilder::dynamic()
+            .translation(Vec3::new(0., 0., shift))
+            .linvel(Vec3::new(0.1, -0.1, 0.02))
+            .can_sleep(false),
+    );
+    colliders.insert_with_parent(ColliderBuilder::cuboid(7., 0.5, 2.), plate, &mut bodies);
+    for i in 0..33 {
+        let body = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(
+            (i % 11) as f32 * 1.2 - 6.,
+            -0.99,
+            shift + (i / 11) as f32 * 1.2 - 1.2,
+        )));
+        colliders.insert_with_parent(ColliderBuilder::ball(0.5), body, &mut bodies);
+    }
+    for (_, body) in bodies.iter_mut() {
+        body.recompute_mass_properties_from_colliders(&colliders);
+    }
+    (bodies, colliders, ImpulseJointSet::new())
+}
