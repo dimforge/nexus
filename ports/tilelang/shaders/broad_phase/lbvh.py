@@ -537,6 +537,10 @@ def gpu_lbvh_refit_frontier(l, target):
 
 def gpu_lbvh_find_collision_pairs(l, c, target):
     cpu = target == "c"
+    # Ascend keeps the eight lane-owned pair slots private. This avoids the
+    # compiler inferring a cross-lane dependency inside divergent traversal.
+    # The workgroup prefix and atomic overflow allocation remain unchanged.
+    pair_stride = 1 if target == "ascend" else 64
     b, f, a, g = l["batch"], l["lbvh_node"], l["aabb"], l["groups"]
     w = l["lbvh_node_words"]
     groups = c["groups"]
@@ -568,6 +572,7 @@ def gpu_lbvh_find_collision_pairs(l, c, target):
         for t in T.serial(64 if cpu else 1):
             who = t if cpu else lane
             slot = t if cpu else 0
+            pair_lane = 0 if target == "ascend" else who
             counts[slot] = 0
             for it in T.serial((n + groups * 64 - 1) // (groups * 64)):
                 leaf = group * 64 + who + it * groups * 64
@@ -651,8 +656,12 @@ def gpu_lbvh_find_collision_pairs(l, c, target):
                                     ci = T.cast(T.min(i, j) * nb + batch, "uint32")
                                     cj = T.cast(T.max(i, j) * nb + batch, "uint32")
                                     if counts[slot] < 8:
-                                        WgPairs[counts[slot] * 64 + who, 0] = ci
-                                        WgPairs[counts[slot] * 64 + who, 1] = cj
+                                        WgPairs[
+                                            counts[slot] * pair_stride + pair_lane, 0
+                                        ] = ci
+                                        WgPairs[
+                                            counts[slot] * pair_stride + pair_lane, 1
+                                        ] = cj
                                         counts[slot] = counts[slot] + 1
                                     else:
                                         dest = T.atomic_add(
@@ -694,6 +703,7 @@ def gpu_lbvh_find_collision_pairs(l, c, target):
         for t in T.serial(64 if cpu else 1):
             who = t if cpu else lane
             slot = t if cpu else 0
+            pair_lane = 0 if target == "ascend" else who
             first = Base[0] + Scan[who] - T.cast(counts[slot], "uint32")
             for k in T.serial(8):
                 dest = first + T.cast(k, "uint32")
@@ -703,6 +713,6 @@ def gpu_lbvh_find_collision_pairs(l, c, target):
                             T.cast(dest, "int32") * l["pair_words"]
                             + l["pair_colliders"]
                             + side
-                        ] = WgPairs[k * 64 + who, side]
+                        ] = WgPairs[k * pair_stride + pair_lane, side]
 
     return one

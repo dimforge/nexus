@@ -254,7 +254,7 @@ def make_kernel(l, c, target):
                 with A.SimtVF(threads=threads):
                     Mins = T.alloc_shared((128, 3), "float32")
                     Maxs = T.alloc_shared((128, 3), "float32")
-                    WgPairs = T.alloc_shared((512, 2), "uint32")
+                    WgPairs = T.alloc_local((8, 2), "uint32")
                     Scan = T.alloc_shared((64,), "uint32")
                     Temp = T.alloc_shared((64,), "uint32")
                     Base = T.alloc_shared((1,), "uint32")

@@ -125,6 +125,33 @@ class LbvhTests(unittest.TestCase):
             with self.subTest(buffer=name), self.assertRaises(AssertionError):
                 check_outputs(l, c, b, a, e, k)
 
+    def test_ascend_pair_scratch_is_private(self):
+        try:
+            import tilelang.ascend.language  # noqa: F401
+        except ImportError:
+            self.skipTest("Ascend TileLang is not installed")
+        from lbvh_kernels import dimensions, make_kernel
+        from ordered import lower_program
+
+        l, c, b, _e, _k = self.fixture("lbvh_pairs", "n33-b3-g1-mixed")
+        blocks, threads, _ = dimensions(c)
+        sources, _ = lower_program(
+            [
+                {
+                    "name": "pairs",
+                    "kernel": make_kernel(l, c, "ascend"),
+                    "buffer_map": {n: n for n in BUFFERS},
+                    "blocks": blocks,
+                    "threads": threads,
+                }
+            ],
+            b,
+            "ascend",
+        )
+        source = next(iter(sources.values()))
+        self.assertIn("uint32_t WgPairs[16]", source)
+        self.assertGreaterEqual(source.count("asc_syncthreads();"), 3)
+
     def test_metal_refit_has_device_memory_workgroup_fence(self):
         try:
             import tilelang  # noqa: F401

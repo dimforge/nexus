@@ -40,7 +40,8 @@
     "Leaf AABBs enclose independent shape support; completed internal bounds equal child unions and maximum leaf extent",
     "Frontier order and pair allocation order may differ, but legal membership, uniqueness, total requested counts and capacity guards are exact",
     "CPU executes cooperative phases in order; Metal explicitly fences device and threadgroup memory between refit levels",
-    "Morton clamp is evaluated after exact power-of-two scaling to preserve the native value without the compiler truncating its fractional endpoint"
+    "Morton clamp is evaluated after exact power-of-two scaling to preserve the native value without the compiler truncating its fractional endpoint",
+    "Ascend stores eight candidate pairs privately per thread; scan and publication still use uniform workgroup barriers. The generated source must contain the private pair array."
   ],
   "outside_scope": [
     "Full resident Morton sort/build/refit/traversal composition and production backend integration",
