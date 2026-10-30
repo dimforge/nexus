@@ -2,11 +2,11 @@
 
 import json
 import os
-from pathlib import Path
 import shutil
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -327,3 +327,14 @@ class RadixHandoffTests(ScanHandoffTests):
 class CanonicalHandoffTests(ScanHandoffTests):
     operation = "canonical_contacts"
     mutable_buffer = "Output"
+
+
+class BoundaryHandoffTests(HandoffTests):
+    operation = "solve_boundary"
+
+    def test_counterfactual_inputs_remain_required(self):
+        directory = self.manifest["cases"][0]["directory"]
+        del self.manifest["files"][directory + "/HardTiles.bin"]
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, "missing from handoff"):
+            handoff.verify_bundle(self.bundle)

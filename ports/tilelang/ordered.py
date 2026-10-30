@@ -1,6 +1,71 @@
 """Compiler/export helpers for ordered kernels over persistent native buffers."""
 
+import hashlib
+import os
 import re
+from collections import OrderedDict
+
+
+class CompilationSession:
+    """Bounded reuse within one runner process; no fixtures or outputs are cached."""
+
+    def __init__(self, capacity=256):
+        if type(capacity) is not int or capacity < 1:
+            raise ValueError("Invalid compiler session capacity")
+        self.capacity = capacity
+        self.lowered = OrderedDict()
+        self.compiled = OrderedDict()
+        self.hits = {"lowering": 0, "c_compilation": 0}
+
+    def get(self, cache, key, build, counter):
+        if key in cache:
+            self.hits[counter] += 1
+            cache.move_to_end(key)
+            return cache[key]
+        value = build()
+        cache[key] = value
+        if len(cache) > self.capacity:
+            cache.popitem(last=False)
+        return value
+
+    def lower(self, kernel, target):
+        import tilelang
+        from tilelang import tvm
+
+        # Serialize the complete IR, including buffers, constants and attributes.
+        # Target and full IR equality are required, not a function name or shape.
+        key = (target, tvm.ir.save_json(kernel))
+        requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
+        return self.get(
+            self.lowered,
+            key,
+            lambda: tilelang.lower(
+                kernel,
+                target=requested,
+                enable_host_codegen=False,
+                enable_device_compile=False,
+            ),
+            "lowering",
+        )
+
+    def compile_c(self, source, bindings, directory):
+        from replay import compile_c
+
+        key = (
+            os.environ.get("CXX", "c++"),
+            source,
+            bindings["entry"],
+            tuple(bindings["buffers"]),
+        )
+
+        def build():
+            # dlopen may return an already loaded library at the same pathname.
+            # Give changed source/ABI/compiler settings a distinct native path.
+            native_dir = directory / hashlib.sha256(repr(key).encode()).hexdigest()
+            native_dir.mkdir(parents=True, exist_ok=True)
+            return compile_c(source, bindings, native_dir)
+
+        return self.get(self.compiled, key, build, "c_compilation")
 
 
 def validate_program(program):
@@ -66,8 +131,7 @@ def validate_program(program):
     return program
 
 
-def lower_program(plans, arrays, target, iterations=1):
-    import tilelang
+def lower_program(plans, arrays, target, iterations=1, *, session=None):
     from compiler_intrinsics import register_intrinsics
 
     register_intrinsics(target)
@@ -81,18 +145,13 @@ def lower_program(plans, arrays, target, iterations=1):
     }
     sources = {}
     lowered = {}
-    requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
+    session = session or CompilationSession()
     for i, plan in enumerate(plans):
         # Repeated stages may deliberately share the same immutable PrimFunc.
         # Reuse lowering only within this program, by object identity.
         key = id(plan["kernel"])
         if key not in lowered:
-            lowered[key] = tilelang.lower(
-                plan["kernel"],
-                target=requested,
-                enable_host_codegen=False,
-                enable_device_compile=False,
-            )
+            lowered[key] = session.lower(plan["kernel"], target)
         artifact = lowered[key]
         functions = list(artifact.device_mod.functions.values())
         if len(functions) != 1:
@@ -126,11 +185,12 @@ def lower_program(plans, arrays, target, iterations=1):
     return sources, validate_program(program)
 
 
-def execute_c_program(sources, program, directory, arrays):
-    from replay import compile_c, execute_c
+def execute_c_program(sources, program, directory, arrays, *, session=None):
+    from replay import execute_c
 
     validate_program(program)
     environment = {}
+    session = session or CompilationSession()
     compiled = {}
     # All stages receive views of the same physical arrays. No CPU arithmetic or
     # intermediate readback substitutes for generated kernels.
@@ -142,7 +202,7 @@ def execute_c_program(sources, program, directory, arrays):
             source, bindings = sources[stage["source"]], stage["bindings"]
             key = (source, bindings["entry"], tuple(bindings["buffers"]))
             if key not in compiled:
-                compiled[key] = compile_c(source, bindings, stage_dir)
+                compiled[key] = session.compile_c(source, bindings, stage_dir)
             environment.update(
                 execute_c(source, bindings, stage_dir, local, compiled=compiled[key])
             )

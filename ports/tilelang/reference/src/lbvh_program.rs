@@ -1,15 +1,14 @@
-//! Native resident LBVH oracle; sorting invokes the actual radix shaders.
+//! Native resident LBVH composition shared by isolated and full-frame oracles.
 use super::{BUFFERS, Data, radix};
 use khal::backend::GpuBuffer;
 use serde_json::{Value, json};
 use std::{fs, path::Path};
-pub(crate) fn fixture(root: &Path, before: &Data, g: u32, mode: &str, name: &str) -> Value {
-    let n = before.batch.colliders_len as usize;
-    let nb = before.batch.num_batches as usize;
-    let cap = before.batch.colliders_batch_capacity as usize;
+type Workspace = std::collections::BTreeMap<String, Vec<u32>>;
+pub(super) fn workspace(d: &Data) -> Workspace {
+    let n = d.batch.colliders_len as usize;
+    let nb = d.batch.num_batches as usize;
+    let cap = d.batch.colliders_batch_capacity as usize;
     let guard = 0xdeadbeefu32;
-    let mut d = before.clone();
-    d.frontier_len[..nb].fill(0);
     let mut extra = std::collections::BTreeMap::<String, Vec<u32>>::new();
     for key in [
         "Identity",
@@ -42,12 +41,11 @@ pub(crate) fn fixture(root: &Path, before: &Data, g: u32, mode: &str, name: &str
     {
         extra.insert(key, vec![shift, cap as u32, 0]);
     }
-    let dir = root.join("lbvh_program").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    d.write(&dir, "");
-    for (k, v) in &extra {
-        fs::write(dir.join(format!("{k}.bin")), bytemuck::cast_slice(v)).unwrap();
-    }
+    extra
+}
+pub(super) fn execute(d: &mut Data, extra: &mut Workspace, g: u32) {
+    let cap = d.batch.colliders_batch_capacity as usize;
+    let nb = d.batch.num_batches as usize;
     for op in ["lbvh_domain", "lbvh_domain_merge", "lbvh_morton"] {
         d.run(op, g);
     }
@@ -116,6 +114,21 @@ pub(crate) fn fixture(root: &Path, before: &Data, g: u32, mode: &str, name: &str
     ] {
         d.run(op, g);
     }
+}
+pub(crate) fn fixture(root: &Path, before: &Data, g: u32, mode: &str, name: &str) -> Value {
+    let cap = before.batch.colliders_batch_capacity as usize;
+    let n = before.batch.colliders_len as usize;
+    let nb = before.batch.num_batches as usize;
+    let mut d = before.clone();
+    d.frontier_len[..nb].fill(0);
+    let mut extra = workspace(&d);
+    let dir = root.join("lbvh_program").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    d.write(&dir, "");
+    for (k, v) in &extra {
+        fs::write(dir.join(format!("{k}.bin")), bytemuck::cast_slice(v)).unwrap();
+    }
+    execute(&mut d, &mut extra, g);
     d.write(&dir, ".expected");
     for (k, v) in &extra {
         fs::write(

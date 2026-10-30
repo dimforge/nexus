@@ -41,7 +41,7 @@
   "invariants": [
     "Exact requested work-list totals, legal membership, unique ownership and untouched capacity tails",
     "Same-body PFM contacts write only an inert length; live contacts preserve collider/body/subshape/material provenance",
-    "Every valid contact has a unit normal, in-shape primary point and independent support/prediction bounds; secondary reference misses remain visible",
+    "Every valid contact has a unit normal, in-shape primary point and independent support/prediction bounds; reconstructed secondary witnesses lie in their shape",
     "Reduction preserves disjoint run ownership and selects only supplied candidate points",
     "No host collision computation inside any translated stage"
   ],

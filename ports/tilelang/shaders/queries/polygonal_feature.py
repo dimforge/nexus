@@ -352,10 +352,10 @@ def closest_points_segment_segment(a0, a1, b0, b1, Output):
             Output[1] = 0.0
         else:
             bb = x1 * x2 + y1 * y2
-            denom = aa * ee - bb * bb
+            det = x1 * y2 - y1 * x2
             Output[0] = T.if_then_else(
-                denom > T.float32(1.1920929e-7),
-                T.min(T.max((bb * ff - cc * ee) / denom, 0.0), 1.0),
+                det * det > T.float32(1.1920929e-7) * T.float32(1.1920929e-7) * aa * ee,
+                T.min(T.max((x2 * ry - y2 * rx) / det, 0.0), 1.0),
                 0.0,
             )
             Output[1] = (bb * Output[0] + ff) / ee
@@ -405,6 +405,21 @@ def clip_segment_segment(a0, a1, b0, b1, Clips, Empty):
             else:
                 Clips[2, d] = a1[d]
                 Clips[3, d] = c[d] + (dpoint[d] - c[d]) * ((length1 - lo) / length2)
+
+
+def aligned_witnesses(p1, p2, normal, distance):
+    # The stored second witness is p1 + normal * distance. Tangent separation
+    # cannot be discarded except for f32 transform/interpolation roundoff.
+    scale = T.max(
+        T.max(T.max(absolute(p1[0]), absolute(p1[1])), absolute(p1[2])),
+        T.max(T.max(absolute(p2[0]), absolute(p2[1])), absolute(p2[2])),
+    )
+    allowance = T.float32(32) * T.float32(1.1920929e-7) * T.max(scale, T.float32(1e-6))
+    return (
+        (absolute(p2[0] - p1[0] - normal[0] * distance) <= allowance)
+        & (absolute(p2[1] - p1[1] - normal[1] * distance) <= allowance)
+        & (absolute(p2[2] - p1[2] - normal[2] * distance) <= allowance)
+    )
 
 
 @T.macro
@@ -469,7 +484,9 @@ def contacts_edge_edge(q, t, face1, normal, face2, prediction, Points, Count, fl
             local2[d] = v2[0, d] * (1.0 - bary[1]) + v2[1, d] * bary[1]
             delta[d] = local2[d] - local1[d]
         distance = dot(delta, normal)
-        if distance <= prediction:
+        if distance <= prediction and aligned_witnesses(
+            local1, local2, normal, distance
+        ):
             candidate(q, t, local1, local2, flipped, converted)
             for d in T.serial(3):
                 Points[0, d] = converted[d]
@@ -495,7 +512,9 @@ def contacts_edge_edge(q, t, face1, normal, face2, prediction, Points, Count, fl
                     local2[d] = clips[i * 2 + 1, d]
                     delta[d] = local2[d] - local1[d]
                 distance = dot(delta, normal)
-                if distance <= prediction:
+                if distance <= prediction and aligned_witnesses(
+                    local1, local2, normal, distance
+                ):
                     candidate(q, t, local1, local2, flipped, converted)
                     for d in T.serial(3):
                         Points[Count[0], d] = converted[d]

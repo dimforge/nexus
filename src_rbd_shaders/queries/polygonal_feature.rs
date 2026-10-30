@@ -333,12 +333,11 @@ mod dim3 {
                 ((-c / a).clamp(0.0, 1.0), 0.0)
             } else {
                 let b = d1.dot(d2);
-                let ae = a * e;
-                let bb = b * b;
-                let denom = ae - bb;
-
-                let mut s = if denom > EPSILON {
-                    ((b * f - c * e) / denom).clamp(0.0, 1.0)
+                // In 2D the line determinant avoids subtracting nearly equal
+                // squared lengths. The parallel test scales with both edges.
+                let det = d1.perp_dot(d2);
+                let mut s = if det * det > EPSILON * EPSILON * a * e {
+                    (d2.perp_dot(r) / det).clamp(0.0, 1.0)
                 } else {
                     0.0
                 };
@@ -463,6 +462,12 @@ mod dim3 {
         result
     }
 
+    fn aligned_witnesses(p1: Vec3, p2: Vec3, normal: Vec3, dist: f32) -> bool {
+        let residual = p2 - p1 - normal * dist;
+        let scale = p1.abs().max(p2.abs()).max_element().max(1.0e-6);
+        residual.abs().max_element() <= 32.0 * EPSILON * scale
+    }
+
     pub fn contacts_edge_edge(
         pose12: glamx::Pose3,
         face1: &PolygonalFeature,
@@ -526,7 +531,7 @@ mod dim3 {
                     vertices2_1.read(0) * (1.0 - bcoords.y) + vertices2_1.read(1) * bcoords.y;
                 let dist = (local_p2_1 - local_p1).dot(sep_axis1);
 
-                if dist <= prediction {
+                if dist <= prediction && aligned_witnesses(local_p1, local_p2_1, sep_axis1, dist) {
                     if !flipped {
                         result.points_a.write(0, ContactPoint::new(local_p1, dist));
                     } else {
@@ -551,7 +556,9 @@ mod dim3 {
             let dist0 = (clips.seg2_a - clips.seg1_a).dot(sep_axis1);
             let dist1 = (clips.seg2_b - clips.seg1_b).dot(sep_axis1);
 
-            if dist0 <= prediction {
+            if dist0 <= prediction
+                && aligned_witnesses(clips.seg1_a, clips.seg2_a, sep_axis1, dist0)
+            {
                 if !flipped {
                     result
                         .points_a
@@ -565,7 +572,9 @@ mod dim3 {
 
             let k = result.len as usize;
 
-            if dist1 <= prediction {
+            if dist1 <= prediction
+                && aligned_witnesses(clips.seg1_b, clips.seg2_b, sep_axis1, dist1)
+            {
                 if !flipped {
                     result
                         .points_a
@@ -1009,5 +1018,71 @@ mod line_intersection_tests {
         );
         assert_eq!(closest_points_line2d(z, z, -x, x), Vec2::new(0.0, 0.5));
         assert_eq!(closest_points_line2d(-x, x, z, z), Vec2::new(0.5, 0.0));
+    }
+}
+
+#[cfg(all(test, feature = "dim3"))]
+mod witness_tests {
+    use super::PolygonalFeature;
+    use super::dim3::contacts_edge_edge;
+    use glamx::{Pose3, Vec3};
+
+    fn edge(a: Vec3, b: Vec3) -> PolygonalFeature {
+        PolygonalFeature {
+            vertices: [a, b, Vec3::ZERO, Vec3::ZERO],
+            num_vertices: 2,
+        }
+    }
+
+    #[test]
+    fn clipped_edges_cannot_discard_tangent_separation() {
+        for scale in [0.001, 1.0, 1000.0] {
+            for reverse in [false, true] {
+                for flipped in [false, true] {
+                    let a = edge(-Vec3::X * scale, Vec3::X * scale);
+                    let shift = Vec3::new(0.0, 0.1, -0.1) * scale;
+                    let mut b = edge(-Vec3::X * scale + shift, Vec3::X * scale + shift);
+                    if reverse {
+                        b.vertices.swap(0, 1);
+                    }
+                    let m =
+                        contacts_edge_edge(Pose3::IDENTITY, &a, Vec3::Z, &b, 0.02 * scale, flipped);
+                    assert_eq!(
+                        m.len, 0,
+                        "An implicit second point must lie on the second edge"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn aligned_parallel_and_crossing_edges_keep_contacts() {
+        for scale in [0.001, 1.0, 1000.0] {
+            for flipped in [false, true] {
+                let a = edge(-Vec3::X * scale, Vec3::X * scale);
+                for direction in [Vec3::X, Vec3::Y] {
+                    let shift = -Vec3::Z * 0.1 * scale;
+                    let b = edge(-direction * scale + shift, direction * scale + shift);
+                    let m =
+                        contacts_edge_edge(Pose3::IDENTITY, &a, Vec3::Z, &b, 0.02 * scale, flipped);
+                    assert!(m.len > 0);
+                    for p in m.points_a.iter().take(m.len as usize) {
+                        let (p1, p2) = if flipped {
+                            (p.pt - Vec3::Z * p.dist, p.pt)
+                        } else {
+                            (p.pt, p.pt + Vec3::Z * p.dist)
+                        };
+                        for (point, feature) in [(p1, a), (p2, b)] {
+                            let delta = feature.vertices[1] - feature.vertices[0];
+                            let t =
+                                (point - feature.vertices[0]).dot(delta) / delta.length_squared();
+                            let closest = feature.vertices[0] + delta * t.clamp(0.0, 1.0);
+                            assert!((point - closest).length() < 1.0e-5 * scale);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

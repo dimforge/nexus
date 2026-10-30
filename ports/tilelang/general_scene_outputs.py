@@ -30,6 +30,16 @@ def check_collision(l, c, b, a, e, k):
     aa["Poses"] = a["ColliderPoses"]
     ee = {n: e[n] for n in broad.BUFFERS}
     ee["Poses"] = e["ColliderPoses"]
+    if c.get("broadphase") == "lbvh":
+        # The enclosing LBVH scene checker validates its independently reconstructed
+        # complete overlap set and tree. Here retain only the common AABB check.
+        bc.update(
+            kind="world_aabbs",
+            dispatch=c["body_count"],
+            groups=max((c["body_count"] + 63) // 64, 1),
+        )
+        bb["PairCount"] = a["PairCount"]
+        bc["initial_count"] = int(a["PairCount"][0])
     bc["buffer_words"] = {n: v.size for n, v in bb.items()}
     errors = broad.check_outputs(
         l, bc, bb, aa, ee, numeric_policy.field_contract(c, k, "Aabbs")
@@ -245,14 +255,14 @@ def check_collision(l, c, b, a, e, k):
             err_msg=f"General active contact {i}",
         )
         largest = max(largest, float(np.max(np.abs(av - ev), initial=0)))
-    if secondary_misses[0] - secondary_misses[1]:
-        raise AssertionError("New general secondary witness containment failure")
+    if secondary_misses[0] or secondary_misses[1]:
+        raise AssertionError("General secondary witness containment failure")
     errors["Contacts"] = largest
     return errors
 
 
 def witness_diagnostics(l, c, b, r):
-    """Keep the inherited clipping limitation visible in each scene report."""
+    """Record independent secondary witness containment in each scene report."""
     shapes = b["Shapes"].reshape(-1, l["shape_words"])
     vtx = vertices(l, b)
     geometry = [primitives(l, s, vtx, b["GeometryIndices"]) for s in shapes]

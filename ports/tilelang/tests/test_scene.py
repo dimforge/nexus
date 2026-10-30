@@ -44,6 +44,43 @@ class SceneTests(unittest.TestCase):
                 l, c, b, e, k = self.fixture(name)
                 scene.check_outputs(l, c, b, e, e, k)
 
+    def test_matching_corrupt_intermediate_states_fail_physics(self):
+        for mutation in ("static", "penetration", "energy", "rotation", "nonfinite"):
+            l, c, b, e, k = self.fixture("free-c1-l1-b1-f120")
+            f = e["Trajectory"].view(np.float32)
+            start = 13 * c["trace_stride"]
+            pose = start + l["pose_words"]
+            velocity = start + c["body_count"] * l["pose_words"] + l["velocity_words"]
+            if mutation == "static":
+                f[start + l["pose_translation"]] = 0.1
+            if mutation == "penetration":
+                f[pose + l["pose_translation"] + 1] = -10
+            if mutation == "energy":
+                f[velocity + l["velocity_linear"]] = 1000
+            if mutation == "rotation":
+                f[pose + l["pose_rotation"] + 3] = 2
+            if mutation == "nonfinite":
+                f[pose + l["pose_translation"]] = np.nan
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                scene.check_outputs(l, c, b, e, e, k)
+
+    def test_trace_cursor_padding_and_final_state_are_exact(self):
+        for mutation in ("cursor", "padding", "final", "guard"):
+            l, c, b, e, k = self.fixture("free-c1-l1-b1-f120")
+            a = {n: v.copy() for n, v in e.items()}
+            if mutation == "cursor":
+                a["FrameIndex"][0] -= 1
+            if mutation == "padding":
+                a["Trajectory"][13 * c["trace_stride"] + l["pose_padding"]] ^= 1
+            if mutation == "final":
+                a["Trajectory"][
+                    119 * c["trace_stride"] + l["pose_words"] + l["pose_translation"]
+                ] ^= 1
+            if mutation == "guard":
+                a["Trajectory"][-1] ^= 1
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                scene.check_outputs(l, c, b, a, e, k)
+
     def test_readonly_and_capacity_guards_remain_exact(self):
         mutations = [(name, 0) for name in READONLY] + [
             (name, -1)
@@ -183,6 +220,9 @@ class SceneTests(unittest.TestCase):
         a = {n: v.copy() for n, v in e.items()}
         index = l["pose_words"] + l["pose_translation"]
         a["Poses"].view(np.float32)[index] += np.float32(1e-7)
+        a["Trajectory"][(c["frames"] - 1) * c["trace_stride"] + index] = a["Poses"][
+            index
+        ]
         scene.check_outputs(l, c, b, a, e, k)
 
     def test_free_checkpoint_has_independent_gravity_solution(self):

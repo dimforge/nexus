@@ -28,8 +28,15 @@ def check_outputs(layout, case, before, actual, expected, contract):
     count = check_graph(layout, case, actual, expected)
     errors.update(check_constraints(layout, case, actual, expected, contract, count))
     errors.update(check_states(layout, case, actual, expected, contract, count))
+    from scene_physics import check_trajectory_physics
+    from scene_trajectory import check_trajectory
+
+    errors["Trajectory"] = check_trajectory(
+        layout, case, before, actual, expected, contract
+    )
     for result in (actual, expected):
         check_physics(layout, case, before, result, contract)
+        check_trajectory_physics(layout, case, before, result, contract)
     return errors
 
 

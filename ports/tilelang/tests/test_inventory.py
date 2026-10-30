@@ -1,16 +1,21 @@
 """Negative checks for the Rust-mirrored shader inventory (stdlib only)."""
 
 import json
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from inventory import audit
 
 
 class InventoryTests(unittest.TestCase):
+    def test_workspace_registry_has_module_and_capability_mappings(self):
+        root = Path(__file__).resolve().parents[3]
+        config = json.loads((root / "ports/tilelang/parity.json").read_text())
+        self.assertEqual(audit(root, config)["errors"], [])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

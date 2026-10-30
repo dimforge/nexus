@@ -54,7 +54,7 @@ def sizes(l, c):
         "Filters": storage * 2,
         "Poses": storage * l["pose_words"],
         "Shapes": storage * l["shape_words"],
-        "Vertices": 6 * l["vertex_words"],
+        "Vertices": c.get("vertices", 6) * l["vertex_words"],
         "Partials": (64 * nb + 3) * l["aabb_words"],
         "Domain": (nb + 3) * l["aabb_words"],
         "Keys": cap * nb + 3,
@@ -146,7 +146,7 @@ def validate_case(l, c, b):
         or c["iterations"] != 1
         or c["count"] != n * nb
         or cap != n + 3
-        or c["storage"] != cap * nb + 3
+        or c["storage"] < cap * nb
     ):
         raise ValueError("Invalid LBVH batch/dispatch layout")
     expected = sizes(l, c)

@@ -1,8 +1,9 @@
 """Resident bounds, pairs, contact plan and analytic contact generation."""
 
 import broadphase_kernels as broad
-import narrow_kernels as narrow
 import contact_plan_kernels as plan
+import narrow_kernels as narrow
+import scene_broadphase
 
 BUFFERS = tuple(dict.fromkeys((*broad.BUFFERS, *narrow.BUFFERS, *plan.BUFFERS)))
 
@@ -18,9 +19,7 @@ def make_program(layout, case, target):
         subcase(plan.BUFFERS, kind="reset_narrow", count=1, groups=1, threads=64),
         target,
     )
-    bounds_and_pairs = broad.make_program(
-        layout, subcase(broad.BUFFERS, kind="broadphase_pairs"), target
-    )
+    bounds_and_pairs = scene_broadphase.make_program(layout, case, target)
     publish = plan.make_program(
         layout,
         subcase(plan.BUFFERS, kind="contact_plan", count=1, groups=1, threads=1),

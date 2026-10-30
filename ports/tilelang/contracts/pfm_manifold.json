@@ -22,7 +22,7 @@
   "atol": 2e-06,
   "rtol": 2e-05,
   "max_tangent_drift": 0.0001,
-  "tolerance_reason": "Conversion is bit exact, as are contact counts, readonly storage and guards. Normals, distances and contact planes use 2e-6/2e-5. Nonunique contact coordinates may differ by at most 1e-4 in these unit-scale fixtures only when BOTH results lie inside both original shapes. At exactly coincident independently centrally symmetric shapes, opposite normals require reflected contact points under the original strict tolerance. Raw differences remain reported; approximate native secondary witnesses never unlock relaxed coordinate comparison. Points beyond the public manifold count are inactive payload retained by native deduplication; their finite values are reported but do not participate in numeric parity. Record padding and unwritten rows remain exact.",
+  "tolerance_reason": "Conversion is bit exact, as are contact counts, readonly storage and guards. Normals, distances and contact planes use 2e-6/2e-5. Nonunique contact coordinates may differ by at most 1e-4 in these unit-scale fixtures only when BOTH results lie inside both original shapes. At exactly coincident independently centrally symmetric shapes, opposite normals require reflected contact points under the original strict tolerance. Raw differences remain reported; invalid secondary witnesses fail even when both implementations agree. Points beyond the public manifold count are inactive payload retained by native deduplication; their finite values are reported but do not participate in numeric parity. Record padding and unwritten rows remain exact.",
   "preconditions": [
     "Finite supported convex shapes, valid indexed faces, normalized relative poses, nonnegative predictions and native-exported ABI",
     "Each invocation owns its output row; subshape conversion and contact generation are ordered device stages with resident buffers"
@@ -30,7 +30,7 @@
   "invariants": [
     "Exact converted shapes, border radii, valid flags and contact cardinalities",
     "Nonempty manifolds have finite unit normals, in-shape primary points and distances within independent support/prediction bounds",
-    "No regression in secondary-witness containment; remaining native misses are reported per pair and point",
+    "Both primary and reconstructed secondary contact witnesses lie in their original shapes",
     "No host physics between conversion, GJK/EPA and clipping"
   ],
   "outside_scope": [
@@ -45,8 +45,8 @@
   "known_gaps": [
     {
       "id": "pfm-secondary-witness-approximation",
-      "description": "The retained 343-pair corpus exposes native edge-clipping secondary witness misses, including cone/capsule and capsule/capsule overlap. The port preserves these under strict numeric comparison. General scene stability qualification or a paired native fix remains required.",
-      "blocks_release": true
+      "description": "Paired Rust/TileLang fix 0060 rejects edge candidates whose tangent displacement cannot be represented by the implicit secondary witness. Scaled edge tests and both-witness geometric checks retain the regression; current execution evidence is still required.",
+      "blocks_release": false
     }
   ],
   "required_cases": [

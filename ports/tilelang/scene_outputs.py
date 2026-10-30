@@ -104,6 +104,8 @@ def check_guards(l, c, b, a, e):
     for i in range(4):
         prefix(f"AdjAux{i}", (c["strides"][i] + 255) // 256 if i < c["levels"] else 0)
         prefix(f"BucketAux{i}", 1 if i == 0 else 0)
+    prefix("Trajectory", c["frames"] * c["trace_stride"])
+    prefix("FrameIndex", 1)
     if claimed != set(b):
         raise ValueError(f"Missing scene write policy: {set(b) - claimed}")
     for name, m in masks.items():
@@ -181,6 +183,16 @@ def check_collision(l, c, b, a, e, contract):
     aa["Poses"] = a["ColliderPoses"]
     ee = {name: e[name] for name in broad.BUFFERS}
     ee["Poses"] = e["ColliderPoses"]
+    if c.get("broadphase") == "lbvh":
+        # The enclosing LBVH scene checker validates its independently reconstructed
+        # complete overlap set and tree. Here retain only the common AABB check.
+        bc.update(
+            kind="world_aabbs",
+            dispatch=c["body_count"],
+            groups=max((c["body_count"] + 63) // 64, 1),
+        )
+        bb["PairCount"] = a["PairCount"]
+        bc["initial_count"] = int(a["PairCount"][0])
     bc["buffer_words"] = {name: v.size for name, v in bb.items()}
     errors = broad.check_outputs(
         l, bc, bb, aa, ee, numeric_policy.field_contract(c, contract, "Aabbs")
@@ -418,6 +430,9 @@ def check_constraints(l, c, a, e, contract, count):
     for cid in range(count):
         if a["Links"][cid * l["link_words"] + lf["len"]] == 0:
             continue
+        response_mode = numeric_policy.policy_for(c, contract).get(
+            "friction_comparison"
+        )
         av = []
         ev = []
         for result, output in ((a, av), (e, ev)):
@@ -455,7 +470,13 @@ def check_constraints(l, c, a, e, contract, count):
                         {
                             "arm_a": ["TileGeometry"] * 3 + ["TileImpulse"],
                             "arm_b": ["TileGeometry"] * 3 + ["TileCoefficients"],
-                            "friction": ["TileImpulse"] * 2 + ["TileResponse"] * 2,
+                            "friction": [
+                                "TileFrictionImpulse"
+                                if response_mode
+                                else "TileImpulse"
+                            ]
+                            * 2
+                            + ["TileResponse"] * 2,
                             "local_a": ["TileGeometry"] * 4,
                             "local_b": ["TileGeometry"] * 3 + ["TileBias"],
                         }[field]
@@ -496,6 +517,9 @@ def check_constraints(l, c, a, e, contract, count):
         labels = av[2][mask]
         for field in np.unique(labels):
             if field == "TileResponse":
+                continue
+            if field == "TileFrictionImpulse":
+                numeric_policy.check_friction_response(l, c, a, e, contract, cid)
                 continue
             fallback = (
                 contract["cached_warmstart_atol"]

@@ -1,16 +1,17 @@
 """Repeated native stages reuse compilation while preserving all dispatches."""
 
 import copy
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
+
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import replay
-from ordered import execute_c_program
+from ordered import CompilationSession, execute_c_program
 
 
 class OrderedCpuTests(unittest.TestCase):
@@ -62,7 +63,38 @@ class OrderedCpuTests(unittest.TestCase):
             tempfile.TemporaryDirectory() as directory,
             patch.object(replay, "compile_c", wraps=replay.compile_c) as compile_kernel,
         ):
-            execute_c_program(sources, program, Path(directory), arrays)
+            session = CompilationSession()
+            execute_c_program(
+                sources, program, Path(directory), arrays, session=session
+            )
             self.assertEqual(compile_kernel.call_count, 2)
+            other = {"X": np.array([100], np.uint32), "Y": np.array([200], np.uint32)}
+            execute_c_program(sources, program, Path(directory), other, session=session)
+            self.assertEqual(compile_kernel.call_count, 2)
+            self.assertEqual((int(other["X"][0]), int(other["Y"][0])), (106, 204))
+            sources["two.c"] = sources["two.c"].replace("a[0]+=2", "a[0]+=3")
+            execute_c_program(sources, program, Path(directory), other, session=session)
+            self.assertEqual(compile_kernel.call_count, 3)
+            self.assertEqual((int(other["X"][0]), int(other["Y"][0])), (114, 208))
         self.assertEqual(arrays["X"][0], 6)
         self.assertEqual(arrays["Y"][0], 14)
+
+    def test_full_ir_and_target_key_lowering_reuse(self):
+        import tilelang
+        from primitive_kernels import make_kernel
+
+        first = make_kernel({"rows": 2, "storage": 70}, "c")
+        same = make_kernel({"rows": 2, "storage": 70}, "c")
+        different = make_kernel({"rows": 3, "storage": 70}, "c")
+        session = CompilationSession(capacity=2)
+        with patch.object(tilelang, "lower", wraps=tilelang.lower) as lower:
+            a = session.lower(first, "c")
+            self.assertIs(session.lower(same, "c"), a)
+            changed = session.lower(different, "c")
+            self.assertNotEqual(a.kernel_source, changed.kernel_source)
+            self.assertEqual(lower.call_count, 2)
+            # The target is part of the key even for identical IR.
+            session.lower(first, "metal")
+            self.assertEqual(lower.call_count, 3)
+            session.lower(first, "c")
+            self.assertEqual(lower.call_count, 4)  # bounded cache evicted oldest IR

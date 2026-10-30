@@ -113,6 +113,9 @@ def make_program(l, c, target):
         general_collision_kernels if c["kind"] == "general_scene" else collision_kernels
     )
     cm = identity(collision.BUFFERS)
+    if c.get("broadphase") == "lbvh":
+        from scene_broadphase import EXTRA
+        cm.update(identity(EXTRA))
     cm.update(Poses="ColliderPoses", Contacts="RawContacts")
     if c["kind"] == "general_scene":
         cm["Indices"] = "GeometryIndices"
@@ -306,7 +309,7 @@ def make_program(l, c, target):
         for col in range(1, c["color_stride"] - 1):
             color("colored_solve", col, "Color0")
     body("finalize")
-    if c["kind"] in ("joint_scene", "general_scene"):
+    if "Trajectory" in sizes:
         from trajectory_kernels import make_kernel as trajectory_kernel
 
         add(

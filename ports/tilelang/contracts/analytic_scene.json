@@ -111,7 +111,9 @@
     "Config4",
     "Config5",
     "Config6",
-    "Config7"
+    "Config7",
+    "Trajectory",
+    "FrameIndex"
   ],
   "outputs": [
     "Velocities",
@@ -175,7 +177,9 @@
     "BucketAux0",
     "BucketAux1",
     "BucketAux2",
-    "BucketAux3"
+    "BucketAux3",
+    "Trajectory",
+    "FrameIndex"
   ],
   "comparison": "scene_fields",
   "atol": 2e-06,
@@ -183,7 +187,8 @@
   "physics": {
     "max_penetration": 0.02,
     "energy_relative_allowance": 0.02,
-    "energy_per_body_allowance": 0.05
+    "energy_per_body_allowance": 0.05,
+    "transient_penetration_policy": "previous_surface_motion"
   },
   "box_geometry_roundoff": {
     "epsilon_multiplier": 32,

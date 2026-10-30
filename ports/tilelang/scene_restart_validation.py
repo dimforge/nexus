@@ -16,7 +16,7 @@ def validator(c):
     raise ValueError("Unsupported restart scene kind")
 
 
-def validate_case(l, c, b):
+def validate_core(l, c, b):
     if (
         type(c.get("start_frame")) is not int
         or not 0 <= c["start_frame"] < c["frames"]
@@ -45,8 +45,8 @@ def validate_case(l, c, b):
         numeric_policy.constraint_geometry(l, c, b)
 
 
-def check_outputs(l, c, b, a, e, k):
-    validate_case(l, c, b)
+def check_core(l, c, b, a, e, k):
+    validate_core(l, c, b)
     # Collision's broad-phase checker expects the reset value, not the preceding
     # frame's count. Preserve every guard word and all actual kernel inputs.
     before = dict(b)
@@ -91,4 +91,31 @@ def check_outputs(l, c, b, a, e, k):
             initial=0,
         )
     )
+    return errors
+
+
+def validate_case(l, c, b):
+    if c.get("broadphase") != "lbvh":
+        return validate_core(l, c, b)
+    import lbvh_scene_validation as tree
+    from scene_broadphase import EXTRA
+
+    core = validator(c).BUFFERS
+    if set(b) != set(core) | set(EXTRA):
+        raise ValueError("Invalid LBVH restart buffers")
+    validate_core(l, tree.base_case(c, core), {n: b[n] for n in core})
+    tree.validate_tree(l, c, b, restarted=True)
+
+
+def check_outputs(l, c, b, a, e, k):
+    validate_case(l, c, b)
+    if c.get("broadphase") != "lbvh":
+        return check_core(l, c, b, a, e, k)
+    import lbvh_scene_validation as tree
+
+    core = validator(c).BUFFERS
+    errors = check_core(
+        l, tree.base_case(c, core), *({n: r[n] for n in core} for r in (b, a, e)), k
+    )
+    tree.check_trees(l, c, b, a, e, k, restarted=True)
     return errors
