@@ -584,7 +584,11 @@ impl Epa3 {
                             .at(self.faces.at(new_face_id as usize).pts.read(0) as usize)
                             .point;
                         let dist = self.faces.at(new_face_id as usize).normal.dot(pt);
-                        if dist < curr_dist {
+                        // A new face through the origin can be a few ulps behind
+                        // the current face. Treat only a meaningful regression as
+                        // a failure: otherwise EPA may return the initial zero-depth
+                        // face for deeply overlapping shapes.
+                        if dist < curr_dist - _eps_tol {
                             let points = self.face_closest_points(&face);
                             return EpaResult::new(
                                 points.read(0),
