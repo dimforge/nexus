@@ -1,0 +1,456 @@
+test_contract_is_selected_by_feature (test_parity.MultiFeatureTests.test_contract_is_selected_by_feature) ... ok
+test_one_operation_cannot_certify_another (test_parity.MultiFeatureTests.test_one_operation_cannot_certify_another) ... ok
+test_baseline_hash_bump_does_not_refresh_evidence (test_parity.ParityTests.test_baseline_hash_bump_does_not_refresh_evidence) ... ok
+test_deleted_dependency_invalidates_evidence (test_parity.ParityTests.test_deleted_dependency_invalidates_evidence) ... ok
+test_duplicate_overrides_cannot_hide_a_failed_report (test_parity.ParityTests.test_duplicate_overrides_cannot_hide_a_failed_report) ... ok
+test_failed_incomplete_or_wrong_toolchain_report_is_rejected (test_parity.ParityTests.test_failed_incomplete_or_wrong_toolchain_report_is_rejected) ... ok
+test_missing_or_unsafe_cpu_oracle_is_rejected (test_parity.ParityTests.test_missing_or_unsafe_cpu_oracle_is_rejected) ... ok
+test_modifying_accepted_evidence_or_change_record_is_visible (test_parity.ParityTests.test_modifying_accepted_evidence_or_change_record_is_visible) ... ok
+test_new_implementation_file_invalidates_evidence (test_parity.ParityTests.test_new_implementation_file_invalidates_evidence) ... ok
+test_new_rust_feature_cannot_be_silently_unmapped (test_parity.ParityTests.test_new_rust_feature_cannot_be_silently_unmapped) ... ok
+test_reconciliation_requires_execution_and_change_record (test_parity.ParityTests.test_reconciliation_requires_execution_and_change_record) ... ok
+test_reconciling_cpu_keeps_old_metal_evidence_stale (test_parity.ParityTests.test_reconciling_cpu_keeps_old_metal_evidence_stale) ... ok
+test_release_gate_rejects_explicit_known_gap (test_parity.ParityTests.test_release_gate_rejects_explicit_known_gap) ... ok
+test_rust_semantic_change_invalidates_evidence (test_parity.ParityTests.test_rust_semantic_change_invalidates_evidence) ... ok
+test_success_is_scoped_and_ascend_is_unvalidated (test_parity.ParityTests.test_success_is_scoped_and_ascend_is_unvalidated) ... ok
+test_tolerance_change_invalidates_evidence (test_parity.ParityTests.test_tolerance_change_invalidates_evidence) ... ok
+test_deferred_scope_requires_explicit_reason_and_keeps_coverage (test_inventory.InventoryTests.test_deferred_scope_requires_explicit_reason_and_keeps_coverage) ... ok
+test_duplicate_dispositions_are_rejected (test_inventory.InventoryTests.test_duplicate_dispositions_are_rejected) ... ok
+test_mapped_subset_passes (test_inventory.InventoryTests.test_mapped_subset_passes) ... ok
+test_mirrored_path_is_required (test_inventory.InventoryTests.test_mirrored_path_is_required) ... ok
+test_missing_symbol_and_unmapped_shader_are_rejected (test_inventory.InventoryTests.test_missing_symbol_and_unmapped_shader_are_rejected) ... ok
+test_new_and_removed_rust_modules_need_review (test_inventory.InventoryTests.test_new_and_removed_rust_modules_need_review) ... ok
+test_new_operation_needs_module_and_capability_mapping (test_inventory.InventoryTests.test_new_operation_needs_module_and_capability_mapping) ... ok
+test_unported_file_cannot_certify_an_operation (test_inventory.InventoryTests.test_unported_file_cannot_certify_an_operation) ... ok
+test_workspace_registry_has_module_and_capability_mappings (test_inventory.InventoryTests.test_workspace_registry_has_module_and_capability_mappings) ... ok
+test_every_registered_operation_exactly_once (test_matrix.MatrixTests.test_every_registered_operation_exactly_once) ... ok
+test_every_routed_command_uses_its_registered_runner (test_matrix.MatrixTests.test_every_routed_command_uses_its_registered_runner) ... ok
+test_invalid_shards_fail (test_matrix.MatrixTests.test_invalid_shards_fail) ... ok
+test_missing_specialized_runner_and_duplicate_fail (test_matrix.MatrixTests.test_missing_specialized_runner_and_duplicate_fail) ... ok
+test_unsupported_execution_is_not_lowering_evidence (test_matrix.MatrixTests.test_unsupported_execution_is_not_lowering_evidence) ... ok
+test_export_requires_matching_compiled_schedule_and_real_gates (test_frame_manifest.FrameManifestTests.test_export_requires_matching_compiled_schedule_and_real_gates) ... ok
+test_gate_after_commit_or_outside_counter_is_rejected (test_frame_manifest.FrameManifestTests.test_gate_after_commit_or_outside_counter_is_rejected) ... ok
+test_native_regions_exclude_variable_capacity_guards (test_frame_manifest.FrameManifestTests.test_native_regions_exclude_variable_capacity_guards) ... ok
+test_outer_iterations_and_trace_limit_cannot_advance_extra_frames (test_frame_manifest.FrameManifestTests.test_outer_iterations_and_trace_limit_cannot_advance_extra_frames) ... ok
+test_persistent_ranges_reject_overlap_and_truncation (test_frame_manifest.FrameManifestTests.test_persistent_ranges_reject_overlap_and_truncation) ... ok
+test_unbounded_control_requires_an_explicit_limit_and_no_trace (test_frame_manifest.FrameManifestTests.test_unbounded_control_requires_an_explicit_limit_and_no_trace) ... ok
+test_valid_control_abi (test_frame_manifest.FrameManifestTests.test_valid_control_abi) ... ok
+test_checkpoint_rejections_do_not_change_live_state (test_frame_cpu.FrameCpuTests.test_checkpoint_rejections_do_not_change_live_state) ... ok
+test_checkpoint_restore_and_reset_preserve_continuation (test_frame_cpu.FrameCpuTests.test_checkpoint_restore_and_reset_preserve_continuation) ... ok
+test_exhaustion_does_not_advance (test_frame_cpu.FrameCpuTests.test_exhaustion_does_not_advance) ... ok
+test_failed_growth_compilation_keeps_state (test_frame_cpu.FrameCpuTests.test_failed_growth_compilation_keeps_state) ... ok
+test_growth_after_prior_frame_preserves_state_and_limits (test_frame_cpu.FrameCpuTests.test_growth_after_prior_frame_preserves_state_and_limits) ... ok
+test_invalid_variant_cannot_shrink_or_change_meaning (test_frame_cpu.FrameCpuTests.test_invalid_variant_cannot_shrink_or_change_meaning) ... ok
+test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace (test_frame_cpu.FrameCpuTests.test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace) ... ok
+test_partial_commit_failure_poisoned (test_frame_cpu.FrameCpuTests.test_partial_commit_failure_poisoned) ... ok
+test_rejected_extension_does_not_mutate_the_session (test_frame_cpu.FrameCpuTests.test_rejected_extension_does_not_mutate_the_session) ... ok
+test_same_stage_limits_retry_before_commit (test_frame_cpu.FrameCpuTests.test_same_stage_limits_retry_before_commit) ... ok
+test_updates_migrate_and_rejections_preserve_guards (test_frame_cpu.FrameCpuTests.test_updates_migrate_and_rejections_preserve_guards) ... ok
+test_capacity_return_extend_step_and_explicit_read (test_runtime_service.RuntimeServiceTests.test_capacity_return_extend_step_and_explicit_read) ... ok
+test_checkpoint_restore_and_reset_protocol (test_runtime_service.RuntimeServiceTests.test_checkpoint_restore_and_reset_protocol) ... ok
+test_modified_or_missing_artifact_inventory_rejects_load (test_runtime_service.RuntimeServiceTests.test_modified_or_missing_artifact_inventory_rejects_load) ... ok
+test_write_protocol_checks_words_and_preserves_updates (test_runtime_service.RuntimeServiceTests.test_write_protocol_checks_words_and_preserves_updates) ... ok
+test_full_ir_and_target_key_lowering_reuse (test_ordered_cpu.OrderedCpuTests.test_full_ir_and_target_key_lowering_reuse) ... ok
+test_repeated_kernels_keep_buffer_mappings_and_iteration_counts (test_ordered_cpu.OrderedCpuTests.test_repeated_kernels_keep_buffer_mappings_and_iteration_counts) ... ok
+test_grid_and_thread_extents_are_both_required (test_launch.LaunchTests.test_grid_and_thread_extents_are_both_required) ... ok
+test_serial_c_does_not_dispatch_gpu_workgroups (test_launch.LaunchTests.test_serial_c_does_not_dispatch_gpu_workgroups) ... ok
+test_singleton_grid_cannot_be_overlaunched (test_launch.LaunchTests.test_singleton_grid_cannot_be_overlaunched) ... ok
+
+----------------------------------------------------------------------
+Ran 57 tests in 15.037s
+
+OK
+Source reconciliation: current
+Known gap: numeric-boundary: Unresolved boundary
+solve / c: executed
+solve / metal: unvalidated
+solve / ascend: unvalidated
+
+
+
+running 2 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test cooperative_hub_average ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+
+running 3 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test tests::coulomb_native_fused_tail_equal_ordered ... ok
+test tests::twist_native_fused_tail_equal_ordered ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+running 2 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test cooperative_hub_average ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 3 tests
+test dispatch::tests::explicit_grid_reaches_the_second_workgroup ... ok
+test tests::twist_native_fused_tail_equal_ordered ... ok
+test tests::coulomb_native_fused_tail_equal_ordered ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+running 70 tests
+test dynamics::coloring::tests::luby::reset_luby_uses_wrapping_gpu_hash_arithmetic ... ok
+test dynamics::coloring::tests::first_free_color_across_both_words ... ok
+test broad_phase::lbvh::tests::web_refit_plan_covers_all_batches_and_clamps_stale_counts ... ok
+test dynamics::twist_friction::tests::central_friction_uses_total_load_and_warmstarts_once ... ok
+test dynamics::contact_links::tests::inert_contact_does_not_dereference_stale_body_ids ... ok
+test dynamics::coulomb_tiles::tests::matching_distinguishes_subshapes_and_clears_stale_matches ... ok
+test dynamics::twist_friction::tests::central_drift_bias_is_used_only_in_the_biased_friction_pass ... ok
+test dynamics::twist_friction::tests::layouts_and_default_remain_compatible ... ok
+test dynamics::twist_friction::tests::frozen_frames_survive_recycling_and_preserve_local_anchors ... ok
+test dynamics::coulomb_tiles::kernels::static_velocity_write_tests::shared_static_endpoint_keeps_velocity_bits ... ok
+test dynamics::mass_splitting::tests::hub_list_split_matches_full_adjacency_scan ... ok
+test dynamics::coulomb_tiles::kernels::static_velocity_write_tests::velocity_write_guard_includes_angular_response ... ok
+test dynamics::twist_friction::tests::central_drift_matches_averaging_rotated_world_anchors ... ok
+test dynamics::coloring::tests::luby::luby_current_round_winners_still_block_their_neighbors ... ok
+test dynamics::twist_friction::tests::surviving_contact_warmstarts_are_averaged_and_single_point_twist_is_cleared ... ok
+test dynamics::twist_friction::tests::one_point_zero_load_and_zero_friction_do_not_add_twist_resistance ... ok
+test dynamics::twist_friction::tests::twist_effective_mass_uses_both_bodies ... ok
+test dynamics::twist_friction::tests::twist_is_solved_before_the_off_center_sliding_row ... ok
+test dynamics::twist_friction::tests::twist_radius_and_load_bound_the_angular_impulse ... ok
+test dynamics::twist_friction::tests::twist_constraints_recycle_or_partially_transfer_previous_contacts ... ok
+test dynamics::twist_friction::tests::projected_normals_match_world_anchor_reference ... ok
+test dynamics::twist_tiles::kernels::static_velocity_write_tests::shared_static_endpoint_keeps_velocity_bits ... ok
+test queries::polygonal_feature::line_intersection_tests::line_degeneracies_keep_existing_semantics ... ok
+test dynamics::twist_tiles::kernels::static_velocity_write_tests::velocity_write_guard_includes_angular_response ... ok
+test queries::polygonal_feature::line_intersection_tests::shallow_crossing_keeps_intersection_on_both_lines ... ok
+test dynamics::coulomb_tiles::tests::constraints_recycle_transfer_or_build_fresh_contacts ... ok
+test shapes::capsule::projection_tests::degenerate_capsule_is_finite_sphere ... ok
+test queries::polygonal_feature::witness_tests::clipped_edges_cannot_discard_tangent_separation ... ok
+test shapes::capsule::projection_tests::near_axis_projection_reaches_boundary ... ok
+test queries::polygonal_feature::witness_tests::aligned_parallel_and_crossing_edges_keep_contacts ... ok
+test tests::epa::test_penetration_depth ... ok
+test shapes::capsule::projection_tests::oriented_near_axis_points_reach_capsule_boundary ... ok
+test tests::epa::test_deep_penetration ... ok
+test tests::gjk::test_intersecting_cuboids ... ok
+test tests::gjk::gjk_face_projection_does_not_invent_tangential_separation ... ok
+test tests::gjk::test_nearly_touching_cuboids ... ok
+test tests::gjk::test_separated_capsules ... ok
+test tests::gjk::epa_coincident_cuboids_preserve_depth_after_support_roundoff ... ok
+test tests::gjk::test_separated_cuboids ... ok
+test tests::linalg::fill_respects_sub_view ... ok
+test tests::linalg::axpy_mat_adds_alpha_scaled_source ... ok
+test tests::linalg::copy_from_copies_a_disjoint_block ... ok
+test tests::linalg::fill_sets_every_entry ... ok
+test tests::linalg::gemm_mat3_lhs_matches_dense_gemm ... ok
+test tests::linalg::gemm_beta_zero_computes_c_eq_alpha_ab ... ok
+test tests::linalg::gemv_tr_spatial_matches_reference ... ok
+test tests::linalg::gemm_tr_matches_reference ... ok
+test tests::linalg::lu_factor_reused_across_multiple_rhs ... ok
+test tests::linalg::lu_solve_identity_recovers_rhs ... ok
+test tests::linalg::gemm_accumulates_with_beta_and_alpha ... ok
+test dynamics::twist_friction::tests::twist_tiles_and_cached_warmstarts_match_twist_constraints ... ok
+test tests::linalg::lu_solve_requires_pivoting ... ok
+test tests::linalg::lu_solve_respects_offsets ... ok
+test tests::linalg::lu_solve_spd_matrix ... ok
+test tests::linalg::matslice_indexing_dense ... ok
+test tests::linalg::matslice_fixed_rows_columns ... ok
+test tests::linalg::matslice_rows_range_pair_split ... ok
+test tests::linalg::quadform_spatial_matches_reference ... ok
+test tests::linalg::skew_maps_v_to_t_cross_v ... ok
+test tests::linalg::skew_tr_maps_v_to_v_cross_t ... ok
+test tests::pfm_pfm::degenerate_epa_faces_do_not_create_zero_normal_contacts ... ok
+test tests::pfm_pfm::test_capsule_capsule ... ok
+test tests::pfm_pfm::test_overlapping_cuboids ... ok
+test tests::pfm_pfm::test_nearly_touching_cuboids ... ok
+test tests::pfm_pfm::test_separated_cuboids ... ok
+test tests::pfm_pfm::test_capsule_cuboid ... ok
+test tests::pfm_pfm::triangle_backface_fallback_stays_on_the_finite_triangle ... ok
+test dynamics::solver_utils::tests::optimized_iterations_match_original_point_order ... ok
+test dynamics::coloring::tests::conflict_pruning_matches_full_graph_with_seeded_and_pending_colors ... ok
+test dynamics::coloring::tests::bounds::bounded_topo_cleans_conflicts_and_never_exceeds_its_palette ... ok
+
+test result: ok. 70 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+running 19 tests
+test frame::tests::unbounded_manifest_cannot_silently_overrun_a_trace ... ok
+test metal_runtime::tests::rejects_invalid_binding_and_dispatch_contracts ... ok
+test metal_runtime::tests::rejects_invalid_program_dependencies ... ok
+test metal_runtime::tests::permits_compiler_eliminated_bindings ... ok
+test metal_runtime::tests::rejects_missing_misaligned_or_unknown_buffer_sizes ... ok
+test scene_lifecycle::tests::remaps_must_be_one_to_one_and_inside_active_storage ... ok
+test frame::tests::invalid_gates_regions_and_variant_meanings_are_rejected ... ok
+test frame::tests::failed_dispatch_requires_explicit_recovery ... ok
+test frame::tests::stage_ranges_run_once_and_reject_invalid_ranges_before_writes ... ok
+test frame::tests::exhausted_capacity_never_advances_physics_or_frame_count ... ok
+test metal_runtime::tests::ordered_native_stages_share_storage_across_iterations ... ok
+test frame::tests::rejected_extension_preserves_the_current_session ... ok
+test metal_runtime::tests::reused_metal_pipeline_keeps_bindings_iterations_and_launch_checks ... ok
+test frame::tests::same_stage_limits_retry_before_commit ... ok
+test frame::tests::growth_retries_before_commit_and_relocates_state_on_device ... ok
+test frame::tests::input_updates_survive_relocation_and_reject_invalid_ranges ... ok
+test frame::tests::checkpoint_restore_reset_and_rejections_are_transactional ... ok
+test frame::tests::unbounded_session_accepts_capacity_compiled_after_exhaustion ... ok
+test frame::tests::failed_growth_keeps_the_previous_frame_available ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test c_runtime_preserves_unreduced_contacts_through_lazy_growth ... ignored, requires the local TileLang compiler and fresh unreduced native scene fixtures
+test c_runtime_steps_real_native_scene_with_lazy_growth ... ignored, requires the local TileLang compiler and fresh native scene fixtures
+test metal_runtime_preserves_unreduced_contacts_through_lazy_growth ... ignored, requires Metal, the local TileLang compiler and fresh unreduced scene fixtures
+test metal_runtime_steps_real_native_scene_with_lazy_growth ... ignored, requires Metal, the local TileLang compiler and fresh native scene fixtures
+
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_dense_coloring_growth_and_native_tail_parity ... ignored, requires the local compiler and independent native CPU pipeline
+test metal_dense_coloring_growth_and_native_tail_parity ... ignored, requires Metal, the local compiler and independent native CPU pipeline
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_configuration_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+test metal_configuration_updates_match_production_pipeline ... ignored, requires Metal, the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_live_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+test metal_live_updates_match_production_pipeline ... ignored, requires Metal, the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_twist_and_model_switches_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+test metal_twist_and_model_switches_match_production_pipeline ... ignored, requires Metal, the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_hubs_survive_runtime_growth ... ignored, requires compiler and fresh split-hubs-f8 fixture
+test metal_hubs_survive_runtime_growth ... ignored, requires Metal, compiler and fresh split-hubs-f8 fixture
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_reconstructs_inserted_and_removed_scenes ... ignored, requires compiler, runtime workspace and NEXUS_DISABLE_BF=1
+test metal_reconstructs_inserted_and_removed_scenes ... ignored, requires Metal, compiler, runtime workspace and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 1 test
+test scene_lifecycle::tests::remaps_must_be_one_to_one_and_inside_active_storage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test c_runtime_preserves_unreduced_contacts_through_lazy_growth ... ignored, requires the local TileLang compiler and fresh unreduced native scene fixtures
+test c_runtime_steps_real_native_scene_with_lazy_growth ... ignored, requires the local TileLang compiler and fresh native scene fixtures
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_dense_coloring_growth_and_native_tail_parity ... ignored, requires the local compiler and independent native CPU pipeline
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_configuration_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_live_updates_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_twist_and_model_switches_match_production_pipeline ... ignored, requires the compiler, runtime workspace, and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_hubs_survive_runtime_growth ... ignored, requires compiler and fresh split-hubs-f8 fixture
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test c_reconstructs_inserted_and_removed_scenes ... ignored, requires compiler, runtime workspace and NEXUS_DISABLE_BF=1
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 3 tests
+test articulated_upload_is_rejected_explicitly ... ok
+test empty_upload_retains_capacity_without_inventing_active_objects ... ok
+test upload_preserves_native_multi_collider_and_batch_layout ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+All checks passed!
+partial        src_rbd_shaders/bounding_volumes/aabb.rs -> ports/tilelang/shaders/bounding_volumes/aabb.py
+unported       src_rbd_shaders/bounding_volumes/mod.rs -> ports/tilelang/shaders/bounding_volumes/__init__.py
+complete       src_rbd_shaders/broad_phase/brute_force.rs -> ports/tilelang/shaders/broad_phase/brute_force.py
+complete       src_rbd_shaders/broad_phase/lbvh.rs -> ports/tilelang/shaders/broad_phase/lbvh.py
+unported       src_rbd_shaders/broad_phase/mod.rs -> ports/tilelang/shaders/broad_phase/__init__.py
+complete       src_rbd_shaders/broad_phase/narrow_phase.rs -> ports/tilelang/shaders/broad_phase/narrow_phase.py
+partial        src_rbd_shaders/dynamics/body.rs -> ports/tilelang/shaders/dynamics/body.py
+complete       src_rbd_shaders/dynamics/canonical_order.rs -> ports/tilelang/shaders/dynamics/canonical_order.py
+complete       src_rbd_shaders/dynamics/color_buckets.rs -> ports/tilelang/shaders/dynamics/color_buckets.py
+partial        src_rbd_shaders/dynamics/coloring.rs -> ports/tilelang/shaders/dynamics/coloring.py
+partial        src_rbd_shaders/dynamics/constraint.rs -> ports/tilelang/shaders/dynamics/constraint.py
+complete       src_rbd_shaders/dynamics/contact_links.rs -> ports/tilelang/shaders/dynamics/contact_links.py
+unported       src_rbd_shaders/dynamics/contact_tiles.rs -> ports/tilelang/shaders/dynamics/contact_tiles.py
+partial        src_rbd_shaders/dynamics/coulomb_tiles.rs -> ports/tilelang/shaders/dynamics/coulomb_tiles.py
+partial        src_rbd_shaders/dynamics/joint.rs -> ports/tilelang/shaders/dynamics/joint.py
+partial        src_rbd_shaders/dynamics/joint_constraint.rs -> ports/tilelang/shaders/dynamics/joint_constraint.py
+partial        src_rbd_shaders/dynamics/joint_constraint_builder.rs -> ports/tilelang/shaders/dynamics/joint_constraint_builder.py
+partial        src_rbd_shaders/dynamics/mass_splitting.rs -> ports/tilelang/shaders/dynamics/mass_splitting.py
+unported       src_rbd_shaders/dynamics/mod.rs -> ports/tilelang/shaders/dynamics/__init__.py
+complete       src_rbd_shaders/dynamics/mprops_update.rs -> ports/tilelang/shaders/dynamics/mprops_update.py
+unported       src_rbd_shaders/dynamics/multibody/compute_dynamics_pre.rs -> ports/tilelang/shaders/dynamics/multibody/compute_dynamics_pre.py
+unported       src_rbd_shaders/dynamics/multibody/contact_constraints.rs -> ports/tilelang/shaders/dynamics/multibody/contact_constraints.py
+unported       src_rbd_shaders/dynamics/multibody/contact_sensor.rs -> ports/tilelang/shaders/dynamics/multibody/contact_sensor.py
+unported       src_rbd_shaders/dynamics/multibody/crba.rs -> ports/tilelang/shaders/dynamics/multibody/crba.py
+unported       src_rbd_shaders/dynamics/multibody/env_reset.rs -> ports/tilelang/shaders/dynamics/multibody/env_reset.py
+unported       src_rbd_shaders/dynamics/multibody/gravity_and_lu.rs -> ports/tilelang/shaders/dynamics/multibody/gravity_and_lu.py
+unported       src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/helper.rs -> ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/helper.py
+unported       src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/jacobians.rs -> ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/jacobians.py
+unported       src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/kernels.rs -> ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/kernels.py
+unported       src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/mod.rs -> ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/__init__.py
+unported       src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/types.rs -> ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/types.py
+unported       src_rbd_shaders/dynamics/multibody/impulse_joint_constraints/update.rs -> ports/tilelang/shaders/dynamics/multibody/impulse_joint_constraints/update.py
+unported       src_rbd_shaders/dynamics/multibody/integrate.rs -> ports/tilelang/shaders/dynamics/multibody/integrate.py
+unported       src_rbd_shaders/dynamics/multibody/jacobian.rs -> ports/tilelang/shaders/dynamics/multibody/jacobian.py
+unported       src_rbd_shaders/dynamics/multibody/joint_columns_simd.rs -> ports/tilelang/shaders/dynamics/multibody/joint_columns_simd.py
+unported       src_rbd_shaders/dynamics/multibody/joint_constraints.rs -> ports/tilelang/shaders/dynamics/multibody/joint_constraints.py
+unported       src_rbd_shaders/dynamics/multibody/link_static_soa.rs -> ports/tilelang/shaders/dynamics/multibody/link_static_soa.py
+unported       src_rbd_shaders/dynamics/multibody/lu.rs -> ports/tilelang/shaders/dynamics/multibody/lu.py
+unported       src_rbd_shaders/dynamics/multibody/lu_simd.rs -> ports/tilelang/shaders/dynamics/multibody/lu_simd.py
+unported       src_rbd_shaders/dynamics/multibody/mod.rs -> ports/tilelang/shaders/dynamics/multibody/__init__.py
+unported       src_rbd_shaders/dynamics/multibody/recursive_forces.rs -> ports/tilelang/shaders/dynamics/multibody/recursive_forces.py
+unported       src_rbd_shaders/dynamics/multibody/scatter_motor.rs -> ports/tilelang/shaders/dynamics/multibody/scatter_motor.py
+unported       src_rbd_shaders/dynamics/multibody/solve_constraints.rs -> ports/tilelang/shaders/dynamics/multibody/solve_constraints.py
+unported       src_rbd_shaders/dynamics/multibody/solve_simd.rs -> ports/tilelang/shaders/dynamics/multibody/solve_simd.py
+unported       src_rbd_shaders/dynamics/multibody/substeps_simd.rs -> ports/tilelang/shaders/dynamics/multibody/substeps_simd.py
+unported       src_rbd_shaders/dynamics/multibody/types.rs -> ports/tilelang/shaders/dynamics/multibody/types.py
+unported       src_rbd_shaders/dynamics/multibody/unroll.rs -> ports/tilelang/shaders/dynamics/multibody/unroll.py
+unported       src_rbd_shaders/dynamics/multibody/utils.rs -> ports/tilelang/shaders/dynamics/multibody/utils.py
+unported       src_rbd_shaders/dynamics/multibody/ws_soa.rs -> ports/tilelang/shaders/dynamics/multibody/ws_soa.py
+complete       src_rbd_shaders/dynamics/prep_render.rs -> ports/tilelang/shaders/dynamics/prep_render.py
+partial        src_rbd_shaders/dynamics/sim_params.rs -> ports/tilelang/shaders/dynamics/sim_params.py
+partial        src_rbd_shaders/dynamics/solver.rs -> ports/tilelang/shaders/dynamics/solver.py
+partial        src_rbd_shaders/dynamics/solver_utils.rs -> ports/tilelang/shaders/dynamics/solver_utils.py
+partial        src_rbd_shaders/dynamics/tile_kernels.rs -> ports/tilelang/shaders/dynamics/tile_kernels.py
+partial        src_rbd_shaders/dynamics/twist_friction.rs -> ports/tilelang/shaders/dynamics/twist_friction.py
+partial        src_rbd_shaders/dynamics/twist_tiles.rs -> ports/tilelang/shaders/dynamics/twist_tiles.py
+unported       src_rbd_shaders/lib.rs -> ports/tilelang/shaders/__init__.py
+partial        src_rbd_shaders/queries/contact.rs -> ports/tilelang/shaders/queries/contact.py
+unported       src_rbd_shaders/queries/contact_manifold.rs -> ports/tilelang/shaders/queries/contact_manifold.py
+complete       src_rbd_shaders/queries/contact_pfm_pfm.rs -> ports/tilelang/shaders/queries/contact_pfm_pfm.py
+partial        src_rbd_shaders/queries/gjk/cso_point.rs -> ports/tilelang/shaders/queries/gjk/cso_point.py
+unported       src_rbd_shaders/queries/gjk/epa2.rs -> ports/tilelang/shaders/queries/gjk/epa2.py
+partial        src_rbd_shaders/queries/gjk/epa3.rs -> ports/tilelang/shaders/queries/gjk/epa3.py
+partial        src_rbd_shaders/queries/gjk/gjk.rs -> ports/tilelang/shaders/queries/gjk/gjk.py
+unported       src_rbd_shaders/queries/gjk/mod.rs -> ports/tilelang/shaders/queries/gjk/__init__.py
+unported       src_rbd_shaders/queries/gjk/voronoi_simplex2.rs -> ports/tilelang/shaders/queries/gjk/voronoi_simplex2.py
+partial        src_rbd_shaders/queries/gjk/voronoi_simplex3.rs -> ports/tilelang/shaders/queries/gjk/voronoi_simplex3.py
+partial        src_rbd_shaders/queries/mod.rs -> ports/tilelang/shaders/queries/__init__.py
+partial        src_rbd_shaders/queries/polygonal_feature.rs -> ports/tilelang/shaders/queries/polygonal_feature.py
+partial        src_rbd_shaders/queries/projection.rs -> ports/tilelang/shaders/queries/projection.py
+complete       src_rbd_shaders/queries/ray.rs -> ports/tilelang/shaders/queries/ray.py
+complete       src_rbd_shaders/queries/sat.rs -> ports/tilelang/shaders/queries/sat.py
+partial        src_rbd_shaders/shapes/capsule.rs -> ports/tilelang/shaders/shapes/capsule.py
+partial        src_rbd_shaders/shapes/cone.rs -> ports/tilelang/shaders/shapes/cone.py
+partial        src_rbd_shaders/shapes/convex_polyhedron.rs -> ports/tilelang/shaders/shapes/convex_polyhedron.py
+partial        src_rbd_shaders/shapes/cylinder.rs -> ports/tilelang/shaders/shapes/cylinder.py
+partial        src_rbd_shaders/shapes/mod.rs -> ports/tilelang/shaders/shapes/__init__.py
+complete       src_rbd_shaders/shapes/polyline.rs -> ports/tilelang/shaders/shapes/polyline.py
+partial        src_rbd_shaders/shapes/segment.rs -> ports/tilelang/shaders/shapes/segment.py
+partial        src_rbd_shaders/shapes/shape.rs -> ports/tilelang/shaders/shapes/shape.py
+partial        src_rbd_shaders/shapes/tetrahedron.rs -> ports/tilelang/shaders/shapes/tetrahedron.py
+partial        src_rbd_shaders/shapes/triangle.rs -> ports/tilelang/shaders/shapes/triangle.py
+complete       src_rbd_shaders/shapes/trimesh.rs -> ports/tilelang/shaders/shapes/trimesh.py
+reference_test src_rbd_shaders/tests/coloring.rs -> ports/tilelang/shaders/tests/coloring.py
+reference_test src_rbd_shaders/tests/contact_constraints.rs -> ports/tilelang/shaders/tests/contact_constraints.py
+reference_test src_rbd_shaders/tests/contact_solver.rs -> ports/tilelang/shaders/tests/contact_solver.py
+reference_test src_rbd_shaders/tests/epa.rs -> ports/tilelang/shaders/tests/epa.py
+reference_test src_rbd_shaders/tests/gjk.rs -> ports/tilelang/shaders/tests/gjk.py
+reference_test src_rbd_shaders/tests/hub_split.rs -> ports/tilelang/shaders/tests/hub_split.py
+reference_test src_rbd_shaders/tests/linalg.rs -> ports/tilelang/shaders/tests/linalg.py
+reference_test src_rbd_shaders/tests/mod.rs -> ports/tilelang/shaders/tests/__init__.py
+reference_test src_rbd_shaders/tests/pfm_pfm.rs -> ports/tilelang/shaders/tests/pfm_pfm.py
+reference_test src_rbd_shaders/tests/twist_friction.rs -> ports/tilelang/shaders/tests/twist_friction.py
+complete       src_rbd_shaders/utils/basis.rs -> ports/tilelang/shaders/utils/basis.py
+unported       src_rbd_shaders/utils/indices.rs -> ports/tilelang/shaders/utils/indices.py
+unported       src_rbd_shaders/utils/linalg.rs -> ports/tilelang/shaders/utils/linalg.py
+unported       src_rbd_shaders/utils/mod.rs -> ports/tilelang/shaders/utils/__init__.py
+complete       src_rbd_shaders/utils/prefix_sum.rs -> ports/tilelang/shaders/utils/prefix_sum.py
+complete       src_rbd_shaders/utils/radix_sort/init_batch_ids.rs -> ports/tilelang/shaders/utils/radix_sort/init_batch_ids.py
+complete       src_rbd_shaders/utils/radix_sort/init_indirect_dispatches.rs -> ports/tilelang/shaders/utils/radix_sort/init_indirect_dispatches.py
+unported       src_rbd_shaders/utils/radix_sort/mod.rs -> ports/tilelang/shaders/utils/radix_sort/__init__.py
+complete       src_rbd_shaders/utils/radix_sort/sort_count.rs -> ports/tilelang/shaders/utils/radix_sort/sort_count.py
+complete       src_rbd_shaders/utils/radix_sort/sort_reduce.rs -> ports/tilelang/shaders/utils/radix_sort/sort_reduce.py
+complete       src_rbd_shaders/utils/radix_sort/sort_scan.rs -> ports/tilelang/shaders/utils/radix_sort/sort_scan.py
+complete       src_rbd_shaders/utils/radix_sort/sort_scan_add.rs -> ports/tilelang/shaders/utils/radix_sort/sort_scan_add.py
+complete       src_rbd_shaders/utils/radix_sort/sort_scatter.rs -> ports/tilelang/shaders/utils/radix_sort/sort_scatter.py
+complete       src_rbd_shaders/utils/radix_sort/sorting.rs -> ports/tilelang/shaders/utils/radix_sort/sorting.py
+unported       src_rbd_shaders/utils/slice.rs -> ports/tilelang/shaders/utils/slice.py
+reference_test src_rbd_shaders/tests/coloring_luby.rs -> ports/tilelang/shaders/tests/coloring_luby.py
+reference_test src_rbd_shaders/tests/coloring_bounds.rs -> ports/tilelang/shaders/tests/coloring_bounds.py
