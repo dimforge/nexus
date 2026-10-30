@@ -266,7 +266,8 @@
     "Coulomb friction, three substeps, five PGS iterations, eleven native color buckets and sixteen deterministic Topo rounds; all active contacts must be solved.",
     "Two batches of a multi-collider dynamic body, fixed joint endpoint and parentless mesh, with prismatic limits/motors; three batches of 65 independent ball/ground contacts.",
     "Archive built with the pinned noalias-disabled CPU toolchain; geometry and joints use the production converters. Typed storage and dispatch offsets are Rust-derived.",
-    "Pair/deferred capacities are explicit. Overflow is an error; the separately registered resident runtime provides retry qualification."
+    "Pair/deferred capacities are explicit. Overflow is an error; the separately registered resident runtime provides retry qualification.",
+    "Fresh production RbdPipeline::step traces with deterministic LBVH and contact reduction must match all composed Rust oracle body poses and velocities. Native physical inputs match exactly; allocator capacities and deterministic enablement may differ."
   ],
   "invariants": [
     "Complete generated LBVH, general collision, contact persistence, canonical ordering, body adjacency, contact coloring, joint and contact solve, integration and finalization. No CPU physics between kernels or frames.",

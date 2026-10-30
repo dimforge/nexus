@@ -1,13 +1,13 @@
 """Replay production Nexus cold-start uploads through complete generated frames."""
 
-import hashlib
 import shutil
 import tempfile
 from pathlib import Path
 
-from cpu_oracle import export_fixtures, export_native_scenes
+from cpu_oracle import export_fixtures, export_native_scenes, export_production_scenes
 from general_scene_validation import EXTRA as COLLISION
 from joint_scene_validation import EXTRA as JOINTS
+from production_reference import check_suite, hashes
 from runtime_scene_validation import check_outputs, validate_case
 from scene_broadphase import EXTRA as LBVH
 from scene_kernels import make_program
@@ -30,11 +30,14 @@ def export(directory):
             raise ValueError("Native scene exporter and shader oracle profiles differ")
         archive = directory / "native-inputs"
         shutil.copytree(upload, archive, dirs_exist_ok=True)
-        profile["native_scene_uploads"] = {
-            str(p.relative_to(archive)): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(archive.rglob("*"))
-            if p.is_file()
-        }
+        profile["native_scene_uploads"] = hashes(archive)
+        production = directory / "production-reference"
+        if production.exists():
+            shutil.rmtree(production)
+        production_profile = export_production_scenes(production)
+        if native_profile != production_profile:
+            raise ValueError("Production pipeline CPU profile differs")
+        profile["production_pipeline"] = check_suite(directory, production)
         return profile
 
 

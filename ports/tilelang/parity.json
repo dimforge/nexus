@@ -2061,7 +2061,8 @@
         "src_rbd/broad_phase/lbvh.rs::Lbvh::update_tree",
         "src_rbd/broad_phase/lbvh.rs::Lbvh::find_pairs",
         "src_rbd/pipeline/scene_upload.rs::RbdState::read_scene_upload",
-        "src_rbd_shaders/dynamics/mprops_update.rs::gpu_sync_collider_poses"
+        "src_rbd_shaders/dynamics/mprops_update.rs::gpu_sync_collider_poses",
+        "src_rbd/pipeline/rbd_step.rs::RbdPipeline::step"
       ],
       "implementation": "ports/tilelang/runtime_replay.py::main",
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",

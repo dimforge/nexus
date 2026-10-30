@@ -138,7 +138,7 @@ def export_fixtures(binary, directory, extra=()):
     return profile
 
 
-def native_cargo(arguments):
+def native_cargo(arguments, env=None):
     """Build native CPU conversion/runtime with the same pinned compiler profile."""
     if not arguments:
         raise ValueError("Supply a Cargo subcommand")
@@ -153,7 +153,7 @@ def native_cargo(arguments):
             HERE.parent.parent / "target",
             *arguments[1:],
         ],
-        environment(),
+        environment() if env is None else env,
     )
 
 
@@ -177,6 +177,29 @@ def export_native_scenes(directory):
             "runtime-upload",
             "--target-dir",
             HERE.parent.parent / "target",
+            "--",
+            directory,
+        ],
+        env,
+    )
+    return profile
+
+
+def export_production_scenes(directory):
+    """Run the complete production RbdPipeline with the checked CPU profile."""
+    env = environment()
+    env["NEXUS_DISABLE_BF"] = "1"
+    directory = Path(directory).resolve()
+    profile = verify(directory.parent, env)
+    native_cargo(
+        [
+            "run",
+            "--locked",
+            "--no-default-features",
+            "--features",
+            "scene-upload",
+            "--bin",
+            "runtime-reference",
             "--",
             directory,
         ],

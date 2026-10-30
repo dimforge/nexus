@@ -36,6 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
         let mut state = RbdState::from_rapier(&backend, &refs, capacities(2));
         state.set_gravity(&backend, [0.0, -3.0, 0.5]);
+        state.set_deterministic(&backend, true);
         backend.synchronize()?;
         let mut upload = state.read_scene_upload(&backend).await?;
         write_inputs(&upload, &output.join("multi-collider-joint"))?;
@@ -53,6 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         caps.collisions_capacity = 256;
         let mut state = RbdState::from_rapier(&backend, &refs, caps);
         state.set_gravity(&backend, [0.0, -9.81, 0.0]);
+        state.set_deterministic(&backend, true);
         backend.synchronize()?;
         write_inputs(
             &state.read_scene_upload(&backend).await?,
