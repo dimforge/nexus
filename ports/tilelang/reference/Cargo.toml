@@ -157,3 +157,7 @@ path = "src/lbvh_scenes.rs"
 [[bin]]
 name = "frame-scenes"
 path = "src/frame_scenes.rs"
+
+[[bin]]
+name = "runtime-scenes"
+path = "src/runtime_scenes.rs"

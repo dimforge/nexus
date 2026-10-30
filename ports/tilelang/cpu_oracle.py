@@ -3,12 +3,12 @@
 
 import hashlib
 import os
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 import tomllib
+from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REFERENCE = HERE / "reference"
@@ -48,6 +48,7 @@ def environment(inherited=None):
 def run(command, env):
     result = subprocess.run(
         [str(x) for x in command],
+        check=False,
         cwd=REFERENCE,
         env=env,
         text=True,
@@ -134,6 +135,34 @@ def export_fixtures(binary, directory, extra=()):
     env = environment()
     profile = verify(Path(directory).parent, env)
     cargo(["run", "--locked", "--bin", binary, "--", directory, *extra], env)
+    return profile
+
+
+def export_native_scenes(directory):
+    """Export the real Nexus CPU conversion without a GPU or Metal dependency."""
+    env = environment()
+    directory = Path(directory).resolve()
+    profile = verify(directory.parent, env)
+    run(
+        [
+            "cargo",
+            f"+{toolchain()}",
+            "run",
+            "--locked",
+            "--manifest-path",
+            HERE / "native" / "Cargo.toml",
+            "--no-default-features",
+            "--features",
+            "scene-upload",
+            "--bin",
+            "runtime-upload",
+            "--target-dir",
+            HERE.parent.parent / "target",
+            "--",
+            directory,
+        ],
+        env,
+    )
     return profile
 
 

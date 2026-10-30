@@ -23,10 +23,10 @@ def tree_case(c, b):
         c,
         kind="lbvh_program",
         colliders=c["colliders_per_batch"],
-        capacity=c["colliders_per_batch"] + 3,
+        capacity=c.get("body_capacity_per_batch", c["colliders_per_batch"] + 3),
         groups=1,
         storage=c["body_storage"],
-        count=c["body_count"],
+        count=c.get("collider_count", c["body_count"]),
         vertices=c.get("vertex_count", 1),
         iterations=1,
         buffer_words={n: v.size for n, v in b.items()},
@@ -50,6 +50,10 @@ def validate_case(l, c, b, *, capacity_variant=False):
 
 def normalized_tree(l, c, b, restarted=False):
     arrays = tree_arrays(b)
+    if c["kind"] == "runtime_scene":
+        from native_geometry import lbvh_vertices
+
+        arrays["Vertices"] = lbvh_vertices(l, b)
     if restarted:
         # The resident refit planner clears this live counter before use. Preserve
         # every guard word, all actual input storage and the captured tree.
@@ -87,7 +91,7 @@ def check_trees(l, c, b, a, e, k, restarted=False):
     before = normalized_tree(l, c, b, restarted)
     lc = tree_case(c, before)
     for r in (a, e):
-        tree = tree_arrays(r)
+        tree = normalized_tree(l, c, r)
         initial = dict(before, Poses=tree["Poses"])
         # Live scratch can retain earlier frames; keep outer guards from upload.
         # Pair membership and refit cut membership are still checked independently.

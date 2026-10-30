@@ -239,8 +239,8 @@ def validate_constraints(l, c, a):
                 raise ValueError("Invalid prepared joint element")
     # Rust's host coloring treats both static and dynamic endpoints as writers.
     # Its solver stores both slots even when no active row changes them.
-    starts = [0] + list(map(int, a["ColorGroups"][:2]))
-    ends = list(map(int, a["ColorGroups"][:3]))
+    ends = list(map(int, a["ColorGroups"][: c.get("joint_color_count", 3)]))
+    starts = [0, *ends[:-1]]
     nb = c["batches"]
     for start, end in zip(starts, ends):
         used = set()

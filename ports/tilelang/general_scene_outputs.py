@@ -14,9 +14,9 @@ def check_collision(l, c, b, a, e, k):
     bc = dict(
         c,
         kind="broadphase_pairs",
-        count=c["body_count"],
+        count=c.get("collider_count", c["body_count"]),
         colliders=per,
-        capacity=per + 3,
+        capacity=c.get("body_capacity_per_batch", per + 3),
         storage=c["body_storage"],
         vertices=c["vertex_count"],
         initial_count=0,
@@ -35,8 +35,8 @@ def check_collision(l, c, b, a, e, k):
         # complete overlap set and tree. Here retain only the common AABB check.
         bc.update(
             kind="world_aabbs",
-            dispatch=c["body_count"],
-            groups=max((c["body_count"] + 63) // 64, 1),
+            dispatch=c.get("collider_count", c["body_count"]),
+            groups=max((c.get("collider_count", c["body_count"]) + 63) // 64, 1),
         )
         bb["PairCount"] = a["PairCount"]
         bc["initial_count"] = int(a["PairCount"][0])
@@ -200,7 +200,10 @@ def check_collision(l, c, b, a, e, k):
         )
         for side, (r, row) in enumerate(((a, ar), (e, er))):
             ids = row[cf["colliders"] : cf["colliders"] + 2].astype(int)
-            if np.any(ids >= c["body_count"]) or ids[0] % nb != ids[1] % nb:
+            if (
+                np.any(ids >= c.get("collider_count", c["body_count"]))
+                or ids[0] % nb != ids[1] % nb
+            ):
                 raise AssertionError("General contact collider/batch identity")
             np.testing.assert_array_equal(
                 row[cf["bodies"] : cf["bodies"] + 2], b["Parents"][ids]

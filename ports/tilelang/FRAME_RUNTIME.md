@@ -83,3 +83,28 @@ readback checks the native enum discriminant before constructing Rust values;
 geometry and joint input allocations now permit readback. No shader arithmetic
 or shape/joint conversion changes in this bridge. Connecting these public inputs
 to arbitrary compiled frame storage and backend selection remains in progress.
+
+
+## Native cold-start specialization
+
+`native/src/upload.rs::write_inputs` writes the typed `RbdSceneUpload` into a new
+portable archive. `cpu_oracle.export_native_scenes` builds real Rapier/Nexus
+inputs on CPU, without Metal, using the pinned compiler, noalias flag and LLVM
+probe. Its `scene-upload` Cargo feature has a build guard. CPU and Metal conversion
+produce identical archive bytes in the multiple-collider regression.
+
+`reference` binary `runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|upload`
+reads that archive, validates native layouts/counts/parents/joint coloring and
+allocates typed frame storage. `upload` initializes only; `execute` also runs the
+native shader oracle for differential tests. TileLang specialization uses the
+same body/collider counts, local offsets, masses, materials, groups, joint colors,
+substep count, PGS count and warmstart coefficient. All actual frame physics uses
+the translated shaders. An input body may own several colliders; collider IDs
+must never be substituted for body IDs.
+
+This integration remains bounded: Coulomb friction, deterministic LBVH ordering,
+16 Topo rounds, no split hubs and a finite trace. Public backend selection and
+unrestricted lifecycle support remain outstanding. `runtime_scene_validation.py`
+checks separate index spaces and geometry in addition to differential output.
+The native geometry validator recognizes exact empty leaf-bound sentinels without
+changing the bytes sent to kernels; it still rejects nonfinite primitive geometry.

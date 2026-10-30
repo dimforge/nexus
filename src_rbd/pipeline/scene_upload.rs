@@ -8,7 +8,9 @@ use crate::shaders::{
     shapes::Shape,
     utils::BatchIndices,
 };
-use khal::backend::{Backend, Buffer, Encoder, GpuBackend, GpuBackendError, GpuBuffer};
+use khal::backend::{Backend, GpuBackend, GpuBackendError, GpuBuffer};
+#[cfg(any(feature = "webgpu", feature = "metal", feature = "cuda"))]
+use khal::backend::{Buffer, Encoder};
 
 /// Native typed inputs for starting an ordinary-body simulation from current state.
 ///
@@ -111,16 +113,34 @@ async fn read_groups(
     backend: &GpuBackend,
     source: &GpuBuffer<crate::rapier::geometry::InteractionGroups>,
 ) -> Result<Vec<crate::rapier::geometry::InteractionGroups>, GpuBackendError> {
+    #[cfg(feature = "cpu")]
+    if let (GpuBackend::Cpu, GpuBuffer::Cpu(values)) = (backend, source) {
+        return Ok(values.clone());
+    }
+    #[cfg(any(feature = "webgpu", feature = "metal", feature = "cuda"))]
+    {
+        read_groups_gpu(backend, source).await
+    }
+    #[cfg(not(any(feature = "webgpu", feature = "metal", feature = "cuda")))]
+    {
+        let _ = (backend, source);
+        Err(GpuBackendError::Unsupported(
+            "scene group readback backend mismatch",
+        ))
+    }
+}
+
+#[cfg(any(feature = "webgpu", feature = "metal", feature = "cuda"))]
+async fn read_groups_gpu(
+    backend: &GpuBackend,
+    source: &GpuBuffer<crate::rapier::geometry::InteractionGroups>,
+) -> Result<Vec<crate::rapier::geometry::InteractionGroups>, GpuBackendError> {
     use crate::rapier::geometry::{Group, InteractionGroups, InteractionTestMode};
     const {
         assert!(size_of::<InteractionGroups>() == 12);
         assert!(std::mem::offset_of!(InteractionGroups, memberships) == 0);
         assert!(std::mem::offset_of!(InteractionGroups, filter) == 4);
         assert!(std::mem::offset_of!(InteractionGroups, test_mode) == 8);
-    }
-    #[cfg(feature = "cpu")]
-    if let (GpuBackend::Cpu, GpuBuffer::Cpu(values)) = (backend, source) {
-        return Ok(values.clone());
     }
     let len = source.len();
     if len == 0 {

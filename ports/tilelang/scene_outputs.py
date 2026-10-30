@@ -47,9 +47,9 @@ def check_guards(l, c, b, a, e):
             "colliders_per_batch",
         )
     )
-    prefix("ColliderPoses", n * l["pose_words"])
+    prefix("ColliderPoses", c.get("collider_count", n) * l["pose_words"])
     for batch in range(nb):
-        start = batch * (per + 3) * l["aabb_words"]
+        start = batch * c.get("body_capacity_per_batch", per + 3) * l["aabb_words"]
         masks["Aabbs"][start : start + per * l["aabb_words"]] = True
     claimed.add("Aabbs")
     prefix("Pairs", c["pair_capacity"] * l["pair_words"])
@@ -131,9 +131,11 @@ def check_bodies(l, c, b, a, e, contract):
     masks["Params"][:] = 1
     for name in ("ColliderPoses",):
         m = masks[name].reshape(-1, l["pose_words"])
-        m[: c["body_count"], :] = 2
+        m[: c.get("collider_count", c["body_count"]), :] = 2
         for field, width in (("pose_rotation", 4), ("pose_translation", 3)):
-            m[: c["body_count"], l[field] : l[field] + width] = 1
+            m[
+                : c.get("collider_count", c["body_count"]), l[field] : l[field] + width
+            ] = 1
     errors = {}
     for name, m in masks.items():
         if not np.any(m):
@@ -323,8 +325,8 @@ def check_graph(l, c, a, e):
             mass[:n, l["world_inv_mass"] : l["world_inv_mass"] + 3] != 0, axis=1
         )
         rows = [[] for _ in range(n)]
-        buckets = [[] for _ in range(8 * nb)]
-        writers = [set() for _ in range(8)]
+        buckets = [[] for _ in range(c["color_stride"] * nb)]
+        writers = [set() for _ in range(c["color_stride"])]
         for i in range(count):
             link = links[i]
             if not contacts[i, length]:
@@ -334,7 +336,7 @@ def check_graph(l, c, a, e):
             if not 1 <= link[lf["len"]] <= 4 or link[lf["contact"]] != i:
                 raise AssertionError("Invalid live scene link")
             color = int(result["Colors"][i])
-            if not 1 <= color < 7:
+            if not 1 <= color < c["color_stride"] - 1:
                 raise AssertionError(
                     "Scene has unsolved contacts; palette/iteration exhaustion"
                 )

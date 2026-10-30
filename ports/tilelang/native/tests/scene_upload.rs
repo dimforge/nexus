@@ -1,70 +1,10 @@
 #![cfg(feature = "rust-reference")]
 use khal::backend::{Backend, GpuBackend, Metal};
 use nexus_rbd3d::{
-    math::Pose,
-    pipeline::{RbdCapacities, RbdState},
-    rapier::prelude::*,
-    shaders::dynamics::RbdSimParams,
+    math::Pose, pipeline::RbdState, rapier::prelude::*, shaders::dynamics::RbdSimParams,
 };
 
-fn capacities(batches: u32) -> RbdCapacities {
-    RbdCapacities {
-        batches,
-        body_capacity: 8,
-        collisions_capacity: 8,
-        mb_contact_constraints_capacity: 8,
-        ..Default::default()
-    }
-}
-
-fn scene(shift: f32, mesh: SharedShape) -> (RigidBodySet, ColliderSet, ImpulseJointSet) {
-    let mut bodies = RigidBodySet::new();
-    let mut colliders = ColliderSet::new();
-    let moving = bodies.insert(
-        RigidBodyBuilder::dynamic()
-            .translation(Vec3::new(shift, 2.0, 0.0))
-            .linvel(Vec3::new(1.0 + shift, 0.0, 0.0))
-            .angvel(Vec3::new(0.0, 0.3, 0.0))
-            .can_sleep(false),
-    );
-    let fixed = bodies.insert(RigidBodyBuilder::fixed().translation(Vec3::new(shift, 5.0, 0.0)));
-    colliders.insert_with_parent(
-        ColliderBuilder::capsule_y(0.4, 0.2)
-            .translation(Vec3::new(0.4, 0.0, 0.0))
-            .density(2.0)
-            .friction(0.7)
-            .restitution(0.3)
-            .friction_combine_rule(CoefficientCombineRule::Max)
-            .collision_groups(InteractionGroups::new(
-                Group::GROUP_2,
-                Group::GROUP_3,
-                InteractionTestMode::Or,
-            )),
-        moving,
-        &mut bodies,
-    );
-    colliders.insert_with_parent(
-        ColliderBuilder::ball(0.3).translation(Vec3::new(-0.2, 0.1, 0.0)),
-        moving,
-        &mut bodies,
-    );
-    colliders.insert_with_parent(ColliderBuilder::cuboid(0.5, 0.5, 0.5), fixed, &mut bodies);
-    colliders.insert(ColliderBuilder::new(mesh).translation(Vec3::new(shift, -1.0, 0.0)));
-    for (_, body) in bodies.iter_mut() {
-        body.recompute_mass_properties_from_colliders(&colliders);
-    }
-    let mut joints = ImpulseJointSet::new();
-    joints.insert(
-        moving,
-        fixed,
-        PrismaticJointBuilder::new(Vec3::X)
-            .local_anchor1(Vec3::new(0.2, 0.3, 0.4))
-            .limits([-0.25, 0.75])
-            .motor_velocity(0.15, 0.8),
-        true,
-    );
-    (bodies, colliders, joints)
-}
+use nexus_tilelang_native::upload_cases::{capacities, scene};
 
 #[test]
 fn upload_preserves_native_multi_collider_and_batch_layout() {
@@ -175,6 +115,51 @@ fn upload_preserves_native_multi_collider_and_batch_layout() {
         );
         assert!(!upload.vertices.is_empty());
         assert!(!upload.indices.is_empty());
+        if let Some(directory) = std::env::var_os("NEXUS_TILELANG_UPLOAD_DIR") {
+            nexus_tilelang_native::upload::write_inputs(&upload, std::path::Path::new(&directory))
+                .unwrap();
+        }
+        let mut invalid = upload.clone();
+        invalid.collider_parents[0] = 1;
+        let error = nexus_tilelang_native::upload::write_inputs(
+            &invalid,
+            std::path::Path::new("must-not-exist"),
+        )
+        .unwrap_err();
+        assert!(error.contains("active batch"));
+        invalid = upload.clone();
+        invalid.joint_color_ends[0] = 2;
+        assert!(
+            nexus_tilelang_native::upload::write_inputs(
+                &invalid,
+                std::path::Path::new("must-not-exist")
+            )
+            .unwrap_err()
+            .contains("joint coloring")
+        );
+        invalid = upload.clone();
+        invalid.joints.extend_from_slice(&upload.joints);
+        invalid.joints_per_batch = 2;
+        invalid.batch_indices.impulse_joints_len = 2;
+        invalid.joint_color_ends[0] = 2;
+        assert!(
+            nexus_tilelang_native::upload::write_inputs(
+                &invalid,
+                std::path::Path::new("must-not-exist")
+            )
+            .unwrap_err()
+            .contains("aliases a velocity writer")
+        );
+        invalid = upload.clone();
+        invalid.params.dt = f32::NAN;
+        assert!(
+            nexus_tilelang_native::upload::write_inputs(
+                &invalid,
+                std::path::Path::new("must-not-exist")
+            )
+            .unwrap_err()
+            .contains("timestep")
+        );
     });
 }
 

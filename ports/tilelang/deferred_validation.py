@@ -81,11 +81,15 @@ def mesh_indices(l, shape, v, indices):
             if np.any(vb + 2 * n + ids >= len(v)):
                 raise ValueError("Invalid composite vertex index")
             points = v[vb + 2 * n + ids]
-            if np.any(points < low - 2e-6) or np.any(points > high + 2e-6):
+            if (
+                not np.isfinite(points).all()
+                or np.any(points < low - 2e-6)
+                or np.any(points > high + 2e-6)
+            ):
                 raise ValueError("Composite geometry outside root bounds")
         else:
             a, b = v[vb + 2 * i : vb + 2 * i + 2]
-            if np.any(a > b):
+            if not np.isfinite(np.r_[a, b]).all() or np.any(a > b):
                 raise ValueError("Invalid BVH node bounds")
     # Both entry and exit arcs must form an acyclic graph. This permits arbitrary
     # physical node order while rejecting repeated visits and nonterminating data.

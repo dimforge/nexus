@@ -116,8 +116,10 @@ def body_case(case, kind):
         count=case["body_count"],
         slots=case["body_storage"],
         storage=case["body_storage"],
-        bodies_per_batch=case["colliders_per_batch"],
-        capacity_per_batch=case["colliders_per_batch"] + 3,
+        bodies_per_batch=case.get("bodies_per_batch", case["colliders_per_batch"]),
+        capacity_per_batch=case.get(
+            "body_capacity_per_batch", case["colliders_per_batch"] + 3
+        ),
     )
 
 

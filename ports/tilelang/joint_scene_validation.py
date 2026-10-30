@@ -173,6 +173,13 @@ def check_checkpoint(l, c, b, a, e, k):
     count = outputs.check_graph(l, c, ac, ec)
     errors.update(outputs.check_constraints(l, c, ac, ec, k, count))
     errors.update(outputs.check_states(l, c, ac, ec, k, count))
+    errors.update(check_joint_rows(l, c, b, a, e, k))
+    return errors
+
+
+def check_joint_rows(l, c, b, a, e, k):
+    """Prepared ordinary joint identities, row bounds, padding and numeric fields."""
+    errors = {}
     for name in ("Joints", "JointColors", "MotorParams", "JointBias", "JointUnbiased"):
         for r in (a, e):
             np.testing.assert_array_equal(r[name], b[name], err_msg=f"Readonly {name}")
