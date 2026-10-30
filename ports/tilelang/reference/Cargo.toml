@@ -189,3 +189,7 @@ path = "src/point_queries.rs"
 [[bin]]
 name = "shape-queries"
 path = "src/shape_queries.rs"
+
+[[bin]]
+name = "color-requirements"
+path = "src/color_requirements.rs"

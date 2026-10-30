@@ -2430,6 +2430,19 @@
       "test_command": "python ports/tilelang/runtime_restart_replay.py --operation runtime_twist_restart --target c",
       "runner": "runtime_restart_replay.py",
       "operation": "runtime_twist_restart"
+    },
+    {
+      "id": "rbd.scheduling.color_requirements3d",
+      "coverage": "Read-only palette and deterministic-round feedback before a resident frame commits state",
+      "reference_symbols": [
+        "src_rbd_shaders/dynamics/coloring.rs::gpu_coloring_requirements"
+      ],
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py::gpu_coloring_requirements",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/color_requirements.json",
+      "test_command": "python ports/tilelang/color_requirement_replay.py --operation color_requirements --target c",
+      "operation": "color_requirements",
+      "runner": "color_requirement_replay.py"
     }
   ],
   "targets": [

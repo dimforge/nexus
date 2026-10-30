@@ -613,3 +613,40 @@ pub fn gpu_finalize_topo_gc(
 #[cfg(all(test, not(target_arch_is_gpu)))]
 #[path = "../tests/coloring.rs"]
 mod tests;
+
+/// Report the palette and retry-round requirements before a solver commits state.
+///
+/// This optional control entry point never changes a color or a physics value.
+/// Gaps are ignored. An invalid color requests an impossible palette so the
+/// caller can fail explicitly; an uncolored active contact requests another round.
+#[cfg(any(feature = "entry-points", not(target_arch = "spirv")))]
+#[spirv_bindgen]
+#[spirv(compute(threads(1)))]
+pub fn gpu_coloring_requirements(
+    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] constraints_colors: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] constraints: &[ContactLink],
+    #[spirv(uniform, descriptor_set = 0, binding = 2)] contact_plan: &ContactPlan,
+    #[spirv(uniform, descriptor_set = 0, binding = 3)] rounds: &u32,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] requirements: &mut [u32],
+) {
+    if invocation_id.x != 0 {
+        return;
+    }
+    let mut colors = 0;
+    let mut pending = false;
+    for i in 0..contact_plan.bound as usize {
+        if constraints.at(i).len != 0 {
+            let color = constraints_colors.read(i);
+            pending |= color == 0;
+            colors = colors.max(if color < 64 { color } else { u32::MAX });
+        }
+    }
+    requirements.write(0, colors);
+    let next_round = if *rounds == u32::MAX {
+        u32::MAX
+    } else {
+        *rounds + 1
+    };
+    requirements.write(1, if pending { next_round } else { 0 });
+}

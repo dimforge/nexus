@@ -16,10 +16,20 @@ def validate_case(l, c, b):
         or c.get("general_collision") is not True
     ):
         raise ValueError("Invalid native runtime scene configuration")
-    if type(c.get("contact_reduction")) is not bool or c["rounds"] != max(
-        c["color_stride"] - 3, 2
+    if type(c.get("contact_reduction")) is not bool or (
+        not c.get("color_checks") and c["rounds"] != max(c["color_stride"] - 3, 2)
     ):
         raise ValueError("Invalid native pipeline configuration")
+    if c.get("color_checks") and (
+        c["color_checks"] is not True
+        or not 3 <= c["color_stride"] <= 65
+        or type(c["rounds"]) is not int
+        or not 2 <= c["rounds"] < 0xFFFFFFFF
+        or b["ColorBudget"].shape != (2,)
+        or b["ColorBudget"][0] != c["rounds"]
+        or b["ColorRequirements"].shape != (5,)
+    ):
+        raise ValueError("Invalid runtime coloring budget")
     nb = c["batches"]
     if (
         nb < 1

@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "feature": "rbd.scheduling.color_requirements3d",
+  "scope": "Read-only palette and deterministic-round feedback before a resident frame commits state",
+  "inputs": [
+    "Colors",
+    "Links",
+    "Plan",
+    "Budget",
+    "Requirements"
+  ],
+  "outputs": [
+    "Requirements"
+  ],
+  "comparison": "color_requirement_fields",
+  "atol": 0,
+  "rtol": 0,
+  "tolerance_reason": "Only exact unsigned integer decisions; no floating point arithmetic.",
+  "preconditions": [
+    "ContactPlan bound fits allocated colors and links; native len offsets are derived from Rust.",
+    "Only link length and active color are read. Body IDs may be stale and are never dereferenced."
+  ],
+  "invariants": [
+    "Maximum active color is exact; values >=64 return UINT_MAX to force explicit exhaustion.",
+    "Any active zero requests one additional round, saturating at UINT_MAX. Inactive links are ignored.",
+    "All inputs and output words after the two counters remain bitwise unchanged."
+  ],
+  "outside_scope": [
+    "Color assignment or conflict resolution",
+    "2D",
+    "Articulated dynamics",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-valid",
+    "n0-pending",
+    "n0-invalid",
+    "n0-inactive",
+    "n0-max-rounds",
+    "n1-valid",
+    "n1-pending",
+    "n1-invalid",
+    "n1-inactive",
+    "n1-max-rounds",
+    "n31-valid",
+    "n31-pending",
+    "n31-invalid",
+    "n31-inactive",
+    "n31-max-rounds",
+    "n32-valid",
+    "n32-pending",
+    "n32-invalid",
+    "n32-inactive",
+    "n32-max-rounds",
+    "n33-valid",
+    "n33-pending",
+    "n33-invalid",
+    "n33-inactive",
+    "n33-max-rounds",
+    "n63-valid",
+    "n63-pending",
+    "n63-invalid",
+    "n63-inactive",
+    "n63-max-rounds",
+    "n64-valid",
+    "n64-pending",
+    "n64-invalid",
+    "n64-inactive",
+    "n64-max-rounds",
+    "n65-valid",
+    "n65-pending",
+    "n65-invalid",
+    "n65-inactive",
+    "n65-max-rounds",
+    "n127-valid",
+    "n127-pending",
+    "n127-invalid",
+    "n127-inactive",
+    "n127-max-rounds"
+  ]
+}

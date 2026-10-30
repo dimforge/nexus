@@ -318,3 +318,30 @@ def gpu_finalize_topo_gc(layout):
                     Colors[cid] = T.uint32(0)
 
     return finalize
+
+
+def gpu_coloring_requirements(layout):
+    """Exact control feedback; no coloring or physics is performed on the host."""
+
+    @T.macro
+    def requirements(Colors, Links, Plan, Budget, Requirements):
+        highest = T.alloc_local((1,), "uint32")
+        pending = T.alloc_local((1,), "uint32")
+        highest[0] = T.uint32(0)
+        pending[0] = T.uint32(0)
+        for i in T.serial(T.Cast("int32", Plan[layout["plan"]["bound"]])):
+            if Links[i * layout["link_words"] + layout["link"]["len"]] != 0:
+                color = Colors[i]
+                highest[0] = T.max(
+                    highest[0], T.if_then_else(color < 64, color, T.uint32(0xFFFFFFFF))
+                )
+                if color == 0:
+                    pending[0] = T.if_then_else(
+                        Budget[0] == T.uint32(0xFFFFFFFF),
+                        Budget[0],
+                        Budget[0] + T.uint32(1),
+                    )
+        Requirements[0] = highest[0]
+        Requirements[1] = pending[0]
+
+    return requirements
