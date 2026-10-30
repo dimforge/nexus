@@ -1,4 +1,4 @@
-# Completion scope and outstanding work
+# Completion scope and acceptance gates
 
 The user requested continued implementation until the full port is complete and
 tested. The initial scope is the **3D rigid-body simulation path, including ordinary
@@ -6,8 +6,9 @@ joints, collision detection, scene tests, and an offline Ascend handoff**. Artic
 multibodies, MPM and 2D are explicitly deferred. Never push; commit incrementally
 in the isolated worktree. Do not stop at isolated operation milestones.
 
-The port is not complete. Registered kernels passing does not establish completion
-of the backend. `inventory.json`, feature contracts, classified `changes/` records,
+Implementation is connected for the agreed execution path. Completion additionally
+requires all acceptance gates below; an implemented capability or a historical
+checkpoint alone does not establish a tested backend. `inventory.json`, feature contracts, classified `changes/` records,
 and `parity.py report` describe coverage and exact-source validation. Historical
 checkpoints under `evidence/` preserve earlier results; they do not validate later
 source revisions or replace the final full-matrix reconciliation.
@@ -44,16 +45,16 @@ checks contact palette and completion before committing and can grow both the
 palette and deterministic round budget. Their current-source qualification remains
 explicit in the evidence ledger.
 
-Remaining qualification and audit:
+Acceptance gates for the final source snapshot:
 
-1. Finish the 120-frame dense/shared-body runtime comparison and checkpoint
+1. Pass the 120-frame dense/shared-body runtime comparison and checkpoint
    continuation tests. Keep sleeping disabled, finite/unit states, exact counters,
    guards and independent physical bounds mandatory.
-2. Complete the scheduling substitution audit and native fused/tail regression.
+2. Pass the scheduling substitution audit and native fused/tail regression.
    Ordered launches preserve color dependencies; different warmstart accumulation
    orders must remain covered by native scene and restart contracts. Native CPU
    fused/tail kernels require cooperative dispatch as well as noalias disabled.
-3. Refresh stale inventory descriptions against implemented active 3D paths.
+3. Audit inventory descriptions against implemented active 3D paths.
    Distinguish executable helpers, ABI representations, namespace modules and
    user-deferred features; do not claim every Rust convenience API was ported merely
    because a simulation capability is covered.

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "scope": "Rust rigid-body shader module inventory and capability groups. Module presence is not full feature parity. MPM is outside this scope.",
+  "scope": "3D rigid-body execution-path implementation and Rust module representations. Capability completion means its registered simulation/query path is implemented, not that current target qualification has passed or every Rust convenience API has a Python object wrapper. Exact-source evidence and the completion gates remain separate. MPM, 2D and articulated multibodies are deferred.",
   "modules": [
     {
       "reference": "src_rbd_shaders/bounding_volumes/aabb.rs",
@@ -1658,7 +1658,7 @@
     {
       "id": "rbd.body",
       "description": "Free-body force accumulation, mass properties and pose/velocity lifecycle",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.body.integrate_linearized3d",
         "rbd.body.cleanup3d",
@@ -1676,7 +1676,7 @@
     {
       "id": "rbd.contact.coulomb",
       "description": "Complete 3D Coulomb contact preparation and solution",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.contact.coulomb.solve3d",
         "rbd.contact.coulomb.effective_mass3d",
@@ -1699,7 +1699,7 @@
     {
       "id": "rbd.broadphase.brute_force",
       "description": "Brute-force broad phase",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.brute_pairs3d",
@@ -1711,7 +1711,7 @@
     {
       "id": "rbd.broadphase.lbvh",
       "description": "LBVH construction, refit and traversal",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.broadphase.lbvh_domain3d",
         "rbd.broadphase.lbvh_domain_merge3d",
@@ -1743,7 +1743,7 @@
     {
       "id": "rbd.collision.primitives",
       "description": "Primitive shape bounds, support maps and contact generation",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.pairs_program3d",
@@ -1786,7 +1786,7 @@
     {
       "id": "rbd.collision.convex",
       "description": "GJK, EPA, SAT and polygonal contact manifolds",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.pairs_program3d",
@@ -1826,7 +1826,7 @@
     {
       "id": "rbd.collision.composite",
       "description": "Triangle meshes, polylines and composite traversal",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.broadphase.world_aabbs3d",
         "rbd.broadphase.pairs_program3d",
@@ -1865,7 +1865,7 @@
     {
       "id": "rbd.queries",
       "description": "Ray and point queries",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.query.mesh_projection3d",
         "rbd.query.mesh_pseudo_normal3d",
@@ -1880,7 +1880,7 @@
     {
       "id": "rbd.contact.persistence",
       "description": "Contact matching, recycling and impulse transfer",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.contact.init_links3d",
         "rbd.contact.match_links3d",
@@ -1894,7 +1894,7 @@
     {
       "id": "rbd.scheduling.colors",
       "description": "Coloring, buckets and production color dispatch",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.scheduling.seed_colors3d",
         "rbd.scheduling.adjacency_count3d",
@@ -1928,7 +1928,7 @@
     {
       "id": "rbd.scheduling.hubs",
       "description": "Mass splitting, hub gather and synchronization",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.contact.coulomb.hub_warmstart3d",
         "rbd.contact.coulomb.gather_warmstart3d",
@@ -1943,7 +1943,7 @@
     {
       "id": "rbd.constraints.joints",
       "description": "Impulse joints and joint constraints",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.joint.motor_params3d",
         "rbd.joint.init3d",
@@ -1975,7 +1975,7 @@
     {
       "id": "rbd.contact.twist",
       "description": "Twist-friction model",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.contact.twist.effective_mass3d",
         "rbd.contact.twist.warmstart3d",
@@ -1995,7 +1995,7 @@
     {
       "id": "rbd.utils",
       "description": "Scan, reduction, sorting and compaction",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.utils.prefix_sweep",
         "rbd.utils.prefix_add",
@@ -2015,7 +2015,7 @@
     {
       "id": "rbd.determinism",
       "description": "Canonical ordering and deterministic schedules",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.scheduling.stabilize_body_constraint_ids",
         "rbd.scheduling.contact_keys3d",
@@ -2041,7 +2041,7 @@
     {
       "id": "rbd.pipeline",
       "description": "Public API, production scene stepping and runtime integration",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.pipeline.tgs_frame3d",
         "rbd.pipeline.analytic_collision3d",
