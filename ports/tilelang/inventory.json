@@ -760,7 +760,10 @@
         "rbd.contact.twist.colored_solve3d",
         "rbd.contact.twist.colored_warmstart3d",
         "rbd.contact.twist.colored_cached3d",
-        "rbd.contact.twist.colored_program3d"
+        "rbd.contact.twist.colored_program3d",
+        "rbd.contact.twist.scale_impulses3d",
+        "rbd.contact.twist.gather_warmstart3d",
+        "rbd.contact.twist.hub_warmstart3d"
       ],
       "symbols": [
         "gpu_solve_constraints",
@@ -812,15 +815,19 @@
         "rbd.contact.twist.colored_solve3d",
         "rbd.contact.twist.colored_warmstart3d",
         "rbd.contact.twist.colored_cached3d",
-        "rbd.contact.twist.colored_program3d"
+        "rbd.contact.twist.colored_program3d",
+        "rbd.contact.twist.scale_impulses3d",
+        "rbd.contact.twist.gather_warmstart3d",
+        "rbd.contact.twist.hub_warmstart3d"
       ],
       "symbols": [
         "validate_layout",
         "make_kernel",
         "constraint_warmstart",
-        "gpu_prepare_constraints"
+        "gpu_prepare_constraints",
+        "tile_warmstart"
       ],
-      "remaining": "Native compact preparation and warmstart cache are translated. Model-specific colored, gather, hub and scene integration remain."
+      "remaining": "Compact arithmetic, preparation, color scheduling and cache/hub warmstart are ported; full twist scene/runtime integration and hardware qualification remain."
     },
     {
       "reference": "src_rbd_shaders/lib.rs",
@@ -1831,7 +1838,10 @@
         "rbd.contact.twist.colored_solve3d",
         "rbd.contact.twist.colored_warmstart3d",
         "rbd.contact.twist.colored_cached3d",
-        "rbd.contact.twist.colored_program3d"
+        "rbd.contact.twist.colored_program3d",
+        "rbd.contact.twist.scale_impulses3d",
+        "rbd.contact.twist.gather_warmstart3d",
+        "rbd.contact.twist.hub_warmstart3d"
       ],
       "remaining": "Adjacency, seeding, coloring entry points, buckets and dispatch sizing are ported; full convergence scheduling, palette exhaustion and production integration remain."
     },
@@ -1893,7 +1903,10 @@
         "rbd.contact.twist.colored_solve3d",
         "rbd.contact.twist.colored_warmstart3d",
         "rbd.contact.twist.colored_cached3d",
-        "rbd.contact.twist.colored_program3d"
+        "rbd.contact.twist.colored_program3d",
+        "rbd.contact.twist.scale_impulses3d",
+        "rbd.contact.twist.gather_warmstart3d",
+        "rbd.contact.twist.hub_warmstart3d"
       ],
       "remaining": "Compact arithmetic, preparation, recycling and cache generation translated; full model-specific scheduling and runtime integration remain."
     },

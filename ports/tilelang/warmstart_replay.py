@@ -140,6 +140,11 @@ def validate_case(layout, case, arrays):
             > 2e-6
         ):
             raise ValueError("Invalid warmstart frame")
+        if layout.get("friction_model") == "twist":
+            from twist_colored_validation import validate_tile
+
+            validate_tile(layout, arrays, base, count)
+            return base
         for k in range(count):
             pb = base + layout["points"] + k * layout["point_words"]
             for off in p.values():
@@ -211,16 +216,21 @@ def output_masks(layout, case, before):
         for i in range(case["count"]):
             base = i // 32 * layout["tile_words"] + i % 32 * 4
             count = int(before["Tiles"][base + h["normal"] + 3])
-            for k in ("diag_b", "off_b"):
-                mutable["Tiles"][base + h[k] + 3] = True
-            mutable["Tiles"][
-                base + layout["coupling"] + count : base + layout["coupling"] + 4
-            ] = True
-            for k in range(count):
-                point = base + layout["points"] + k * layout["point_words"]
-                for off in (p["arm_a"] + 3, p["friction"], p["friction"] + 1):
-                    mutable["Tiles"][point + off] = True
-                    floats["Tiles"][point + off] = True
+            if layout.get("friction_model") == "twist":
+                from twist_warmstart_validation import scale_masks
+
+                scale_masks(layout, base, count, mutable["Tiles"], floats["Tiles"])
+            else:
+                for k in ("diag_b", "off_b"):
+                    mutable["Tiles"][base + h[k] + 3] = True
+                mutable["Tiles"][
+                    base + layout["coupling"] + count : base + layout["coupling"] + 4
+                ] = True
+                for k in range(count):
+                    point = base + layout["points"] + k * layout["point_words"]
+                    for off in (p["arm_a"] + 3, p["friction"], p["friction"] + 1):
+                        mutable["Tiles"][point + off] = True
+                        floats["Tiles"][point + off] = True
             cache = (
                 i // 32 * layout["tile_words"]
                 + layout["warmstart"]

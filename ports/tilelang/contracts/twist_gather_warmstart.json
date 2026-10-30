@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.twist.gather_warmstart3d",
+  "scope": "Gather cached deltas per ordinary body in adjacency-list order, skipping split hubs",
+  "inputs": [
+    "Tiles",
+    "Velocities",
+    "Counts",
+    "Ids",
+    "Indices",
+    "HubFirstSlot",
+    "HubSlotConstraint",
+    "HubCounts",
+    "Params",
+    "Buckets",
+    "BatchIds"
+  ],
+  "outputs": [
+    "Velocities"
+  ],
+  "comparison": "warmstart_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "f32 arithmetic with target-dependent contraction; ordered accumulation compared after three dispatches. Identities, padding, copied fields and reset constants remain exact.",
+  "preconditions": [
+    "Native Rust layouts, bounded cumulative adjacency and index indirections, matching cache body tags or split velocity slots",
+    "Finite active arithmetic inputs; unit contact frames; 0..4 active points; coefficient in [0,1]",
+    "Runtime batch counts, buckets and hub capacities fit supplied buffers; each output body/slot has one writer"
+  ],
+  "invariants": [
+    "Adjacency traversal order is unchanged; ordinary gather reads cached deltas, split slots recompute point deltas",
+    "Only active impulse/cache/reset fields or selected velocity components change; all other words stay bitwise unchanged",
+    "Split hub bodies are skipped by ordinary gather and live slots are min(requested, capacity)",
+    "Twist mass and active geometry remain bitwise unchanged; inactive compact vectors and friction padding reset exactly during scale writeback."
+  ],
+  "outside_scope": [
+    "Graph construction and hub assignment/splitting/averaging",
+    "Production solver scheduling and simulation scenes",
+    "2D",
+    "Articulated dynamics",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n31",
+    "n32",
+    "n33",
+    "n63",
+    "n64",
+    "n65",
+    "n129"
+  ]
+}

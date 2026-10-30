@@ -180,6 +180,21 @@ def gpu_scale_constraint_impulses(layout):
     from .coulomb_tiles import constraint_warmstart
     from .solver_utils import scale_impulses
 
+    if layout.get("friction_model") == "twist":
+        from .twist_tiles import scale_and_cache
+
+        apply = scale_and_cache(layout)
+        b = layout["batch"]
+
+        @T.macro
+        def twist_one(Tiles, Buckets, BatchIds, Params, i):
+            end = T.cast(BatchIds[b["num_batches"]], "int32") * T.cast(
+                BatchIds[b["solver_color_buckets_stride"]], "int32")
+            if i < T.cast(Buckets[end - 1], "int32"):
+                apply(Tiles, i, f32(Params, layout["warmstart_coefficient"]))
+
+        return twist_one
+
     scale = scale_impulses(layout)
     cache = constraint_warmstart(layout)
     h, b = layout["header"], layout["batch"]
@@ -275,6 +290,9 @@ def gpu_hub_warmstart_constraints(layout):
     from kernel_support import f32
 
     from .coulomb_tiles import tile_warmstart
+
+    if layout.get("friction_model") == "twist":
+        from .twist_tiles import tile_warmstart
 
     delta = tile_warmstart(layout)
     h, hc = layout["header"], layout["hub"]

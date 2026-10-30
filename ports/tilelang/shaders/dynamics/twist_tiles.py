@@ -39,8 +39,8 @@ def make_kernel(layout, case, target):
     return launch(operation(layout, case), layout, case, target, case["count"])
 
 
-def constraint_warmstart(l):
-    """Cache native warmstart deltas, tagged by ordinary bodies rather than slots."""
+def tile_warmstart(l):
+    """Recompute both deltas without writing the shared constraint tile."""
     import tilelang.language as T
     from kernel_support import cross, f32
 
@@ -65,13 +65,8 @@ def constraint_warmstart(l):
         )
 
     @T.macro
-    def one(Tiles, i):
+    def one(Tiles, i, out_a, out_b):
         base = i // 32 * l["tile_words"] + i % 32 * 4
-        cache = (
-            i // 32 * l["tile_words"]
-            + l["warmstart"]
-            + i % 32 * 2 * l["velocity_words"]
-        )
         force = T.alloc_local((3,), "float32")
         torque_a = T.alloc_local((3,), "float32")
         torque_b = T.alloc_local((3,), "float32")
@@ -125,17 +120,40 @@ def constraint_warmstart(l):
         mul(Tiles, base, h["diag_a"], h["off_a"], torque_a, response_a)
         mul(Tiles, base, h["diag_b"], h["off_b"], torque_b, response_b)
         for d in T.serial(3):
-            Tiles[cache + l["velocity_linear"] + d] = T.reinterpret(
-                f32(Tiles, base + h["body_a"] + d) * force[d], "uint32"
-            )
-            Tiles[cache + l["velocity_angular"] + d] = T.reinterpret(
-                response_a[d], "uint32"
-            )
+            out_a[d] = f32(Tiles, base + h["body_a"] + d) * force[d]
+            out_a[d + 3] = response_a[d]
+            out_b[d] = -f32(Tiles, base + h["body_b"] + d) * force[d]
+            out_b[d + 3] = -response_b[d]
+
+    return one
+
+
+def constraint_warmstart(l):
+    """Cache recomputed deltas with ordinary-body tags, including zero-point tiles."""
+    import tilelang.language as T
+
+    delta = tile_warmstart(l)
+    h = l["header"]
+
+    @T.macro
+    def one(Tiles, i):
+        base = i // 32 * l["tile_words"] + i % 32 * 4
+        cache = (
+            i // 32 * l["tile_words"]
+            + l["warmstart"]
+            + i % 32 * 2 * l["velocity_words"]
+        )
+        a = T.alloc_local((6,), "float32")
+        b = T.alloc_local((6,), "float32")
+        delta(Tiles, i, a, b)
+        for d in T.serial(3):
+            Tiles[cache + l["velocity_linear"] + d] = T.reinterpret(a[d], "uint32")
+            Tiles[cache + l["velocity_angular"] + d] = T.reinterpret(a[d + 3], "uint32")
             Tiles[cache + l["velocity_words"] + l["velocity_linear"] + d] = (
-                T.reinterpret(-f32(Tiles, base + h["body_b"] + d) * force[d], "uint32")
+                T.reinterpret(b[d], "uint32")
             )
             Tiles[cache + l["velocity_words"] + l["velocity_angular"] + d] = (
-                T.reinterpret(-response_b[d], "uint32")
+                T.reinterpret(b[d + 3], "uint32")
             )
         for side in T.serial(2):
             Tiles[cache + side * l["velocity_words"] + l["velocity_padding0"]] = (
@@ -145,6 +163,41 @@ def constraint_warmstart(l):
         Tiles[cache + l["velocity_words"] + l["velocity_padding1"]] = Tiles[
             base + h["body_b"] + 3
         ]
+
+    return one
+
+
+def scale_and_cache(l):
+    """Native read/scale/write resets inactive vector fields and refreshes the cache."""
+    import tilelang.language as T
+    from kernel_support import f32
+
+    h, t = l["header"], l["twist"]
+    cache = constraint_warmstart(l)
+
+    @T.macro
+    def one(Tiles, i, coefficient):
+        base = i // 32 * l["tile_words"] + i % 32 * 4
+        count = T.cast(Tiles[base + h["normal"] + 3], "int32")
+        for k in T.serial(4):
+            if k < count:
+                Tiles[base + t["normal_impulse"] + k] = T.reinterpret(
+                    f32(Tiles, base + t["normal_impulse"] + k) * coefficient, "uint32"
+                )
+            else:
+                Tiles[base + t["normal_impulse"] + k] = T.uint32(0)
+                Tiles[base + t["dist"] + k] = T.uint32(0)
+                Tiles[base + t["normal_vel"] + k] = T.uint32(0)
+                Tiles[base + t["radius"] + k] = T.uint32(0)
+        for k in T.serial(2):
+            Tiles[base + t["friction"] + k] = T.reinterpret(
+                f32(Tiles, base + t["friction"] + k) * coefficient, "uint32"
+            )
+        Tiles[base + h["off_b"] + 3] = T.reinterpret(
+            f32(Tiles, base + h["off_b"] + 3) * coefficient, "uint32"
+        )
+        Tiles[base + t["friction"] + 3] = T.uint32(0)
+        cache(Tiles, i)
 
     return one
 
