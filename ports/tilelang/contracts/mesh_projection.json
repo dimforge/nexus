@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "feature": "rbd.query.mesh_projection3d",
+  "scope": "Native 3D helper with independently checked geometry, exact flags and bounded readonly traversal.",
+  "inputs": [
+    "Queries",
+    "Vertices",
+    "Indices",
+    "Count",
+    "Results"
+  ],
+  "outputs": [
+    "Results"
+  ],
+  "comparison": "point_query_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Native f32 point arithmetic with exact found/inside flags and guards.",
+  "preconditions": [
+    "Finite query data and valid bounded forward mesh BVH; nonnegative projection distance; bounded triangle/edge indices."
+  ],
+  "invariants": [
+    "Independent square closest point and inside geometry; independent pseudo-normal lookup/cross product and ray equation.",
+    "Readonly buffers, result padding and inactive outputs are bit-exact."
+  ],
+  "outside_scope": [
+    "Ray casts are not part of the native Ray helper.",
+    "Ascend execution"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n31",
+    "n32",
+    "n33",
+    "n63",
+    "n64",
+    "n65",
+    "n129"
+  ]
+}

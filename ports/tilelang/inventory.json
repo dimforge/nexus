@@ -1065,10 +1065,14 @@
     {
       "reference": "src_rbd_shaders/queries/ray.rs",
       "implementation": "ports/tilelang/shaders/queries/ray.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "complete",
+      "operations": [
+        "rbd.query.ray_point3d"
+      ],
+      "symbols": [
+        "point_at"
+      ],
+      "remaining": "Native ray representation and point evaluation; this Rust module contains no raycast implementation."
     },
     {
       "reference": "src_rbd_shaders/queries/sat.rs",
@@ -1307,7 +1311,7 @@
     {
       "reference": "src_rbd_shaders/shapes/trimesh.rs",
       "implementation": "ports/tilelang/shaders/shapes/trimesh.py",
-      "coverage": "partial",
+      "coverage": "complete",
       "operations": [
         "rbd.collision.deferred_pairs3d",
         "rbd.pipeline.general_scene3d",
@@ -1316,15 +1320,20 @@
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
         "rbd.pipeline.runtime_scene3d",
-        "rbd.pipeline.runtime_twist_scene3d"
+        "rbd.pipeline.runtime_twist_scene3d",
+        "rbd.query.mesh_projection3d",
+        "rbd.query.mesh_pseudo_normal3d"
       ],
       "symbols": [
         "bvh_node_idx",
         "bvh_node_aabb",
         "triangle_vids",
-        "triangle"
+        "triangle",
+        "project_local_point",
+        "pseudo_normal",
+        "triangle_project_local_point_and_get_location"
       ],
-      "remaining": "BVH and primitive extraction are connected to deferred work-list generation. Mesh pseudo-normal/point projection queries remain unported."
+      "remaining": "Native 3D mesh traversal, extraction and point queries are ported; mesh construction remains host-owned."
     },
     {
       "reference": "src_rbd_shaders/tests/coloring.rs",
@@ -1816,7 +1825,11 @@
       "id": "rbd.queries",
       "description": "Ray and point queries",
       "coverage": "unported",
-      "operations": [],
+      "operations": [
+        "rbd.query.mesh_projection3d",
+        "rbd.query.mesh_pseudo_normal3d",
+        "rbd.query.ray_point3d"
+      ],
       "remaining": "Native primitive projection, simplex, support maps, GJK/EPA and polygonal query stages are translated. Remaining mesh point projection, pseudonormals and other public query helpers are tracked by module."
     },
     {
@@ -2019,6 +2032,17 @@
         "rbd.render.prepare3d"
       ],
       "remaining": "Direct 3D instance preparation is ported; final target qualification remains source-bound. No Ascend renderer interoperability is claimed."
+    },
+    {
+      "id": "rbd.query.mesh_ray",
+      "description": "Mesh point queries and ray point evaluation",
+      "coverage": "complete",
+      "operations": [
+        "rbd.query.mesh_projection3d",
+        "rbd.query.mesh_pseudo_normal3d",
+        "rbd.query.ray_point3d"
+      ],
+      "remaining": "Source-bound qualification required; Ascend execution unavailable."
     }
   ]
 }

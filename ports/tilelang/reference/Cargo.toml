@@ -181,3 +181,7 @@ path = "src/twist_warmstarts.rs"
 [[bin]]
 name = "render"
 path = "src/render.rs"
+
+[[bin]]
+name = "point-queries"
+path = "src/point_queries.rs"

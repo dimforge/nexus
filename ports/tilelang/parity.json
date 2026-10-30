@@ -2293,6 +2293,42 @@
       "implementation": "ports/tilelang/shaders/dynamics/prep_render.py::gpu_rbd_prep_render",
       "contract": "ports/tilelang/contracts/prep_render.json",
       "test_command": "python ports/tilelang/render_replay.py --operation prep_render --target c"
+    },
+    {
+      "id": "rbd.query.mesh_projection3d",
+      "coverage": "Native 3D helper with independently checked geometry, exact flags and bounded readonly traversal.",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/trimesh.rs::TriMesh::project_local_point"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/trimesh.py::project_local_point",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/mesh_projection.json",
+      "test_command": "python ports/tilelang/point_query_replay.py --operation mesh_projection --target c",
+      "operation": "mesh_projection"
+    },
+    {
+      "id": "rbd.query.mesh_pseudo_normal3d",
+      "coverage": "Native 3D helper with independently checked geometry, exact flags and bounded readonly traversal.",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/trimesh.rs::TriMesh::pseudo_normal"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/trimesh.py::pseudo_normal",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/mesh_pseudo_normal.json",
+      "test_command": "python ports/tilelang/point_query_replay.py --operation mesh_pseudo_normal --target c",
+      "operation": "mesh_pseudo_normal"
+    },
+    {
+      "id": "rbd.query.ray_point3d",
+      "coverage": "Native 3D helper with independently checked geometry, exact flags and bounded readonly traversal.",
+      "reference_symbols": [
+        "src_rbd_shaders/queries/ray.rs::Ray::point_at"
+      ],
+      "implementation": "ports/tilelang/shaders/queries/ray.py::point_at",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/ray_point.json",
+      "test_command": "python ports/tilelang/point_query_replay.py --operation ray_point --target c",
+      "operation": "ray_point"
     }
   ],
   "targets": [
