@@ -5,6 +5,15 @@ import scene_numeric as numeric_policy
 
 
 def check_trajectory(l, c, b, a, e, k):
+    overrides = numeric_policy.policy_for(c, k).get("trajectory_frames", {})
+    for frame, fields in overrides.items():
+        if (
+            not frame.isdecimal()
+            or str(int(frame)) != frame
+            or not 1 <= int(frame) <= c["frames"]
+            or not set(fields) <= {"TrajectoryPoses", "TrajectoryVelocities"}
+        ):
+            raise ValueError("Invalid scoped trajectory frame")
     n = c["body_count"]
     pw = l["pose_words"]
     vw = l["velocity_words"]
@@ -36,11 +45,20 @@ def check_trajectory(l, c, b, a, e, k):
         ("TrajectoryPoses", pose_mask),
         ("TrajectoryVelocities", mask & ~pose_mask),
     ]:
-        numeric_policy.check(
-            c,
-            k,
-            field,
-            a["Trajectory"].view(np.float32)[selection],
-            e["Trajectory"].view(np.float32)[selection],
-        )
+        for frame in range(c["frames"]):
+            start, end = frame * stride, (frame + 1) * stride
+            limits = overrides.get(str(frame + 1), {}).get(field)
+            atol, rtol = (
+                numeric_policy.tolerances(c, k, field)
+                if limits is None
+                else (limits["atol"], limits["rtol"])
+            )
+            chosen = selection[start:end]
+            np.testing.assert_allclose(
+                a["Trajectory"].view(np.float32)[start:end][chosen],
+                e["Trajectory"].view(np.float32)[start:end][chosen],
+                atol=atol,
+                rtol=rtol,
+                err_msg=f"{field} frame {frame + 1}",
+            )
     return float(np.max(np.abs(af - ef))) if len(af) else 0.0

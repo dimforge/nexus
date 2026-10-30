@@ -3,12 +3,18 @@
 import numpy as np
 
 
-def tolerances(c, k, field, default_atol=None):
+def policy_for(c, k):
     policy = k.get("numerical_cases", {}).get(c["name"], {})
     if policy:
         for key, value in policy["configuration"].items():
             if c.get(key) != value:
                 raise ValueError("Numerical policy configuration mismatch")
+    return policy
+
+
+def tolerances(c, k, field, default_atol=None):
+    policy = policy_for(c, k)
+    if policy:
         limits = policy["fields"].get(field)
         if limits is not None:
             return limits["atol"], limits["rtol"]
@@ -142,3 +148,82 @@ def constraint_response(l, c, a, e, k):
                     raise AssertionError(
                         f"Tangent response matrix error {error} exceeds {atol + rtol * scale}"
                     )
+
+
+def impulse_response(l, r, cid):
+    """Independent f64 force/torque reduction and inverse-mass response."""
+    h, p = l["header"], l["point"]
+    slot = int(r["Indices"][cid])
+    base = slot // 32 * l["tile_words"] + slot % 32 * 4
+    tile = r["Tiles"]
+    v = tile.view(np.float32).astype(float)
+    vector = lambda off: v[off : off + 3]
+    normal, tangent = vector(base + h["normal"]), vector(base + h["tangent"])
+    bitangent = np.cross(normal, tangent)
+    force = np.zeros(3)
+    torques = np.zeros((2, 3))
+    length = int(tile[base + h["normal"] + 3])
+    if not 1 <= length <= 4:
+        raise AssertionError("Invalid impulse response point count")
+    for i in range(length):
+        off = base + l["points"] + i * l["point_words"]
+        impulse = (
+            tangent * v[off + p["friction"]] + bitangent * v[off + p["friction"] + 1]
+        )
+        impulse += normal * v[off + p["arm_a"] + 3]
+        force += impulse
+        for j, side in enumerate(("a", "b")):
+            torques[j] += np.cross(vector(off + p["arm_" + side]), impulse)
+    result = np.zeros((2, 6))
+    for j, side in enumerate(("a", "b")):
+        diag, off = vector(base + h["diag_" + side]), vector(base + h["off_" + side])
+        inertia = np.diag(diag)
+        inertia[0, 1] = inertia[1, 0] = off[0]
+        inertia[0, 2] = inertia[2, 0] = off[1]
+        inertia[1, 2] = inertia[2, 1] = off[2]
+        sign = 1 if j == 0 else -1
+        result[j, :3] = sign * vector(base + h["body_" + side]) * force
+        result[j, 3:] = sign * (inertia @ torques[j])
+    return result
+
+
+def check_friction_response(l, c, a, e, k, cid):
+    """Compare complete body responses while retaining each normal impulse check."""
+    mode = policy_for(c, k).get("friction_comparison")
+    if mode is None:
+        return False
+    if mode != "body_velocity_delta":
+        raise ValueError("Unknown friction comparison")
+    # These comparisons deliberately retain the global strict tolerance; neither
+    # the trajectory nor stored-cache allowances may relax the response check.
+    np.testing.assert_allclose(
+        impulse_response(l, a, cid),
+        impulse_response(l, e, cid),
+        atol=k["atol"],
+        rtol=k["rtol"],
+        err_msg="Contact body response",
+    )
+    for r in (a, e):
+        slot = int(r["Indices"][cid])
+        start = (
+            slot // 32 * l["tile_words"]
+            + l["warmstart"]
+            + slot % 32 * 2 * l["velocity_words"]
+        )
+        cached = (
+            r["Tiles"]
+            .view(np.float32)[start : start + 2 * l["velocity_words"]]
+            .reshape(2, l["velocity_words"])
+        )
+        cached = np.c_[
+            cached[:, l["velocity_linear"] : l["velocity_linear"] + 3],
+            cached[:, l["velocity_angular"] : l["velocity_angular"] + 3],
+        ]
+        np.testing.assert_allclose(
+            cached,
+            impulse_response(l, r, cid),
+            atol=k["atol"],
+            rtol=k["rtol"],
+            err_msg="Independent cached impulse response",
+        )
+    return True

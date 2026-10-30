@@ -68,7 +68,8 @@
         "rbd.pipeline.analytic_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_scene3d",
-        "rbd.pipeline.general_lbvh_restart3d"
+        "rbd.pipeline.general_lbvh_restart3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "symbols": [
         "scratch_start",
@@ -289,7 +290,8 @@
         "rbd.joint.program3d",
         "rbd.pipeline.joint_scene3d",
         "rbd.pipeline.joint_restart3d",
-        "rbd.pipeline.joint_lbvh_scene3d"
+        "rbd.pipeline.joint_lbvh_scene3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "symbols": [
         "motor_params"
@@ -309,7 +311,8 @@
         "rbd.joint.program3d",
         "rbd.pipeline.joint_scene3d",
         "rbd.pipeline.joint_restart3d",
-        "rbd.pipeline.joint_lbvh_scene3d"
+        "rbd.pipeline.joint_lbvh_scene3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "symbols": [
         "gpu_init_joint_constraints",
@@ -332,7 +335,8 @@
         "rbd.joint.program3d",
         "rbd.pipeline.joint_scene3d",
         "rbd.pipeline.joint_restart3d",
-        "rbd.pipeline.joint_lbvh_scene3d"
+        "rbd.pipeline.joint_lbvh_scene3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "symbols": [
         "orthogonalize_constraints",
@@ -680,7 +684,8 @@
         "rbd.pipeline.analytic_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_scene3d",
-        "rbd.pipeline.general_lbvh_restart3d"
+        "rbd.pipeline.general_lbvh_restart3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "symbols": [
         "gpu_integrate_linearized",
@@ -1592,7 +1597,8 @@
         "rbd.pipeline.analytic_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_scene3d",
-        "rbd.pipeline.general_lbvh_restart3d"
+        "rbd.pipeline.general_lbvh_restart3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "remaining": "All 3D LBVH stages and resident Morton sort/build/refit/traversal composition are implemented. Production frame integration, dynamic capacity management and performance qualification remain."
     },
@@ -1781,7 +1787,8 @@
         "rbd.pipeline.joint_scene3d",
         "rbd.pipeline.general_restart3d",
         "rbd.pipeline.joint_restart3d",
-        "rbd.pipeline.joint_lbvh_scene3d"
+        "rbd.pipeline.joint_lbvh_scene3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "remaining": "Ordinary joints are connected to analytic frames with continuous trajectory validation. Production arbitrary scene upload/backend selection and broader scene coverage remain."
     },
@@ -1836,7 +1843,8 @@
         "rbd.pipeline.analytic_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_scene3d",
-        "rbd.pipeline.general_lbvh_restart3d"
+        "rbd.pipeline.general_lbvh_restart3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "remaining": "Canonical contacts and bounded Topo schedules are connected to analytic, joint and general collision fixture scenes. Production and unbounded scheduling remain."
     },
@@ -1855,7 +1863,8 @@
         "rbd.pipeline.analytic_lbvh_scene3d",
         "rbd.pipeline.general_lbvh_scene3d",
         "rbd.pipeline.joint_lbvh_scene3d",
-        "rbd.pipeline.general_lbvh_restart3d"
+        "rbd.pipeline.general_lbvh_restart3d",
+        "rbd.pipeline.joint_lbvh_restart3d"
       ],
       "remaining": "Analytic, ordinary-joint and general collision fixture scenes are composed on resident storage with trajectory diagnostics. Public backend selection, arbitrary upload and capacity retry, hubs and remaining variants are pending."
     },

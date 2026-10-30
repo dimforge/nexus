@@ -304,5 +304,151 @@
   ],
   "cached_warmstart_atol": 1e-05,
   "tolerance_reason": "Default float tolerances remain 2e-6 absolute / 2e-5 relative. The explicitly named long-scene case uses the hashed per-field numerical_cases policy. Tangent response matrices use a relative Frobenius norm to handle near-zero off-diagonal entries; every matrix is also independently reconstructed from its stored geometry with the strict default tolerance. Required single-frame restart operations and all-frame physical bounds remain mandatory.",
-  "numerical_cases": {}
+  "numerical_cases": {
+    "general_triangle-restart-29": {
+      "configuration": {
+        "scene": "general_triangle",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 2,
+        "start_frame": 29,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "Measured identical-state f32 solver feedback; geometry, identities, physical bounds and all other fields retain strict checks."
+    },
+    "general_triangle-restart-30": {
+      "configuration": {
+        "scene": "general_triangle",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 2,
+        "start_frame": 30,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "Measured identical-state f32 solver feedback; geometry, identities, physical bounds and all other fields retain strict checks."
+    },
+    "general_triangle-restart-32": {
+      "configuration": {
+        "scene": "general_triangle",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 2,
+        "start_frame": 32,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "Measured identical-state f32 solver feedback; geometry, identities, physical bounds and all other fields retain strict checks."
+    },
+    "general_triangle-restart-33": {
+      "configuration": {
+        "scene": "general_triangle",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 2,
+        "start_frame": 33,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "Measured identical-state f32 solver feedback; geometry, identities, physical bounds and all other fields retain strict checks."
+    },
+    "general_triangle-restart-34": {
+      "configuration": {
+        "scene": "general_triangle",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 2,
+        "start_frame": 34,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 1e-05,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 5e-05,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "Measured identical-state f32 solver feedback; geometry, identities, physical bounds and all other fields retain strict checks."
+    }
+  }
 }

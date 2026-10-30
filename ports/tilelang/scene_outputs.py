@@ -430,6 +430,9 @@ def check_constraints(l, c, a, e, contract, count):
     for cid in range(count):
         if a["Links"][cid * l["link_words"] + lf["len"]] == 0:
             continue
+        response_mode = numeric_policy.policy_for(c, contract).get(
+            "friction_comparison"
+        )
         av = []
         ev = []
         for result, output in ((a, av), (e, ev)):
@@ -467,7 +470,13 @@ def check_constraints(l, c, a, e, contract, count):
                         {
                             "arm_a": ["TileGeometry"] * 3 + ["TileImpulse"],
                             "arm_b": ["TileGeometry"] * 3 + ["TileCoefficients"],
-                            "friction": ["TileImpulse"] * 2 + ["TileResponse"] * 2,
+                            "friction": [
+                                "TileFrictionImpulse"
+                                if response_mode
+                                else "TileImpulse"
+                            ]
+                            * 2
+                            + ["TileResponse"] * 2,
                             "local_a": ["TileGeometry"] * 4,
                             "local_b": ["TileGeometry"] * 3 + ["TileBias"],
                         }[field]
@@ -508,6 +517,9 @@ def check_constraints(l, c, a, e, contract, count):
         labels = av[2][mask]
         for field in np.unique(labels):
             if field == "TileResponse":
+                continue
+            if field == "TileFrictionImpulse":
+                numeric_policy.check_friction_response(l, c, a, e, contract, cid)
                 continue
             fallback = (
                 contract["cached_warmstart_atol"]

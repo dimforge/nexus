@@ -17,12 +17,18 @@ def main():
     from stage_replay import parse_args, run_stage
 
     args = parse_args(
-        ["general_restart", "joint_restart", "general_lbvh_restart"], "general_restart"
+        [
+            "general_restart",
+            "joint_restart",
+            "general_lbvh_restart",
+            "joint_lbvh_restart",
+        ],
+        "general_restart",
     )
     from scene_broadphase import EXTRA
 
-    buffers = JOINT if args.operation == "joint_restart" else GENERAL
-    if args.operation == "general_lbvh_restart":
+    buffers = JOINT if args.operation.startswith("joint_") else GENERAL
+    if "_lbvh_" in args.operation:
         buffers += EXTRA
     run_stage(
         args,

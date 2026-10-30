@@ -15,7 +15,10 @@ fn main() {
     let root = Path::new(&path);
     fs::create_dir_all(root).unwrap();
     let selected = std::env::args().nth(2);
-    let use_lbvh = selected.as_deref() == Some("general_lbvh_restart");
+    let use_lbvh = matches!(
+        selected.as_deref(),
+        Some("general_lbvh_restart" | "joint_lbvh_restart")
+    );
     let mut layout = joint_layout::layout();
     if use_lbvh {
         use nexus_rbd_shaders3d::broad_phase::LbvhNode;
@@ -49,10 +52,12 @@ fn main() {
         ),
         ("joint_chain", 3, vec![3u32, 80, 90, 98, 99, 100, 109, 119]),
     ] {
-        if use_lbvh && label != "general_triangle" {
+        if use_lbvh
+            && (label.starts_with("joint_") != (selected.as_deref() == Some("joint_lbvh_restart")))
+        {
             continue;
         }
-        let snapshots = if use_lbvh {
+        let snapshots = if use_lbvh && label == "general_triangle" {
             vec![0, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 119]
         } else {
             snapshots
@@ -64,7 +69,11 @@ fn main() {
             let name = format!("{label}-restart-{frame}");
             let index = usize::from(label.starts_with("joint_"));
             let operation = if use_lbvh {
-                "general_lbvh_restart"
+                if index == 0 {
+                    "general_lbvh_restart"
+                } else {
+                    "joint_lbvh_restart"
+                }
             } else if index == 0 {
                 "general_restart"
             } else {
@@ -106,7 +115,11 @@ fn main() {
         } else {
             "general_restart"
         },
-        "joint_restart",
+        if use_lbvh {
+            "joint_lbvh_restart"
+        } else {
+            "joint_restart"
+        },
     ]
     .into_iter()
     .zip(cases)

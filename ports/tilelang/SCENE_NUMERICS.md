@@ -63,3 +63,47 @@ It is a diagnostic motion bound, not a continuous-collision guarantee. The final
 checkpoint receives no extra allowance. Energy, quaternion normalization, static
 state and finite-state checks apply at every frame independently. A pair of
 matching but corrupt trajectories must still fail these physical checks.
+
+## Connected LBVH scenes
+
+LBVH preserves the native fixed broad-phase prediction. Its triangle trajectory
+therefore needs its own classification. In the frozen `e488fb08d` execution,
+C and Metal agree on the observed differences. Before frame 36, the largest pose
+component difference is 3.65e-5. The nearly flat triangle produces three contact
+points in Rust and four in TileLang, with different normals; the resulting
+angular-velocity difference reaches 0.139234 for that frame. It falls to 0.001577
+on the next frame. All native and target frames pass the existing independent
+physical limits (maximum penetration 0.003335, maximum energy 9.758). Independent
+contact geometry, constraint response, graph and LBVH checks also pass on the
+captured target frames 28 through 39.
+
+Fourteen required `general_lbvh_restart` cases restart the native trajectory from
+identical inputs: initial and final frames, plus every start frame 27 through 38.
+The frame-36 restart passes the original strict checks on C and Metal. Across the
+surrounding restarts, maximum differences are 1.2e-7 in poses, 9.54e-6 in velocities
+and 4.62e-5 in constraint fields. Five named starts have scoped velocity/impulse
+budgets; geometry, point counts, identities and every other field remain strict.
+These diagnostics distinguish trajectory feedback from a different single-step
+algorithm. Current registered target reports remain required after source edits.
+
+Only frame 36 receives the larger trajectory budgets: 0.0004 for pose components
+and 0.15 for velocity components. Other frames retain 0.0002 and 0.008 respectively.
+Final velocity components have a 3e-6 absolute budget (observed 2.423e-6); final pose
+components retain 0.0002. The recycling state can retain frame 36's pose, so its
+explicit budget is 0.0004. Stored contact arms have a 0.001 budget. All allowances
+are confined to this exact LBVH triangle configuration.
+
+The final resting contact also has nonunique per-point friction impulses. Their
+largest component difference is 0.012745, but their complete effect on both bodies
+agrees under the original strict tolerance. For this case, compare the complete
+f64 force/torque reduction followed by inverse mass/inertia, while retaining strict
+per-point normal impulse comparisons and each point's Coulomb bound. Independently
+reconstruct each stored warmstart velocity delta with the same strict tolerance.
+This accepts balanced friction redistribution; it rejects an incorrect net force,
+torque or cache, even when the target and reference contain the same corrupt cache.
+It does not permit arbitrary per-point differences in other cases.
+
+The LBVH joint-chain native and Metal trajectories, contacts, tiles and joint rows
+are bitwise identical to their corresponding brute-force runs at the tested
+revisions. Its existing joint-chain numerical budgets are retained, with eight
+separately registered `joint_lbvh_restart` cases and a required LBVH configuration.

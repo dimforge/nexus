@@ -14,7 +14,7 @@ from scene_restart_validation import check_outputs, validate_case
 
 
 class LbvhSceneRestartTests(restarts.SceneRestartTests):
-    operations = ("general_lbvh_restart",)
+    operations = ("general_lbvh_restart", "joint_lbvh_restart")
 
     def fixture(self, op="general_lbvh_restart", name="general_triangle-restart-35"):
         # Inherited graph corruption test targets an established contact graph.

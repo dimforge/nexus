@@ -105,7 +105,12 @@ class SceneNumericTests(unittest.TestCase):
     def test_required_restart_evidence_is_registered(self):
         registry = json.loads((HERE / "parity.json").read_text())
         by_op = {f["operation"]: f for f in registry["features"]}
-        for op in ("general_scene", "joint_scene"):
+        for op in (
+            "general_scene",
+            "joint_scene",
+            "general_lbvh_scene",
+            "joint_lbvh_scene",
+        ):
             k = json.loads((HERE / f"contracts/{op}.json").read_text())
             for policy in k["numerical_cases"].values():
                 feature = by_op[policy["restart_operation"]]

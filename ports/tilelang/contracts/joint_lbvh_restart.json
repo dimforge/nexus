@@ -1,0 +1,565 @@
+{
+  "version": 1,
+  "feature": "rbd.pipeline.joint_lbvh_restart3d",
+  "scope": "Identical-state resident LBVH frame replays from the contact-sensitive native joint-chain trajectory",
+  "execution": "ordered_kernels",
+  "inputs": [
+    "Velocities",
+    "SolverVelocities",
+    "Increments",
+    "Poses",
+    "SolverPoses",
+    "LocalMass",
+    "WorldMass",
+    "Params",
+    "Counts",
+    "FirstSlot",
+    "HubCounts",
+    "LocalPoses",
+    "ColliderPoses",
+    "Shapes",
+    "Materials",
+    "Parents",
+    "Filters",
+    "Groups",
+    "Vertices",
+    "Aabbs",
+    "Pairs",
+    "PairCount",
+    "PfmCount",
+    "Plan",
+    "PfmSortLen",
+    "ContactsIndirect",
+    "PfmIndirect",
+    "MbIndirect",
+    "RawContacts",
+    "Contacts",
+    "Ids",
+    "SortedIds",
+    "IsMultibody",
+    "BodyGroup",
+    "Links",
+    "OldLinks",
+    "OldCounts",
+    "OldIds",
+    "OldIndices",
+    "OldColors",
+    "States",
+    "Colors",
+    "Rands",
+    "Colored",
+    "Pending",
+    "NumColors",
+    "ColoringIndirect",
+    "Tiles",
+    "OldTiles",
+    "SortedLinks",
+    "Indices",
+    "Buckets",
+    "Stats",
+    "Indirect",
+    "InOrder",
+    "Keys",
+    "Values",
+    "SortCount",
+    "BatchIds",
+    "RbdParams",
+    "Gravity",
+    "Selector",
+    "CurrentColor",
+    "Mode",
+    "SortKeys",
+    "PongKeys",
+    "PongValues",
+    "RadixAux",
+    "RadixOutAux",
+    "RadixBatchIds",
+    "RadixCounts",
+    "Reduced",
+    "SortGrid",
+    "ReduceGrid",
+    "Config",
+    "InitConfig",
+    "AdjAux0",
+    "AdjAux1",
+    "AdjAux2",
+    "AdjAux3",
+    "AdjStride0",
+    "AdjStride1",
+    "AdjStride2",
+    "AdjStride3",
+    "BucketAux0",
+    "BucketAux1",
+    "BucketAux2",
+    "BucketAux3",
+    "BucketStride0",
+    "BucketStride1",
+    "BucketStride2",
+    "BucketStride3",
+    "Color0",
+    "Color1",
+    "Color2",
+    "Color3",
+    "Color4",
+    "Color5",
+    "Color6",
+    "Color7",
+    "Config0",
+    "Config1",
+    "Config2",
+    "Config3",
+    "Config4",
+    "Config5",
+    "Config6",
+    "Config7",
+    "Joints",
+    "Builders",
+    "JointConstraints",
+    "JointColors",
+    "MotorParams",
+    "Trajectory",
+    "FrameIndex",
+    "JointBias",
+    "JointUnbiased",
+    "LbvhConfig",
+    "LbvhConfig0",
+    "LbvhConfig1",
+    "LbvhConfig2",
+    "LbvhConfig3",
+    "LbvhConfig4",
+    "LbvhConfig5",
+    "LbvhConfig6",
+    "LbvhConfig7",
+    "LbvhDomain",
+    "LbvhFrontier",
+    "LbvhFrontierLen",
+    "LbvhIdentity",
+    "LbvhIndirect",
+    "LbvhKeys",
+    "LbvhNumKeys",
+    "LbvhPartials",
+    "LbvhPongKeys",
+    "LbvhPongValues",
+    "LbvhRadixAux",
+    "LbvhRadixBatchIds",
+    "LbvhRadixCounts",
+    "LbvhRadixOutAux",
+    "LbvhReduceGrid",
+    "LbvhReduced",
+    "LbvhRounds",
+    "LbvhSortGrid",
+    "LbvhSortKeys",
+    "LbvhSorted",
+    "LbvhTree"
+  ],
+  "outputs": [
+    "Velocities",
+    "SolverVelocities",
+    "Increments",
+    "Poses",
+    "SolverPoses",
+    "WorldMass",
+    "Params",
+    "Counts",
+    "FirstSlot",
+    "HubCounts",
+    "ColliderPoses",
+    "Aabbs",
+    "Pairs",
+    "PairCount",
+    "PfmCount",
+    "Plan",
+    "PfmSortLen",
+    "ContactsIndirect",
+    "PfmIndirect",
+    "MbIndirect",
+    "RawContacts",
+    "Contacts",
+    "Ids",
+    "SortedIds",
+    "Links",
+    "OldLinks",
+    "OldCounts",
+    "OldIds",
+    "OldIndices",
+    "OldColors",
+    "States",
+    "Colors",
+    "Colored",
+    "Pending",
+    "NumColors",
+    "ColoringIndirect",
+    "Tiles",
+    "OldTiles",
+    "SortedLinks",
+    "Indices",
+    "Buckets",
+    "Stats",
+    "Indirect",
+    "InOrder",
+    "Keys",
+    "Values",
+    "SortCount",
+    "SortKeys",
+    "PongKeys",
+    "PongValues",
+    "RadixCounts",
+    "Reduced",
+    "SortGrid",
+    "ReduceGrid",
+    "AdjAux0",
+    "AdjAux1",
+    "AdjAux2",
+    "AdjAux3",
+    "BucketAux0",
+    "BucketAux1",
+    "BucketAux2",
+    "BucketAux3",
+    "Builders",
+    "JointConstraints",
+    "Trajectory",
+    "FrameIndex",
+    "LbvhDomain",
+    "LbvhFrontier",
+    "LbvhFrontierLen",
+    "LbvhIndirect",
+    "LbvhKeys",
+    "LbvhPartials",
+    "LbvhPongKeys",
+    "LbvhPongValues",
+    "LbvhRadixCounts",
+    "LbvhReduceGrid",
+    "LbvhReduced",
+    "LbvhRounds",
+    "LbvhSortGrid",
+    "LbvhSortKeys",
+    "LbvhSorted",
+    "LbvhTree"
+  ],
+  "comparison": "scene_restart_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "physics": {
+    "max_penetration": 0.02,
+    "energy_relative_allowance": 0.02,
+    "energy_per_body_allowance": 0.05
+  },
+  "box_geometry_roundoff": {
+    "epsilon_multiplier": 32,
+    "scale": "max cuboid half-extent or relative translation component",
+    "fields": [
+      "active box-box point coordinates",
+      "active box-box separation distances"
+    ],
+    "independent_check": "Both endpoints lie on their respective box surfaces and the contact normal is unit length, in f64 validation of the f32 inputs."
+  },
+  "preconditions": [
+    "Freshly exported native ordinary-body snapshot at an explicitly recorded start frame; all physics and persistence buffers restored",
+    "One target frame, with existing geometry, four substeps, two biased PGS iterations and native bounded coloring",
+    "Frame counter and bounded current published counts must agree with the snapshot; previous contact graph and effective response are independently checked"
+  ],
+  "invariants": [
+    "Device-resident collision, canonicalization, adjacency, coloring, preparation, warmstart, solve, integration, finalization and persistence; no CPU physics between stages or frames",
+    "Integer identities, memberships, copied words, allocation bijections, read-only inputs and capacity guards are exact; legal atomic allocation order is compared semantically",
+    "Active body and constraint arithmetic uses the existing f32 absolute/relative tolerances",
+    "Each saved checkpoint checks finite normalized state, unchanged static bodies, bounded penetration and energy, and scene-specific restitution, settling or rolling behavior",
+    "Internal workspace above a published count may retain earlier-frame allocations; it is not interpreted as current state, and storage beyond the declared maximum capacity remains exact",
+    "Joint rows rebuild each substep and solve before contact colors in both biased and stabilization passes",
+    "Every frame is recorded on device and checked for static-body preservation, finite normalized state, bounded penetration/energy, locked anchor/rotation drift and limits",
+    "Motor energy allowance adds measured travel times the force cap; final target position is checked separately",
+    "Last recorded frame equals published body state exactly; frame count, storage guards and copied words remain exact",
+    "Every preceding and future trajectory word remains exactly unchanged; the new row equals published final state exactly",
+    "Position, geometry, matrix coefficients and identities retain their strict default checks; only one-frame velocity/impulse/joint-row arithmetic has an explicit 1e-4 absolute allowance",
+    "Contact basis must be orthonormal and inertia positive semidefinite; effective normal/tangent response is independently reconstructed from stored geometry in f64"
+  ],
+  "outside_scope": [
+    "Long trajectory accumulation; handled by the parent scene contract",
+    "Arbitrary runtime snapshots and unsupported rigid-body features",
+    "Ascend vendor compilation, execution and hardware synchronization qualification"
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "joint_chain-restart-3",
+    "joint_chain-restart-80",
+    "joint_chain-restart-90",
+    "joint_chain-restart-98",
+    "joint_chain-restart-99",
+    "joint_chain-restart-100",
+    "joint_chain-restart-109",
+    "joint_chain-restart-119"
+  ],
+  "cached_warmstart_atol": 1e-05,
+  "tolerance_reason": "The retained single-frame native snapshots isolate contact feedback. Only velocity, impulse/cache and joint-row fields use 1e-4 absolute / 2e-5 relative; geometry and poses keep 2e-6 / 2e-5. C and Metal diagnostics observed at most 6.04e-5 velocity and 9.19e-5 joint-row differences, with pose error below 1.4e-7 and contact error below 1.2e-7. Exact masks and independent physics remain mandatory.",
+  "joint_physics": {
+    "max_anchor_error": 0.02,
+    "max_locked_rotation_component": 0.01,
+    "max_limit_overshoot": 0.02,
+    "motor_final_position_error": 0.02
+  },
+  "numerical_cases": {
+    "joint_chain-restart-3": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 3,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    },
+    "joint_chain-restart-80": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 80,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    },
+    "joint_chain-restart-90": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 90,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    },
+    "joint_chain-restart-98": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 98,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    },
+    "joint_chain-restart-99": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 99,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    },
+    "joint_chain-restart-100": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 100,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    },
+    "joint_chain-restart-109": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 109,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    },
+    "joint_chain-restart-119": {
+      "configuration": {
+        "scene": "joint_chain",
+        "frames": 120,
+        "batches": 1,
+        "body_count": 4,
+        "start_frame": 119,
+        "broadphase": "lbvh"
+      },
+      "fields": {
+        "Velocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "SolverVelocities": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileImpulse": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "TileCache": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        },
+        "JointConstraints": {
+          "atol": 0.0001,
+          "rtol": 2e-05
+        }
+      },
+      "reason": "One-frame contact-sensitive f32 solver feedback, independently checked against geometry and physical bounds"
+    }
+  }
+}
