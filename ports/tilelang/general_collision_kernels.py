@@ -70,6 +70,11 @@ def make_program(l, c, target):
         )
 
     stage("deferred_pairs")
+    plans[-1]["capacity_gate"] = {
+        "id": "deferred_pairs",
+        "counters": [{"buffer": "PfmCount", "word": 0}],
+        "capacity": c["pair_capacity"],
+    }
     mapping = identity(plan.BUFFERS)
     append(
         plan.make_program(

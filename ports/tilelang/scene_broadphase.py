@@ -21,7 +21,13 @@ def make_program(l, c, target):
     import lbvh_program_kernels as lbvh
 
     if c.get("broadphase") != "lbvh":
-        return broad.make_program(l, dict(c, kind="broadphase_pairs"), target)
+        stages = broad.make_program(l, dict(c, kind="broadphase_pairs"), target)
+        stages[-1]["capacity_gate"] = {
+            "id": "pairs",
+            "counters": [{"buffer": "PairCount", "word": 0}],
+            "capacity": c["pair_capacity"],
+        }
+        return stages
     # Retain world bounds for diagnostics and downstream spatial queries. Pair
     # generation uses only the resident Morton/radix/tree program.
     bc = dict(
@@ -44,4 +50,9 @@ def make_program(l, c, target):
                 buffer_map={n: MAPPING[p] for n, p in stage["buffer_map"].items()},
             )
         )
+    stages[-1]["capacity_gate"] = {
+        "id": "pairs",
+        "counters": [{"buffer": "PairCount", "word": 0}],
+        "capacity": c["pair_capacity"],
+    }
     return stages

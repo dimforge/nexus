@@ -35,7 +35,8 @@
     "ports/tilelang/reference/build.rs",
     "ports/tilelang/reference/noalias_probe.rs",
     "ports/tilelang/SCENE_NUMERICS.md",
-    "ports/tilelang/BOUNDARY_NUMERICS.md"
+    "ports/tilelang/BOUNDARY_NUMERICS.md",
+    "ports/tilelang/FRAME_RUNTIME.md"
   ],
   "features": [
     {
