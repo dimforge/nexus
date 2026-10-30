@@ -1,5 +1,7 @@
 """ABI and launch preconditions for the connected native analytic scene path."""
 
+from scan_layout import hierarchy, validate_scan
+
 from body_validation import BUFFERS as BODY_BUFFERS
 
 BASE_BUFFERS = (
@@ -116,8 +118,10 @@ def body_case(case, kind):
         count=case["body_count"],
         slots=case["body_storage"],
         storage=case["body_storage"],
-        bodies_per_batch=case["colliders_per_batch"],
-        capacity_per_batch=case["colliders_per_batch"] + 3,
+        bodies_per_batch=case.get("bodies_per_batch", case["colliders_per_batch"]),
+        capacity_per_batch=case.get(
+            "body_capacity_per_batch", case["colliders_per_batch"] + 3
+        ),
     )
 
 
@@ -203,11 +207,13 @@ def buffer_sizes(l, c):
         Trajectory=c["frames"] * c["trace_stride"] + 3,
         FrameIndex=2,
     )
+    adjacency, _ = hierarchy(n)
+    buckets, _ = hierarchy(c["color_stride"] * c["batches"])
     for i in range(4):
         sizes.update(
             {
-                f"AdjAux{i}": (n + 255) // 256 + 3 if i == 0 else 4,
-                f"BucketAux{i}": 4,
+                f"AdjAux{i}": adjacency[i + 1] + 3,
+                f"BucketAux{i}": buckets[i + 1] + 3,
                 f"AdjStride{i}": 2,
                 f"BucketStride{i}": 2,
             }
@@ -226,7 +232,7 @@ def buffer_sizes(l, c):
     return sizes
 
 
-def validate_case(l, c, a):
+def validate_case(l, c, a, *, capacity_variant=False):
     import numpy as np
     from body_validation import validate_case as validate_body
 
@@ -280,7 +286,10 @@ def validate_case(l, c, a):
     if (
         n != per * nb
         or bs != (per + 3) * nb
-        or c["pair_capacity"] != per * per * nb * (2 if general else 1)
+        or (
+            not capacity_variant
+            and c["pair_capacity"] != per * per * nb * (2 if general else 1)
+        )
         or c["pair_storage"] != c["pair_capacity"] + 3
         or c["contact_capacity"] != 2 * c["pair_capacity"]
         or cs != c["contact_capacity"] + 3
@@ -293,6 +302,7 @@ def validate_case(l, c, a):
         "ground",
         "stack",
         "free",
+        "capacity_growth",
         "friction",
         "boxes",
         "impact",
@@ -300,10 +310,10 @@ def validate_case(l, c, a):
         raise ValueError("Unknown scene geometry")
     if per != (0 if c["scene"] == "empty" else 1 + c["columns"] * c["levels_scene"]):
         raise ValueError("Scene dimensions differ from bodies")
-    if c["strides"] != [n, (n + 255) // 256, 1, 1] or c["levels"] != (
-        1 if n <= 256 else 2
-    ):
-        raise ValueError("Invalid scene adjacency scan")
+    validate_scan(c, a, "Adj", n, "strides", "levels")
+    validate_scan(
+        c, a, "Bucket", c["color_stride"] * nb, "bucket_strides", "bucket_levels"
+    )
     if (
         c["trace_stride"] != n * (l["pose_words"] + l["velocity_words"])
         or a["FrameIndex"][0] != 0
@@ -376,7 +386,7 @@ def validate_case(l, c, a):
     for i in range(4):
         if (
             a[f"AdjStride{i}"][0] != c["strides"][i]
-            or a[f"BucketStride{i}"][0] != ([8 * nb, 1, 1, 1][i])
+            or a[f"BucketStride{i}"][0] != c["bucket_strides"][i]
         ):
             raise ValueError("Invalid device scan uniform")
     if (

@@ -1,0 +1,87 @@
+# Native TileLang runtime integration
+
+Enable `runtime` on the `nexus-tilelang-native` crate under `ports/tilelang/native`.
+The default feature also enables Metal; use `--no-default-features --features runtime`
+for generated C on a CPU-only host. The runtime feature includes native CPU scene
+conversion and therefore requires the pinned noalias-disabled compiler setup:
+
+```sh
+python3 ports/tilelang/cpu_oracle.py --native check --locked --features runtime
+python3 ports/tilelang/cpu_oracle.py --native check --locked --no-default-features --features runtime
+```
+
+Create the initial typed inputs with `RbdState::read_scene_upload` and choose
+`TileLangBackend::C` or `TileLangBackend::Metal`. Both execute generated TileLang
+kernels. C uses a persistent Python control process plus compiled native C++; Metal
+uses the Rust/khal executor directly after source specialization.
+
+```rust,ignore
+use nexus_tilelang_native::runtime::{RuntimeOptions, TileLangBackend, TileLangSimulation};
+
+let upload = nexus_state.read_scene_upload(&source_backend).await?;
+let options = RuntimeOptions {
+    backend: TileLangBackend::Metal,
+    python: compiler_python,
+    port_directory: tilelang_port_directory,
+    workspace: new_artifact_directory,
+    initial_pair_capacity: 64,
+    max_pair_capacity: 1_048_576,
+    trace_steps: None,
+    contact_reduction: false,
+};
+// The compiler, generated executable code and artifact workspace are trusted.
+let mut simulation = unsafe { TileLangSimulation::from_upload(&upload, options)? };
+let progress = simulation.step()?;
+let poses = simulation.body_poses()?;
+let velocities = simulation.velocities()?;
+```
+
+The artifact directory must not exist. Its parent must exist. It retains the native
+upload, generated variants, exact source/archive fingerprints and compiler records.
+The caller selects a Python environment with the pinned compiler dependencies and
+a C++ compiler for C execution. No Rust reference physics runs during specialization.
+The native typed constructors supply initial memory; translated kernels perform
+all subsequent dynamics.
+
+Each `step` advances exactly one frame. On pair or deferred-work overflow, the
+runtime asks the compiler for a larger variant and retries before solver commit.
+It checks that the compiler sources and original scene archive still match the
+session. Failed compilation or insufficient application capacity leaves the prior
+physical state available. `set_pair_capacity_limit` permits retry after raising a
+resource limit. `FrameProgress.retries` counts capacity migrations since the prior
+successful frame, including migrations preceding an error returned to the caller.
+
+`trace_steps: None` allocates no trajectory and permits ongoing stepping. Explicit
+state reads are the only application body-state readbacks. Internal capacity gates
+read counters. Typed poses and velocities preserve native interleaved body order;
+collider indices remain a separate space. `Some(N)` records at most N frames and
+then rejects further stepping.
+
+The integration remains experimental. Cold-start uploads do not preserve existing
+contact caches. Topo coloring, Coulomb friction, ordinary joints and LBVH are the
+current composed path; body insertion/removal, mutable scene inputs, split hubs,
+other friction models and remaining scheduling variants still need integration.
+No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
+prepares source only for a future CANN execution adapter.
+
+Run the explicit integration tests with current native fixtures:
+
+```sh
+NEXUS_TILELANG_RUNTIME_PYTHON=/absolute/path/to/compiler/python \
+NEXUS_TILELANG_RUNTIME_EXPECTED=/absolute/path/to/runtime_scene/mesh-contact-joint-f8 \
+NEXUS_TILELANG_RUNTIME_WORK=/absolute/path/to/existing/test-output \
+python3 ports/tilelang/cpu_oracle.py --native test --locked --features runtime \
+  --test runtime -- --ignored --nocapture
+```
+
+Those tests build a real two-batch Nexus scene, start with insufficient capacity,
+step through eight frames, compare every pose and velocity to the fresh Rust trace,
+check exact static-body state and exercise a ninth untraced frame. They are ignored
+in ordinary Cargo tests because they explicitly require the compiler environment
+and fresh reference artifacts. The registry and all remaining source-bound checks
+are still required for full qualification.
+
+`contact_reduction` selects native per-pair manifold merging. Set it to `false` to
+match the default Nexus pipeline, or `true` to merge composite contacts. It is
+part of the immutable compilation configuration and survives capacity growth.
+The imported color palette determines the native bounded Topo iteration count.

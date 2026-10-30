@@ -1,5 +1,7 @@
 //! Original cooperative Rust GPU scan, including its multi-dispatch hierarchy.
 mod dispatch;
+#[allow(dead_code)]
+mod prefix_program;
 use khal::backend::{GpuBackend, GpuBuffer, GpuPass};
 use nexus_rbd_shaders3d::utils::prefix_sum::{GpuAddDataGrp, GpuPrefixSumSweep, WORKGROUP_SIZE};
 use serde_json::{Value, json};
@@ -19,12 +21,7 @@ fn fixture(root: &Path, stride: u32, batches: u32, op: &str, pattern: &str) -> V
     let name = format!("n{stride}-b{batches}-{pattern}");
     let dir = root.join(&name);
     fs::create_dir_all(&dir).unwrap();
-    let mut strides = [0u32; 5];
-    strides[0] = stride;
-    for i in 1..5 {
-        strides[i] = strides[i - 1].div_ceil(256);
-    }
-    let levels = (1..5).find(|&i| strides[i] <= 1).unwrap();
+    let (strides, levels) = prefix_program::hierarchy(stride as usize);
     let mut arrays = BTreeMap::new();
     let guard = 0xDEADBEEFu32;
     let mut data = vec![guard; (stride * batches) as usize + 3];

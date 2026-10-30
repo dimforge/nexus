@@ -60,6 +60,14 @@ def ordered_sources(directory, contract):
     return set()
 
 
+def kernel_artifacts(directory, contract):
+    if contract.get("execution") == "resident_frames":
+        from frame_bundle import artifacts
+
+        return artifacts(directory, contract, safe_file)
+    return {"bindings.json", "kernel.ascend"} | ordered_sources(directory, contract)
+
+
 def verify_bundle(root):
     bundle = read_json(root / "manifest.json")
     if bundle.get("schema") != 1:
@@ -86,12 +94,11 @@ def verify_bundle(root):
             for name in (
                 [f"{n}.bin" for n in contract["inputs"]]
                 + [f"{n}.expected.bin" for n in contract["outputs"]]
-                + ["bindings.json", "kernel.ascend"]
             )
         }
         required.update(
             case["directory"] + "/" + source
-            for source in ordered_sources(root / case["directory"], contract)
+            for source in kernel_artifacts(root / case["directory"], contract)
         )
         if not required.issubset(bundle["files"]):
             raise ValueError("Case artifacts missing from handoff hash inventory")
@@ -185,14 +192,13 @@ def build(root, output, results):
                 )
                 relative = f"cases/{op}/{case['name']}"
                 required = (
-                    {"bindings.json", "kernel.ascend"}
+                    kernel_artifacts(case_root, contract)
                     | {f"{name}.bin" for name in contract["inputs"]}
                     | {
                         f"{name}.expected.bin"
                         for name in feature_contract(root, feature)["outputs"]
                     }
                 )
-                required.update(ordered_sources(case_root, contract))
                 if not required.issubset(outcome["files"]):
                     raise ValueError(f"Incomplete fixture receipt: {op}/{case['name']}")
                 for name, expected in outcome["files"].items():
@@ -295,6 +301,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from deferred_validation import check_outputs as check_deferred_outputs
     from epa_validation import check_outputs as check_epa_outputs
     from feature_validation import check_outputs as check_feature_outputs
+    from frame_scene_validation import check_outputs as check_frame_outputs
     from general_scene_validation import check_outputs as check_general_scene_outputs
     from geometry_validation import check_outputs as check_geometry_outputs
     from graph_replay import check_outputs as check_graph_outputs
@@ -311,6 +318,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
     from primitives import check_outputs as check_integer_outputs
     from radix_replay import check_outputs as check_radix_outputs
     from replay import check_outputs
+    from runtime_scene_validation import check_outputs as check_runtime_scene_outputs
     from scan_replay import check_outputs as check_scan_outputs
     from scene_replay import check_outputs as check_scene_outputs
     from scene_restart_validation import check_outputs as check_scene_restart_outputs
@@ -383,6 +391,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "coefficient_fields": check_coefficient_outputs,
                     "tgs_fields": check_tgs_outputs,
                     "scene_fields": check_scene_outputs,
+                    "resident_frame_fields": check_frame_outputs,
                     "joint_fields": check_joint_outputs,
                     "joint_scene_fields": check_joint_scene_outputs,
                     "general_scene_fields": check_general_scene_outputs,
@@ -390,6 +399,7 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     "lbvh_fields": check_lbvh_outputs,
                     "lbvh_program_fields": check_lbvh_program_outputs,
                     "lbvh_scene_fields": check_lbvh_scene_outputs,
+                    "runtime_scene_fields": check_runtime_scene_outputs,
                     "geometry_fields": check_geometry_outputs,
                     "support_fields": check_support_outputs,
                     "epa_fields": check_epa_outputs,
@@ -434,8 +444,13 @@ def verify_results(bundle_root, returned, output, root=ROOT):
                     raise ValueError(
                         "Returned buffer sizes differ from compiled specialization"
                     )
+                extra = ()
+                if contract.get("execution") == "resident_frames":
+                    stats_path = safe_file(returned, f"{item['directory']}/stats.json")
+                    extra = (read_json(stats_path),)
+                    outcome["stats_sha256"] = digest(stats_path)
                 outcome["max_absolute_errors"] = compare(
-                    layout, case, before, actual, expected, contract
+                    layout, case, before, actual, expected, contract, *extra
                 )
                 outcome["output_sha256"] = {
                     n: digest(actual_dir / f"{n}.actual.bin") for n in buffers

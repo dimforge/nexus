@@ -64,7 +64,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .program
         .storage_buffers
         .clone();
-    let frames = variants[0].manifest.max_steps;
+    let frames = variants[0]
+        .manifest
+        .max_steps
+        .ok_or("Replay CLI requires a finite frame count")?;
     let backend = Metal::new()?;
     // This CLI is for trusted exporter/replay bundles. The exporter is responsible
     // for index bounds, race freedom and placing every gate before persistent writes.

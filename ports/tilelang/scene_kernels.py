@@ -32,6 +32,13 @@ def make_program(l, c, target):
     bs = c["body_storage"]
     nb = c["batches"]
     per = c["colliders_per_batch"]
+    body_per = c.get("bodies_per_batch", per)
+    capacity_per = c.get("body_capacity_per_batch", per + 3)
+    collider_count = c.get("collider_count", per * nb)
+    general_collision = c.get("general_collision", c["kind"] == "general_scene")
+    has_joints = c.get("joint_count", 0) != 0
+    groups = c["groups"]
+    joint_groups = max((c.get("joint_count", 0) + 63) // 64, 1)
     cap = c["contact_capacity"]
     cs = c["contact_storage"]
     bg = max((bs + 63) // 64, 1)
@@ -74,8 +81,8 @@ def make_program(l, c, target):
                 count=n,
                 storage=bs,
                 slots=bs,
-                bodies_per_batch=per,
-                capacity_per_batch=per + 3,
+                bodies_per_batch=body_per,
+                capacity_per_batch=capacity_per,
                 batches=nb,
             )
             cache[kind] = body_kernels.make_kernel(l, case, target)
@@ -104,31 +111,30 @@ def make_program(l, c, target):
     add(
         "collider_poses",
         pose_kernels.make_kernel(
-            l, dict(c, count=n, storage=bs, body_storage=bs), target
+            l, dict(c, count=collider_count, storage=bs, body_storage=bs), target
         ),
         pm,
-        bg,
+        max((collider_count + 63) // 64, 1),
     )
-    collision = (
-        general_collision_kernels if c["kind"] == "general_scene" else collision_kernels
-    )
+    collision = general_collision_kernels if general_collision else collision_kernels
     cm = identity(collision.BUFFERS)
     if c.get("broadphase") == "lbvh":
         from scene_broadphase import EXTRA
+
         cm.update(identity(EXTRA))
     cm.update(Poses="ColliderPoses", Contacts="RawContacts")
-    if c["kind"] == "general_scene":
+    if general_collision:
         cm["Indices"] = "GeometryIndices"
     cc = local(
         cm,
-        count=n,
+        count=collider_count,
         colliders=per,
         batches=nb,
-        capacity=per + 3,
+        capacity=capacity_per,
         storage=bs,
         dispatch=per * per * nb,
         groups=max((per * per * nb + 63) // 64, 1),
-        contact_groups=1,
+        contact_groups=groups,
         iterations=1,
         vertices=c.get("vertex_count", 1),
     )
@@ -168,7 +174,9 @@ def make_program(l, c, target):
     for i in range(4):
         gm[f"Aux{i}"] = f"AdjAux{i}"
         gm[f"Stride{i}"] = f"AdjStride{i}"
-    gc = local(gm, kind="adjacency_build", count=cap, bodies=n, batches=1, groups=1)
+    gc = local(
+        gm, kind="adjacency_build", count=cap, bodies=n, batches=1, groups=groups
+    )
     program("adjacency", graph_kernels.make_program(l, gc, target), gm)
     add(
         "stable_adjacency",
@@ -180,7 +188,9 @@ def make_program(l, c, target):
 
     cm = identity(COLORING)
     cm["Ids"] = "SortedIds"
-    cc = local(cm, kind="topo_bounded", count=cap, groups=1, threads=64, seeded=True)
+    cc = local(
+        cm, kind="topo_bounded", count=cap, groups=groups, threads=64, seeded=True
+    )
     reset_case = dict(
         cc, kind="topo_reset", groups=max((cap + 63) // 64, 1), threads=64
     )
@@ -218,9 +228,9 @@ def make_program(l, c, target):
         kind="bucket_build",
         bucket_count=c["color_stride"] * nb,
         batches=nb,
-        groups=1,
-        strides=[c["color_stride"] * nb, 1, 1, 1],
-        levels=1,
+        groups=groups,
+        strides=c["bucket_strides"],
+        levels=c["bucket_levels"],
     )
     program("buckets", bucket_kernels.make_program(l, bc, target), bm)
     pm = identity(CONTACT)
@@ -254,11 +264,13 @@ def make_program(l, c, target):
         )
         if kind not in cache:
             cache[kind] = joint_kernels.make_kernel(
-                l, local(mapping, kind=kind, count=c["joint_count"], groups=1), target
+                l,
+                local(mapping, kind=kind, count=c["joint_count"], groups=joint_groups),
+                target,
             )
-        add(kind, cache[kind], mapping)
+        add(kind, cache[kind], mapping, joint_groups)
 
-    if c["kind"] == "joint_scene":
+    if has_joints:
         joint("joint_init")
     body("init_increments")
 
@@ -272,18 +284,54 @@ def make_program(l, c, target):
         )
         if kind not in cache:
             cache[kind] = colored_kernels.make_kernel(
-                l, local(cm, count=cap, groups=1), target, kind
+                l, local(cm, count=cap, groups=groups), target, kind
             )
-        add(kind, cache[kind], cm)
+        add(kind, cache[kind], cm, groups)
 
     for _ in range(c["substeps"]):
         body("apply_increments")
-        if c["kind"] == "joint_scene":
+        if has_joints:
             joint("joint_update")
+        if c.get("scale_warmstart", False):
+            import warmstart_kernels
+
+            mapping = identity(
+                [
+                    "Tiles",
+                    "Counts",
+                    "Ids",
+                    "Indices",
+                    "HubCounts",
+                    "Buckets",
+                    "BatchIds",
+                ]
+            )
+            mapping.update(
+                Velocities="SolverVelocities",
+                HubFirstSlot="FirstSlot",
+                HubSlotConstraint="OldIndices",
+                Params="RbdParams",
+            )
+            if "scale_impulses" not in cache:
+                case = dict(
+                    c,
+                    kind="scale_impulses",
+                    count=cap,
+                    dispatch=groups * 64,
+                    tiles=(cs + 31) // 32,
+                    velocities=bs,
+                    storage=bs,
+                    ids_storage=sizes["Ids"],
+                    constraints=cs,
+                    hub_storage=cs,
+                    bucket_storage=sizes["Buckets"],
+                )
+                cache["scale_impulses"] = warmstart_kernels.make_kernel(l, case, target)
+            add("scale_impulses", cache["scale_impulses"], mapping, groups)
         for col in range(1, c["color_stride"] - 1):
             color("colored_warmstart", col, "Mode")
-        for _ in range(c["pgs"]):
-            if c["kind"] == "joint_scene":
+        for _ in range(max(c["pgs"], 1)):
+            if has_joints:
                 for col in range(c["joint_color_count"]):
                     joint("joint_solve", col, 1)
             for col in range(1, c["color_stride"] - 1):
@@ -303,7 +351,7 @@ def make_program(l, c, target):
             },
             bg,
         )
-        if c["kind"] == "joint_scene":
+        if has_joints:
             for col in range(c["joint_color_count"]):
                 joint("joint_solve", col, 0)
         for col in range(1, c["color_stride"] - 1):

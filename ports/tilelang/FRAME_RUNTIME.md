@@ -45,3 +45,97 @@ work. Metal and C unit tests exercise real compiled dispatch, migration after a 
 frame, exhausted capacity and failed growth recovery. Ascend kernel
 source lowering does not validate a CANN executor, device memory ordering or
 performance; the same frame boundaries must be implemented and qualified there.
+
+Registered runtime qualification uses `frame_replay.py` with
+`analytic_frame_retry`, `general_frame_retry`, and `joint_frame_retry`. The Rust
+`frame-scenes` exporter produces the complete full-capacity reference trajectory
+and typed initial uploads for every specialization. Initial-only variants are
+marked explicitly and do not export expected execution outputs. Python never
+resizes or invents native contact/quaternion storage.
+
+The delayed-growth scene has one resting sphere and one falling sphere: it must
+commit 47 frames before growing on frame 48. General scenes require deferred-mesh
+growth and batched mixed-shape growth; the joint scene requires growth with active
+joint constraints. All recorded frames and final persistent/collision storage are
+compared with Rust. Retry statistics must contain one committed step per frame,
+capacity pressure at each growth, and no committed overflowing count.
+
+Resident bundles use a schema-3 `bindings.json`, referencing every variant's
+schema-1 `frame.json`, generated stage source and initial buffer. Ascend handoffs
+hash all variants and reject missing sources, truncated persistent copies,
+changed counter meanings, invalid upload sizes and inconsistent output storage.
+Returned sessions must include `stats.json` as well as every final buffer; the
+existing independent scene checks apply to returned trajectories. This prepares
+an offline engineering handoff and does not certify a CANN runtime or device.
+
+The native `RbdState::read_scene_upload` bridge exposes cold-start body/collider
+inputs, native geometry and ordinary joint coloring without repeating Rapier's
+shape or joint conversion. Collider parents are global interleaved body indices;
+joint body IDs remain environment-local. Multiple colliders may share a body.
+The arrays retain native capacity padding and substep parameters. It reads the
+current state without stepping or mutating it and rejects articulated multibodies.
+Contact persistence and scratch must be rebuilt by the receiving runtime.
+
+Three Metal integration tests cover two differing batches, offset colliders,
+aggregate centers of mass, parentless mesh geometry, materials/groups, ordinary
+joint limits/motors, empty allocated capacity and articulated rejection. Group
+readback checks the native enum discriminant before constructing Rust values;
+geometry and joint input allocations now permit readback. No shader arithmetic
+or shape/joint conversion changes in this bridge. Connecting these public inputs
+to arbitrary compiled frame storage and backend selection remains in progress.
+
+
+## Native cold-start specialization
+
+`native/src/upload.rs::write_inputs` writes the typed `RbdSceneUpload` into a new
+portable archive. `cpu_oracle.export_native_scenes` builds real Rapier/Nexus
+inputs on CPU, without Metal, using the pinned compiler, noalias flag and LLVM
+probe. Its `scene-upload` Cargo feature has a build guard. CPU and Metal conversion
+produce identical archive bytes in the multiple-collider regression.
+
+`reference` binary `runtime-scenes OUTPUT INPUT FRAMES PAIR_CAPACITY execute|upload`
+reads that archive, validates native layouts/counts/parents/joint coloring and
+allocates typed frame storage. `upload` initializes only; `execute` also runs the
+native shader oracle for differential tests. TileLang specialization uses the
+same body/collider counts, local offsets, masses, materials, groups, joint colors,
+substep count, PGS count and warmstart coefficient. All actual frame physics uses
+the translated shaders. An input body may own several colliders; collider IDs
+must never be substituted for body IDs.
+
+This integration remains bounded: Coulomb friction, deterministic LBVH ordering,
+16 Topo rounds, no split hubs and a finite trace. Public backend selection and
+unrestricted lifecycle support remain outstanding. `runtime_scene_validation.py`
+checks separate index spaces and geometry in addition to differential output.
+The native geometry validator recognizes exact empty leaf-bound sentinels without
+changing the bytes sent to kernels; it still rejects nonfinite primitive geometry.
+
+
+`runtime_replay.py --target c|metal|ascend` registers six native-upload scenes,
+with `--compile-only` required for Ascend. Each run rebuilds real native uploads
+and fresh Rust expected outputs before lowering. The report records both compiler
+profile and native archive hashes. The registered cases use eleven color buckets;
+body and collider indexing remain separate. `runtime_scene_fields` also validates
+external returned buffers through `handoff.py`. `test_runtime_handoff.py` uses
+recorded Metal results against Ascend source artifacts to test that protocol only.
+
+
+## Adaptive execution without a trajectory
+
+`FrameSession::extend` and `CpuFrameSession.extend` accept additional trusted
+capacity specializations after an overflow. They validate compatibility before
+appending. A later step allocates and compiles the new variant before migrating
+live state; failures preserve the previous variant. This removes the requirement
+to know the entire capacity ladder before opening a session.
+
+A frame manifest may explicitly set `max_steps` to null only if both trajectory
+buffers are absent. The executor then retains a u64 step count and rejects its
+overflow before mutation. Missing `max_steps` is an error; finite tracing retains
+the existing step limit. The batch replay CLI still requires a finite count.
+
+`runtime_compile.py --upload ARCHIVE --output NEW_DIRECTORY --target c|metal|ascend
+--pair-capacity N` specializes an uploaded scene without executing the CPU
+reference solver. Omit `--trace-steps` for ongoing execution without trajectory
+storage. Artifacts record exact compiler-source and archive hashes. Source lowering
+alone is not target execution. `runtime_service.py VARIANT_DIRECTORY` controls a
+resident generated-C session through JSON lines, with explicit state read requests.
+Rust backend selection and automatic compilation after overflow remain in progress.

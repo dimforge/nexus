@@ -98,7 +98,7 @@ def check_physics(layout, case, before, result, contract, *, penetration_allowan
     spin = float(np.max(np.linalg.norm(w[dynamic], axis=1)))
     if (
         case["frames"] == 120
-        and case["scene"] in ("stack", "free", "boxes", "impact")
+        and case["scene"] in ("stack", "free", "boxes", "impact", "capacity_growth")
         and (speed > 0.01 or spin > 0.01)
     ):
         raise AssertionError("Resting scene did not settle")

@@ -332,10 +332,28 @@ impl GpuImpulseJointSet {
             num_colors: global_num_colors,
             color_groups_cpu: all_color_groups.clone(),
             color_groups: Tensor::vector(backend, &all_color_groups, usage).unwrap(),
-            joints: Tensor::vector(backend, &all_joints, usage).unwrap(),
+            joints: Tensor::vector(backend, &all_joints, usage | BufferUsages::COPY_SRC).unwrap(),
             builders: Tensor::matrix_uninit(backend, num_batches, max_joints, usage).unwrap(),
             constraints: Tensor::matrix_uninit(backend, num_batches, max_joints, usage).unwrap(),
         }
+    }
+
+    #[cfg(feature = "dim3")]
+    pub(crate) async fn read_upload(
+        &self,
+        backend: &GpuBackend,
+    ) -> Result<Vec<ImpulseJoint>, GpuBackendError> {
+        use khal::backend::Backend;
+        let mut result = vec![ImpulseJoint::zeroed(); self.joints.len() as usize];
+        backend
+            .slow_read_buffer(self.joints.buffer(), &mut result)
+            .await?;
+        Ok(result)
+    }
+
+    #[cfg(feature = "dim3")]
+    pub(crate) fn color_ends(&self) -> &[u32] {
+        &self.color_groups_cpu
     }
 
     /// Is this set empty?

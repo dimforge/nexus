@@ -53,6 +53,7 @@ def run_stage(
     make_program=None,
     diagnostics=None,
     oracle_args=(),
+    exporter=None,
 ):
     """Shared evidence/runtime path; operation modules own their ABI and comparisons."""
     import numpy as np
@@ -63,7 +64,11 @@ def run_stage(
     inputs = evidence_inputs(ROOT)
     report = {"schema": 1, "status": "preparing", "target": args.target}
     write_json(output / "report.json", report)
-    oracle_profile = export_fixtures(oracle, output / "fixtures", extra=oracle_args)
+    oracle_profile = (
+        exporter(output / "fixtures")
+        if exporter is not None
+        else export_fixtures(oracle, output / "fixtures", extra=oracle_args)
+    )
     layout = json.loads((output / "fixtures/layout.json").read_text())
     fixtures = output / f"fixtures/{args.operation}"
     suite = json.loads((fixtures / "suite.json").read_text())

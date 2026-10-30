@@ -11,6 +11,10 @@ mod lbvh_validation;
 mod rbd_state;
 mod rbd_state_from_rapier;
 mod rbd_step;
+#[cfg(feature = "dim3")]
+mod scene_upload;
+#[cfg(feature = "dim3")]
+pub use scene_upload::RbdSceneUpload;
 #[cfg(all(test, feature = "dim3"))]
 mod test_batched_stacks;
 #[cfg(all(test, any(feature = "metal", feature = "webgpu")))]

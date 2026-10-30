@@ -288,9 +288,14 @@ def compiler_libraries():
     }
 
 
-def build_native(reference=False):
+def build_native(reference=False, *, frame=False):
     """Build pinned Rust execution adapters; the returned process needs no Python."""
+    if reference and frame:
+        raise ValueError("Select either the reference or frame adapter")
     target = ROOT / "target"
+    binary = (
+        "rust-reference" if reference else "native-frame" if frame else "native-replay"
+    )
     command = [
         "cargo",
         "build",
@@ -300,11 +305,9 @@ def build_native(reference=False):
         "--target-dir",
         target,
     ]
-    command += (
-        ["--features", "rust-reference"] if reference else ["--bin", "native-replay"]
-    )
+    command += ["--features", "rust-reference"] if reference else ["--bin", binary]
     run(command, cwd=HERE / "native")
-    return target / "debug" / ("rust-reference" if reference else "native-replay")
+    return target / "debug" / binary
 
 
 def main():

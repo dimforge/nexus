@@ -28,7 +28,7 @@ SCENES = (
 )
 
 
-def validate_case(l, c, b):
+def validate_case(l, c, b, *, capacity_variant=False):
     core = {n: b[n] for n in base.BUFFERS}
     bc = dict(
         c,
@@ -36,7 +36,7 @@ def validate_case(l, c, b):
         scene="free",
         buffer_words={n: c["buffer_words"][n] for n in core},
     )
-    base.validate_case(l, bc, core)
+    base.validate_case(l, bc, core, capacity_variant=capacity_variant)
     if c["kind"] != "joint_scene" or c["scene"] not in SCENES:
         raise ValueError("Invalid joint scene")
     n = c["joint_count"]
@@ -173,6 +173,13 @@ def check_checkpoint(l, c, b, a, e, k):
     count = outputs.check_graph(l, c, ac, ec)
     errors.update(outputs.check_constraints(l, c, ac, ec, k, count))
     errors.update(outputs.check_states(l, c, ac, ec, k, count))
+    errors.update(check_joint_rows(l, c, b, a, e, k))
+    return errors
+
+
+def check_joint_rows(l, c, b, a, e, k):
+    """Prepared ordinary joint identities, row bounds, padding and numeric fields."""
+    errors = {}
     for name in ("Joints", "JointColors", "MotorParams", "JointBias", "JointUnbiased"):
         for r in (a, e):
             np.testing.assert_array_equal(r[name], b[name], err_msg=f"Readonly {name}")

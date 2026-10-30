@@ -59,6 +59,19 @@ class FrameManifestTests(unittest.TestCase):
     def test_valid_control_abi(self):
         validate_frame(frame())
 
+    def test_unbounded_control_requires_an_explicit_limit_and_no_trace(self):
+        f = frame()
+        f["max_steps"] = None
+        validate_frame(f)
+        del f["max_steps"]
+        with self.assertRaises(ValueError):
+            validate_frame(f)
+        f["max_steps"] = None
+        f["program"]["storage_buffers"].append("Trajectory")
+        f["program"]["buffer_bytes"]["Trajectory"] = 4
+        with self.assertRaises(ValueError):
+            validate_frame(f)
+
     def test_gate_after_commit_or_outside_counter_is_rejected(self):
         for edit in (
             lambda f: f["gates"][0].update(after_stage="commit"),

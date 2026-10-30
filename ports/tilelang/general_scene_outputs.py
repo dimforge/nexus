@@ -14,9 +14,9 @@ def check_collision(l, c, b, a, e, k):
     bc = dict(
         c,
         kind="broadphase_pairs",
-        count=c["body_count"],
+        count=c.get("collider_count", c["body_count"]),
         colliders=per,
-        capacity=per + 3,
+        capacity=c.get("body_capacity_per_batch", per + 3),
         storage=c["body_storage"],
         vertices=c["vertex_count"],
         initial_count=0,
@@ -35,8 +35,8 @@ def check_collision(l, c, b, a, e, k):
         # complete overlap set and tree. Here retain only the common AABB check.
         bc.update(
             kind="world_aabbs",
-            dispatch=c["body_count"],
-            groups=max((c["body_count"] + 63) // 64, 1),
+            dispatch=c.get("collider_count", c["body_count"]),
+            groups=max((c.get("collider_count", c["body_count"]) + 63) // 64, 1),
         )
         bb["PairCount"] = a["PairCount"]
         bc["initial_count"] = int(a["PairCount"][0])
@@ -94,15 +94,22 @@ def check_collision(l, c, b, a, e, k):
             :count, l["pair_colliders"] : l["pair_colliders"] + 2
         ]
         rows = r["PfmPairs"].reshape(-1, fw)[:pn]
-        order = r["PfmOrder"][:pn]
+        reduced = c.get("contact_reduction", True)
+        order = r["PfmOrder" if reduced else "PfmIdentity"][:pn]
         np.testing.assert_array_equal(
             np.sort(order), np.arange(pn, dtype=np.uint32), err_msg="PFM permutation"
         )
-        np.testing.assert_array_equal(
-            r["PfmSortedKeys"][:pn],
-            rows[order, f["pair_index"]],
-            err_msg="PFM final pair keys",
-        )
+        if reduced:
+            np.testing.assert_array_equal(
+                r["PfmSortedKeys"][:pn],
+                rows[order, f["pair_index"]],
+                err_msg="PFM final pair keys",
+            )
+        else:
+            for name in ("PfmOrder", "PfmKeys", "PfmSortedKeys"):
+                np.testing.assert_array_equal(
+                    r[name], b[name], err_msg="Unused PFM sort storage"
+                )
         observed = []
         membership = {}
         for row in rows:
@@ -117,7 +124,7 @@ def check_collision(l, c, b, a, e, k):
             membership[key] = row
         for row in rows[order]:
             observed.append((int(row[f["pair_index"]]), int(row[f["subshape"]])))
-        if observed != sorted(observed):
+        if reduced and observed != sorted(observed):
             raise AssertionError("PFM stable subshape and pair ordering")
         work.append(membership)
         raw = r["RawContacts"].reshape(-1, w)
@@ -200,7 +207,10 @@ def check_collision(l, c, b, a, e, k):
         )
         for side, (r, row) in enumerate(((a, ar), (e, er))):
             ids = row[cf["colliders"] : cf["colliders"] + 2].astype(int)
-            if np.any(ids >= c["body_count"]) or ids[0] % nb != ids[1] % nb:
+            if (
+                np.any(ids >= c.get("collider_count", c["body_count"]))
+                or ids[0] % nb != ids[1] % nb
+            ):
                 raise AssertionError("General contact collider/batch identity")
             np.testing.assert_array_equal(
                 row[cf["bodies"] : cf["bodies"] + 2], b["Parents"][ids]

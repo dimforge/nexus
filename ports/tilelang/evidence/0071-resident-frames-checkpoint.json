@@ -1,0 +1,579 @@
+{
+  "scope": "Resident typed capacity ladders at a6c58ac47: delayed frame-48 growth, deferred mesh pressure, batched mixed shapes, and active joints. Historical checkpoint, not a global parity baseline.",
+  "inputs_sha256": "9ca80872258913460084657c4481b8552e688e8f3d40b1b7b272897a6eef600d",
+  "reports": [
+    {
+      "operation": "analytic_frame_retry",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "3973c45bc1921cefe6746ba405a033f5c0403024c3389fa420bfbff383f71307",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "capacity_growth-c2-l1-b1-f120",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 0.0,
+            "Contacts": 0.0,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SolverPoses": 0.0,
+            "SolverVelocities": 0.0,
+            "States": 0.0,
+            "Tiles": 0.0,
+            "Trajectory": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              48
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "general_frame_retry",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "47cfad923b70f064ec0febbd8dac976536d89fc0586fb76d1858e1b0f6af252a",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "general_mesh-c1-l1-b1-f1",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 0.0,
+            "Contacts": 0.0,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "Params": 0.0,
+            "Poses": 7.275957614183426e-12,
+            "SolverPoses": 7.275957614183426e-12,
+            "SolverVelocities": 0.0,
+            "States": 0.0,
+            "Tiles": 0.0,
+            "Trajectory": 7.275957614183426e-12,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              1
+            ]
+          }
+        },
+        {
+          "name": "general_mixed-c7-l1-b2-f8",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 1.862645149230957e-09,
+            "Contacts": 2.9802322387695312e-08,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "Params": 0.0,
+            "Poses": 3.725290298461914e-09,
+            "SolverPoses": 3.725290298461914e-09,
+            "SolverVelocities": 1.7881393432617188e-07,
+            "States": 1.862645149230957e-09,
+            "Tiles": 1.0058283805847168e-07,
+            "Trajectory": 1.7881393432617188e-07,
+            "Velocities": 1.7881393432617188e-07,
+            "WorldMass": 2.3288748707273044e-10
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_frame_retry",
+      "target": "c",
+      "state": "executed",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "a0400bbf03796c083d04d596dcfc72260befe526a597be7777cb79a3f851a164",
+      "environment": {
+        "compiler": "Apple clang version 17.0.0 (clang-1700.3.19.1)",
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "arm64",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native TileLang C++",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "joint_impact-c3-l1-b2-f8",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 0.0,
+            "Contacts": 0.0,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "JointBuilders": 0.0,
+            "JointConstraints": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SolverPoses": 0.0,
+            "SolverVelocities": 0.0,
+            "States": 0.0,
+            "Tiles": 0.0,
+            "Trajectory": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "analytic_frame_retry",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "2d0b150286445465842ee863eb5227dafcb29a1a1eca280351eefc296e748047",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal resident frames",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "steps": 120,
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "capacity_growth-c2-l1-b1-f120",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 0.0,
+            "Contacts": 0.0,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SolverPoses": 0.0,
+            "SolverVelocities": 0.0,
+            "States": 0.0,
+            "Tiles": 0.0,
+            "Trajectory": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              48
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "general_frame_retry",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "5dc460622c90f1a86196c2d99eaf1a4868b9111d37f13876c48425069cc87811",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal resident frames",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "steps": 8,
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "general_mesh-c1-l1-b1-f1",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 0.0,
+            "Contacts": 0.0,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "Params": 0.0,
+            "Poses": 7.275957614183426e-12,
+            "SolverPoses": 7.275957614183426e-12,
+            "SolverVelocities": 0.0,
+            "States": 0.0,
+            "Tiles": 0.0,
+            "Trajectory": 7.275957614183426e-12,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              1
+            ]
+          }
+        },
+        {
+          "name": "general_mixed-c7-l1-b2-f8",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 1.862645149230957e-09,
+            "Contacts": 2.9802322387695312e-08,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "Params": 0.0,
+            "Poses": 3.725290298461914e-09,
+            "SolverPoses": 3.725290298461914e-09,
+            "SolverVelocities": 1.7881393432617188e-07,
+            "States": 1.862645149230957e-09,
+            "Tiles": 1.0058283805847168e-07,
+            "Trajectory": 1.7881393432617188e-07,
+            "Velocities": 1.7881393432617188e-07,
+            "WorldMass": 2.3288748707273044e-10
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "joint_frame_retry",
+      "target": "metal",
+      "state": "executed",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "7c1c00d4a4a04e9c474be0e6f8cf72dc6942484f81ac79ab7a83a6f32a787a7d",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "device": "Apple M4 Max",
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "runtime": "native Rust/khal Metal resident frames",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "steps": 8,
+        "tilelang": "0.1.15",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "joint_impact-c3-l1-b2-f8",
+          "max_absolute_errors": {
+            "Aabbs": 0.0,
+            "ColliderPoses": 0.0,
+            "Contacts": 0.0,
+            "Counts": 0.0,
+            "FirstSlot": 0.0,
+            "HubCounts": 0.0,
+            "Increments": 0.0,
+            "JointBuilders": 0.0,
+            "JointConstraints": 0.0,
+            "Params": 0.0,
+            "Poses": 0.0,
+            "SolverPoses": 0.0,
+            "SolverVelocities": 0.0,
+            "States": 0.0,
+            "Tiles": 0.0,
+            "Trajectory": 0.0,
+            "Velocities": 0.0,
+            "WorldMass": 0.0
+          },
+          "diagnostics": {
+            "final_variant": 1,
+            "growth_frames": [
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "operation": "analytic_frame_retry",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "f5c3e03add0eebd531ac522a379e2b6575eddc0315f1a784913e66ba165ac61a",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "capacity_growth-c2-l1-b1-f120",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "general_frame_retry",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "609b5c7533deffc4df85044eb782346136f3f73a0b412d2bcc1f344d4c080478",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "general_mesh-c1-l1-b1-f1",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        },
+        {
+          "name": "general_mixed-c7-l1-b2-f8",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    },
+    {
+      "operation": "joint_frame_retry",
+      "target": "ascend",
+      "state": "source_lowered",
+      "reference_commit": "a6c58ac474bbf392e50bf0cecb23003764bbe46a",
+      "report_sha256": "8a56899e15a8ca7c86c3a8e45f8b78ef645d26e3514c428dcbf9d2805c53dc5c",
+      "environment": {
+        "cpu_oracle": {
+          "llvm_ir_sha256": "5095182b493de688c119ae1c27f614f1008c3373c929b604aa10e4e8e4254976",
+          "mutable_reference_noalias": false,
+          "probe_source_sha256": "5b92bd27522f7ecc205424ddacc628ded89fe3d69008ea4018b95224835dab2c",
+          "profile": "khal-cpu-noalias-disabled-v1",
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "rustc_bootstrap": "1",
+          "rustflags": [
+            "-Zmutable-noalias=no"
+          ],
+          "shared_reference_noalias": true
+        },
+        "numpy": "2.2.6",
+        "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "python": "3.13.11",
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "rustflags": [
+          "-Zmutable-noalias=no"
+        ],
+        "tilelang": "0.1.15+git8944978d",
+        "torch": "2.9.1",
+        "tvm_ffi": "0.1.12",
+        "z3": "4.15.4.0"
+      },
+      "cases": [
+        {
+          "name": "joint_impact-c3-l1-b2-f8",
+          "max_absolute_errors": null,
+          "diagnostics": null
+        }
+      ]
+    }
+  ],
+  "case_totals": {
+    "c": 4,
+    "metal": 4,
+    "ascend": 4
+  },
+  "limitations": [
+    "Ascend source lowering only; no vendor compilation, device execution, synchronization or performance qualification.",
+    "Arbitrary scene runtime integration and complete current-source reconciliation remain required."
+  ]
+}

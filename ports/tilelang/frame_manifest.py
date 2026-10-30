@@ -10,8 +10,20 @@ def validate_frame(frame):
     if (
         frame.get("schema") != 1
         or program["iterations"] != 1
-        or type(frame.get("max_steps")) is not int
-        or not 1 <= frame["max_steps"] <= 0xFFFFFFFF
+        or "max_steps" not in frame
+        or (
+            frame["max_steps"] is not None
+            and (
+                type(frame["max_steps"]) is not int
+                or not 1 <= frame["max_steps"] <= 0xFFFFFFFF
+            )
+        )
+        or (
+            frame["max_steps"] is None
+            and any(
+                n in program["storage_buffers"] for n in ("Trajectory", "FrameIndex")
+            )
+        )
     ):
         raise ValueError("Invalid resident frame schema, iteration count or step limit")
     names = [s["name"] for s in program["stages"]]
@@ -112,7 +124,9 @@ def from_program(l, c, plans, program):
                 )
             )
     expected = (
-        ["pairs", "deferred_pairs"] if c["kind"] == "general_scene" else ["pairs"]
+        ["pairs", "deferred_pairs"]
+        if c.get("general_collision", c["kind"] == "general_scene")
+        else ["pairs"]
     )
     if [g["id"] for g in gates] != expected:
         raise ValueError("Missing or changed scene capacity gates")
@@ -122,6 +136,30 @@ def from_program(l, c, plans, program):
             "program": program,
             "gates": gates,
             "persistent": persistent_regions(l, c),
-            "max_steps": c["frames"],
+            "max_steps": c["frames"] if "FrameIndex" in c["buffer_words"] else None,
         }
     )
+
+
+def validate_growth(a, b):
+    """Validate a new specialization before publishing it to a live session."""
+    if (
+        a["max_steps"] != b["max_steps"]
+        or set(a["persistent"]) != set(b["persistent"])
+        or len(a["gates"]) != len(b["gates"])
+    ):
+        raise ValueError("Incompatible variants")
+    if any(
+        x["id"] != y["id"]
+        or x["counters"] != y["counters"]
+        or x["capacity"] > y["capacity"]
+        for x, y in zip(a["gates"], b["gates"])
+    ):
+        raise ValueError("Gate meanings changed or capacities shrank")
+    if not any(
+        x["capacity"] < y["capacity"] for x, y in zip(a["gates"], b["gates"])
+    ) or any(
+        b["persistent"][n]["word_len"] < region["word_len"]
+        for n, region in a["persistent"].items()
+    ):
+        raise ValueError("Variants must grow without truncating state")

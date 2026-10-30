@@ -3,12 +3,12 @@
 
 import hashlib
 import os
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 import tomllib
+from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REFERENCE = HERE / "reference"
@@ -48,6 +48,7 @@ def environment(inherited=None):
 def run(command, env):
     result = subprocess.run(
         [str(x) for x in command],
+        check=False,
         cwd=REFERENCE,
         env=env,
         text=True,
@@ -137,5 +138,79 @@ def export_fixtures(binary, directory, extra=()):
     return profile
 
 
+def native_cargo(arguments, env=None):
+    """Build native CPU conversion/runtime with the same pinned compiler profile."""
+    if not arguments:
+        raise ValueError("Supply a Cargo subcommand")
+    return run(
+        [
+            "cargo",
+            f"+{toolchain()}",
+            arguments[0],
+            "--manifest-path",
+            HERE / "native/Cargo.toml",
+            "--target-dir",
+            HERE.parent.parent / "target",
+            *arguments[1:],
+        ],
+        environment() if env is None else env,
+    )
+
+
+def export_native_scenes(directory):
+    """Export the real Nexus CPU conversion without a GPU or Metal dependency."""
+    env = environment()
+    directory = Path(directory).resolve()
+    profile = verify(directory.parent, env)
+    run(
+        [
+            "cargo",
+            f"+{toolchain()}",
+            "run",
+            "--locked",
+            "--manifest-path",
+            HERE / "native" / "Cargo.toml",
+            "--no-default-features",
+            "--features",
+            "scene-upload",
+            "--bin",
+            "runtime-upload",
+            "--target-dir",
+            HERE.parent.parent / "target",
+            "--",
+            directory,
+        ],
+        env,
+    )
+    return profile
+
+
+def export_production_scenes(directory):
+    """Run the complete production RbdPipeline with the checked CPU profile."""
+    env = environment()
+    env["NEXUS_DISABLE_BF"] = "1"
+    directory = Path(directory).resolve()
+    profile = verify(directory.parent, env)
+    native_cargo(
+        [
+            "run",
+            "--locked",
+            "--no-default-features",
+            "--features",
+            "scene-upload",
+            "--bin",
+            "runtime-reference",
+            "--",
+            directory,
+        ],
+        env,
+    )
+    return profile
+
+
 if __name__ == "__main__":
-    print(cargo(sys.argv[1:]))
+    print(
+        native_cargo(sys.argv[2:])
+        if sys.argv[1:2] == ["--native"]
+        else cargo(sys.argv[1:])
+    )

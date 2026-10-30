@@ -19,6 +19,9 @@ use std::{fs, path::Path};
 #[allow(dead_code)]
 #[path = "lbvh_runtime.rs"]
 mod lbvh;
+#[allow(dead_code)]
+#[path = "scene_upload.rs"]
+pub(crate) mod scene_upload;
 
 fn write<T: bytemuck::NoUninit>(dir: &Path, name: &str, data: &[T]) {
     fs::write(dir.join(name), bytemuck::cast_slice(data)).unwrap();
@@ -55,33 +58,103 @@ pub(crate) fn fixture_config(
     snapshots: &[u32],
     use_lbvh: bool,
 ) -> Value {
+    fixture_storage(
+        dir, label, columns, levels, nb, frames, snapshots, use_lbvh, None, true,
+    )
+}
+
+/// Export native typed initial storage for a capacity specialization. Smaller
+/// variants must not execute the reference without the host retry controller.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn fixture_storage(
+    dir: &Path,
+    label: &str,
+    columns: usize,
+    levels: usize,
+    nb: usize,
+    frames: u32,
+    snapshots: &[u32],
+    use_lbvh: bool,
+    pair_capacity_override: Option<usize>,
+    execute: bool,
+) -> Value {
+    scene_storage(
+        dir,
+        label,
+        columns,
+        levels,
+        nb,
+        frames,
+        snapshots,
+        use_lbvh,
+        pair_capacity_override,
+        execute,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn scene_storage(
+    dir: &Path,
+    label: &str,
+    columns: usize,
+    levels: usize,
+    nb: usize,
+    frames: u32,
+    snapshots: &[u32],
+    use_lbvh: bool,
+    pair_capacity_override: Option<usize>,
+    execute: bool,
+    upload: Option<&scene_upload::SceneUpload>,
+) -> Value {
+    assert!(execute || snapshots.is_empty());
+    assert!(pair_capacity_override.is_none() || !execute || upload.is_some());
     fs::create_dir_all(dir).unwrap();
     let guard = 0xdeadbeefu32;
-    let per = if label == "empty" {
+    let per = if let Some(u) = upload {
+        u.batch.colliders_len as usize
+    } else if label == "empty" {
         0
     } else {
         1 + columns * levels
     };
-    let n = per * nb;
-    let storage = (per + 3) * nb;
-    let general_scene = label.starts_with("general_");
+    let body_per = upload.map_or(per, |u| u.batch.bodies_len as usize);
+    let body_capacity = upload.map_or(per, |u| u.batch.colliders_batch_capacity as usize) + 3;
+    let n = body_per * nb;
+    let collider_count = per * nb;
+    let storage = body_capacity * nb;
+    let general_scene = upload.is_some() || label.starts_with("general_");
     let traced = true;
-    let pair_capacity = per * per * nb * if general_scene { 2 } else { 1 };
+    let pair_capacity =
+        pair_capacity_override.unwrap_or(per * per * nb * if general_scene { 2 } else { 1 });
     let capacity = pair_capacity * 2;
     let cs = capacity + 3;
-    let groups = 1u32;
+    let groups = if upload.is_some() {
+        (capacity as u32).div_ceil(64).max(1)
+    } else {
+        1u32
+    };
     let bg = (n as u32).div_ceil(64).max(1);
-    let color_stride = 8usize;
-    let joint_scene = label.starts_with("joint_");
-    let joint_per = if joint_scene { columns * levels } else { 0 };
+    let color_stride = upload.map_or(8, |u| u.batch.solver_color_buckets_stride.max(4) as usize);
+    let rounds = if upload.is_some() {
+        (color_stride - 3).max(2)
+    } else {
+        16
+    };
+    let contact_reduction = upload.is_none_or(|u| u.contact_reduction);
+    let joint_scene =
+        upload.is_some_and(|u| u.batch.impulse_joints_len != 0) || label.starts_with("joint_");
+    let joint_per = upload.map_or(if joint_scene { columns * levels } else { 0 }, |u| {
+        u.batch.impulse_joints_len as usize
+    });
     let nj = joint_per * nb;
     let js = nj + 3;
     let batch = BatchIndices {
         impulse_joints_len: joint_per as u32,
         num_batches: nb as u32,
-        bodies_len: per as u32,
+        bodies_len: body_per as u32,
         colliders_len: per as u32,
-        colliders_batch_capacity: (per + 3) as u32,
+        colliders_batch_capacity: body_capacity as u32,
         collision_pairs_capacity: pair_capacity as u32,
         contacts_capacity: capacity as u32,
         solver_color_buckets_stride: color_stride as u32,
@@ -91,7 +164,7 @@ pub(crate) fn fixture_config(
     };
     let mut lbvh = use_lbvh.then(|| lbvh::SceneLbvh::new(batch, storage));
     let mut poses = vec![Pose::IDENTITY; storage];
-    let local_poses = vec![Pose::IDENTITY; storage];
+    let mut local_poses = vec![Pose::IDENTITY; storage];
     let mut collider_poses = poses.clone();
     let mut solver_poses = poses.clone();
     let mut vels = vec![Velocity::default(); storage];
@@ -100,7 +173,7 @@ pub(crate) fn fixture_config(
     let mut local = vec![LocalMassProperties::default(); storage];
     let mut world = vec![WorldMassProperties::default(); storage];
     let mut shapes = vec![Shape::ball(0.5); storage];
-    let materials = vec![
+    let mut materials = vec![
         ColliderMaterial {
             friction: 0.5,
             restitution: if label == "impact" { 0.8 } else { 0. },
@@ -108,126 +181,146 @@ pub(crate) fn fixture_config(
         };
         storage
     ];
-    let parents = (0..storage as u32).collect::<Vec<_>>();
-    let filters = parents.iter().map(|i| [*i, 0]).collect::<Vec<_>>();
-    let interaction = vec![InteractionGroups::all(); storage];
+    let mut parents = (0..storage as u32).collect::<Vec<_>>();
+    let mut filters = parents.iter().map(|i| [*i, 0]).collect::<Vec<_>>();
+    let mut interaction = vec![InteractionGroups::all(); storage];
     let mut vertices = vec![PaddedVector::new(Vec3::ZERO)];
     let mut geometry_indices = vec![guard];
-    for b in 0..nb {
-        poses[b].translation = Vec3::new(0., -0.5, b as f32 * 4.);
-        shapes[b] = Shape::cuboid(Vec3::new(20., 0.5, 20.));
-    }
-    for i in 0..storage {
-        local[i].inv_mass = Vec3::ZERO;
-        local[i].inv_principal_inertia = Vec3::ZERO;
-        if i >= nb && i < n {
-            let body = i / nb;
-            let level = (body - 1) % levels;
-            let column = (body - 1) / levels;
-            poses[i].translation = Vec3::new(
-                column as f32 * 2.,
-                0.495 + level as f32 * 0.995,
-                (i % nb) as f32 * 4.,
-            );
-            if label == "free" {
-                poses[i].translation.y += 3.;
-            }
-            local[i].inv_mass = Vec3::ONE;
-            local[i].inv_principal_inertia = Vec3::splat(10.);
-            if label == "boxes" {
-                shapes[i] = Shape::cuboid(Vec3::splat(0.5));
-                local[i].inv_principal_inertia = Vec3::splat(6.);
-            }
-            vels[i].linear = Vec3::new(
-                if label == "friction" { 2. } else { 0. },
-                if label == "impact" { -2. } else { 0. },
-                0.,
-            );
-        }
-    }
-    if general_scene {
-        // Shared convex cube, then a two-triangle ground mesh or two thick segments.
-        vertices.extend((0..8).map(|i| {
-            PaddedVector::new(Vec3::new(
-                if i & 1 == 0 { -0.5 } else { 0.5 },
-                if i & 2 == 0 { -0.5 } else { 0.5 },
-                if i & 4 == 0 { -0.5 } else { 0.5 },
-            ))
-        }));
-        geometry_indices.extend([
-            0, 0, 0, 0, 4, 6, 0, 6, 2, 1, 3, 7, 1, 7, 5, 0, 1, 5, 0, 5, 4, 2, 6, 7, 2, 7, 3, 0, 2,
-            3, 0, 3, 1, 4, 5, 7, 4, 7, 6,
-        ]);
-        let vb = vertices.len() as u32;
-        let ib = geometry_indices.len() as u32;
-        let lo = Vec3::new(-20., 0., -20.);
-        let hi = Vec3::new(20., 0., 20.);
-        for _ in 0..3 {
-            vertices.push(PaddedVector::new(lo));
-            vertices.push(PaddedVector::new(hi));
-        }
-        for p in [lo, Vec3::new(-20., 0., 20.), hi, Vec3::new(20., 0., -20.)] {
-            vertices.push(PaddedVector::new(p));
-        }
-        geometry_indices.extend([1, 3, 0, u32::MAX, 2, 0, u32::MAX, 3, 1, 0, 1, 2, 0, 2, 3]);
-        let pib = geometry_indices.len() as u32;
-        geometry_indices.extend([1, 3, 0, u32::MAX, 2, 0, u32::MAX, 3, 1, 0, 3, 1, 2]);
-        let pvb = vertices.len() as u32;
-        for _ in 0..3 {
-            vertices.push(PaddedVector::new(Vec3::new(-20., 0., -0.1)));
-            vertices.push(PaddedVector::new(Vec3::new(20., 0., 0.1)));
-        }
-        for p in [
-            Vec3::new(-20., 0., -0.1),
-            Vec3::new(-20., 0., 0.1),
-            Vec3::new(20., 0., 0.1),
-            Vec3::new(20., 0., -0.1),
-        ] {
-            vertices.push(PaddedVector::new(p));
-        }
+    if upload.is_none() {
         for b in 0..nb {
-            if label == "general_mesh" {
-                shapes[b] = Shape::trimesh(vb, ib, 3, 2, 4, lo, hi);
-                poses[b].translation.y = 0.;
-            } else if label == "general_polyline" {
-                shapes[b] = Shape::polyline(
-                    pvb,
-                    pib,
-                    3,
-                    Vec3::new(-20., 0., -0.1),
-                    Vec3::new(20., 0., 0.1),
+            poses[b].translation = Vec3::new(0., -0.5, b as f32 * 4.);
+            shapes[b] = Shape::cuboid(Vec3::new(20., 0.5, 20.));
+        }
+        for i in 0..storage {
+            local[i].inv_mass = Vec3::ZERO;
+            local[i].inv_principal_inertia = Vec3::ZERO;
+            if i >= nb && i < n {
+                let body = i / nb;
+                let level = (body - 1) % levels;
+                let column = (body - 1) / levels;
+                poses[i].translation = Vec3::new(
+                    column as f32 * 2.,
+                    0.495 + level as f32 * 0.995,
+                    (i % nb) as f32 * 4.,
                 );
-                poses[b].translation.y = -0.4;
+                if label == "free" || (label == "capacity_growth" && column > 0) {
+                    poses[i].translation.y += 3.;
+                }
+                local[i].inv_mass = Vec3::ONE;
+                local[i].inv_principal_inertia = Vec3::splat(10.);
+                if label == "boxes" {
+                    shapes[i] = Shape::cuboid(Vec3::splat(0.5));
+                    local[i].inv_principal_inertia = Vec3::splat(6.);
+                }
+                vels[i].linear = Vec3::new(
+                    if label == "friction" { 2. } else { 0. },
+                    if label == "impact" { -2. } else { 0. },
+                    0.,
+                );
             }
         }
-        for i in nb..n {
-            let kind = match label {
-                "general_capsule" => 2,
-                "general_cone" => 3,
-                "general_cylinder" => 4,
-                "general_convex" | "general_mesh" => 5,
-                "general_triangle" => 6,
-                "general_polyline" => 0,
-                _ => (i / nb - 1) % 7,
-            };
-            shapes[i] = match kind {
-                0 => Shape::ball(0.5),
-                1 => Shape::cuboid(Vec3::splat(0.5)),
-                2 => Shape::capsule(Vec3::new(0., -0.3, 0.), Vec3::new(0., 0.3, 0.), 0.2),
-                3 => Shape::cone(0.5, 0.5),
-                4 => Shape::cylinder(0.5, 0.5),
-                5 => Shape::convex_poly(1, 9, 1, 40),
-                _ => Shape::from_triangle(&Triangle::new(
-                    Vec3::new(-0.5, -0.5, -0.4),
-                    Vec3::new(0.5, -0.5, -0.4),
-                    Vec3::new(0., 0.5, 0.4),
-                )),
-            };
-            local[i].inv_principal_inertia = Vec3::splat(6.);
-            if label == "general_triangle" {
-                poses[i].translation.y += 0.5;
+        if general_scene {
+            // Shared convex cube, then a two-triangle ground mesh or two thick segments.
+            vertices.extend((0..8).map(|i| {
+                PaddedVector::new(Vec3::new(
+                    if i & 1 == 0 { -0.5 } else { 0.5 },
+                    if i & 2 == 0 { -0.5 } else { 0.5 },
+                    if i & 4 == 0 { -0.5 } else { 0.5 },
+                ))
+            }));
+            geometry_indices.extend([
+                0, 0, 0, 0, 4, 6, 0, 6, 2, 1, 3, 7, 1, 7, 5, 0, 1, 5, 0, 5, 4, 2, 6, 7, 2, 7, 3, 0,
+                2, 3, 0, 3, 1, 4, 5, 7, 4, 7, 6,
+            ]);
+            let vb = vertices.len() as u32;
+            let ib = geometry_indices.len() as u32;
+            let lo = Vec3::new(-20., 0., -20.);
+            let hi = Vec3::new(20., 0., 20.);
+            for _ in 0..3 {
+                vertices.push(PaddedVector::new(lo));
+                vertices.push(PaddedVector::new(hi));
+            }
+            for p in [lo, Vec3::new(-20., 0., 20.), hi, Vec3::new(20., 0., -20.)] {
+                vertices.push(PaddedVector::new(p));
+            }
+            geometry_indices.extend([1, 3, 0, u32::MAX, 2, 0, u32::MAX, 3, 1, 0, 1, 2, 0, 2, 3]);
+            let pib = geometry_indices.len() as u32;
+            geometry_indices.extend([1, 3, 0, u32::MAX, 2, 0, u32::MAX, 3, 1, 0, 3, 1, 2]);
+            let pvb = vertices.len() as u32;
+            for _ in 0..3 {
+                vertices.push(PaddedVector::new(Vec3::new(-20., 0., -0.1)));
+                vertices.push(PaddedVector::new(Vec3::new(20., 0., 0.1)));
+            }
+            for p in [
+                Vec3::new(-20., 0., -0.1),
+                Vec3::new(-20., 0., 0.1),
+                Vec3::new(20., 0., 0.1),
+                Vec3::new(20., 0., -0.1),
+            ] {
+                vertices.push(PaddedVector::new(p));
+            }
+            for b in 0..nb {
+                if label == "general_mesh" {
+                    shapes[b] = Shape::trimesh(vb, ib, 3, 2, 4, lo, hi);
+                    poses[b].translation.y = 0.;
+                } else if label == "general_polyline" {
+                    shapes[b] = Shape::polyline(
+                        pvb,
+                        pib,
+                        3,
+                        Vec3::new(-20., 0., -0.1),
+                        Vec3::new(20., 0., 0.1),
+                    );
+                    poses[b].translation.y = -0.4;
+                }
+            }
+            for i in nb..n {
+                let kind = match label {
+                    "general_capsule" => 2,
+                    "general_cone" => 3,
+                    "general_cylinder" => 4,
+                    "general_convex" | "general_mesh" => 5,
+                    "general_triangle" => 6,
+                    "general_polyline" => 0,
+                    _ => (i / nb - 1) % 7,
+                };
+                shapes[i] = match kind {
+                    0 => Shape::ball(0.5),
+                    1 => Shape::cuboid(Vec3::splat(0.5)),
+                    2 => Shape::capsule(Vec3::new(0., -0.3, 0.), Vec3::new(0., 0.3, 0.), 0.2),
+                    3 => Shape::cone(0.5, 0.5),
+                    4 => Shape::cylinder(0.5, 0.5),
+                    5 => Shape::convex_poly(1, 9, 1, 40),
+                    _ => Shape::from_triangle(&Triangle::new(
+                        Vec3::new(-0.5, -0.5, -0.4),
+                        Vec3::new(0.5, -0.5, -0.4),
+                        Vec3::new(0., 0.5, 0.4),
+                    )),
+                };
+                local[i].inv_principal_inertia = Vec3::splat(6.);
+                if label == "general_triangle" {
+                    poses[i].translation.y += 0.5;
+                }
             }
         }
+    }
+    if let Some(u) = upload {
+        macro_rules! copy {
+            ($dst:ident, $src:ident) => {
+                $dst[..u.$src.len()].copy_from_slice(&u.$src);
+            };
+        }
+        copy!(poses, poses);
+        copy!(vels, velocities);
+        copy!(local, local);
+        copy!(local_poses, local_poses);
+        copy!(parents, parents);
+        copy!(shapes, shapes);
+        copy!(materials, materials);
+        copy!(interaction, groups);
+        copy!(filters, filters);
+        vertices = u.vertices.clone();
+        geometry_indices = u.geometry_indices.clone();
     }
     let mut joints = vec![ImpulseJoint::zeroed(); js];
     let mut builders = vec![JointConstraintBuilder::zeroed(); js];
@@ -241,7 +334,7 @@ pub(crate) fn fixture_config(
     let mut unsorted = Vec::new();
     let mut masks = vec![0u128; per];
     let mut assignments = Vec::new();
-    for k in 0..joint_per {
+    for k in 0..if upload.is_none() { joint_per } else { 0 } {
         let body = k + 1;
         let chain = label == "joint_chain";
         let previous = if chain && k % levels != 0 {
@@ -326,34 +419,50 @@ pub(crate) fn fixture_config(
         });
     }
     // Same stable greedy endpoint coloring and color grouping as the Rust host.
-    let mut order = (0..joint_per).collect::<Vec<_>>();
+    let mut order = (0..if upload.is_none() { joint_per } else { 0 }).collect::<Vec<_>>();
     order.sort_by_key(|k| assignments[*k]);
     for (slot, k) in order.iter().enumerate() {
         for b in 0..nb {
             joints[slot * nb + b] = unsorted[*k];
         }
     }
-    let joint_colors = [
+    let mut joint_colors = vec![
         assignments.iter().filter(|c| **c == 0).count() as u32,
         assignments.iter().filter(|c| **c <= 1).count() as u32,
         joint_per as u32,
         guard,
     ];
+    if let Some(u) = upload {
+        joints[..nj].copy_from_slice(&u.joints[..nj]);
+        joint_colors = u.joint_colors.clone();
+        joint_colors.push(guard);
+    }
+    let joint_color_count = upload.map_or(3, |u| u.joint_colors.len());
+    let joint_groups = (nj as u32).div_ceil(64).max(1);
     let motor_params = vec![guard; js * 36];
     let trace_stride = n * (std::mem::size_of::<Pose>() + std::mem::size_of::<Velocity>()) / 4;
     let mut trajectory = vec![guard; frames as usize * trace_stride + 3];
     let mut frame_index = [0u32, guard];
     let mut p = RbdSimParams::tgs_soft();
-    let substeps = 4u32;
-    let pgs = 2u32;
+    let mut substeps = 4u32;
+    let mut pgs = 2u32;
     p.dt = 1. / 60. / substeps as f32;
     p.num_solver_iterations = substeps;
     p.num_internal_pgs_iterations = pgs;
     p.normalized_prediction_distance = 0.08;
     p.friction_in_bias_pass = 1;
     p.warmstart_coefficient = 1.;
-    let mode = 2u32;
-    let gravity = Vec4::new(0., -9.81, 0., 0.);
+    if let Some(u) = upload {
+        p = u.params;
+        substeps = p.num_solver_iterations;
+        pgs = p.num_internal_pgs_iterations;
+    }
+    let mode = if p.friction_in_bias_pass != 0 {
+        2u32
+    } else {
+        1u32
+    };
+    let gravity = upload.map_or(Vec4::new(0., -9.81, 0., 0.), |u| u.gravity);
     let mut aabbs = vec![Aabb::new(Vec3::ZERO, Vec3::ZERO); storage];
     let mut pairs = vec![
         CollisionPair {
@@ -413,16 +522,16 @@ pub(crate) fn fixture_config(
         1
     ];
     let mut indirect = vec![[guard; 3]; color_stride];
-    let mut aux = vec![
-        vec![guard; n.div_ceil(256) + 3],
-        vec![guard; 4],
-        vec![guard; 4],
-        vec![guard; 4],
-    ];
-    let strides = [n as u32, (n as u32).div_ceil(256), 1, 1, 1];
-    let levels_scan = if n <= 256 { 1 } else { 2 };
-    let mut bucket_aux = vec![vec![guard; 4]; 4];
-    let bucket_strides = [(color_stride * nb) as u32, 1, 1, 1, 1];
+    let (strides, levels_scan) = prefix_program::hierarchy(n);
+    let mut aux: Vec<_> = strides[1..]
+        .iter()
+        .map(|s| vec![guard; *s as usize + 3])
+        .collect();
+    let (bucket_strides, bucket_levels) = prefix_program::hierarchy(color_stride * nb);
+    let mut bucket_aux: Vec<_> = bucket_strides[1..]
+        .iter()
+        .map(|s| vec![guard; *s as usize + 3])
+        .collect();
     let mut order: Vec<u32> = (0..cs)
         .map(|i| {
             if i < n {
@@ -475,7 +584,7 @@ pub(crate) fn fixture_config(
             if let Some(tree) = &lbvh {
                 tree.write($root, $suffix);
             }
-            if joint_scene {
+            if joint_scene || upload.is_some() {
                 write($root, &format!("Joints{}.bin", $suffix), &joints);
                 write($root, &format!("Builders{}.bin", $suffix), &builders);
                 write(
@@ -613,7 +722,7 @@ pub(crate) fn fixture_config(
     write(dir, "Params.bin", &[guard; 6]);
     write(dir, "Selector.bin", &[0u32, guard]);
     write(dir, "CurrentColor.bin", &[0u32, guard]);
-    for i in 0..color_stride {
+    for i in 0..color_stride.max(joint_color_count) {
         write(dir, &format!("Color{i}.bin"), &[i as u32, guard]);
     }
     write(dir, "Mode.bin", &[mode, guard]);
@@ -625,7 +734,7 @@ pub(crate) fn fixture_config(
             &[bucket_strides[i], guard],
         );
     }
-    for frame in 0..frames {
+    for frame in 0..if execute { frames } else { 0 } {
         let snapshot_dir = dir.join(format!("restart-{frame}"));
         if snapshots.contains(&frame) {
             fs::create_dir_all(&snapshot_dir).unwrap();
@@ -662,7 +771,7 @@ pub(crate) fn fixture_config(
                 &batch,
             );
         }
-        for i in 0..bg * 64 {
+        for i in 0..(collider_count as u32).div_ceil(64).max(1) * 64 {
             gpu_sync_collider_poses(
                 UVec3::new(i, 0, 0),
                 UVec3::new(bg, 1, 1),
@@ -674,7 +783,7 @@ pub(crate) fn fixture_config(
             );
         }
         gpu_reset_narrow_phase(UVec3::ZERO, &mut pfm_count[..1]);
-        for i in 0..bg * 64 {
+        for i in 0..(collider_count as u32).div_ceil(64).max(1) * 64 {
             gpu_bf_compute_aabbs(
                 UVec3::new(i, 0, 0),
                 &collider_poses,
@@ -755,104 +864,106 @@ pub(crate) fn fixture_config(
             );
         }
         if general_scene {
-            for pass_kind in 0..2 {
-                for i in 0..groups * 64 {
-                    if pass_kind == 0 {
-                        gpu_pfm_sub_shape_sort_keys(
-                            UVec3::new(i, 0, 0),
-                            UVec3::new(groups, 1, 1),
-                            &pfm_pairs,
-                            &plan[0],
-                            &mut pfm_keys,
-                        );
-                    } else {
-                        gpu_pfm_pair_sort_keys_permuted(
-                            UVec3::new(i, 0, 0),
-                            UVec3::new(groups, 1, 1),
-                            &pfm_pairs,
-                            &plan[0],
-                            &pfm_order,
-                            &mut pfm_keys,
-                        );
+            if contact_reduction {
+                for pass_kind in 0..2 {
+                    for i in 0..groups * 64 {
+                        if pass_kind == 0 {
+                            gpu_pfm_sub_shape_sort_keys(
+                                UVec3::new(i, 0, 0),
+                                UVec3::new(groups, 1, 1),
+                                &pfm_pairs,
+                                &plan[0],
+                                &mut pfm_keys,
+                            );
+                        } else {
+                            gpu_pfm_pair_sort_keys_permuted(
+                                UVec3::new(i, 0, 0),
+                                UVec3::new(groups, 1, 1),
+                                &pfm_pairs,
+                                &plan[0],
+                                &pfm_order,
+                                &mut pfm_keys,
+                            );
+                        }
                     }
-                }
-                sorting.insert("PfmKeys".into(), GpuBuffer::Cpu(pfm_keys.clone()));
-                sorting.insert("PfmIdentity".into(), GpuBuffer::Cpu(pfm_identity.clone()));
-                sorting.insert("PfmOrder".into(), GpuBuffer::Cpu(pfm_order.clone()));
-                sorting.insert(
-                    "PfmSortedKeys".into(),
-                    GpuBuffer::Cpu(pfm_sorted_keys.clone()),
-                );
-                sorting.insert("PfmSortLen".into(), GpuBuffer::Cpu(pfm_sort_len.to_vec()));
-                for pass in 0..8 {
-                    let (ik, iv) = if pass == 0 {
-                        (
-                            "PfmKeys",
-                            if pass_kind == 0 {
-                                "PfmIdentity"
-                            } else {
-                                "PfmOrder"
-                            },
-                        )
-                    } else if pass % 2 == 1 {
-                        ("PongKeys", "PongValues")
-                    } else {
-                        ("PfmSortedKeys", "PfmOrder")
-                    };
-                    let (ok, ov) = if pass % 2 == 0 {
-                        ("PongKeys", "PongValues")
-                    } else {
-                        ("PfmSortedKeys", "PfmOrder")
-                    };
-                    let mapping = [
-                        ("Config", "Config"),
-                        ("NumKeys", "PfmSortLen"),
-                        ("Keys", ik),
-                        ("Values", iv),
-                        ("OutKeys", ok),
-                        ("OutValues", ov),
-                        ("Aux", "RadixAux"),
-                        ("OutAux", "RadixOutAux"),
-                        ("BatchIds", "RadixBatchIds"),
-                        ("Counts", "Counts"),
-                        ("Reduced", "Reduced"),
-                        ("SortGrid", "SortGrid"),
-                        ("ReduceGrid", "ReduceGrid"),
-                    ];
-                    let mut a = radix::Arrays::new();
-                    for (local, physical) in mapping {
-                        a.insert(
-                            local.into(),
-                            GpuBuffer::Cpu(sorting[physical].unwrap_slice().to_vec()),
-                        );
+                    sorting.insert("PfmKeys".into(), GpuBuffer::Cpu(pfm_keys.clone()));
+                    sorting.insert("PfmIdentity".into(), GpuBuffer::Cpu(pfm_identity.clone()));
+                    sorting.insert("PfmOrder".into(), GpuBuffer::Cpu(pfm_order.clone()));
+                    sorting.insert(
+                        "PfmSortedKeys".into(),
+                        GpuBuffer::Cpu(pfm_sorted_keys.clone()),
+                    );
+                    sorting.insert("PfmSortLen".into(), GpuBuffer::Cpu(pfm_sort_len.to_vec()));
+                    for pass in 0..8 {
+                        let (ik, iv) = if pass == 0 {
+                            (
+                                "PfmKeys",
+                                if pass_kind == 0 {
+                                    "PfmIdentity"
+                                } else {
+                                    "PfmOrder"
+                                },
+                            )
+                        } else if pass % 2 == 1 {
+                            ("PongKeys", "PongValues")
+                        } else {
+                            ("PfmSortedKeys", "PfmOrder")
+                        };
+                        let (ok, ov) = if pass % 2 == 0 {
+                            ("PongKeys", "PongValues")
+                        } else {
+                            ("PfmSortedKeys", "PfmOrder")
+                        };
+                        let mapping = [
+                            ("Config", "Config"),
+                            ("NumKeys", "PfmSortLen"),
+                            ("Keys", ik),
+                            ("Values", iv),
+                            ("OutKeys", ok),
+                            ("OutValues", ov),
+                            ("Aux", "RadixAux"),
+                            ("OutAux", "RadixOutAux"),
+                            ("BatchIds", "RadixBatchIds"),
+                            ("Counts", "Counts"),
+                            ("Reduced", "Reduced"),
+                            ("SortGrid", "SortGrid"),
+                            ("ReduceGrid", "ReduceGrid"),
+                        ];
+                        let mut a = radix::Arrays::new();
+                        for (local, physical) in mapping {
+                            a.insert(
+                                local.into(),
+                                GpuBuffer::Cpu(sorting[physical].unwrap_slice().to_vec()),
+                            );
+                        }
+                        for i in 0..8 {
+                            let key = format!("Config{i}");
+                            a.insert(
+                                key.clone(),
+                                GpuBuffer::Cpu(sorting[&key].unwrap_slice().to_vec()),
+                            );
+                        }
+                        if pass == 0 {
+                            radix::exec(&mut a, "radix_dispatch", cs as u32, 1, None);
+                        }
+                        for stage in radix::STAGES {
+                            radix::exec(&mut a, stage, cs as u32, 1, Some(pass));
+                        }
+                        for (local, physical) in mapping {
+                            sorting.insert(physical.into(), a.remove(local).unwrap());
+                        }
                     }
-                    for i in 0..8 {
-                        let key = format!("Config{i}");
-                        a.insert(
-                            key.clone(),
-                            GpuBuffer::Cpu(sorting[&key].unwrap_slice().to_vec()),
-                        );
+                    pfm_order.copy_from_slice(sorting["PfmOrder"].unwrap_slice());
+                    pfm_sorted_keys.copy_from_slice(sorting["PfmSortedKeys"].unwrap_slice());
+                    for key in [
+                        "PfmKeys",
+                        "PfmOrder",
+                        "PfmIdentity",
+                        "PfmSortedKeys",
+                        "PfmSortLen",
+                    ] {
+                        sorting.remove(key);
                     }
-                    if pass == 0 {
-                        radix::exec(&mut a, "radix_dispatch", cs as u32, 1, None);
-                    }
-                    for stage in radix::STAGES {
-                        radix::exec(&mut a, stage, cs as u32, 1, Some(pass));
-                    }
-                    for (local, physical) in mapping {
-                        sorting.insert(physical.into(), a.remove(local).unwrap());
-                    }
-                }
-                pfm_order.copy_from_slice(sorting["PfmOrder"].unwrap_slice());
-                pfm_sorted_keys.copy_from_slice(sorting["PfmSortedKeys"].unwrap_slice());
-                for key in [
-                    "PfmKeys",
-                    "PfmOrder",
-                    "PfmIdentity",
-                    "PfmSortedKeys",
-                    "PfmSortLen",
-                ] {
-                    sorting.remove(key);
                 }
             }
             for i in 0..groups * 64 {
@@ -861,7 +972,11 @@ pub(crate) fn fixture_config(
                     UVec3::new(groups, 1, 1),
                     &mut raw,
                     &pfm_pairs,
-                    &pfm_order,
+                    if contact_reduction {
+                        &pfm_order
+                    } else {
+                        &pfm_identity
+                    },
                     &plan[0],
                     &vertices,
                     &geometry_indices,
@@ -870,15 +985,17 @@ pub(crate) fn fixture_config(
                     &p,
                 );
             }
-            for i in 0..groups * 64 {
-                gpu_reduce_contacts(
-                    UVec3::new(i, 0, 0),
-                    UVec3::new(groups, 1, 1),
-                    &mut raw,
-                    &pfm_sorted_keys,
-                    &plan[0],
-                    &p,
-                );
+            if contact_reduction {
+                for i in 0..groups * 64 {
+                    gpu_reduce_contacts(
+                        UVec3::new(i, 0, 0),
+                        UVec3::new(groups, 1, 1),
+                        &mut raw,
+                        &pfm_sorted_keys,
+                        &plan[0],
+                        &p,
+                    );
+                }
             }
         }
         {
@@ -1076,7 +1193,7 @@ pub(crate) fn fixture_config(
             &contacts_grid,
             &mut coloring_grid,
             groups,
-            16,
+            rounds as u32,
             true,
         );
         let mut bucket_state = bucket_program::State {
@@ -1091,7 +1208,7 @@ pub(crate) fn fixture_config(
             indirect: GpuBuffer::Cpu(indirect.clone()),
             aux: bucket_aux.clone(),
             strides: bucket_strides,
-            levels: 1,
+            levels: bucket_levels,
             groups,
         };
         bucket_state.reset();
@@ -1121,10 +1238,10 @@ pub(crate) fn fixture_config(
             );
         }
         if joint_scene {
-            for i in 0..groups * 64 {
+            for i in 0..joint_groups * 64 {
                 gpu_init_joint_constraints(
                     UVec3::new(i, 0, 0),
-                    UVec3::new(groups, 1, 1),
+                    UVec3::new(joint_groups, 1, 1),
                     &joints,
                     &mut builders,
                     &mut joint_constraints,
@@ -1141,10 +1258,10 @@ pub(crate) fn fixture_config(
                 gpu_apply_solver_vels_inc(UVec3::new(i, 0, 0), &mut solver_vels, &inc, &batch);
             }
             if joint_scene {
-                for i in 0..groups * 64 {
+                for i in 0..joint_groups * 64 {
                     gpu_update_joint_constraints(
                         UVec3::new(i, 0, 0),
-                        UVec3::new(groups, 1, 1),
+                        UVec3::new(joint_groups, 1, 1),
                         &builders,
                         &mut joint_constraints,
                         &solver_poses,
@@ -1180,11 +1297,11 @@ pub(crate) fn fixture_config(
             }
             for _ in 0..pgs.max(1) {
                 if joint_scene {
-                    for color in 0..3u32 {
-                        for i in 0..groups * 64 {
+                    for color in 0..joint_color_count as u32 {
+                        for i in 0..joint_groups * 64 {
                             gpu_solve_joint_constraints(
                                 UVec3::new(i, 0, 0),
-                                UVec3::new(groups, 1, 1),
+                                UVec3::new(joint_groups, 1, 1),
                                 &mut joint_constraints,
                                 &mut solver_vels,
                                 &joint_colors,
@@ -1223,11 +1340,11 @@ pub(crate) fn fixture_config(
                 );
             }
             if joint_scene {
-                for color in 0..3u32 {
-                    for i in 0..groups * 64 {
+                for color in 0..joint_color_count as u32 {
+                    for i in 0..joint_groups * 64 {
                         gpu_solve_joint_constraints(
                             UVec3::new(i, 0, 0),
-                            UVec3::new(groups, 1, 1),
+                            UVec3::new(joint_groups, 1, 1),
                             &mut joint_constraints,
                             &mut solver_vels,
                             &joint_colors,
@@ -1297,19 +1414,21 @@ pub(crate) fn fixture_config(
             );
         }
     }
-    buffers!(".expected");
-    write(
-        dir,
-        "Params.expected.bin",
-        &[
-            p.dt,
-            p.max_linear_velocity(),
-            p.max_angular_velocity(),
-            gravity.x,
-            gravity.y,
-            gravity.z,
-        ],
-    );
+    if execute {
+        buffers!(".expected");
+        write(
+            dir,
+            "Params.expected.bin",
+            &[
+                p.dt,
+                p.max_linear_velocity(),
+                p.max_angular_velocity(),
+                gravity.x,
+                gravity.y,
+                gravity.z,
+            ],
+        );
+    }
     let mut inputs = vec![
         "Poses".to_owned(),
         "LocalPoses".to_owned(),
@@ -1391,10 +1510,10 @@ pub(crate) fn fixture_config(
             format!("BucketStride{i}"),
         ]);
     }
-    for i in 0..color_stride {
+    for i in 0..color_stride.max(joint_color_count) {
         inputs.push(format!("Color{i}"));
     }
-    if joint_scene {
+    if joint_scene || upload.is_some() {
         inputs.extend(
             [
                 "Joints",
@@ -1431,7 +1550,15 @@ pub(crate) fn fixture_config(
             (name, json!(size))
         })
         .collect::<serde_json::Map<_, _>>();
-    let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":3,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"buffer_words":sizes});
+    let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":joint_color_count,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"bodies_per_batch":body_per,"body_capacity_per_batch":body_capacity,"collider_count":collider_count,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":rounds,"contact_reduction":contact_reduction,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"bucket_strides":&bucket_strides[..4],"bucket_levels":bucket_levels,"buffer_words":sizes});
+    if upload.is_some() {
+        case["kind"] = json!("runtime_scene");
+        case["general_collision"] = json!(true);
+        case["scale_warmstart"] = json!(p.warmstart_coefficient != 1.);
+    }
+    if !execute {
+        case["initial_upload_only"] = json!(true);
+    }
     if use_lbvh {
         case["broadphase"] = json!("lbvh");
         for entry in fs::read_dir(dir).unwrap().map(Result::unwrap) {
