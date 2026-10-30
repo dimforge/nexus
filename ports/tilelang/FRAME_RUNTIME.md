@@ -45,3 +45,25 @@ work. Metal and C unit tests exercise real compiled dispatch, migration after a 
 frame, exhausted capacity and failed growth recovery. Ascend kernel
 source lowering does not validate a CANN executor, device memory ordering or
 performance; the same frame boundaries must be implemented and qualified there.
+
+Registered runtime qualification uses `frame_replay.py` with
+`analytic_frame_retry`, `general_frame_retry`, and `joint_frame_retry`. The Rust
+`frame-scenes` exporter produces the complete full-capacity reference trajectory
+and typed initial uploads for every specialization. Initial-only variants are
+marked explicitly and do not export expected execution outputs. Python never
+resizes or invents native contact/quaternion storage.
+
+The delayed-growth scene has one resting sphere and one falling sphere: it must
+commit 47 frames before growing on frame 48. General scenes require deferred-mesh
+growth and batched mixed-shape growth; the joint scene requires growth with active
+joint constraints. All recorded frames and final persistent/collision storage are
+compared with Rust. Retry statistics must contain one committed step per frame,
+capacity pressure at each growth, and no committed overflowing count.
+
+Resident bundles use a schema-3 `bindings.json`, referencing every variant's
+schema-1 `frame.json`, generated stage source and initial buffer. Ascend handoffs
+hash all variants and reject missing sources, truncated persistent copies,
+changed counter meanings, invalid upload sizes and inconsistent output storage.
+Returned sessions must include `stats.json` as well as every final buffer; the
+existing independent scene checks apply to returned trajectories. This prepares
+an offline engineering handoff and does not certify a CANN runtime or device.

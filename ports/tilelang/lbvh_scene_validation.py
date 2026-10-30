@@ -37,14 +37,14 @@ def tree_arrays(r):
     return {n: r["ColliderPoses" if p == "Poses" else p] for n, p in MAPPING.items()}
 
 
-def validate_case(l, c, b):
+def validate_case(l, c, b, *, capacity_variant=False):
     if c.get("broadphase") != "lbvh":
         raise ValueError("LBVH scene requires LBVH scheduling")
     module = core_module(c)
     if set(b) != set(module.BUFFERS) | set(EXTRA):
         raise ValueError("Invalid LBVH scene buffers")
     core = {n: b[n] for n in module.BUFFERS}
-    module.validate_case(l, base_case(c, core), core)
+    module.validate_case(l, base_case(c, core), core, capacity_variant=capacity_variant)
     validate_tree(l, c, b)
 
 

@@ -33,8 +33,8 @@ SCENES = tuple(
 )
 
 
-def validate_case(l, c, b):
-    base.validate_case(l, c, b)
+def validate_case(l, c, b, *, capacity_variant=False):
+    base.validate_case(l, c, b, capacity_variant=capacity_variant)
     n = c["body_count"]
     mats = b["Materials"].reshape(-1, l["material_words"])
     for field in ("friction", "restitution"):

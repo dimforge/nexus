@@ -226,7 +226,7 @@ def buffer_sizes(l, c):
     return sizes
 
 
-def validate_case(l, c, a):
+def validate_case(l, c, a, *, capacity_variant=False):
     import numpy as np
     from body_validation import validate_case as validate_body
 
@@ -280,7 +280,10 @@ def validate_case(l, c, a):
     if (
         n != per * nb
         or bs != (per + 3) * nb
-        or c["pair_capacity"] != per * per * nb * (2 if general else 1)
+        or (
+            not capacity_variant
+            and c["pair_capacity"] != per * per * nb * (2 if general else 1)
+        )
         or c["pair_storage"] != c["pair_capacity"] + 3
         or c["contact_capacity"] != 2 * c["pair_capacity"]
         or cs != c["contact_capacity"] + 3
@@ -293,6 +296,7 @@ def validate_case(l, c, a):
         "ground",
         "stack",
         "free",
+        "capacity_growth",
         "friction",
         "boxes",
         "impact",

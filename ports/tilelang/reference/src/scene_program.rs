@@ -55,6 +55,28 @@ pub(crate) fn fixture_config(
     snapshots: &[u32],
     use_lbvh: bool,
 ) -> Value {
+    fixture_storage(
+        dir, label, columns, levels, nb, frames, snapshots, use_lbvh, None, true,
+    )
+}
+
+/// Export native typed initial storage for a capacity specialization. Smaller
+/// variants must not execute the reference without the host retry controller.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn fixture_storage(
+    dir: &Path,
+    label: &str,
+    columns: usize,
+    levels: usize,
+    nb: usize,
+    frames: u32,
+    snapshots: &[u32],
+    use_lbvh: bool,
+    pair_capacity_override: Option<usize>,
+    execute: bool,
+) -> Value {
+    assert!(execute || snapshots.is_empty());
+    assert!(pair_capacity_override.is_none() || !execute);
     fs::create_dir_all(dir).unwrap();
     let guard = 0xdeadbeefu32;
     let per = if label == "empty" {
@@ -66,7 +88,8 @@ pub(crate) fn fixture_config(
     let storage = (per + 3) * nb;
     let general_scene = label.starts_with("general_");
     let traced = true;
-    let pair_capacity = per * per * nb * if general_scene { 2 } else { 1 };
+    let pair_capacity =
+        pair_capacity_override.unwrap_or(per * per * nb * if general_scene { 2 } else { 1 });
     let capacity = pair_capacity * 2;
     let cs = capacity + 3;
     let groups = 1u32;
@@ -129,7 +152,7 @@ pub(crate) fn fixture_config(
                 0.495 + level as f32 * 0.995,
                 (i % nb) as f32 * 4.,
             );
-            if label == "free" {
+            if label == "free" || (label == "capacity_growth" && column > 0) {
                 poses[i].translation.y += 3.;
             }
             local[i].inv_mass = Vec3::ONE;
@@ -625,7 +648,7 @@ pub(crate) fn fixture_config(
             &[bucket_strides[i], guard],
         );
     }
-    for frame in 0..frames {
+    for frame in 0..if execute { frames } else { 0 } {
         let snapshot_dir = dir.join(format!("restart-{frame}"));
         if snapshots.contains(&frame) {
             fs::create_dir_all(&snapshot_dir).unwrap();
@@ -1297,19 +1320,21 @@ pub(crate) fn fixture_config(
             );
         }
     }
-    buffers!(".expected");
-    write(
-        dir,
-        "Params.expected.bin",
-        &[
-            p.dt,
-            p.max_linear_velocity(),
-            p.max_angular_velocity(),
-            gravity.x,
-            gravity.y,
-            gravity.z,
-        ],
-    );
+    if execute {
+        buffers!(".expected");
+        write(
+            dir,
+            "Params.expected.bin",
+            &[
+                p.dt,
+                p.max_linear_velocity(),
+                p.max_angular_velocity(),
+                gravity.x,
+                gravity.y,
+                gravity.z,
+            ],
+        );
+    }
     let mut inputs = vec![
         "Poses".to_owned(),
         "LocalPoses".to_owned(),
@@ -1432,6 +1457,9 @@ pub(crate) fn fixture_config(
         })
         .collect::<serde_json::Map<_, _>>();
     let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":3,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":16,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"buffer_words":sizes});
+    if !execute {
+        case["initial_upload_only"] = json!(true);
+    }
     if use_lbvh {
         case["broadphase"] = json!("lbvh");
         for entry in fs::read_dir(dir).unwrap().map(Result::unwrap) {

@@ -153,3 +153,7 @@ path = "src/boundary.rs"
 [[bin]]
 name = "lbvh-scenes"
 path = "src/lbvh_scenes.rs"
+
+[[bin]]
+name = "frame-scenes"
+path = "src/frame_scenes.rs"

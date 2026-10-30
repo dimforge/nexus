@@ -28,7 +28,7 @@ SCENES = (
 )
 
 
-def validate_case(l, c, b):
+def validate_case(l, c, b, *, capacity_variant=False):
     core = {n: b[n] for n in base.BUFFERS}
     bc = dict(
         c,
@@ -36,7 +36,7 @@ def validate_case(l, c, b):
         scene="free",
         buffer_words={n: c["buffer_words"][n] for n in core},
     )
-    base.validate_case(l, bc, core)
+    base.validate_case(l, bc, core, capacity_variant=capacity_variant)
     if c["kind"] != "joint_scene" or c["scene"] not in SCENES:
         raise ValueError("Invalid joint scene")
     n = c["joint_count"]
