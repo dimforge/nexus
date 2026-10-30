@@ -772,18 +772,36 @@
     {
       "reference": "src_rbd_shaders/dynamics/twist_friction.rs",
       "implementation": "ports/tilelang/shaders/dynamics/twist_friction.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.twist.effective_mass3d",
+        "rbd.contact.twist.warmstart3d",
+        "rbd.contact.twist.solve3d",
+        "rbd.contact.twist.scale3d"
+      ],
+      "symbols": [
+        "compute_effective_masses",
+        "scale_impulses",
+        "warmstart",
+        "solve"
+      ],
+      "remaining": "Prepared-tile arithmetic is translated. Initialization, recycling, impulse transfer and complete scene scheduling remain."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_tiles.rs",
       "implementation": "ports/tilelang/shaders/dynamics/twist_tiles.py",
-      "coverage": "unported",
-      "operations": [],
-      "symbols": [],
-      "remaining": "No TileLang physics implementation."
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.twist.effective_mass3d",
+        "rbd.contact.twist.warmstart3d",
+        "rbd.contact.twist.solve3d",
+        "rbd.contact.twist.scale3d"
+      ],
+      "symbols": [
+        "validate_layout",
+        "make_kernel"
+      ],
+      "remaining": "Native compact tile offsets are consumed directly. Preparation, cached warmstart, gather and full model-specific tile entry points remain."
     },
     {
       "reference": "src_rbd_shaders/lib.rs",
@@ -1841,9 +1859,14 @@
     {
       "id": "rbd.contact.twist",
       "description": "Twist-friction model",
-      "coverage": "unported",
-      "operations": [],
-      "remaining": "Unported."
+      "coverage": "partial",
+      "operations": [
+        "rbd.contact.twist.effective_mass3d",
+        "rbd.contact.twist.warmstart3d",
+        "rbd.contact.twist.solve3d",
+        "rbd.contact.twist.scale3d"
+      ],
+      "remaining": "Compact prepared-tile effective masses, warmstart, scaling and solve translated; preparation, persistence and runtime composition remain."
     },
     {
       "id": "rbd.utils",
