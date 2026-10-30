@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "archive": "ports/tilelang/results-handoff-0111/nexus-ascend-offline-02ad633c0.tar.gz",
+  "sha256": "16d11e476a4e5817167366525bd9a76a136b913f466fccb6def56d4b0bb525d0",
+  "bytes": 383877687,
+  "source_commit": "02ad633c0c8a5f11ec0dc87ba0897a59be2827e4",
+  "bundle_manifest_sha256": "b6ab9dd72f88bc909576bceac2779c83fac542fe1b42278942fedcbfaee4234a",
+  "packed_files_verified": 152039,
+  "cases": 1728,
+  "qualification": "The compressed handoff was read back and every file matched the bundle inventory. Ascend source lowering only."
+}
