@@ -8,7 +8,7 @@ publish = false
 
 [features]
 default = ["metal"]
-metal = ["khal/metal", "dep:metal"]
+metal = ["khal/metal", "khal/webgpu", "dep:metal"]
 rust-reference = ["metal", "dep:nexus_rbd3d", "nexus_rbd3d/metal", "dep:vortx", "dep:futures"]
 scene-upload = ["dep:nexus_rbd3d", "nexus_rbd3d/cpu", "dep:futures"]
 
