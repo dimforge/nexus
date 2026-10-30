@@ -111,3 +111,9 @@ They exercise actual execution, independent divergence, live edits, solver setti
 changes, explicit scene rebuilds, and the absence of Rust execution in TileLang-only
 mode. Root Cargo resolution and feature unification are distinct from the standalone
 runtime build; retain the root lockfile and testbed evidence alongside port parity.
+
+The opt-in offscreen UI transition regression is separate: use the same Cargo
+command with the filter `tilelang_viewer_tests` and `-- --include-ignored
+--test-threads=1`. It verifies that a backend/demo switch finishes the current
+UI render pass. It uses an isolated process with process-scoped graphics lifetime,
+as the real kiss3d application does.

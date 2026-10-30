@@ -1748,9 +1748,8 @@ impl NexusViewer {
             });
         }
 
-        if self.ui.transition.is_some() {
-            return false;
-        }
+        // Finish the egui pass even if a control requested a transition; the
+        // next demo must not inherit this scene's unfinished panel.
         // Added before `render`, which draws then clears the point/line renderers.
         self.draw_debug_render();
 
@@ -1986,4 +1985,48 @@ fn debug_color([r, g, b, a]: [f32; 4]) -> Color {
         }
     }
     Color::new(to_linear(r), to_linear(g), to_linear(b), a)
+}
+
+#[cfg(all(
+    test,
+    feature = "tilelang",
+    feature = "dim3",
+    not(target_arch = "wasm32")
+))]
+mod tilelang_viewer_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "requires an offscreen graphics adapter"]
+    fn backend_transition_finishes_the_pending_ui_frame() {
+        const CHILD: &str = "NEXUS_TESTBED_UI_TEST_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            // Match kiss3d's process-scoped application lifetime. wgpu's TLS
+            // teardown is not supported on a returning libtest worker thread.
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame", "--ignored", "--test-threads=1"])
+                .env(CHILD, "1")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        futures::executor::block_on(async {
+            // Keep the graphics window process-scoped, like kiss3d::main. This
+            // test checks the UI pass boundary, not library GPU/TLS teardown.
+            let mut viewer = std::mem::ManuallyDrop::new(
+                NexusViewer::new_headless_with_size(vec![], 128, 96).await,
+            );
+            viewer.ui.transition = Some(Transition::Switch);
+            assert!(!viewer.render_frame().await);
+            // Dropping out before render leaves kiss3d's egui pass open. The
+            // next demo would append a second panel to that unfinished pass.
+            assert_eq!(viewer.frames_rendered, 1);
+        });
+        std::process::exit(0);
+    }
 }
