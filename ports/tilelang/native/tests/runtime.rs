@@ -85,7 +85,10 @@ fn exercise(backend: TileLangBackend, contact_reduction: bool) {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let workspace = root.join(format!("{backend:?}-{}-{now}", std::process::id()));
+    let workspace = root.join(format!(
+        "{backend:?}-reduced-{contact_reduction}-{}-{now}",
+        std::process::id()
+    ));
     println!("Native runtime artifacts: {}", workspace.display());
     let upload = upload(!contact_reduction);
     let count =
