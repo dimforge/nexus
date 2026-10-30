@@ -90,7 +90,8 @@ def validate_case(layout, case, arrays):
     storage = case["storage"]
     sizes = {
         "Velocities": storage * layout["velocity_words"],
-        "SolverVelocities": storage * layout["velocity_words"],
+        "SolverVelocities": case.get("solver_storage", storage)
+        * layout["velocity_words"],
         "Increments": storage * layout["velocity_words"],
         "Poses": storage * layout["pose_words"],
         "SolverPoses": storage * layout["pose_words"],
@@ -118,7 +119,7 @@ def validate_case(layout, case, arrays):
         ("LocalMass", "local"),
         ("WorldMass", "world"),
     ):
-        data = arrays[name].view(np.float32).reshape(storage, layout[f"{group}_words"])
+        data = arrays[name].view(np.float32).reshape(-1, layout[f"{group}_words"])
         for field, width in groups[group]:
             if field in ("pose_padding", "world_padding0", "world_padding1"):
                 continue
@@ -151,7 +152,7 @@ def write_masks(layout, case, arrays):
     n, slots, kind = case["count"], case["slots"], case["kind"]
 
     def velocities(name, count, mode):
-        data = masks[name].reshape(case["storage"], layout["velocity_words"])
+        data = masks[name].reshape(-1, layout["velocity_words"])
         for field in ("velocity_linear", "velocity_angular"):
             data[:count, layout[field] : layout[field] + 3] = mode
 

@@ -5,8 +5,8 @@ from general_scene_validation import check_checkpoint
 from joint_scene_validation import check_joint_rows
 from lbvh_scene_validation import check_trees
 from native_geometry import lbvh_vertices
-from scene_trajectory import check_trajectory
 from scan_layout import validate_scan
+from scene_trajectory import check_trajectory
 
 
 def validate_case(l, c, b):
@@ -45,10 +45,13 @@ def validate_case(l, c, b):
         v.dtype != np.uint32 or v.shape != (c["buffer_words"][n],) for n, v in b.items()
     ):
         raise ValueError("Invalid runtime buffer shape/type")
-    validate_scan(c, b, "Adj", c["body_count"], "strides", "levels")
+    validate_scan(c, b, "Adj", c["body_storage"], "strides", "levels")
     validate_scan(
         c, b, "Bucket", c["color_stride"] * nb, "bucket_strides", "bucket_levels"
     )
+    from scene_hub_validation import validate
+
+    validate(l, c, b)
     lbvh_vertices(l, b)
     for name, count in (
         ("Poses", c["body_count"]),

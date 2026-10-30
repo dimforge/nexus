@@ -163,7 +163,12 @@
     "JointUnbiased",
     "Color8",
     "Color9",
-    "Color10"
+    "Color10",
+    "HubList",
+    "SlotBody",
+    "SlotConstraint",
+    "SlotsIndirect",
+    "AverageIndirect"
   ],
   "outputs": [
     "Velocities",
@@ -251,7 +256,12 @@
     "LbvhSorted",
     "LbvhTree",
     "Builders",
-    "JointConstraints"
+    "JointConstraints",
+    "HubList",
+    "SlotBody",
+    "SlotConstraint",
+    "SlotsIndirect",
+    "AverageIndirect"
   ],
   "required_cases": [
     "multi-collider-joint-f1",
@@ -265,7 +275,13 @@
     "mesh-overlap-reduced-f1",
     "mesh-overlap-reduced-f8",
     "mesh-overlap-unreduced-f1",
-    "mesh-overlap-unreduced-f8"
+    "mesh-overlap-unreduced-f8",
+    "split-hub-f1",
+    "split-hub-f8",
+    "split-hubs-f1",
+    "split-hubs-f8",
+    "large-batch-storage-f1",
+    "large-batch-storage-f8"
   ],
   "preconditions": [
     "Fresh real Nexus CPU conversion, sleeping disabled, native body/collider parent mappings and offset local poses preserved.",
@@ -275,18 +291,21 @@
     "Pair/deferred capacities are explicit. Overflow is an error; the separately registered resident runtime provides retry qualification.",
     "Fresh production RbdPipeline::step traces with deterministic LBVH and the selected contact reduction mode must match all composed Rust oracle body poses and velocities. Native physical inputs match exactly; allocator capacities and deterministic enablement may differ.",
     "Twenty-four independent contact batches cross the 256-element color-bucket prefix boundary. Adjacency and buckets allocate every required scan level from active dimensions.",
-    "Coincident triangle subshapes exercise distinct reduced and unreduced native solver paths; unmerged PFM work uses the native identity permutation."
+    "Coincident triangle subshapes exercise distinct reduced and unreduced native solver paths; unmerged PFM work uses the native identity permutation.",
+    "One and two dynamic plates each supported by 33 fixed balls force native hub splitting; the body-slot scan covers the full allocation and solver velocity storage includes the native hub pool.",
+    "513 independent batches require 1026 native hub slots; fixture guard body rows must not inflate the native splitting pool."
   ],
   "invariants": [
     "Complete generated LBVH, general collision, contact persistence, canonical ordering, body adjacency, contact coloring, joint and contact solve, integration and finalization. No CPU physics between kernels or frames.",
     "Exact IDs, integer counters, writer uniqueness, filtered overlap sets, copied inputs, padding and capacity guards; independent witness, constraint response and cache checks.",
     "All-frame finite states, unit rotations and exact immobility of fixed zero-velocity bodies. Final trace and published body state agree exactly.",
     "Empty BVH leaf bounds preserve the native infinity sentinel bits; only proven-unused leaf slots are normalized in a validation copy. Physical vertices and internal bounds stay finite.",
-    "No numerical exceptions: default tolerances apply to all imported scenes."
+    "No numerical exceptions: default tolerances apply to all imported scenes.",
+    "Native hub reservations are checked by exact totals, membership, contiguous capacity-bounded ownership, body/contact slot identities, and independent scaled mass/inertia. Only verified allocation-dependent link and tile velocity-slot numbers are compared by semantic identity."
   ],
   "outside_scope": [
     "Articulated multibodies, MPM and 2D.",
-    "Unrestricted scene lifecycle, public backend selection, split hubs, unbounded coloring, other friction models, continuation uploads and unbounded trace duration remain in progress.",
+    "Unrestricted scene lifecycle, public backend selection, unbounded coloring, other friction models, continuation uploads and unbounded trace duration remain in progress.",
     "Ascend vendor compilation, execution, synchronization and performance."
   ],
   "known_gaps": [

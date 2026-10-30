@@ -9,6 +9,10 @@ pub(crate) fn layout() -> Value {
     let mut l = collision_layout::layout();
     l["constants"] = json!({"max_flt_bits":nexus_rbd_shaders3d::MAX_FLT.to_bits(), "two_pi_bits":std::f32::consts::TAU.to_bits()});
     macro_rules! fields {($ty:ty,$($f:ident),+)=>{json!({$(stringify!($f):offset_of!($ty,$f)/4),+})}}
+    l["hub"] = fields!(HubCounts, hubs, slots, base, pool);
+    l["hub_min_constraints"] = json!(HUB_MIN_CONSTRAINTS);
+    l["hub_average_workgroups"] = json!(HUB_AVERAGE_WORKGROUPS);
+    l["not_a_hub"] = json!(NOT_A_HUB);
     l["rbd_params_words"] = json!(size_of::<RbdSimParams>() / 4);
     let additions = fields!(
         RbdSimParams,

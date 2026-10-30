@@ -5,7 +5,9 @@ use nexus_rbd3d::{
     rapier::prelude::*,
     shaders::dynamics::RbdSimParams,
 };
-use nexus_tilelang_native::upload_cases::{capacities, scene, small_contact_scene, wide_scene};
+use nexus_tilelang_native::upload_cases::{
+    capacities, hub_scene, scene, small_contact_scene, wide_scene,
+};
 use std::{fs, path::PathBuf};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     futures::executor::block_on(async {
@@ -25,6 +27,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "mesh-contact-joint",
             "wide-contacts",
             "many-batches",
+            "large-batch-storage",
+            "split-hub",
+            "split-hubs",
             "mesh-overlap-reduced",
             "mesh-overlap-unreduced",
         ] {
@@ -46,8 +51,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
             let scenes = if label == "wide-contacts" {
                 vec![wide_scene(0.), wide_scene(10.), wide_scene(20.)]
-            } else if label == "many-batches" {
-                (0..24)
+            } else if label.starts_with("split-hub") {
+                (0..if label == "split-hub" { 1 } else { 2 })
+                    .map(|i| hub_scene(i as f32 * 10.))
+                    .collect()
+            } else if label == "many-batches" || label == "large-batch-storage" {
+                (0..if label == "many-batches" { 24 } else { 513 })
                     .map(|i| small_contact_scene(i as f32 * 10.0))
                     .collect()
             } else {
@@ -62,10 +71,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if label == "wide-contacts" {
                 caps.body_capacity = 66;
             }
+            if label.starts_with("split-hub") {
+                caps.body_capacity = 34;
+                caps.collisions_capacity = 128;
+            }
+            if label == "large-batch-storage" {
+                caps.collisions_capacity = 1024;
+            }
             let mut state = RbdState::from_rapier(&backend, &refs, caps);
             state.set_gravity(
                 &backend,
-                if label == "wide-contacts" || label == "many-batches" {
+                if label == "wide-contacts"
+                    || label == "many-batches"
+                    || label == "large-batch-storage"
+                    || label.starts_with("split-hub")
+                {
                     [0., -9.81, 0.]
                 } else {
                     [0., -3., 0.5]

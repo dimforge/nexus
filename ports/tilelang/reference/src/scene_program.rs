@@ -19,6 +19,8 @@ use std::{fs, path::Path};
 #[allow(dead_code)]
 #[path = "lbvh_runtime.rs"]
 mod lbvh;
+#[path = "scene_hubs.rs"]
+mod scene_hubs;
 #[allow(dead_code)]
 #[path = "scene_upload.rs"]
 pub(crate) mod scene_upload;
@@ -168,7 +170,16 @@ pub(crate) fn scene_storage(
     let mut collider_poses = poses.clone();
     let mut solver_poses = poses.clone();
     let mut vels = vec![Velocity::default(); storage];
-    let mut solver_vels = vels.clone();
+    let native_body_slots = upload.map_or(0, |u| {
+        (u.batch.colliders_batch_capacity * u.batch.num_batches) as usize
+    });
+    let hub_pool = if upload.is_some() {
+        native_body_slots.max(1024)
+    } else {
+        0
+    };
+    let mut solver_vels =
+        vec![Velocity::default(); storage + hub_pool + if hub_pool > 0 { 3 } else { 0 }];
     let mut inc = vels.clone();
     let mut local = vec![LocalMassProperties::default(); storage];
     let mut world = vec![WorldMassProperties::default(); storage];
@@ -483,13 +494,14 @@ pub(crate) fn scene_storage(
     let mut ids = vec![guard; 2 * capacity + 3];
     let mut sorted_ids = ids.clone();
     let is_multibody = vec![0u32; storage];
-    let body_group = parents.clone();
+    let body_group = (0..storage as u32).collect::<Vec<_>>();
     let mut first = vec![guard; storage];
     let mut hubs = HubCounts {
         base: storage as u32,
-        pool: 0,
+        pool: hub_pool as u32,
         ..Default::default()
     };
+    let mut split = scene_hubs::Storage::new(hub_pool);
     let mut links = vec![ContactLink::default(); cs];
     let mut old_links = links.clone();
     let mut old_counts = vec![0u32; storage];
@@ -522,7 +534,7 @@ pub(crate) fn scene_storage(
         1
     ];
     let mut indirect = vec![[guard; 3]; color_stride];
-    let (strides, levels_scan) = prefix_program::hierarchy(n);
+    let (strides, levels_scan) = prefix_program::hierarchy(if hub_pool > 0 { storage } else { n });
     let mut aux: Vec<_> = strides[1..]
         .iter()
         .map(|s| vec![guard; *s as usize + 3])
@@ -697,6 +709,9 @@ pub(crate) fn scene_storage(
             write($root, &format!("RbdParams{}.bin", $suffix), &[p]);
             write($root, &format!("Gravity{}.bin", $suffix), &[gravity]);
             write($root, &format!("HubCounts{}.bin", $suffix), &[hubs]);
+            if hub_pool > 0 {
+                split.write($root, $suffix);
+            }
             for (k, v) in &sorting {
                 write(
                     $root,
@@ -1131,6 +1146,18 @@ pub(crate) fn scene_storage(
                 &is_multibody,
             );
         }
+        if hub_pool > 0 {
+            split.assign(
+                &counts,
+                &ids,
+                &world,
+                &body_group,
+                &mut first,
+                &mut hubs,
+                &mut links,
+                &batch,
+            );
+        }
         for body in 0..n as u32 {
             for lane in 0..64 {
                 gpu_stabilize_body_constraint_ids(
@@ -1282,6 +1309,9 @@ pub(crate) fn scene_storage(
                     );
                 }
             }
+            if hub_pool > 0 {
+                split.scatter(&mut solver_vels, &hubs);
+            }
             for color in 1..color_stride as u32 - 1 {
                 for i in 0..groups * 64 {
                     gpu_warmstart_constraints(
@@ -1294,6 +1324,9 @@ pub(crate) fn scene_storage(
                         &batch,
                     );
                 }
+            }
+            if hub_pool > 0 {
+                split.average(&mut solver_vels, &first, &counts, &hubs);
             }
             for _ in 0..pgs.max(1) {
                 if joint_scene {
@@ -1313,6 +1346,9 @@ pub(crate) fn scene_storage(
                     }
                 }
 
+                if hub_pool > 0 {
+                    split.scatter(&mut solver_vels, &hubs);
+                }
                 for color in 1..color_stride as u32 - 1 {
                     for i in 0..groups * 64 {
                         gpu_solve_constraints(
@@ -1328,6 +1364,9 @@ pub(crate) fn scene_storage(
                             &p,
                         );
                     }
+                }
+                if hub_pool > 0 {
+                    split.average(&mut solver_vels, &first, &counts, &hubs);
                 }
             }
             for i in 0..bg * 64 {
@@ -1355,6 +1394,9 @@ pub(crate) fn scene_storage(
                     }
                 }
             }
+            if hub_pool > 0 {
+                split.scatter(&mut solver_vels, &hubs);
+            }
             for color in 1..color_stride as u32 - 1 {
                 for i in 0..groups * 64 {
                     gpu_solve_constraints(
@@ -1370,6 +1412,9 @@ pub(crate) fn scene_storage(
                         &p,
                     );
                 }
+            }
+            if hub_pool > 0 {
+                split.average(&mut solver_vels, &first, &counts, &hubs);
             }
         }
         for i in 0..bg * 64 {
@@ -1543,6 +1588,9 @@ pub(crate) fn scene_storage(
             .map(str::to_owned),
         );
     }
+    if hub_pool > 0 {
+        inputs.extend(scene_hubs::BUFFERS.map(str::to_owned));
+    }
     let sizes = inputs
         .into_iter()
         .map(|name| {
@@ -1552,6 +1600,9 @@ pub(crate) fn scene_storage(
         .collect::<serde_json::Map<_, _>>();
     let mut case = json!({"name":dir.file_name().unwrap().to_str().unwrap(),"kind":if joint_scene {"joint_scene"}else if general_scene {"general_scene"}else{"analytic_scene"},"joint_count":nj,"joints_per_batch":joint_per,"joint_storage":js,"joint_color_count":joint_color_count,"trace_stride":trace_stride,"count":capacity,"scene":label,"columns":columns,"levels_scene":levels,"batches":nb,"colliders_per_batch":per,"body_count":n,"bodies_per_batch":body_per,"body_capacity_per_batch":body_capacity,"collider_count":collider_count,"body_storage":storage,"contact_capacity":capacity,"contact_storage":cs,"pair_capacity":pair_capacity,"vertex_count":vertices.len(),"geometry_indices":geometry_indices.len(),"pair_storage":pair_capacity+3,"groups":groups,"substeps":substeps,"pgs":pgs,"color_stride":color_stride,"rounds":rounds,"contact_reduction":contact_reduction,"frames":frames,"iterations":frames,"old_base":0,"new_base":cs,"strides":&strides[..4],"levels":levels_scan,"bucket_strides":&bucket_strides[..4],"bucket_levels":bucket_levels,"buffer_words":sizes});
     if upload.is_some() {
+        case["native_body_slots"] = json!(native_body_slots);
+        case["hub_pool"] = json!(hub_pool);
+        case["solver_storage"] = json!(solver_vels.len());
         case["kind"] = json!("runtime_scene");
         case["general_collision"] = json!(true);
         case["scale_warmstart"] = json!(p.warmstart_coefficient != 1.);

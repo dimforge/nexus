@@ -15,6 +15,7 @@ import link_kernels
 import memory_kernels
 import pose_kernels
 import primitive_kernels
+import scene_hubs
 from body_validation import BUFFERS as BODY
 from contact_replay import BUFFERS as CONTACT
 from link_replay import BUFFERS as LINK
@@ -72,6 +73,9 @@ def make_program(l, c, target):
 
     def local(mapping, **extra):
         return dict(c, buffer_words={k: sizes[v] for k, v in mapping.items()}, **extra)
+
+    def hub(kind):
+        scene_hubs.append(plans, l, c, target, kind, cache)
 
     def body(kind):
         if kind not in cache:
@@ -175,9 +179,16 @@ def make_program(l, c, target):
         gm[f"Aux{i}"] = f"AdjAux{i}"
         gm[f"Stride{i}"] = f"AdjStride{i}"
     gc = local(
-        gm, kind="adjacency_build", count=cap, bodies=n, batches=1, groups=groups
+        gm,
+        kind="adjacency_build",
+        count=cap,
+        bodies=bs if c.get("hub_pool") else n,
+        batches=1,
+        groups=groups,
     )
     program("adjacency", graph_kernels.make_program(l, gc, target), gm)
+    for kind in ("hub_assign", "hub_dispatch", "hub_split"):
+        hub(kind)
     add(
         "stable_adjacency",
         primitive_kernels.make_kernel({"rows": n, "storage": sizes["Ids"]}, target),
@@ -319,7 +330,7 @@ def make_program(l, c, target):
                     count=cap,
                     dispatch=groups * 64,
                     tiles=(cs + 31) // 32,
-                    velocities=bs,
+                    velocities=c.get("solver_storage", bs),
                     storage=bs,
                     ids_storage=sizes["Ids"],
                     constraints=cs,
@@ -328,14 +339,18 @@ def make_program(l, c, target):
                 )
                 cache["scale_impulses"] = warmstart_kernels.make_kernel(l, case, target)
             add("scale_impulses", cache["scale_impulses"], mapping, groups)
+        hub("hub_scatter")
         for col in range(1, c["color_stride"] - 1):
             color("colored_warmstart", col, "Mode")
+        hub("hub_average")
         for _ in range(max(c["pgs"], 1)):
             if has_joints:
                 for col in range(c["joint_color_count"]):
                     joint("joint_solve", col, 1)
+            hub("hub_scatter")
             for col in range(1, c["color_stride"] - 1):
                 color("colored_solve", col, "Mode")
+            hub("hub_average")
         if "integrate" not in cache:
             cache["integrate"] = gpu_integrate_linearized(
                 l, dict(c, active_bodies=n, bodies=bs, tiles=(cs + 31) // 32), target
@@ -354,8 +369,10 @@ def make_program(l, c, target):
         if has_joints:
             for col in range(c["joint_color_count"]):
                 joint("joint_solve", col, 0)
+        hub("hub_scatter")
         for col in range(1, c["color_stride"] - 1):
             color("colored_solve", col, "Color0")
+        hub("hub_average")
     body("finalize")
     if "Trajectory" in sizes:
         from trajectory_kernels import make_kernel as trajectory_kernel

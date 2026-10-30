@@ -47,6 +47,9 @@ fn main() {
             ("mesh-contact-joint", 64),
             ("wide-contacts", 512),
             ("many-batches", 64),
+            ("large-batch-storage", 1024),
+            ("split-hub", 128),
+            ("split-hubs", 128),
             ("mesh-overlap-reduced", 64),
             ("mesh-overlap-unreduced", 64),
         ]

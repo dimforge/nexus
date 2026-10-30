@@ -32,6 +32,8 @@ Implemented and connected:
 - Validated live gravity, pose and velocity updates. Persistent-region migration
   includes changed gravity. Native production comparisons and C/Metal runtime
   integration tests are required for these controls.
+- Native split-hub storage and frame scheduling, with exact ownership/scaled-mass
+  validation and production comparisons for one/two 33-contact plates.
 
 Remaining implementation and qualification:
 
@@ -39,8 +41,8 @@ Remaining implementation and qualification:
    the intended state, continuation/reset semantics, mutable solver parameters and
    remaining public backend integration. Cold-start upload is not a continuation
    checkpoint. Do not substitute host physics for a missing generated stage.
-2. Connect split hubs and their synchronized averaging/gather/scatter sequence to
-   live scenes. Complete coloring convergence/palette behavior and the remaining
+2. Broaden dense hub scene and lifecycle qualification. Complete coloring
+   convergence/palette behavior and the remaining
    solver/friction variants. Audit production fused/tail paths against the portable
    ordered schedule; any intentional substitution needs a classified semantic
    difference and production comparison, not an unearned module-complete flag.

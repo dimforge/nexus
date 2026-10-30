@@ -2037,7 +2037,7 @@
     },
     {
       "id": "rbd.pipeline.runtime_scene3d",
-      "coverage": "Native Nexus cold-start scene conversion and connected LBVH/general collision/ordinary joint frames",
+      "coverage": "Native Nexus uploads and connected LBVH, general collision, ordinary joints and split-hub frames",
       "reference_symbols": [
         "src_rbd_shaders/dynamics/contact_links.rs::gpu_match_contact_links",
         "src_rbd_shaders/dynamics/contact_links.rs::find_previous_constraint",
@@ -2062,7 +2062,12 @@
         "src_rbd/broad_phase/lbvh.rs::Lbvh::find_pairs",
         "src_rbd/pipeline/scene_upload.rs::RbdState::read_scene_upload",
         "src_rbd_shaders/dynamics/mprops_update.rs::gpu_sync_collider_poses",
-        "src_rbd/pipeline/rbd_step.rs::RbdPipeline::step"
+        "src_rbd/pipeline/rbd_step.rs::RbdPipeline::step",
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_assign",
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_split_constraints",
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_dispatch",
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_scatter",
+        "src_rbd_shaders/dynamics/mass_splitting.rs::gpu_hub_average"
       ],
       "implementation": "ports/tilelang/runtime_replay.py::main",
       "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",

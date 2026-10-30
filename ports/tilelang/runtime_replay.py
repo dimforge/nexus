@@ -10,11 +10,12 @@ from joint_scene_validation import EXTRA as JOINTS
 from production_reference import check_suite, hashes
 from runtime_scene_validation import check_outputs, validate_case
 from scene_broadphase import EXTRA as LBVH
+from scene_hubs import BUFFERS as HUBS
 from scene_kernels import make_program
 from scene_validation import BUFFERS as SCENE
 from stage_replay import parse_args, run_stage
 
-BUFFERS = SCENE + COLLISION + JOINTS + LBVH + tuple(f"Color{i}" for i in range(8, 11))
+BUFFERS = SCENE + COLLISION + JOINTS + LBVH + HUBS + tuple(f"Color{i}" for i in range(8, 11))
 
 
 def export(directory):

@@ -3,7 +3,7 @@ use khal::backend::{Backend, GpuBackend};
 use nexus_rbd3d::{pipeline::RbdState, rapier::prelude::*, shaders::dynamics::RbdSimParams};
 use nexus_tilelang_native::{
     upload::write_inputs,
-    upload_cases::{capacities, scene, small_contact_scene, wide_scene},
+    upload_cases::{capacities, hub_scene, scene, small_contact_scene, wide_scene},
 };
 use std::{fs, path::PathBuf};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -60,23 +60,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &state.read_scene_upload(&backend).await?,
             &output.join("wide-contacts"),
         )?;
-        let scenes: Vec<_> = (0..24)
-            .map(|i| small_contact_scene(i as f32 * 10.0))
-            .collect();
-        let refs: Vec<_> = scenes
-            .iter()
-            .map(|(b, c, j)| (b, c, j, &multibodies, &params))
-            .collect();
-        let mut caps = capacities(24);
-        caps.collisions_capacity = 64;
-        let mut state = RbdState::from_rapier(&backend, &refs, caps);
-        state.set_gravity(&backend, [0.0, -9.81, 0.0]);
-        state.set_deterministic(&backend, true);
-        backend.synchronize()?;
-        write_inputs(
-            &state.read_scene_upload(&backend).await?,
-            &output.join("many-batches"),
-        )?;
+        for (label, batches) in [("many-batches", 24), ("large-batch-storage", 513)] {
+            let scenes: Vec<_> = (0..batches)
+                .map(|i| small_contact_scene(i as f32 * 10.0))
+                .collect();
+            let refs: Vec<_> = scenes
+                .iter()
+                .map(|(b, c, j)| (b, c, j, &multibodies, &params))
+                .collect();
+            let mut caps = capacities(batches);
+            caps.collisions_capacity = 1024;
+            let mut state = RbdState::from_rapier(&backend, &refs, caps);
+            state.set_gravity(&backend, [0.0, -9.81, 0.0]);
+            state.set_deterministic(&backend, true);
+            backend.synchronize()?;
+            write_inputs(
+                &state.read_scene_upload(&backend).await?,
+                &output.join(label),
+            )?;
+        }
         let mesh = SharedShape::trimesh_with_flags(
             vec![
                 Vec3::new(-2., 0., -2.),
@@ -102,6 +104,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         for label in ["mesh-overlap-reduced", "mesh-overlap-unreduced"] {
             write_inputs(&upload, &output.join(label))?;
+        }
+        for batches in [1, 2] {
+            let scenes: Vec<_> = (0..batches).map(|i| hub_scene(i as f32 * 10.)).collect();
+            let refs: Vec<_> = scenes
+                .iter()
+                .map(|(b, c, j)| (b, c, j, &multibodies, &params))
+                .collect();
+            let mut caps = capacities(batches);
+            caps.body_capacity = 34;
+            caps.collisions_capacity = 128;
+            let mut state = RbdState::from_rapier(&backend, &refs, caps);
+            state.set_gravity(&backend, [0., -9.81, 0.]);
+            state.set_deterministic(&backend, true);
+            backend.synchronize()?;
+            write_inputs(
+                &state.read_scene_upload(&backend).await?,
+                &output.join(if batches == 1 {
+                    "split-hub"
+                } else {
+                    "split-hubs"
+                }),
+            )?;
         }
         println!("Exported native CPU joint, mesh-contact and multi-workgroup uploads");
         Ok(())
