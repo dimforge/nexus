@@ -697,6 +697,66 @@ impl TileLangSimulation {
         self.set_solver_parameters(params)
     }
 
+    /// Read current typed inputs for a cold start, using the original native geometry.
+    /// Contact caches and the frame counter are intentionally absent; use checkpoint
+    /// for continuation without changing scene membership.
+    pub fn read_scene_upload(&mut self) -> Result<RbdSceneUpload, String> {
+        let mut upload = self.uploaded.clone();
+        upload.body_poses[..self.body_count].copy_from_slice(&self.body_poses()?);
+        upload.velocities[..self.body_count].copy_from_slice(&self.velocities()?);
+        let gravity = self.read_words("Gravity")?;
+        let values: [f32; 4] = gravity
+            .get(..4)
+            .ok_or("Incomplete gravity state")?
+            .iter()
+            .map(|v| f32::from_bits(*v))
+            .collect::<Vec<_>>()
+            .try_into()
+            .map_err(|_| "Invalid gravity state")?;
+        upload.gravity = values.into();
+        Ok(upload)
+    }
+
+    /// Replace scene membership/geometry and optionally retain surviving body state.
+    /// Each pair is (old global body slot, new global body slot), in native
+    /// batch-interleaved order. Unmapped bodies use the new upload's state.
+    /// This is a cold start: contacts, colors and step/trace counters reset. The
+    /// new upload supplies gravity and solver parameters. No old collider IDs or
+    /// cached impulses are carried across changed scene topology.
+    /// Compilation completes before the live scene is replaced.
+    pub fn replace_scene(
+        &mut self,
+        upload: &RbdSceneUpload,
+        survivors: &[(usize, usize)],
+    ) -> Result<(), String> {
+        let mut upload = upload.clone();
+        crate::scene_lifecycle::transfer_bodies(
+            &mut upload,
+            &self.body_poses()?,
+            &self.velocities()?,
+            survivors,
+        )?;
+        let mut options = self.options.clone();
+        options.initial_pair_capacity = self.capacity;
+        options.workspace = self
+            .workspace_root
+            .join(format!("scene-{}", self.next_configuration));
+        self.next_configuration = self
+            .next_configuration
+            .checked_add(1)
+            .ok_or("Configuration counter overflow")?;
+        // The constructor's executable-code trust contract still holds. Scene
+        // arrays are native typed inputs, checked by the same upload validator.
+        let mut replacement = unsafe { Self::from_upload(&upload, options) }?;
+        if replacement.signature["source"] != self.signature["source"] {
+            return Err("Sources changed during scene replacement".into());
+        }
+        replacement.workspace_root = self.workspace_root.clone();
+        replacement.next_configuration = self.next_configuration;
+        *self = replacement;
+        Ok(())
+    }
+
     /// Adjust the application allocation limit after a capacity error.
     pub fn set_pair_capacity_limit(&mut self, limit: u32) -> Result<(), String> {
         if limit < self.capacity || limit > 0x1fffffff {

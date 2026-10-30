@@ -15,3 +15,6 @@ pub mod runtime;
 
 #[cfg(any(feature = "metal", feature = "runtime"))]
 pub mod checkpoint;
+
+#[cfg(feature = "runtime")]
+mod scene_lifecycle;

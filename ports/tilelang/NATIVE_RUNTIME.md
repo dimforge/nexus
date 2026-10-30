@@ -59,7 +59,7 @@ then rejects further stepping.
 
 The integration remains experimental. Cold-start uploads do not preserve existing
 contact caches. Topo coloring, Coulomb friction, ordinary joints and LBVH are the
-current composed path, including native hub splitting. Body insertion/removal, other friction models and
+current composed path, including native hub splitting. Other friction models and
 remaining scheduling variants still need integration.
 No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
 prepares source only for a future CANN execution adapter.
@@ -92,7 +92,7 @@ frames. Body ranges follow the same native interleaved order as readback. Update
 validate the complete range and values before writing; invalid input leaves state
 unchanged. Gravity and body state migrate through capacity retries. Teleports keep
 the previous contact cache, which the next native matching pass revalidates.
-Changing body/collider membership remains a separate scene lifecycle operation.
+Use scene reconstruction below to change body/collider membership.
 
 Native hubs use the ordinary body allocation followed by `max(native_body_slots, 1024)`
 split velocity slots. Assignment and constraint splitting run before coloring;
@@ -135,3 +135,18 @@ identity and cannot be restored after parameters change.
 Run `--test runtime_configuration -- --ignored --nocapture` with the compiler and
 workspace variables above plus `NEXUS_DISABLE_BF=1` to compare live configuration
 changes against the production CPU pipeline.
+
+`read_scene_upload()` exports current typed body state, current gravity and solver
+parameters with the original native geometry, materials and ordinary joints. It is
+a cold-start upload; use checkpoints to preserve contact caches.
+
+`replace_scene(&new_upload, &[(old_body_slot, new_body_slot), ...])` supports
+insertion/removal and changed collider or joint topology. Slots are global native
+batch-interleaved body indices, independent of collider indices. Each surviving
+body can be mapped once; other bodies use the new upload's initial state. The new
+upload supplies gravity and solver parameters. A new configuration is compiled and
+validated before publication, so errors leave the old simulation available. This
+reconstructs the scene: contacts and colors start empty and the frame counter resets.
+It corresponds to rebuilding a native `RbdState`, and does not reproduce the cache
+behavior of native incremental `append_bodies`/`remove_bodies`. Use the returned
+new body ordering for future state reads and edits.
