@@ -1,90 +1,71 @@
 # Completion scope and outstanding work
 
 The user requested continued implementation until the full port is complete and
-tested. The agreed initial scope is the **3D rigid-body simulation path, including
-rigid-body joints, collision detection, scene tests, and an offline Ascend handoff**.
-Articulated multibodies, MPM, and 2D are explicitly deferred. Never push; commit
-incrementally in this worktree. This file records scope, not evidence of completion.
-`inventory.json`, feature contracts and current `parity.py report` remain authoritative
-for implemented coverage and exact-source validation.
+tested. The initial scope is the **3D rigid-body simulation path, including ordinary
+joints, collision detection, scene tests, and an offline Ascend handoff**. Articulated
+multibodies, MPM and 2D are explicitly deferred. Never push; commit incrementally
+in the isolated worktree. Do not stop at isolated operation milestones.
 
-The port is not complete. Do not stop after isolated operation milestones or mark
-the complete backend ready because all currently registered kernel cases pass.
+The port is not complete. Registered kernels passing does not establish completion
+of the backend. `inventory.json`, feature contracts, classified `changes/` records,
+and `parity.py report` describe coverage and exact-source validation. Historical
+checkpoints under `evidence/` preserve earlier results; they do not validate later
+source revisions or replace the final full-matrix reconciliation.
 
-Remaining implementation sequence:
+Implemented and connected:
 
-1. Body/collider state, Coulomb preparation and contact-link persistence stages
-   are ported, along with cached warmstart scaling, body gathering
-   and split-slot application. The analytic ordinary-body scene program now connects
-   changing contact topology and persistence through 120-frame checkpoints. Connect
-   this to production frame stepping, general collision and the remaining variants.
-2. Ordered native dispatch, hierarchical prefix scan and composed contact
-   adjacency, bounded Topo coloring, and color-bucket construction are implemented.
-   Native Coulomb color ranges, cached unbiased solve and ordered contact iterations
-   are implemented with device-loaded coefficients. Connect these to the general production
-   frame sequence. A composed native TGS frame now handles fresh supplied
-   manifolds and two fixed colors, with body initialization, gravity, contact
-   preparation, substeps and finalization. Collision generation and changing topology
-   are now connected in the general fixture scene controller. Production scheduling
-   and hubs still need integration. Unbounded Luby scheduling remains.
-   Palette/iteration exhaustion routes
-   unresolved contacts to the Rust unsolved bucket (retained for warmstart, not solved);
-   preserve and explicitly assess that limitation in scene tests. Hub assignment, splitting, dispatch sizes, scatter and averaging are ported
-   in isolation. Implement actual color schedules and the contact solver variants,
-   connecting shared static bodies and hubs to the production iteration order. Wire native generated kernels into Rust simulation stepping;
-   the existing reference collision path may be retained only for an explicitly
-   labeled intermediate hybrid milestone.
-3. Native world bounds for every 3D shape tag and brute-force candidate-pair
-   kernels are implemented, including an ordered bounds/pairs program. All twelve 3D LBVH stages and the resident Morton/radix/build/refit/traversal program are translated;
-   connected analytic/general/joint scene variants now use LBVH; a native resident frame executor now supports guarded capacity retries and device state migration. Native typed capacity uploads and registered delayed/deferred/batched/joint retry scenes are implemented; current target qualification remains. Native public cold-start upload and generic frame specialization are implemented; six real upload scene cases are registered. Public backend selection and lifecycle remain. The complete native
-   analytic first pass now handles ball/primitive and box/box contacts, including
-   material combination and positional inert-slot writes. Native segment/triangle/tetrahedron projection and Voronoi simplex transitions are now ported; Cold GJK and all seven convex support maps are also ported; Bounded EPA and its GJK composition are translated; polygonal support faces and generic 3D clipping are also implemented. Composed convex PFM manifolds are translated with exact conversion, independent witness checks and paired Rust/TileLang secondary-witness corrections. Deferred convex/mesh/polyline dispatch, work-list keys and contact reduction are now translated as isolated stages. Resident deferred ordering and reduction are now connected to fifteen general collision scenes with all-frame trajectory checks. Runtime overflow retry and production composition remain. PFM counter reset and contact-plan publication are implemented;
-   a resident five-stage bounds/pairs/plan/manifold program now covers ball/box
-   collision detection. Native radix stages and contact canonicalization are now
-   implemented as resident programs. Canonicalization is connected to analytic scene solving. Generic awake fixture scene integration is implemented; public runtime integration remains.
-   Port collision detection and shapes, contact creation/removal, broad-phase
-   schedules, joint frame integration, queries, deterministic ordering and other required
-   inventory capabilities. Do not introduce CPU physics fallbacks and call them
-   completed TileLang features.
-4. Ordinary rigid-joint stages (motor coefficients, COM-centered initialization,
-   row construction, orthogonalization and colored solve) are ported. They are connected to analytic frames, with sixteen joint scenes and all-frame
-   device trajectory checks. Native generic runtime scene upload with combined general collision and joints is registered; current target qualification and public backend lifecycle remain. Analytic awake ball/box scenes now cover free motion, impacts, stacks, friction,
-   restitution, empty inputs and interleaved batches through connected steps and
-   1/8/120-frame checkpoints with independent physical assertions. Analytic, ordinary-joint and
-   general collision scenes now have all-frame traces; broader scene coverage and
-   current target qualification remain. Compare intermediate stages and short-run checkpoints to Rust;
-   test long-run bounded penetration, energy/momentum behavior and stability.
-   Keep sleeping disabled for benchmarks and stability comparisons.
-5. Complete offline Ascend source coverage, immutable scene/kernel handoff bundles,
-   return validation and runtime contracts. Ascend vendor binary compilation,
-   execution, memory-model qualification and performance remain unavailable until
-   a real device/toolkit is provided; they are not prerequisites for offline work.
+- Body lifecycle, world inertia, collider transforms, gravity, integration and
+  finalization; Coulomb contact preparation, matching/recycling, canonical ordering,
+  adjacency, bounded Topo coloring, color buckets, cached warmstart and ordered TGS.
+- Analytic and general collision, convex support/GJK/EPA/clipping, deferred
+  mesh/polyline work and contact reduction; all native LBVH stages and resident
+  build/refit/traversal. Ordinary joint motors, limits and colored solve.
+- Fixture scenes through 120 frames and identical-state restart diagnostics.
+  Native cold-start uploads preserve separate body/collider index spaces, multiple
+  colliders, parentless geometry, native mass/materials and interleaved batches.
+- Rust-owned C/Metal runtime with source-bound specialization, resident storage,
+  capacity gates and lazy recompilation/migration before solver commit, unbounded
+  stepping without trajectory allocation, and explicit typed readback.
+- Native-sized hierarchical scans and an explicit contact-reduction option. Native
+  scene oracles are independently compared with production `RbdPipeline::step`.
+  Both reduced and unreduced overlapping-triangle cases are required.
+- Validated live gravity, pose and velocity updates. Persistent-region migration
+  includes changed gravity. Native production comparisons and C/Metal runtime
+  integration tests are required for these controls.
 
-The user explicitly accepts that floating-point outputs need not be bitwise equal.
-Current float comparisons already use absolute/relative tolerances; integer fields,
-identities, counters, copied bits and untouched storage remain exact. The retained
-zero-distance contact case can select different soft-CFM branches on Rust CPU,
-Rust Metal and TileLang due to cancellation. Keep the stress cases and classify
-this using branch sensitivity plus scene-level physical/stability evidence.
-A justified scoped numerical policy may accept harmless divergence without changing
-the Rust physics. Do not clear it solely by increasing a global tolerance, deleting
-cases, or declaring every floating-point mismatch harmless.
+Remaining implementation and qualification:
 
-The two contact-sensitive 120-frame triangle and joint-chain fixtures now have
-explicit per-case, per-field numeric policies backed by required identical-state
-single-frame restart fixtures and independent geometry, effective-response and
-all-frame physical checks. Their final registered matrix remains required after
-source changes. The isolated zero-distance CFM stress cases now have a separately registered
-branch policy with outward f32 intervals and complete native branch alternatives;
-its registered matrix is required. A paired Rust/TileLang
-clipping fix now rejects tangentially separated edge witnesses; its registered
-geometry and scene matrix remains required. No global float tolerance or
-physics arithmetic is changed by this classification.
+1. Complete scene lifecycle: insertion/removal or explicit reconstruction preserving
+   the intended state, continuation/reset semantics, mutable solver parameters and
+   remaining public backend integration. Cold-start upload is not a continuation
+   checkpoint. Do not substitute host physics for a missing generated stage.
+2. Connect split hubs and their synchronized averaging/gather/scatter sequence to
+   live scenes. Complete coloring convergence/palette behavior and the remaining
+   solver/friction variants. Audit production fused/tail paths against the portable
+   ordered schedule; any intentional substitution needs a classified semantic
+   difference and production comparison, not an unearned module-complete flag.
+3. Complete required query/shape/render inventory capabilities and other missing
+   active 3D shader behavior. Preserve the mirrored Rust module organization.
+4. Add broader production scene and lifecycle coverage, including dense/shared-body
+   contacts, hubs, configuration variants and long-run physical stability. Sleeping
+   stays disabled in scene/benchmark comparisons. Verify guards, exact identities,
+   counters, contact geometry, response/cache consistency and finite/unit states.
+5. Complete the current full C/Metal execution matrix, Ascend source matrix,
+   corruption/regression tests and immutable handoff/return protocol. Update the
+   CPU-only CI workflow with native runtime checks and a scalable execution layout;
+   the old single-job timeout is not qualified for the expanded matrix. Recorded
+   Metal/Ascend protocol tests are conditional only when recordings are absent;
+   explicitly configured missing/stale evidence must fail.
+6. Reconcile the full registry against the final source snapshot. Ascend vendor
+   compilation, execution, synchronization and performance remain unavailable until
+   hardware/toolkit access exists; they are not prerequisites for completing the
+   offline work and must never be inferred from source lowering.
 
-
-The CPU-only test suite must not assume recorded Metal/Ascend protocol fixtures.
-Those return-protocol tests opt in when both target reports exist, or when an
-explicit results path is supplied (invalid configured evidence still fails).
-The full CI workflow needs updated native runtime integration checks and a scalable
-execution layout; its original single-job timeout has not been qualified for the
-expanded matrix. Local scoped passes do not establish complete CI success.
+The CPU oracle requires `-Zmutable-noalias=no`; always use `cpu_oracle.py` and retain
+its LLVM attribute probe. Default floating tolerances already permit roundoff.
+The contact-sensitive triangle and joint-chain policies in `SCENE_NUMERICS.md` are
+scoped by scene, frame and field, with required identical-state restart fixtures
+and independent physical checks. Preserve every zero-distance stress case under
+`BOUNDARY_NUMERICS.md`. Never fix a mismatch by deleting cases, changing Rust
+arithmetic for convenience or widening global tolerances. Paired Rust/TileLang
+bug fixes and intentional differences must remain distinguishable in `changes/`.

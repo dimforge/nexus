@@ -384,6 +384,44 @@ impl FrameSession {
             });
         }
     }
+    /// Update part of a semantic region between completed frames.
+    ///
+    /// # Safety
+    /// The caller must preserve every kernel input invariant (including indices,
+    /// floating-point constraints and valid native enum representations).
+    pub unsafe fn write_persistent(
+        &mut self,
+        backend: &Metal,
+        id: &str,
+        word_offset: usize,
+        words: &[u32],
+    ) -> Result<(), String> {
+        if self.poisoned {
+            return Err("Poisoned frame".into());
+        }
+        if backend.device().registry_id() != self.device_id {
+            return Err("Frame and backend devices differ".into());
+        }
+        let region = self.variants[self.current]
+            .manifest
+            .persistent
+            .get(id)
+            .ok_or("Missing persistent region")?;
+        let end = word_offset
+            .checked_add(words.len())
+            .ok_or("Persistent write overflow")?;
+        if end > region.word_len {
+            return Err("Persistent write outside region".into());
+        }
+        backend.synchronize().map_err(|e| e.to_string())?;
+        let buffer = &self.storage[&region.buffer];
+        let start = region.word_start + word_offset;
+        unsafe {
+            std::slice::from_raw_parts_mut(buffer.contents().cast::<u32>().add(start), words.len())
+        }
+        .copy_from_slice(words);
+        Ok(())
+    }
     /// Read explicit output only; no intermediate physics readback is performed.
     pub fn read(&self, backend: &Metal, name: &str) -> Result<Vec<u32>, String> {
         if backend.device().registry_id() != self.device_id {
@@ -525,6 +563,37 @@ mod tests {
         // Option fields normally default to None; our deserializer requires the field.
         let missing = r#"{"schema":1,"program":{"schema":2,"stages":[],"storage_buffers":[],"buffer_bytes":{},"iterations":1},"gates":[],"persistent":{}}"#;
         assert!(serde_json::from_str::<FrameManifest>(missing).is_err());
+    }
+    #[test]
+    fn input_updates_survive_relocation_and_reject_invalid_ranges() {
+        let backend = Metal::new().unwrap();
+        let mut frame =
+            unsafe { FrameSession::new(&backend, vec![variant(1, 0), variant(8, 3)]) }.unwrap();
+        unsafe { frame.write_persistent(&backend, "pose_and_velocity", 0, &[100, 200]) }.unwrap();
+        for (name, offset, words) in [
+            ("missing", 0, &[9][..]),
+            ("pose_and_velocity", usize::MAX, &[9][..]),
+            ("pose_and_velocity", 1, &[9, 10][..]),
+        ] {
+            assert!(unsafe { frame.write_persistent(&backend, name, offset, words) }.is_err());
+            assert_eq!(
+                frame.read(&backend, "State").unwrap(),
+                [100, 200, 0xdeadbeef, 0xdeadbeef]
+            );
+        }
+        assert_eq!(frame.step(&backend).unwrap().retries, 1);
+        assert_eq!(
+            frame.read(&backend, "State").unwrap(),
+            [
+                0xdeadbeef, 0xdeadbeef, 0xdeadbeef, 101, 200, 0xdeadbeef, 0xdeadbeef
+            ]
+        );
+        unsafe { frame.write_persistent(&backend, "pose_and_velocity", 1, &[300]) }.unwrap();
+        frame.step(&backend).unwrap();
+        assert_eq!(frame.read(&backend, "State").unwrap()[3..5], [102, 300]);
+        frame.poisoned = true;
+        assert!(unsafe { frame.write_persistent(&backend, "pose_and_velocity", 0, &[0]) }.is_err());
+        assert_eq!(frame.read(&backend, "State").unwrap()[3], 102);
     }
     #[test]
     fn exhausted_capacity_never_advances_physics_or_frame_count() {

@@ -92,6 +92,8 @@ def persistent_regions(l, c):
         "OldTiles": ((cap + 31) // 32) * l["tile_words"],
         "States": cap * l["state_words"],
     }
+    if c.get("kind") == "runtime_scene":
+        lengths["Gravity"] = c["buffer_words"]["Gravity"]
     if "FrameIndex" in c["buffer_words"]:
         lengths.update(FrameIndex=1, Trajectory=c["frames"] * c["trace_stride"])
     # Empty scenes still preserve their inert uploaded pose/velocity record.

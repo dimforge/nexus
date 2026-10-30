@@ -485,6 +485,75 @@ impl TileLangSimulation {
         self.body_count
     }
 
+    fn write_persistent(
+        &mut self,
+        region: &str,
+        word_offset: usize,
+        words: &[u32],
+    ) -> Result<(), String> {
+        match &mut self.session {
+            Session::C(process) => {
+                process.call(json!({"command":"write", "region":region,"word_offset":word_offset,"words":words}))?;
+                Ok(())
+            }
+            #[cfg(feature = "metal")]
+            Session::Metal { backend, frame } => unsafe {
+                frame.write_persistent(backend, region, word_offset, words)
+            },
+        }
+    }
+    fn body_range<T>(&self, first: usize, count: usize) -> Result<usize, String> {
+        if first
+            .checked_add(count)
+            .is_none_or(|end| end > self.body_count)
+        {
+            return Err("Body update outside active body range".into());
+        }
+        first
+            .checked_mul(size_of::<T>() / 4)
+            .ok_or("Body offset overflow".into())
+    }
+    /// Set gravity for subsequent steps, including retries with larger buffers.
+    pub fn set_gravity(&mut self, gravity: [f32; 3]) -> Result<(), String> {
+        if gravity.iter().any(|v| !v.is_finite()) {
+            return Err("Nonfinite gravity".into());
+        }
+        self.write_persistent(
+            "Gravity",
+            0,
+            &[
+                gravity[0].to_bits(),
+                gravity[1].to_bits(),
+                gravity[2].to_bits(),
+                0,
+            ],
+        )
+    }
+    /// Replace a contiguous range in native interleaved body order.
+    /// Contact caches are retained and revalidated by the next native matching pass.
+    pub fn set_body_poses(&mut self, first: usize, poses: &[Pose]) -> Result<(), String> {
+        let offset = self.body_range::<Pose>(first, poses.len())?;
+        if poses.iter().any(|p| {
+            !p.translation.is_finite()
+                || !p.rotation.is_finite()
+                || (p.rotation.length_squared() - 1.0).abs() > 2e-5
+        }) {
+            return Err("Body pose requires finite translation and a unit rotation".into());
+        }
+        self.write_persistent("Poses", offset, bytemuck::cast_slice(poses))
+    }
+    /// Replace finite linear/angular velocities in native interleaved body order.
+    pub fn set_velocities(&mut self, first: usize, velocities: &[Velocity]) -> Result<(), String> {
+        let offset = self.body_range::<Velocity>(first, velocities.len())?;
+        if velocities
+            .iter()
+            .any(|v| !v.linear.is_finite() || !v.angular.is_finite())
+        {
+            return Err("Nonfinite body velocity".into());
+        }
+        self.write_persistent("Velocities", offset, bytemuck::cast_slice(velocities))
+    }
+
     /// Explicit readback for diagnostics or application state publication.
     pub fn read_words(&mut self, name: &str) -> Result<Vec<u32>, String> {
         match &mut self.session {

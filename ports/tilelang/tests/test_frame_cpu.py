@@ -75,6 +75,31 @@ class FrameCpuTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
 
+    def test_updates_migrate_and_rejections_preserve_guards(self):
+        s = CpuFrameSession([variant(1), variant(8, 3)], self.temp.name)
+        s.write_persistent("state", 0, np.array([100, 200], np.uint32))
+        before = s.storage["State"].copy()
+        for name, offset, words in [
+            ("missing", 0, np.array([9], np.uint32)),
+            ("state", -1, np.array([9], np.uint32)),
+            ("state", 1, np.array([9, 10], np.uint32)),
+            ("state", 0, np.array([9.0], np.float32)),
+        ]:
+            with self.assertRaises(ValueError):
+                s.write_persistent(name, offset, words)
+            np.testing.assert_array_equal(s.storage["State"], before)
+        self.assertEqual(s.step()["retries"], 1)
+        np.testing.assert_array_equal(
+            s.storage["State"], [0xDEADBEEF] * 3 + [101, 200] + [0xDEADBEEF] * 2
+        )
+        s.write_persistent("state", 1, np.array([300], np.uint32))
+        s.step()
+        self.assertEqual(s.storage["State"][3:5].tolist(), [102, 300])
+        s.poisoned = True
+        with self.assertRaisesRegex(RuntimeError, "Poisoned"):
+            s.write_persistent("state", 0, np.array([0], np.uint32))
+        self.assertEqual(s.storage["State"][3], 102)
+
     def test_growth_after_prior_frame_preserves_state_and_limits(self):
         small, large = variant(1), variant(8, 3)
         small["initial"]["Input"][0] = 1

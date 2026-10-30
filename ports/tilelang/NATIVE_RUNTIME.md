@@ -85,3 +85,11 @@ are still required for full qualification.
 match the default Nexus pipeline, or `true` to merge composite contacts. It is
 part of the immutable compilation configuration and survives capacity growth.
 The imported color palette determines the native bounded Topo iteration count.
+
+`set_gravity`, `set_body_poses`, and `set_velocities` update live device inputs between
+frames. Body ranges follow the same native interleaved order as readback. Updates
+validate the complete range and values before writing; invalid input leaves state
+unchanged. Gravity and body state migrate through capacity retries. Teleports keep
+the previous contact cache, which the next native matching pass revalidates.
+Changing body/collider membership or solver iteration counts remains a separate
+scene lifecycle operation; these setters do not change the compiled schedule.

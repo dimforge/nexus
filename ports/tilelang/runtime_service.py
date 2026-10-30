@@ -9,6 +9,8 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
+
 from frame_cpu import CapacityError, CpuFrameSession
 from runtime_compile import load_variant
 
@@ -30,6 +32,18 @@ def serve(directory, input_stream, output_stream):
                 result = runtime.step()
             elif command == "read":
                 result = runtime.storage[request["buffer"]].tolist()
+            elif command == "write":
+                words = request["words"]
+                if not isinstance(words, list) or any(
+                    type(w) is not int or not 0 <= w <= 0xFFFFFFFF for w in words
+                ):
+                    raise ValueError("Invalid native word upload")
+                runtime.write_persistent(
+                    request["region"],
+                    request["word_offset"],
+                    np.array(words, np.uint32),
+                )
+                result = None
             elif command == "extend":
                 runtime.extend(load_variant(Path(request["directory"])))
                 result = None

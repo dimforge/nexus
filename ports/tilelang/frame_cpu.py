@@ -54,6 +54,23 @@ class CpuFrameSession:
         validate_growth(self.variants[-1]["manifest"], variant["manifest"])
         self.variants.append(variant)
 
+    def write_persistent(self, region, word_offset, words):
+        """Caller supplies valid kernel input words; checked bounds preserve guards."""
+        if self.poisoned:
+            raise RuntimeError("Poisoned frame")
+        r = self.variants[self.current]["manifest"]["persistent"].get(region)
+        if (
+            r is None
+            or type(word_offset) is not int
+            or word_offset < 0
+            or words.dtype != np.uint32
+            or words.ndim != 1
+            or word_offset + words.size > r["word_len"]
+        ):
+            raise ValueError("Invalid persistent write range or words")
+        start = r["word_start"] + word_offset
+        self.storage[r["buffer"]][start : start + words.size] = words
+
     def _compile(self, index):
         v = self.variants[index]
         return [

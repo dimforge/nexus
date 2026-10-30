@@ -134,6 +134,12 @@ class FrameManifestTests(unittest.TestCase):
         self.assertNotIn("SolverPoses", p)
         c.update(buffer_words={"FrameIndex": 2}, frames=8, trace_stride=48)
         self.assertEqual(persistent_regions(l, c)["Trajectory"]["word_len"], 384)
+        c["kind"] = "runtime_scene"
+        c["buffer_words"]["Gravity"] = 4
+        self.assertEqual(
+            persistent_regions(l, c)["Gravity"],
+            {"buffer": "Gravity", "word_start": 0, "word_len": 4},
+        )
 
     def test_export_requires_matching_compiled_schedule_and_real_gates(self):
         f = frame()

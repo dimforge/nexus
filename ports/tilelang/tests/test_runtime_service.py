@@ -68,6 +68,50 @@ class RuntimeServiceTests(unittest.TestCase):
             self.assertEqual(rows[6]["kind"], "runtime")
             self.assertEqual(rows[7], {"ok": None})
 
+    def test_write_protocol_checks_words_and_preserves_updates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_variant(root / "small", variant(1))
+            write_variant(root / "large", variant(8, 3))
+            requests = [
+                {
+                    "command": "write",
+                    "region": "state",
+                    "word_offset": 0,
+                    "words": [100, 200],
+                },
+                {
+                    "command": "write",
+                    "region": "state",
+                    "word_offset": 0,
+                    "words": [-1],
+                },
+                {
+                    "command": "write",
+                    "region": "state",
+                    "word_offset": 0,
+                    "words": [True],
+                },
+                {
+                    "command": "write",
+                    "region": "state",
+                    "word_offset": 1,
+                    "words": [9, 10],
+                },
+                {"command": "extend", "directory": str(root / "large")},
+                {"command": "step"},
+                {"command": "read", "buffer": "State"},
+            ]
+            out = io.StringIO()
+            serve(
+                root / "small", io.StringIO("\n".join(map(json.dumps, requests))), out
+            )
+            rows = list(map(json.loads, out.getvalue().splitlines()))
+            self.assertEqual(rows[1], {"ok": None})
+            for row in rows[2:5]:
+                self.assertEqual(row["kind"], "runtime")
+            self.assertEqual(rows[-1]["ok"][3:5], [101, 200])
+
     def test_modified_or_missing_artifact_inventory_rejects_load(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp) / "variant"
