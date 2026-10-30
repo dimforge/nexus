@@ -384,34 +384,37 @@ def _operation(l, c, operation):
                                     friction_rhs[0] = dot(drift, tangent)
                                     friction_rhs[1] = dot(drift, bitangent)
                                 limit = f32(Tiles, base + h["tangent"] + 3)
-                                tangent_limit = T.alloc_var("float32", init=0.0)
-                                twist_limit = T.alloc_var("float32", init=0.0)
+                                tangent_limit = T.alloc_local((1,), "float32")
+                                tangent_limit[0] = 0.0
+                                twist_limit = T.alloc_local((1,), "float32")
+                                twist_limit[0] = 0.0
                                 for k in T.serial(4):
                                     if k < count:
                                         impulse = f32(
                                             Tiles, base + t["normal_impulse"] + k
                                         )
-                                        tangent_limit += impulse
-                                        twist_limit += impulse * f32(
+                                        tangent_limit[0] += impulse
+                                        twist_limit[0] += impulse * f32(
                                             Tiles, base + t["radius"] + k
                                         )
-                                tangent_limit *= limit
-                                twist_limit *= limit
-                                twist = T.alloc_var("float32", init=0.0)
+                                tangent_limit[0] *= limit
+                                twist_limit[0] *= limit
+                                twist = T.alloc_local((1,), "float32")
+                                twist[0] = 0.0
                                 if count > 1:
                                     for d in T.serial(3):
                                         temp[d] = va[d + 3] - vb[d + 3]
                                     old_twist = f32(Tiles, base + h["off_b"] + 3)
-                                    twist = T.min(
+                                    twist[0] = T.min(
                                         T.max(
                                             old_twist
                                             - f32(Tiles, base + h["diag_b"] + 3)
                                             * dot(normal, temp),
-                                            -twist_limit,
+                                            -twist_limit[0],
                                         ),
-                                        twist_limit,
+                                        twist_limit[0],
                                     )
-                                    delta = twist - old_twist
+                                    delta = twist[0] - old_twist
                                     inertia(da, oa, normal, ia)
                                     inertia(db, ob, normal, ib)
                                     for d in T.serial(3):
@@ -456,9 +459,9 @@ def _operation(l, c, operation):
                                     tangent_new[0] * tangent_new[0]
                                     + tangent_new[1] * tangent_new[1]
                                 )
-                                if length > tangent_limit:
+                                if length > tangent_limit[0]:
                                     for d in T.serial(2):
-                                        tangent_new[d] *= tangent_limit / length
+                                        tangent_new[d] *= tangent_limit[0] / length
                                 delta0 = tangent_new[0] - old0
                                 delta1 = tangent_new[1] - old1
                                 for d in T.serial(3):
@@ -479,7 +482,7 @@ def _operation(l, c, operation):
                                         tangent_new[d], "uint32"
                                     )
                                 Tiles[base + h["off_b"] + 3] = T.reinterpret(
-                                    twist, "uint32"
+                                    twist[0], "uint32"
                                 )
                         wa = T.alloc_local((1,), "uint32")
                         wb = T.alloc_local((1,), "uint32")
