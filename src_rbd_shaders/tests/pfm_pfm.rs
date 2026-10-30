@@ -191,3 +191,50 @@ fn test_capsule_cuboid() {
         manifold.points_a.at(0).dist
     );
 }
+
+#[cfg(feature = "dim3")]
+#[test]
+fn degenerate_epa_faces_do_not_create_zero_normal_contacts() {
+    use crate::{PaddedVector, shapes::Triangle};
+    use glamx::{Quat, Vec3};
+    let half = Vec3::new(0.5, 0.7, 0.3);
+    let vertices = (0..8)
+        .map(|i| {
+            PaddedVector::new(Vec3::new(
+                if i & 1 == 0 { -half.x } else { half.x },
+                if i & 2 == 0 { -half.y } else { half.y },
+                if i & 4 == 0 { -half.z } else { half.z },
+            ))
+        })
+        .collect::<Vec<_>>();
+    let indices = [
+        0, 4, 6, 0, 6, 2, 1, 3, 7, 1, 7, 5, 0, 1, 5, 0, 5, 4, 2, 6, 7, 2, 7, 3, 0, 2, 3, 0, 3, 1,
+        4, 5, 7, 4, 7, 6,
+    ];
+    let cuboid = Shape::cuboid(half);
+    let polyhedron = Shape::convex_poly(0, 8, 0, indices.len() as u32);
+    let triangle = Shape::from_triangle(&Triangle::new(
+        Vec3::new(-0.5, -0.5, 0.0),
+        Vec3::new(0.5, -0.5, 0.0),
+        Vec3::new(0.0, 0.5, 0.1),
+    ));
+    for (a, b, rotation_scale) in [
+        (cuboid, polyhedron, 3.0),
+        (polyhedron, polyhedron, 2.0),
+        (triangle, triangle, 0.0),
+    ] {
+        let pose = Pose::from_rotation(Quat::from_scaled_axis(
+            Vec3::new(0.17, -0.11, 0.23) * rotation_scale,
+        ));
+        let manifold = pfm_pfm(pose, &a, 0.0, &b, 0.0, 0.02, &vertices, &indices);
+        // EPA is bounded and may fail, but a reported manifold needs a usable
+        // contact direction. These cases previously returned 1, 4 and 1 rows
+        // respectively, all with a zero normal.
+        assert!(
+            manifold.len == 0 || (manifold.normal_a.length_squared() - 1.0).abs() < 2.0e-6,
+            "invalid normal {:?} for {} contacts",
+            manifold.normal_a,
+            manifold.len
+        );
+    }
+}

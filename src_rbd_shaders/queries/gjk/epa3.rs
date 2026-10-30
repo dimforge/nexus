@@ -79,11 +79,18 @@ pub struct EpaResult {
 
 impl EpaResult {
     pub fn new(pt_a: Vec3, pt_b: Vec3, normal: Vec3, valid: bool) -> Self {
-        Self {
-            pt_a,
-            pt_b,
-            normal,
-            valid,
+        // A degenerate EPA face has no separating direction. Publishing it as a
+        // successful contact creates zero-normal solver rows for overlapping
+        // shapes. Preserve the bounded algorithm's failure result instead.
+        if valid && normal.length_squared() > FLT_EPS * FLT_EPS {
+            Self {
+                pt_a,
+                pt_b,
+                normal,
+                valid,
+            }
+        } else {
+            Self::default()
         }
     }
 }

@@ -141,7 +141,13 @@ def face_closest_points(Vertices, FPoints, FNormal, FBary, index, Output, Valid)
             + Vertices[FPoints[index, 1], 2, d] * FBary[index, 1]
         ) + Vertices[FPoints[index, 2], 2, d] * FBary[index, 2]
         Output[2, d] = FNormal[index, d]
-    Valid[0] = True
+    # Native EpaResult::new rejects a degenerate separating face.
+    length_squared = (
+        FNormal[index, 0] * FNormal[index, 0] + FNormal[index, 1] * FNormal[index, 1]
+    ) + FNormal[index, 2] * FNormal[index, 2]
+    Valid[0] = length_squared > T.float32(1e-7) * T.float32(1e-7)
+    if not Valid[0]:
+        none(Output, Valid)
 
 
 @T.macro
