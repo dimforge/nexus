@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "feature": "rbd.contact.twist.effective_mass3d",
+  "scope": "Current Rust twist-friction arithmetic on native compact prepared tiles with distinct ordinary body IDs and split velocity slots.",
+  "inputs": [
+    "Tiles",
+    "Velocities",
+    "Poses",
+    "Params"
+  ],
+  "outputs": [
+    "Tiles",
+    "Velocities"
+  ],
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "tolerance_reason": "Native f32 arithmetic with unchanged default stage tolerances.",
+  "preconditions": [
+    "Finite input and normalized frames, valid native ABI.",
+    "Disjoint velocity slots, including static slots.",
+    "Prepared constraints use 0 to 4 points; inactive lanes and all padding remain untouched."
+  ],
+  "invariants": [
+    "Exact IDs, guards, padding and read-only buffers.",
+    "Nonnegative solved normal impulses.",
+    "Central tangential impulse inside the manifold friction disk and angular impulse within the sum of normal-impulse times radius bounds.",
+    "Single-point solved twist impulse is zero."
+  ],
+  "outside_scope": [
+    "Contact preparation/recycling, hub gather, colored scheduling and full twist scenes.",
+    "2D and articulated multibodies.",
+    "Ascend execution."
+  ],
+  "known_gaps": [],
+  "required_cases": [
+    "n0-b1-f1-i1",
+    "n1-b1-f1-i1",
+    "n5-b1-f1-i1",
+    "n32-b1-f1-i1",
+    "n65-b1-f1-i1",
+    "n129-b1-f1-i1"
+  ]
+}
