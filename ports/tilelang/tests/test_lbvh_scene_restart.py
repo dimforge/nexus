@@ -40,6 +40,12 @@ class LbvhSceneRestartTests(restarts.SceneRestartTests):
         }
         return l, c, b, e, k
 
+    def test_snapshot_contracts_select_restart_validation(self):
+        for op in (*restarts.SceneRestartTests.operations, *self.operations):
+            contract = json.loads((HERE / f"contracts/{op}.json").read_text())
+            with self.subTest(operation=op):
+                self.assertEqual(contract["comparison"], "scene_restart_fields")
+
     def test_past_future_and_final_trace_are_exact(self):
         for frame in (0, 35, 36):
             l, c, b, e, k = self.fixture()

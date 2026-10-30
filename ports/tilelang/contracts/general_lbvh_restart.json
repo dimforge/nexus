@@ -237,7 +237,7 @@
     "LbvhSorted",
     "LbvhTree"
   ],
-  "comparison": "lbvh_scene_fields",
+  "comparison": "scene_restart_fields",
   "atol": 2e-06,
   "rtol": 2e-05,
   "physics": {
@@ -246,22 +246,19 @@
     "energy_per_body_allowance": 0.05
   },
   "preconditions": [
-    "Fresh zero-contact awake ordinary bodies; one identity-attached collider per body; unit dynamic mass and inverse principal inertia six",
-    "Eight color buckets and sixteen bounded deterministic Topo rounds; fixtures must finish with no unsolved active contacts",
-    "Four substeps, two biased PGS iterations, unit warmstart coefficient, no split hubs or multibodies",
-    "Independent interleaved batches; shared zero-response static slots are read-only during contact scatter",
-    "Two-leaf static mesh/polyline or wide box ground; seven convex dynamic shape types; buffers sized for worst-case pairs and deferred leaves before dispatch",
-    "Every frame recorded; bounded fixture configurations only; overflow is rejected before native integration"
+    "Freshly exported native ordinary-body snapshot at the recorded start frame, with physics, contact persistence and resident LBVH buffers restored",
+    "Exactly one target frame from the bounded native triangle trajectory: four substeps, two biased PGS iterations, eight colors and sixteen deterministic Topo rounds",
+    "Frame counter and current published counts agree with the snapshot; previous contact graph, response matrices and tree storage are independently checked; capacity overflow is rejected"
   ],
   "invariants": [
     "Device-resident collision, canonicalization, adjacency, coloring, preparation, warmstart, solve, integration, finalization and persistence; no CPU physics between stages or frames",
     "Integer identities, memberships, copied words, allocation bijections, read-only inputs and capacity guards are exact; legal atomic allocation order is compared semantically",
     "Active body and constraint arithmetic uses default f32 tolerances with only the explicitly named per-case, per-field numerical policy",
-    "Every recorded frame checks finite normalized state, unchanged static bodies, bounded penetration and energy",
+    "The replayed frame checks finite normalized state, unchanged static bodies, bounded penetration and energy",
     "Internal workspace above a published count may retain earlier-frame allocations; it is not interpreted as current state, and storage beyond the declared maximum capacity remains exact",
     "Deferred work is stably sorted by subshape then originating pair; reduction runs before contact canonicalization",
     "Both witnesses lie inside their shapes; normal, support distance and prediction checks apply independently of numeric parity",
-    "Final trajectory frame equals published body state exactly; counter, copied words and guard regions remain exact",
+    "The replayed trajectory row equals published body state exactly; every preceding and future trajectory word, copied word, counter and guard remains exact",
     "Contact bases are orthonormal, inertia is positive semidefinite and effective response is independently reconstructed from stored geometry",
     "The numerical exception is tied to this exact bounded scene configuration and its required restart fixtures; other cases and unknown fields keep default tolerances",
     "The resident LBVH program creates Morton keys, sorts, builds, refits and traverses the tree every frame. No host collision computation or brute-force pair fallback.",
@@ -269,9 +266,9 @@
     "Native LBVH uses a fixed 0.002 broad-phase margin. Preserve this distinct reference behavior; narrow phase still uses RbdSimParams prediction settings."
   ],
   "outside_scope": [
-    "Arbitrary runtime upload, backend selection, adaptive capacity resize/retry, joint/general-shape combined scenes, hubs, twist friction and unbounded Luby",
+    "Long trajectory accumulation, handled by the parent general LBVH scene contract",
+    "Arbitrary runtime snapshots, adaptive capacity growth, hubs and combined joint/general-shape scenes in this isolated operation",
     "Articulated multibodies, MPM and 2D",
-    "Resolution of isolated zero-distance contact numerical release blocks",
     "Ascend vendor compilation, execution, memory-model and performance qualification"
   ],
   "known_gaps": [
@@ -303,7 +300,7 @@
     "general_triangle-restart-119"
   ],
   "cached_warmstart_atol": 1e-05,
-  "tolerance_reason": "Default float tolerances remain 2e-6 absolute / 2e-5 relative. The explicitly named long-scene case uses the hashed per-field numerical_cases policy. Tangent response matrices use a relative Frobenius norm to handle near-zero off-diagonal entries; every matrix is also independently reconstructed from its stored geometry with the strict default tolerance. Required single-frame restart operations and all-frame physical bounds remain mandatory.",
+  "tolerance_reason": "Default float tolerances remain 2e-6 absolute / 2e-5 relative. Only the named identical-state restart cases and fields use the unchanged numerical_cases policy. Tangent response matrices use a relative Frobenius norm near zero off-diagonal entries and are independently reconstructed from geometry with the strict default tolerance. Snapshot prefix/suffix, counters, copied words, tree topology and guards remain exact.",
   "numerical_cases": {
     "general_triangle-restart-29": {
       "configuration": {

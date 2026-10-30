@@ -1,0 +1,24 @@
+test_bundle_and_return_round_trip (test_handoff.GeneralLbvhRestartHandoffTests.test_bundle_and_return_round_trip) ... FAIL
+test_first_kernel_alone_cannot_replace_program (test_handoff.GeneralLbvhRestartHandoffTests.test_first_kernel_alone_cannot_replace_program) ... ok
+test_missing_corrupt_and_padded_returned_buffers_fail (test_handoff.GeneralLbvhRestartHandoffTests.test_missing_corrupt_and_padded_returned_buffers_fail) ... ok
+test_missing_or_modified_cpu_oracle_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_missing_or_modified_cpu_oracle_is_rejected) ... ok
+test_modified_manifest_or_artifact_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_modified_manifest_or_artifact_is_rejected) ... ok
+test_no_npu_is_unavailable_not_passed (test_handoff.GeneralLbvhRestartHandoffTests.test_no_npu_is_unavailable_not_passed) ... ok
+test_path_escape_and_symlink_are_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_path_escape_and_symlink_are_rejected) ... ok
+test_unhashed_case_file_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_unhashed_case_file_is_rejected) ... ok
+test_unhashed_later_stage_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_unhashed_later_stage_is_rejected) ... ok
+test_wrong_session_and_missing_environment_are_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_wrong_session_and_missing_environment_are_rejected) ... ok
+
+======================================================================
+FAIL: test_bundle_and_return_round_trip (test_handoff.GeneralLbvhRestartHandoffTests.test_bundle_and_return_round_trip)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/test_handoff.py", line 137, in test_bundle_and_return_round_trip
+    self.assertFalse(self.compare())
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 10 tests in 3.982s
+
+FAILED (failures=1)

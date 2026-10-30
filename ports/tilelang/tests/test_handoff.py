@@ -371,5 +371,10 @@ class ColorRequirementsHandoffTests(HandoffTests):
     mutable_buffer = "Requirements"
 
 
+class GeneralLbvhRestartHandoffTests(ScanHandoffTests):
+    operation = "general_lbvh_restart"
+    mutable_buffer = "Velocities"
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,28 @@
+test_bundle_and_return_round_trip (test_handoff.GeneralLbvhRestartHandoffTests.test_bundle_and_return_round_trip) ... ok
+test_first_kernel_alone_cannot_replace_program (test_handoff.GeneralLbvhRestartHandoffTests.test_first_kernel_alone_cannot_replace_program) ... ok
+test_missing_corrupt_and_padded_returned_buffers_fail (test_handoff.GeneralLbvhRestartHandoffTests.test_missing_corrupt_and_padded_returned_buffers_fail) ... ok
+test_missing_or_modified_cpu_oracle_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_missing_or_modified_cpu_oracle_is_rejected) ... ok
+test_modified_manifest_or_artifact_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_modified_manifest_or_artifact_is_rejected) ... ok
+test_no_npu_is_unavailable_not_passed (test_handoff.GeneralLbvhRestartHandoffTests.test_no_npu_is_unavailable_not_passed) ... ok
+test_path_escape_and_symlink_are_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_path_escape_and_symlink_are_rejected) ... ok
+test_unhashed_case_file_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_unhashed_case_file_is_rejected) ... ok
+test_unhashed_later_stage_is_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_unhashed_later_stage_is_rejected) ... ok
+test_wrong_session_and_missing_environment_are_rejected (test_handoff.GeneralLbvhRestartHandoffTests.test_wrong_session_and_missing_environment_are_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 3.750s
+
+OK
+test_all_native_restarts (test_lbvh_scene_restart.LbvhSceneRestartTests.test_all_native_restarts) ... ok
+test_exact_buffer_guards (test_lbvh_scene_restart.LbvhSceneRestartTests.test_exact_buffer_guards) ... ok
+test_past_future_and_final_trace_are_exact (test_lbvh_scene_restart.LbvhSceneRestartTests.test_past_future_and_final_trace_are_exact) ... ok
+test_previous_contact_graph_is_checked (test_lbvh_scene_restart.LbvhSceneRestartTests.test_previous_contact_graph_is_checked) ... ok
+test_restart_normalization_preserves_inputs_and_guards (test_lbvh_scene_restart.LbvhSceneRestartTests.test_restart_normalization_preserves_inputs_and_guards) ... ok
+test_snapshot_contracts_select_restart_validation (test_lbvh_scene_restart.LbvhSceneRestartTests.test_snapshot_contracts_select_restart_validation) ... ok
+test_snapshot_counter_and_capacity_are_checked (test_lbvh_scene_restart.LbvhSceneRestartTests.test_snapshot_counter_and_capacity_are_checked) ... ok
+test_tree_and_pair_corruption_are_rejected_even_if_reference_matches (test_lbvh_scene_restart.LbvhSceneRestartTests.test_tree_and_pair_corruption_are_rejected_even_if_reference_matches) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.298s
+
+OK
