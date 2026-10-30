@@ -185,3 +185,7 @@ path = "src/render.rs"
 [[bin]]
 name = "point-queries"
 path = "src/point_queries.rs"
+
+[[bin]]
+name = "shape-queries"
+path = "src/shape_queries.rs"

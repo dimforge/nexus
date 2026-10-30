@@ -67,3 +67,12 @@ def support_face(half_height, radius, direction, Output, Count):
         for i in T.serial(4):
             Output[i, 1] = height
         Count[0] = 4
+
+
+@T.macro
+def project_local_point(height, radius, pt, out):
+    inside = T.alloc_local((1,), "bool")
+    project_local_point_on_boundary(height, radius, pt, out, inside)
+    if inside[0]:
+        for d in T.serial(3):
+            out[d] = pt[d]

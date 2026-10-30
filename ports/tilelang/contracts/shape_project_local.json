@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "feature": "rbd.query.shape_project_local3d",
+  "scope": "Native Shape solid/boundary local/world point wrappers for ball, cuboid, capsule, cone and cylinder, with native fallback for unsupported types.",
+  "inputs": [
+    "Shapes",
+    "Poses",
+    "Queries",
+    "Count",
+    "Results"
+  ],
+  "outputs": [
+    "Results"
+  ],
+  "comparison": "shape_query_fields",
+  "atol": 2e-06,
+  "rtol": 2e-05,
+  "geometry_atol": 8e-06,
+  "tolerance_reason": "Default native f32 point comparison; independent f64 distance/surface checks allow 8e-6 for two pose transforms and radial reconstruction.",
+  "preconditions": [
+    "Finite inputs, nonnegative dimensions, positive cone height and unit quaternions."
+  ],
+  "invariants": [
+    "Exact guards, inside flags and native unsupported-type fallback.",
+    "Independent solid membership, closest distance and surface checks.",
+    "At the ball center only, native boundary queries return NaN in all coordinates; retain this native singularity and reject NaN everywhere else."
+  ],
+  "outside_scope": [
+    "The native Shape wrappers do not project meshes, triangles or general convex shapes; they return the input unchanged.",
+    "Ascend execution"
+  ],
+  "known_gaps": [
+    {
+      "id": "native-ball-center-boundary",
+      "description": "Parry native boundary projection divides by zero at the ball center. The port preserves the native NaN result at this exact input; this is not a TileLang-only deviation.",
+      "blocks_release": false
+    }
+  ],
+  "required_cases": [
+    "n0",
+    "n1",
+    "n31",
+    "n32",
+    "n33",
+    "n63",
+    "n64",
+    "n65",
+    "n129"
+  ]
+}

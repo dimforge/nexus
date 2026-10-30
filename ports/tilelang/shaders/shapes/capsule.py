@@ -3,7 +3,7 @@
 import tilelang.language as T
 from kernel_support import cross, dot
 
-from .segment import project_local_point
+from .segment import project_local_point as project_segment
 
 
 @T.macro
@@ -29,7 +29,7 @@ def any_orthogonal_vector(v, out):
 def project_local_point_on_boundary(a, b, radius, pt, out, inside):
     axis_point = T.alloc_local((3,), "float32")
     delta = T.alloc_local((3,), "float32")
-    project_local_point(a, b, pt, axis_point)
+    project_segment(a, b, pt, axis_point)
     for d in T.serial(3):
         delta[d] = pt[d] - axis_point[d]
     axis_seg = T.alloc_local((3,), "float32")
@@ -121,3 +121,18 @@ def support_face(a, b, radius, direction, Output, Count):
                 T.if_then_else(value >= 0.0, b[d], a[d]) + direction[d] * scale
             )
         Count[0] = 1
+
+
+@T.macro
+def project_local_point(a, b, radius, pt, out):
+    axis_point = T.alloc_local((3,), "float32")
+    delta = T.alloc_local((3,), "float32")
+    project_segment(a, b, pt, axis_point)
+    for d in T.serial(3):
+        delta[d] = pt[d] - axis_point[d]
+    distance = T.sqrt(dot(delta, delta))
+    for d in T.serial(3):
+        out[d] = pt[d]
+    if distance > radius:
+        for d in T.serial(3):
+            out[d] = axis_point[d] + delta[d] * (radius / distance)

@@ -2329,6 +2329,58 @@
       "contract": "ports/tilelang/contracts/ray_point.json",
       "test_command": "python ports/tilelang/point_query_replay.py --operation ray_point --target c",
       "operation": "ray_point"
+    },
+    {
+      "id": "rbd.query.shape_project_local3d",
+      "coverage": "Native Shape solid/boundary local/world point wrappers for ball, cuboid, capsule, cone and cylinder, with native fallback for unsupported types.",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::Shape::project_local_point"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::project_local_point",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/shape_project_local.json",
+      "test_command": "python ports/tilelang/shape_query_replay.py --operation shape_project_local --target c",
+      "runner": "shape_query_replay.py",
+      "operation": "shape_project_local"
+    },
+    {
+      "id": "rbd.query.shape_project_local_boundary3d",
+      "coverage": "Native Shape solid/boundary local/world point wrappers for ball, cuboid, capsule, cone and cylinder, with native fallback for unsupported types.",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::Shape::project_local_point_on_boundary"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::project_local_point_on_boundary",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/shape_project_local_boundary.json",
+      "test_command": "python ports/tilelang/shape_query_replay.py --operation shape_project_local_boundary --target c",
+      "runner": "shape_query_replay.py",
+      "operation": "shape_project_local_boundary"
+    },
+    {
+      "id": "rbd.query.shape_project_world3d",
+      "coverage": "Native Shape solid/boundary local/world point wrappers for ball, cuboid, capsule, cone and cylinder, with native fallback for unsupported types.",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::Shape::project_point"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::project_point",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/shape_project_world.json",
+      "test_command": "python ports/tilelang/shape_query_replay.py --operation shape_project_world --target c",
+      "runner": "shape_query_replay.py",
+      "operation": "shape_project_world"
+    },
+    {
+      "id": "rbd.query.shape_project_world_boundary3d",
+      "coverage": "Native Shape solid/boundary local/world point wrappers for ball, cuboid, capsule, cone and cylinder, with native fallback for unsupported types.",
+      "reference_symbols": [
+        "src_rbd_shaders/shapes/shape.rs::Shape::project_point_on_boundary"
+      ],
+      "implementation": "ports/tilelang/shaders/shapes/shape.py::project_point_on_boundary",
+      "dependency_policy": "Conservative: every file in reference_scope invalidates this pilot. New files require explicit reconciliation. This is an impact envelope, not a claim that all watched features are ported.",
+      "contract": "ports/tilelang/contracts/shape_project_world_boundary.json",
+      "test_command": "python ports/tilelang/shape_query_replay.py --operation shape_project_world_boundary --target c",
+      "runner": "shape_query_replay.py",
+      "operation": "shape_project_world_boundary"
     }
   ],
   "targets": [

@@ -3,7 +3,7 @@
 import tilelang.language as T
 from kernel_support import cross, dot
 
-from .segment import project_local_point
+from .segment import project_local_point as project_segment
 
 
 @T.macro
@@ -31,7 +31,7 @@ def project_local_point_on_boundary(height, radius, pt, out, inside):
         apex = T.alloc_local((3,), "float32")
         apex[0], apex[1], apex[2] = T.float32(0), height, T.float32(0)
         side = T.alloc_local((3,), "float32")
-        project_local_point(apex, circle, pt, side)
+        project_segment(apex, circle, pt, side)
         axis = T.alloc_local((3,), "float32")
         axis[0], axis[1], axis[2] = T.float32(0), T.float32(-2) * height, T.float32(0)
         seg = T.alloc_local((3,), "float32")
@@ -109,3 +109,12 @@ def support_face(half_height, radius, direction, Output, Count):
         for i in T.serial(4):
             Output[i, 1] = height
         Count[0] = 4
+
+
+@T.macro
+def project_local_point(height, radius, pt, out):
+    inside = T.alloc_local((1,), "bool")
+    project_local_point_on_boundary(height, radius, pt, out, inside)
+    if inside[0]:
+        for d in T.serial(3):
+            out[d] = pt[d]

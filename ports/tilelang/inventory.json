@@ -1098,16 +1098,21 @@
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
-        "rbd.query.support_face3d"
+        "rbd.query.support_face3d",
+        "rbd.query.shape_project_local3d",
+        "rbd.query.shape_project_local_boundary3d",
+        "rbd.query.shape_project_world3d",
+        "rbd.query.shape_project_world_boundary3d"
       ],
       "symbols": [
         "project_local_point_on_boundary",
         "orthonormal_basis3",
         "any_orthogonal_vector",
         "local_support_point",
-        "support_face"
+        "support_face",
+        "project_local_point"
       ],
-      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
+      "remaining": "Public local/world solid/boundary point projection is now ported alongside collision support. Native ball-center boundary singularity is explicit in the query contract; final source reconciliation remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/cone.rs",
@@ -1119,14 +1124,19 @@
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
-        "rbd.query.support_face3d"
+        "rbd.query.support_face3d",
+        "rbd.query.shape_project_local3d",
+        "rbd.query.shape_project_local_boundary3d",
+        "rbd.query.shape_project_world3d",
+        "rbd.query.shape_project_world_boundary3d"
       ],
       "symbols": [
         "project_local_point_on_boundary",
         "local_support_point",
-        "support_face"
+        "support_face",
+        "project_local_point"
       ],
-      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
+      "remaining": "Public local/world solid/boundary point projection is now ported alongside collision support. Native ball-center boundary singularity is explicit in the query contract; final source reconciliation remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/convex_polyhedron.rs",
@@ -1158,14 +1168,19 @@
         "rbd.query.support_world3d",
         "rbd.query.cso_support3d",
         "rbd.query.gjk_closest3d",
-        "rbd.query.support_face3d"
+        "rbd.query.support_face3d",
+        "rbd.query.shape_project_local3d",
+        "rbd.query.shape_project_local_boundary3d",
+        "rbd.query.shape_project_world3d",
+        "rbd.query.shape_project_world_boundary3d"
       ],
       "symbols": [
         "project_local_point_on_boundary",
         "local_support_point",
-        "support_face"
+        "support_face",
+        "project_local_point"
       ],
-      "remaining": "Support faces and complete 3D polygonal clipping are implemented; composed PFM/deferred contacts, production scene coverage and hardware qualification remain separate."
+      "remaining": "Public local/world solid/boundary point projection is now ported alongside collision support. Native ball-center boundary singularity is explicit in the query contract; final source reconciliation remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/mod.rs",
@@ -1244,7 +1259,11 @@
         "rbd.pipeline.general_lbvh_restart3d",
         "rbd.pipeline.general_frame_retry3d",
         "rbd.pipeline.runtime_scene3d",
-        "rbd.pipeline.runtime_twist_scene3d"
+        "rbd.pipeline.runtime_twist_scene3d",
+        "rbd.query.shape_project_local3d",
+        "rbd.query.shape_project_local_boundary3d",
+        "rbd.query.shape_project_world3d",
+        "rbd.query.shape_project_world_boundary3d"
       ],
       "symbols": [
         "compute_aabb",
@@ -1257,9 +1276,12 @@
         "support_point",
         "support_face",
         "pfm_subshape",
-        "local_extent"
+        "local_extent",
+        "project_local_point",
+        "project_point",
+        "project_point_on_boundary"
       ],
-      "remaining": "Bounds, convex supports/faces and subshape conversion are connected to deferred collision; remaining public point-query conveniences and production runtime remain."
+      "remaining": "Public local/world solid/boundary point projection is now ported alongside collision support. Native ball-center boundary singularity is explicit in the query contract; final source reconciliation remains."
     },
     {
       "reference": "src_rbd_shaders/shapes/tetrahedron.rs",
@@ -1824,13 +1846,17 @@
     {
       "id": "rbd.queries",
       "description": "Ray and point queries",
-      "coverage": "unported",
+      "coverage": "partial",
       "operations": [
         "rbd.query.mesh_projection3d",
         "rbd.query.mesh_pseudo_normal3d",
-        "rbd.query.ray_point3d"
+        "rbd.query.ray_point3d",
+        "rbd.query.shape_project_local3d",
+        "rbd.query.shape_project_local_boundary3d",
+        "rbd.query.shape_project_world3d",
+        "rbd.query.shape_project_world_boundary3d"
       ],
-      "remaining": "Native primitive projection, simplex, support maps, GJK/EPA and polygonal query stages are translated. Remaining mesh point projection, pseudonormals and other public query helpers are tracked by module."
+      "remaining": "Mesh and native Shape point-query wrappers are implemented with explicit native singular behavior; final source qualification and inventory audit remain."
     },
     {
       "id": "rbd.contact.persistence",

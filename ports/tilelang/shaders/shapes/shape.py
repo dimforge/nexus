@@ -168,7 +168,15 @@ def project_local_point_on_boundary(layout):
         for d in T.serial(3):
             a[d] = f32(Shapes, base + sf["a"] + d)
             b[d] = f32(Shapes, base + sf["b"] + d)
-        if ty == types["cuboid"]:
+        inside[0] = False
+        for d in T.serial(3):
+            out[d] = pt[d]
+        if ty == types["ball"]:
+            distance_squared = dot(pt, pt)
+            inside[0] = distance_squared <= a[0] * a[0]
+            for d in T.serial(3):
+                out[d] = pt[d] * (a[0] / T.sqrt(distance_squared))
+        elif ty == types["cuboid"]:
             project_cuboid_boundary(a, pt, out, inside)
         elif ty == types["capsule"]:
             capsule.project_local_point_on_boundary(
@@ -411,3 +419,84 @@ def pfm_subshape(l):
                 Thickness[0] = f32(Shapes, base + sf["b"] + 3)
 
     return one
+
+
+def project_local_point(layout):
+    sf, types = layout["shape"], layout["shape_types"]
+
+    @T.macro
+    def one(Shapes, index, pt, out):
+        base = index * layout["shape_words"]
+        ty = T.cast(Shapes[base + sf["a"] + 3], "int32")
+        a = T.alloc_local((3,), "float32")
+        b = T.alloc_local((3,), "float32")
+        for d in T.serial(3):
+            a[d] = f32(Shapes, base + sf["a"] + d)
+            b[d] = f32(Shapes, base + sf["b"] + d)
+            out[d] = pt[d]
+        if ty == types["ball"]:
+            distance_squared = dot(pt, pt)
+            if distance_squared > a[0] * a[0]:
+                for d in T.serial(3):
+                    out[d] = pt[d] * (a[0] / T.sqrt(distance_squared))
+        elif ty == types["cuboid"]:
+            for d in T.serial(3):
+                shift = T.max(-a[d] - pt[d], 0.0) - T.max(pt[d] - a[d], 0.0)
+                out[d] = pt[d] + shift
+        elif ty == types["capsule"]:
+            capsule.project_local_point(a, b, f32(Shapes, base + sf["b"] + 3), pt, out)
+        elif ty == types["cone"]:
+            cone.project_local_point(a[0], a[1], pt, out)
+        elif ty == types["cylinder"]:
+            cylinder.project_local_point(a[0], a[1], pt, out)
+
+    return one
+
+
+def _project_world(layout, boundary):
+    solid = project_local_point(layout)
+    surface = project_local_point_on_boundary(layout)
+    types = layout["shape_types"]
+
+    @T.macro
+    def one(Shapes, index, q, translation, pt, out, inside):
+        ty = T.cast(
+            Shapes[index * layout["shape_words"] + layout["shape"]["a"] + 3], "int32"
+        )
+        inside[0] = False
+        for d in T.serial(3):
+            out[d] = pt[d]
+        if (
+            ty == types["ball"]
+            or ty == types["cuboid"]
+            or ty == types["capsule"]
+            or ty == types["cone"]
+            or ty == types["cylinder"]
+        ):
+            inverse = T.alloc_local((4,), "float32")
+            delta = T.alloc_local((3,), "float32")
+            local = T.alloc_local((3,), "float32")
+            projected = T.alloc_local((3,), "float32")
+            rotated = T.alloc_local((3,), "float32")
+            for d in T.serial(3):
+                inverse[d] = -q[d]
+                delta[d] = pt[d] - translation[d]
+            inverse[3] = q[3]
+            quat_rotate(inverse, delta, local)
+            if boundary:
+                surface(Shapes, index, local, projected, inside)
+            else:
+                solid(Shapes, index, local, projected)
+            quat_rotate(q, projected, rotated)
+            for d in T.serial(3):
+                out[d] = rotated[d] + translation[d]
+
+    return one
+
+
+def project_point(layout):
+    return _project_world(layout, False)
+
+
+def project_point_on_boundary(layout):
+    return _project_world(layout, True)
