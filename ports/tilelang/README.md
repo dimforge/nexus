@@ -51,7 +51,9 @@ by checked field indexing in callers. Namespace modules contain no separate kern
 Compiler utilities, launch adapters, replay controllers and evidence tooling live
 outside `shaders/`. `parity.json` maps stable feature IDs to reference symbols,
 implementations, contracts, replay runners and target evidence. Each operation has
-its own required cases. Watching a Rust file does not imply coverage of all its
+its own required cases. Contract `outside_scope` entries describe that operation
+in isolation; other registered operations and runtime acceptance tests can cover
+those capabilities. Watching a Rust file does not imply coverage of all its
 features. Keep paired Rust bug fixes, port changes, new features, numerical policies
 and intentional differences distinguishable in classified `changes/` records.
 

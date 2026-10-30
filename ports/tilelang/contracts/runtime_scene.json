@@ -305,14 +305,14 @@
   ],
   "outside_scope": [
     "Articulated multibodies, MPM and 2D.",
-    "Unrestricted scene lifecycle, public backend selection, unbounded coloring, other friction models, continuation uploads and unbounded trace duration remain in progress.",
+    "Public API lifecycle/control/capacity tests are separate native runtime acceptance gates; this replay checks its bounded uploaded scene or restart. Arbitrary external continuation archives, unbounded Luby coloring and Ascend execution are not certified.",
     "Ascend vendor compilation, execution, synchronization and performance."
   ],
   "known_gaps": [
     {
       "id": "native-runtime-public-integration",
-      "blocks_release": true,
-      "description": "Registered native scene import and connected kernels are not yet a complete public backend lifecycle."
+      "blocks_release": false,
+      "description": "Implemented by the public Rust TileLangSimulation API: adaptive capacity/coloring, live controls, checkpoints, solver/model changes and scene reconstruction. Native runtime tests and checkpoints 0085-0088, 0096 and 0103 cover these paths; current-source full runtime acceptance remains mandatory under COMPLETION.md. This operation alone does not qualify the public API or Ascend execution."
     }
   ]
 }

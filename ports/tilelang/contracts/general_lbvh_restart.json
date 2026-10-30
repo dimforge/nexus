@@ -269,7 +269,7 @@
     "Native LBVH uses a fixed 0.002 broad-phase margin. Preserve this distinct reference behavior; narrow phase still uses RbdSimParams prediction settings."
   ],
   "outside_scope": [
-    "Arbitrary runtime upload, backend selection, adaptive capacity resize/retry, LBVH, joint/general-shape combined scenes, hubs, twist friction and unbounded Luby",
+    "Arbitrary runtime upload, backend selection, adaptive capacity resize/retry, joint/general-shape combined scenes, hubs, twist friction and unbounded Luby",
     "Articulated multibodies, MPM and 2D",
     "Resolution of isolated zero-distance contact numerical release blocks",
     "Ascend vendor compilation, execution, memory-model and performance qualification"

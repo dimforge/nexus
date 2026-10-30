@@ -98,7 +98,7 @@
       "id": "rbd.scheduling.stabilize_body_constraint_ids",
       "operation": "stabilize",
       "runner": "primitives.py",
-      "coverage": "Exact per-body deterministic constraint-ID sort; other canonical ordering operations remain unported",
+      "coverage": "Exact per-body deterministic constraint-ID sort; key generation, radix sorting and manifold permutation have separate registered contracts",
       "reference_symbols": [
         "src_rbd_shaders/dynamics/canonical_order.rs::gpu_stabilize_body_constraint_ids"
       ],
@@ -1483,7 +1483,7 @@
     },
     {
       "id": "rbd.pipeline.general_scene3d",
-      "coverage": "Resident awake convex, mesh and polyline collision scenes with stable deferred sorting, reduction, persistent contacts, Coulomb TGS and all-frame diagnostics; public runtime and remaining variants still pending",
+      "coverage": "Resident awake convex, mesh and polyline collision scenes with stable deferred sorting, reduction, persistent contacts, Coulomb TGS and all-frame diagnostics; public runtime and other scene variants are covered by separate contracts and native API acceptance tests",
       "reference_symbols": [
         "src_rbd_shaders/dynamics/contact_links.rs::gpu_match_contact_links",
         "src_rbd_shaders/dynamics/contact_links.rs::find_previous_constraint",
@@ -2078,7 +2078,7 @@
     },
     {
       "id": "rbd.contact.twist.effective_mass3d",
-      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition is covered by runtime_twist_scene and public runtime acceptance tests.",
       "reference_symbols": [
         "src_rbd_shaders/dynamics/twist_friction.rs::compute_effective_masses",
         "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
@@ -2092,7 +2092,7 @@
     },
     {
       "id": "rbd.contact.twist.warmstart3d",
-      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition is covered by runtime_twist_scene and public runtime acceptance tests.",
       "reference_symbols": [
         "src_rbd_shaders/dynamics/twist_friction.rs::warmstart",
         "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
@@ -2106,7 +2106,7 @@
     },
     {
       "id": "rbd.contact.twist.solve3d",
-      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition is covered by runtime_twist_scene and public runtime acceptance tests.",
       "reference_symbols": [
         "src_rbd_shaders/dynamics/twist_friction.rs::solve",
         "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
@@ -2120,7 +2120,7 @@
     },
     {
       "id": "rbd.contact.twist.scale3d",
-      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition remains pending.",
+      "coverage": "Native compact twist tiles; independent prepared constraints with guarded writer ownership; scene composition is covered by runtime_twist_scene and public runtime acceptance tests.",
       "reference_symbols": [
         "src_rbd_shaders/dynamics/twist_friction.rs::scale_impulses",
         "src_rbd_shaders/dynamics/twist_tiles.rs::TwistTile"
