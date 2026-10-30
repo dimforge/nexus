@@ -149,6 +149,34 @@ class RuntimeSceneTests(unittest.TestCase):
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                 validate_case(l, c, b)
 
+    def test_padded_body_storage_does_not_overlaunch_active_body_kernels(self):
+        from ordered import validate_launch
+        from scene_kernels import make_program
+
+        l, c, _, _, _ = self.fixture("many-batches-f8")
+        self.assertEqual(c["body_count"], 48)
+        self.assertEqual(c["body_storage"], 120)
+        plans = make_program(l, c, "metal")
+        body_stages = {
+            "update_mprops",
+            "cleanup",
+            "init_bodies",
+            "init_increments",
+            "apply_increments",
+            "integrate",
+            "finalize",
+        }
+        checked = set()
+        for plan in plans:
+            kind = plan["name"].rsplit("_", 1)[0]
+            if kind in body_stages:
+                checked.add(kind)
+                self.assertEqual(plan["blocks"], 2 if kind == "cleanup" else 1)
+                validate_launch(
+                    plan["kernel"], "metal", plan["blocks"], plan["threads"]
+                )
+        self.assertEqual(checked, body_stages)
+
     def test_many_batch_prefix_scratch_and_guards(self):
         l, c, b, e, k = self.fixture("many-batches-f8")
         self.assertEqual(c["bucket_strides"], [264, 2, 1, 1])

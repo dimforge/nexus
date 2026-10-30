@@ -134,8 +134,13 @@ def run_stage(
                     if args.target == "cuda"
                     else args.target
                 )
+                from ordered import validate_launch
+
+                kernel = make_kernel(layout, case, args.target)
+                blocks, threads, iterations = launch(case)
+                validate_launch(kernel, args.target, blocks, threads)
                 artifact = tilelang.lower(
-                    make_kernel(layout, case, args.target),
+                    kernel,
                     target=requested,
                     enable_host_codegen=False,
                     enable_device_compile=False,
@@ -150,7 +155,6 @@ def run_stage(
                 source = artifact.kernel_source
                 if args.target == "metal":
                     source = "#pragma clang fp contract(off)\n" + source
-                blocks, threads, iterations = launch(case)
                 bindings = {
                     "schema": 1,
                     "entry": str(function.attrs["global_symbol"]),

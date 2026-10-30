@@ -68,6 +68,61 @@ class CompilationSession:
         return self.get(self.compiled, key, build, "c_compilation")
 
 
+def validate_launch(kernel, target, blocks, threads):
+    """Reject GPU dispatches that disagree with the original, unfused kernel IR.
+
+    Optimizers can replace a singleton block index with zero. Overlaunching that
+    kernel then runs the same writes concurrently, even when its bounds guard is
+    correct. The original IR retains these extents; generated source need not.
+    C executes its serial loop once and does not consume GPU launch dimensions.
+    """
+    if target == "c":
+        return
+    from tilelang import tvm
+
+    tir = getattr(tvm, "tir", None) or tvm.tirx
+    axes = {}
+
+    def record(axis, value):
+        if not isinstance(value, tir.IntImm) or int(value) < 1:
+            raise ValueError(f"Nonconstant or empty launch axis {axis}")
+        extent = int(value)
+        if axis in axes and axes[axis] != extent:
+            raise ValueError(f"Conflicting launch axis {axis}")
+        axes[axis] = extent
+
+    def visit(node):
+        if isinstance(node, tir.For) and node.thread_binding is not None:
+            record(node.thread_binding.thread_tag, node.extent)
+        if isinstance(node, tir.AttrStmt) and node.attr_key == "thread_extent":
+            record(node.node.thread_tag, node.value)
+        annotations = getattr(node, "annotations", {})
+        if "tl.launch_threads" in annotations:
+            for axis, extent in zip(
+                "xyz", annotations["tl.launch_threads"], strict=True
+            ):
+                record(f"threadIdx.{axis}", extent)
+
+    tir.stmt_functor.post_order_visit(kernel.body, visit)
+    if set(axes) - {
+        f"{kind}.{axis}" for kind in ("blockIdx", "threadIdx") for axis in "xyz"
+    }:
+        raise ValueError("Unsupported kernel launch axis")
+    if "blockIdx.x" not in axes or "threadIdx.x" not in axes:
+        raise ValueError("Missing kernel launch extents")
+    if any(
+        axes.get(f"{kind}.{axis}", 1) != 1
+        for kind in ("blockIdx", "threadIdx")
+        for axis in "yz"
+    ):
+        raise ValueError("Only one-dimensional kernel launches are supported")
+    expected = (axes["blockIdx.x"], axes["threadIdx.x"])
+    if (blocks, threads) != expected:
+        raise ValueError(
+            f"Kernel launch mismatch: requested {(blocks, threads)}, IR requires {expected}"
+        )
+
+
 def validate_program(program):
     """Validate the export ABI without importing a compiler or executing code."""
 
@@ -147,6 +202,10 @@ def lower_program(plans, arrays, target, iterations=1, *, session=None):
     lowered = {}
     session = session or CompilationSession()
     for i, plan in enumerate(plans):
+        try:
+            validate_launch(plan["kernel"], target, plan["blocks"], plan["threads"])
+        except ValueError as error:
+            raise ValueError(f"{plan['name']}: {error}") from error
         # Repeated stages may deliberately share the same immutable PrimFunc.
         # Reuse lowering only within this program, by object identity.
         key = id(plan["kernel"])

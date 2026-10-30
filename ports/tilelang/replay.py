@@ -192,8 +192,13 @@ def lower(layout, case, target):
     from kernels import make_kernel
 
     requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
+    from ordered import validate_launch
+
+    kernel = make_kernel(layout, case, target)
+    blocks = max((case.get("active_bodies", case["count"]) + 63) // 64, 1)
+    validate_launch(kernel, target, blocks, 64)
     artifact = tilelang.lower(
-        make_kernel(layout, case, target),
+        kernel,
         target=requested,
         enable_host_codegen=False,
         enable_device_compile=False,
@@ -222,7 +227,7 @@ def lower(layout, case, target):
         },
         "buffers": order,
         "storage_buffers": list(BUFFERS),
-        "blocks": max((case.get("active_bodies", case["count"]) + 63) // 64, 1),
+        "blocks": blocks,
         "threads": 64,
         "iterations": case["iterations"],
     }

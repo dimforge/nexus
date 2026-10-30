@@ -43,6 +43,7 @@ def make_program(l, c, target):
     cap = c["contact_capacity"]
     cs = c["contact_storage"]
     bg = max((bs + 63) // 64, 1)
+    active_groups = max((n + 63) // 64, 1)
 
     def identity(names):
         return {x: x for x in names}
@@ -90,7 +91,12 @@ def make_program(l, c, target):
                 batches=nb,
             )
             cache[kind] = body_kernels.make_kernel(l, case, target)
-        add(kind, cache[kind], identity(BODY), bg)
+        add(
+            kind,
+            cache[kind],
+            identity(BODY),
+            bg if kind == "cleanup" else active_groups,
+        )
 
     add(
         "reset_pair_count",
@@ -364,7 +370,7 @@ def make_program(l, c, target):
                 "Poses": "SolverPoses",
                 "Params": "Params",
             },
-            bg,
+            active_groups,
         )
         if has_joints:
             for col in range(c["joint_color_count"]):
