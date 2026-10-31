@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/all_examples3",
+    "--example",
+    "tileLangComparison",
+    "--tilelang",
+    "metal",
+    "--compare",
+    "--run",
+    "--headless",
+    "--snapshot",
+    "4",
+    "/private/tmp/nexus-tilelang-preparation-20261031/testbed-warm.png"
+  ],
+  "seconds": 3.759414041880518,
+  "code": 0
+}

@@ -1,0 +1,16 @@
+{
+  "scope": "Standalone runtime_compile subprocesses with the same archived native scene; separate empty cold cache then warm cache. Excludes testbed startup.",
+  "selected_default": 4,
+  "trials": [
+    {
+      "cold_seconds": 55.979718832997605,
+      "warm_seconds": 2.241918541956693,
+      "workers": 4
+    },
+    {
+      "cold_seconds": 54.41555895889178,
+      "warm_seconds": 2.246537874918431,
+      "workers": 8
+    }
+  ]
+}

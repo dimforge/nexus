@@ -1,0 +1,257 @@
+{
+  "stage": [
+    "collision_64"
+  ],
+  "total_seconds": 40.72120379214175,
+  "passes": [
+    {
+      "pass": "pass_fn",
+      "seconds": 0.004696917021647096
+    },
+    {
+      "pass": "pass_fn",
+      "seconds": 0.015023292042315006
+    },
+    {
+      "pass": "pass_fn",
+      "seconds": 0.0645117920357734
+    },
+    {
+      "pass": "tirx.BindTarget",
+      "seconds": 0.0003137909807264805
+    },
+    {
+      "pass": "tl.MaterializeKernelLaunch",
+      "seconds": 5.9582991525530815e-05
+    },
+    {
+      "pass": "tl.AddWrapperForSingleBufStore",
+      "seconds": 0.050516749965026975
+    },
+    {
+      "pass": "tl.LegalizeNegativeIndex",
+      "seconds": 0.8455274160951376
+    },
+    {
+      "pass": "tl.InjectAssumes",
+      "seconds": 0.0006053340621292591
+    },
+    {
+      "pass": "tl.Simplify",
+      "seconds": 1.2673583750147372
+    },
+    {
+      "pass": "tl.CanonicalizeLegacyReducer",
+      "seconds": 0.0007168750744313002
+    },
+    {
+      "pass": "tl.VerifyReducerEpoch",
+      "seconds": 0.0002612911630421877
+    },
+    {
+      "pass": "tl.VerifyBufferInit",
+      "seconds": 0.000966791994869709
+    },
+    {
+      "pass": "tl.IfStmtBinding",
+      "seconds": 0.013463374925777316
+    },
+    {
+      "pass": "tl.PipelinePlanning",
+      "seconds": 0.0006465420592576265
+    },
+    {
+      "pass": "tl.InjectSoftwarePipeline",
+      "seconds": 0.0015271669253706932
+    },
+    {
+      "pass": "tl.Simplify",
+      "seconds": 7.4881816250272095
+    },
+    {
+      "pass": "tl.MetalFragmentToSimdgroup",
+      "seconds": 0.009855582844465971
+    },
+    {
+      "pass": "tl.LayoutInference",
+      "seconds": 0.8516885419376194
+    },
+    {
+      "pass": "tl.ReducerPlanAndMaterialize",
+      "seconds": 0.22652633301913738
+    },
+    {
+      "pass": "tl.LowerTileOp",
+      "seconds": 0.6770133748650551
+    },
+    {
+      "pass": "tl.VerifyReducerConsumed",
+      "seconds": 0.002435249974951148
+    },
+    {
+      "pass": "tl.DecoupleTypeCast",
+      "seconds": 0.011476249899715185
+    },
+    {
+      "pass": "tl.LegalizeVectorizedLoop",
+      "seconds": 0.23103475011885166
+    },
+    {
+      "pass": "tl.LegalizeSafeMemoryAccess",
+      "seconds": 0.8963697920553386
+    },
+    {
+      "pass": "tl.LowerAccessPtr",
+      "seconds": 0.0006353340577334166
+    },
+    {
+      "pass": "tl.Simplify",
+      "seconds": 7.446849750122055
+    },
+    {
+      "pass": "tl.HoistNonRestrictParams",
+      "seconds": 0.00013770908117294312
+    },
+    {
+      "pass": "tl.PlanAndUpdateBufferAllocationLocation",
+      "seconds": 0.6989387499634176
+    },
+    {
+      "pass": "tl.HoistGlobalBufferAllocations",
+      "seconds": 0.0004636668600142002
+    },
+    {
+      "pass": "tl.LowerOpaqueBlock",
+      "seconds": 0.003754416946321726
+    },
+    {
+      "pass": "tl.Simplify",
+      "seconds": 7.348629750078544
+    },
+    {
+      "pass": "tirx.NarrowDataType",
+      "seconds": 0.0063110829796642065
+    },
+    {
+      "pass": "tl.FlattenBuffer",
+      "seconds": 0.36332937492989004
+    },
+    {
+      "pass": "tl.ConfigIndexBitwidth",
+      "seconds": 0.24597262521274388
+    },
+    {
+      "pass": "tirx.Simplify",
+      "seconds": 0.4658387501258403
+    },
+    {
+      "pass": "tl.VectorizeLoop",
+      "seconds": 0.0003421669825911522
+    },
+    {
+      "pass": "tir.StorageRewrite",
+      "seconds": 0.008695292053744197
+    },
+    {
+      "pass": "tl.LoopUnswitching",
+      "seconds": 0.0037580409552901983
+    },
+    {
+      "pass": "tl.UnrollLoop",
+      "seconds": 0.0005189999938011169
+    },
+    {
+      "pass": "s_tir.RenormalizeSplitPattern",
+      "seconds": 0.3006938330363482
+    },
+    {
+      "pass": "tirx.Simplify",
+      "seconds": 0.47641266603022814
+    },
+    {
+      "pass": "tirx.RemoveNoOp",
+      "seconds": 0.29047620901837945
+    },
+    {
+      "pass": "s_tir.HoistIfThenElse",
+      "seconds": 1.022025041980669
+    },
+    {
+      "pass": "tirx.VerifyMemory",
+      "seconds": 0.0007480829954147339
+    },
+    {
+      "pass": "tirx.AnnotateEntryFunc",
+      "seconds": 1.3084150850772858e-05
+    },
+    {
+      "pass": "s_tir.InferFragment",
+      "seconds": 0.001031125197187066
+    },
+    {
+      "pass": "tl.LowerThreadAllreduce",
+      "seconds": 0.0011302498169243336
+    },
+    {
+      "pass": "tl.AnnotateDeviceRegions",
+      "seconds": 5.665933713316917e-06
+    },
+    {
+      "pass": "tl.SplitHostDevice",
+      "seconds": 0.009935624897480011
+    },
+    {
+      "pass": "tl.AnnotateReadOnlyParams",
+      "seconds": 0.0003851249348372221
+    },
+    {
+      "pass": "tl.MergeSharedMemoryAllocations",
+      "seconds": 0.0003570839762687683
+    },
+    {
+      "pass": "tl.ThreadSync",
+      "seconds": 2.833398041781038
+    },
+    {
+      "pass": "tl.ThreadSync",
+      "seconds": 2.8676492078229785
+    },
+    {
+      "pass": "tl.MergeIfStmt",
+      "seconds": 0.002704374957829714
+    },
+    {
+      "pass": "tl.MakePackedAPI",
+      "seconds": 0.004160583019256592
+    },
+    {
+      "pass": "tl.Simplify",
+      "seconds": 2.7278121248818934
+    },
+    {
+      "pass": "tl.LowerDeviceKernelLaunch",
+      "seconds": 0.0016466660890728235
+    },
+    {
+      "pass": "tirx.Filter",
+      "seconds": 7.345806807279587e-05
+    },
+    {
+      "pass": "tirx.Filter",
+      "seconds": 8.750008419156075e-06
+    },
+    {
+      "pass": "tl.LowerIntrin",
+      "seconds": 0.22284854110330343
+    },
+    {
+      "pass": "tirx.Simplify",
+      "seconds": 0.4545064999256283
+    },
+    {
+      "pass": "pass_fn",
+      "seconds": 0.017066790955141187
+    }
+  ],
+  "source_identical": true
+}

@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests ../../src_viewer/lib.rs (target/debug/deps/nexus_viewer3d-3a857ac10f824079)
+
+running 2 tests
+TileLangMetal cold: 44.590s Some(CacheStats { program_hits: 0, program_misses: 1, lowering_hits: 0, lowering_misses: 77, binary_hits: 0, binary_misses: 73, invalid_entries: 0 })
+TileLangMetal restart: 0.003s
+TileLangMetal switched height 3: 2.941s Some(CacheStats { program_hits: 1, program_misses: 0, lowering_hits: 0, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+TileLangMetal switched height 2: 2.750s Some(CacheStats { program_hits: 1, program_misses: 0, lowering_hits: 0, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+test tilelang::tests::c_kernel_cache_and_restart has been running for over 60 seconds
+test tilelang::tests::metal_kernel_cache_and_restart has been running for over 60 seconds
+TileLangC cold: 72.510s Some(CacheStats { program_hits: 0, program_misses: 1, lowering_hits: 0, lowering_misses: 77, binary_hits: 0, binary_misses: 73, invalid_entries: 0 })
+TileLangC restart: 0.000s
+TileLangC switched height 3: 10.189s Some(CacheStats { program_hits: 1, program_misses: 0, lowering_hits: 0, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+TileLangC switched height 2: 9.971s Some(CacheStats { program_hits: 1, program_misses: 0, lowering_hits: 0, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+test tilelang::tests::metal_kernel_cache_and_restart ... ok
+test tilelang::tests::c_kernel_cache_and_restart ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 171.63s

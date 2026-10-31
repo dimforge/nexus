@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "-p",
+    "nexus_viewer3d",
+    "--features",
+    "tilelang,metal",
+    "--lib",
+    "kernel_cache_and_restart",
+    "--",
+    "--include-ignored",
+    "--test-threads=2",
+    "--nocapture"
+  ],
+  "seconds": 174.00704037514515,
+  "code": 0
+}

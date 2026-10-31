@@ -1,0 +1,8 @@
+Smoke output: /Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/results-smoke-0122/metal-7utmlxlc
+Smoke: unit-regressions (0.1s elapsed)
+Smoke: free_step (17.8s elapsed)
+Smoke: colored_program (20.7s elapsed)
+Smoke: joint_program (30.6s elapsed)
+Smoke: analytic_collision (48.6s elapsed)
+Smoke: twist_solve (80.9s elapsed)
+Smoke passed: 83.3s; /Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/results-smoke-0122/metal-7utmlxlc/smoke.json

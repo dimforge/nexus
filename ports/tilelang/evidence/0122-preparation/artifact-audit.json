@@ -1,0 +1,196 @@
+{
+  "runtime_specializations": [
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 0,
+        "binary_misses": 73,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 77,
+        "program_hits": 0,
+        "program_misses": 1
+      },
+      "current_sources": true,
+      "files": 311,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangC-11370-1793441710700634000/variant-0",
+      "target": "c"
+    },
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 73,
+        "binary_misses": 0,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 0,
+        "program_hits": 1,
+        "program_misses": 0
+      },
+      "current_sources": true,
+      "files": 311,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangC-11370-1793441783245360000/variant-0",
+      "target": "c"
+    },
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 73,
+        "binary_misses": 0,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 0,
+        "program_hits": 1,
+        "program_misses": 0
+      },
+      "current_sources": true,
+      "files": 311,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangC-11370-1793441793447538000/variant-0",
+      "target": "c"
+    },
+    {
+      "archive_files": 17,
+      "cache": null,
+      "current_sources": true,
+      "files": 238,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangC-11370-1793441803430164000/variant-0",
+      "target": "c"
+    },
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 0,
+        "binary_misses": 73,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 77,
+        "program_hits": 0,
+        "program_misses": 1
+      },
+      "current_sources": true,
+      "files": 311,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangMetal-11370-1793441710700663000/variant-0",
+      "target": "metal"
+    },
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 73,
+        "binary_misses": 0,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 0,
+        "program_hits": 1,
+        "program_misses": 0
+      },
+      "current_sources": true,
+      "files": 311,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangMetal-11370-1793441755706919000/variant-0",
+      "target": "metal"
+    },
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 73,
+        "binary_misses": 0,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 0,
+        "program_hits": 1,
+        "program_misses": 0
+      },
+      "current_sources": true,
+      "files": 311,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangMetal-11370-1793441758881872000/variant-0",
+      "target": "metal"
+    },
+    {
+      "archive_files": 17,
+      "cache": null,
+      "current_sources": true,
+      "files": 238,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/cache-regression-work/TileLangMetal-11370-1793441761876489000/variant-0",
+      "target": "metal"
+    },
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 0,
+        "binary_misses": 76,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 80,
+        "program_hits": 0,
+        "program_misses": 1
+      },
+      "current_sources": true,
+      "files": 317,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/testbed-work/TileLangMetal-10641-1793441597885988000/variant-0",
+      "target": "metal"
+    },
+    {
+      "archive_files": 17,
+      "cache": {
+        "binary_hits": 76,
+        "binary_misses": 0,
+        "invalid_entries": 0,
+        "lowering_hits": 0,
+        "lowering_misses": 0,
+        "program_hits": 1,
+        "program_misses": 0
+      },
+      "current_sources": true,
+      "files": 317,
+      "llvm_probe_verified": true,
+      "path": "/private/tmp/nexus-tilelang-preparation-20261031/testbed-work/TileLangMetal-11195-1793441653288491000/variant-0",
+      "target": "metal"
+    }
+  ],
+  "smoke": [
+    {
+      "cases": 3,
+      "full_evidence_state": "diagnostic_only",
+      "operation": "free_step",
+      "state": "executed",
+      "verified_files": 105
+    },
+    {
+      "cases": 2,
+      "full_evidence_state": "diagnostic_only",
+      "operation": "colored_program",
+      "state": "executed",
+      "verified_files": 80
+    },
+    {
+      "cases": 1,
+      "full_evidence_state": "diagnostic_only",
+      "operation": "joint_program",
+      "state": "executed",
+      "verified_files": 33
+    },
+    {
+      "cases": 3,
+      "full_evidence_state": "diagnostic_only",
+      "operation": "analytic_collision",
+      "state": "executed",
+      "verified_files": 162
+    },
+    {
+      "cases": 2,
+      "full_evidence_state": "diagnostic_only",
+      "operation": "twist_solve",
+      "state": "executed",
+      "verified_files": 26
+    }
+  ],
+  "status": "passed"
+}
