@@ -253,6 +253,25 @@ def validate_program(program):
             or bindings["blocks"] * bindings["threads"] > (1 << 64) - 1
         ):
             raise ValueError("Invalid program kernel ABI")
+        shared = bindings.get("shared_memory_bytes", 0)
+        if type(shared) is not int or not 0 <= shared <= 0xFFFFFFFF:
+            raise ValueError("Invalid dynamic shared-memory size")
+        virtual = stage.get("virtual_grid")
+        if virtual is not None:
+            if (
+                not isinstance(virtual, dict)
+                or set(virtual) != {"buffer", "word", "capacity_blocks"}
+                or not isinstance(virtual["buffer"], str)
+                or type(virtual["word"]) is not int
+                or virtual["word"] < 0
+                or (virtual["word"] + 3) * 4 > physical.get(virtual["buffer"], 0)
+                or not positive(virtual["capacity_blocks"])
+                or bindings["blocks"] > virtual["capacity_blocks"]
+                or stage.get("buffer_map", {}).get("NexusDispatch") != virtual["buffer"]
+                or "NexusDispatch" not in bindings["buffers"]
+                or "indirect" in stage
+            ):
+                raise ValueError("Invalid virtual-grid dispatch contract")
         indirect = stage.get("indirect")
         if indirect is not None:
             if (
@@ -276,8 +295,13 @@ def validate_program(program):
 
 def lower_program(plans, arrays, target, iterations=1, *, session=None):
     from compiler_intrinsics import register_intrinsics
+    from device_compiler import launch_metadata
 
     register_intrinsics(target)
+    if target in ("cuda", "ascend"):
+        from virtual_dispatch import virtualize
+
+        plans = [virtualize(plan, arrays) for plan in plans]
 
     program = {
         "schema": 2,
@@ -330,6 +354,7 @@ def lower_program(plans, arrays, target, iterations=1, *, session=None):
             "blocks": plan["blocks"],
             "threads": plan["threads"],
             "iterations": 1,
+            **(launch_metadata(function) if target in ("cuda", "ascend") else {}),
         }
         program["stages"].append(
             {
@@ -338,6 +363,11 @@ def lower_program(plans, arrays, target, iterations=1, *, session=None):
                 "bindings": bindings,
                 "buffer_map": mapping,
                 **({"indirect": plan["indirect"]} if "indirect" in plan else {}),
+                **(
+                    {"virtual_grid": plan["virtual_grid"]}
+                    if "virtual_grid" in plan
+                    else {}
+                ),
             }
         )
     return sources, validate_program(program)

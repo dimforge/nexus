@@ -1,0 +1,9 @@
+{
+  "id": "0146-device-virtual-dispatch",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d", "rbd.broadphase.lbvh_pairs3d"],
+  "kinds": ["optimization", "abi", "bugfix", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Lower live indirect grids to workgroup-uniform device-side virtual loops for CUDA/Ascend; share live state copies, six cache swaps and color conditions with Metal.",
+  "regressions": ["Real Metal tests passed for zero work, multiple virtual waves, partial groups, capacity clamping and shared-memory reuse, plus a fresh Rust-reference 129-body LBVH case. CUDA/Ascend shared-memory and argument source checks passed.", "Frame manifest regression verifies the added dispatch argument against the original grid, preserving gate mappings and rejecting altered capacity/arguments. Full-scene preparation exposed compiler-generated float pointer views; Ascend wrapper now preserves those views and checks exact argument order."],
+  "differences": ["At most 256 physical groups emulate virtual dispatch without CPU count readback. Cooperative launches retain their original shape. Ascend uses its own SIMT thread binding. Dynamic shared-memory sizes come from compiler metadata. No arithmetic or tolerance change; actual CUDA/Ascend compiler/device synchronization and performance remain unqualified."]
+}

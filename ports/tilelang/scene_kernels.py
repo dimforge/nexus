@@ -458,7 +458,7 @@ def make_program(l, c, target):
 
         add(
             "persist_states",
-            copy_live_states(l, c),
+            copy_live_states(l, c, target),
             identity(["States", "Plan"]),
             max((cap + 63) // 64, 1),
         )

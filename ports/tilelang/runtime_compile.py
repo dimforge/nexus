@@ -108,7 +108,7 @@ def specialize(
     initial["ColorBudget"] = np.array([case["rounds"], 0xDEADBEEF], np.uint32)
     initial["ColorRequirements"] = np.full(5, 0xDEADBEEF, np.uint32)
     case["buffer_words"].update(ColorBudget=2, ColorRequirements=5)
-    if target == "metal":
+    if target in ("metal", "cuda", "ascend"):
         from scene_execution import grid_words
 
         case["native_schedule"] = True
@@ -213,9 +213,11 @@ def specialize(
     return metadata
 
 
-def load_variant(directory):
+def load_variant(directory, *, expected_target=None):
     directory = Path(directory)
     metadata = json.loads((directory / "specialization.json").read_text())
+    if expected_target is not None and metadata.get("target", "c") != expected_target:
+        raise ValueError("Specialization target differs from runtime backend")
     if metadata["schema"] != 1:
         raise ValueError("Invalid specialization metadata")
     for name, expected in metadata["files"].items():

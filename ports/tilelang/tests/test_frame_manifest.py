@@ -56,6 +56,39 @@ def frame():
 
 
 class FrameManifestTests(unittest.TestCase):
+    def test_virtual_grid_adds_only_the_verified_dispatch_binding(self):
+        from unittest.mock import patch
+
+        original = frame()
+        program = original["program"]
+        plans = copy.deepcopy(program["stages"])
+        plans[0]["capacity_gate"] = dict(
+            original["gates"][0], counters=[{"buffer": "A", "word": 0}]
+        )
+        plans[0]["capacity_gate"].pop("after_stage")
+        plans[1].update(blocks=16, indirect={"buffer": "Count", "word": 0})
+        stage = program["stages"][1]
+        stage["virtual_grid"] = {"buffer": "Count", "word": 0, "capacity_blocks": 16}
+        stage["buffer_map"]["NexusDispatch"] = "Count"
+        stage["bindings"]["buffers"].append("NexusDispatch")
+        stage["bindings"]["storage_buffers"].append("NexusDispatch")
+        stage["bindings"]["buffer_bytes"]["NexusDispatch"] = 16
+        case = {"kind": "analytic_scene", "buffer_words": {}}
+        with patch(
+            "frame_manifest.persistent_regions", return_value=original["persistent"]
+        ):
+            result = from_program({}, case, plans, program)
+            self.assertEqual(
+                result["gates"][0]["counters"], [{"buffer": "Count", "word": 0}]
+            )
+            stage["virtual_grid"]["capacity_blocks"] = 15
+            with self.assertRaisesRegex(ValueError, "virtual grid differs"):
+                from_program({}, case, plans, program)
+            stage["virtual_grid"]["capacity_blocks"] = 16
+            stage["buffer_map"]["A"] = "Count"
+            with self.assertRaisesRegex(ValueError, "stage differs"):
+                from_program({}, case, plans, program)
+
     def test_valid_control_abi(self):
         validate_frame(frame())
 

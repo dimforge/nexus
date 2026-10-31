@@ -154,7 +154,16 @@ def from_program(l, c, plans, program):
         raise ValueError("Frame schedule differs from the compiled program")
     gates = []
     for plan, stage in zip(plans, program["stages"]):
-        if plan["name"] != stage["name"] or plan["buffer_map"] != stage["buffer_map"]:
+        mapping = plan["buffer_map"]
+        if "virtual_grid" in stage:
+            indirect = plan.get("indirect")
+            if indirect is None or stage["virtual_grid"] != {
+                **indirect,
+                "capacity_blocks": plan["blocks"],
+            }:
+                raise ValueError("Frame virtual grid differs from original dispatch")
+            mapping = {**mapping, "NexusDispatch": indirect["buffer"]}
+        if plan["name"] != stage["name"] or mapping != stage["buffer_map"]:
             raise ValueError("Frame stage differs from the compiled ABI")
         local_gates = plan.get("capacity_gates", [])
         if "capacity_gate" in plan:

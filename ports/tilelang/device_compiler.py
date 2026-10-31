@@ -37,8 +37,9 @@ def launch_metadata(function):
 def ascend_wrapper(source, bindings):
     """Follow the pinned TLAscendSourceWrapper triple-chevron ABI.
 
-    Exported Nexus tensors are uint32 storage words. Reject a different generated
-    signature rather than guessing argument types or relying on implicit casts.
+    Exported Nexus tensors are uint32 storage words. The compiler can expose
+    their typed 32-bit views; cast pointers without converting stored values.
+    Reject other signatures and require exact compiler-owned argument order.
     """
     entry = bindings["entry"]
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", entry):
@@ -56,13 +57,16 @@ def ascend_wrapper(source, bindings):
         raise ValueError("Ascend argument count differs from binding manifest")
     arguments = []
     for i, parameter in enumerate(parameters):
-        # Lowered parameters may be const/restrict; every public buffer is words.
-        if not re.fullmatch(
-            r"(?:const\s+)?__gm__\s+(?:const\s+)?uint32_t\s*\*\s*(?:__restrict__\s+)?[A-Za-z_]\w*",
+        parameter_type = re.fullmatch(
+            r"(?:const\s+)?__gm__\s+(?:const\s+)?(uint32_t|int32_t|float)\s*\*\s*(?:__restrict__\s+)?([A-Za-z_]\w*)",
             parameter,
-        ):
+        )
+        if parameter_type is None:
             raise ValueError(f"Unsupported generated Ascend parameter: {parameter}")
-        arguments.append(f"reinterpret_cast<uint32_t*>(args[{i}])")
+        dtype, name = parameter_type.groups()
+        if name != bindings["buffers"][i]:
+            raise ValueError("Ascend parameter order differs from binding manifest")
+        arguments.append(f"reinterpret_cast<{dtype}*>(args[{i}])")
     shared = bindings.get("shared_memory_bytes", 0)
     return (
         source

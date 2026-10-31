@@ -15,76 +15,94 @@ def grid_words(case):
     return 3 * (COLOR_BASE + case["color_stride"])
 
 
-def make_grids(layout, case, kind):
+def make_grids(layout, case, kind, target="metal"):
     sizes = case["buffer_words"]
     cap = case["contact_capacity"]
     nb = case["batches"]
     stride = case["color_stride"]
 
-    @T.prim_func
-    def kernel(
-        PairCount: T.Tensor((sizes["PairCount"],), "uint32"),
-        Plan: T.Tensor((sizes["Plan"],), "uint32"),
-        Buckets: T.Tensor((sizes["Buckets"],), "uint32"),
-        Dispatches: T.Tensor((sizes["Dispatches"],), "uint32"),
-    ):
-        with T.Kernel(1, threads=64):
-            lane = T.get_thread_binding()
-            if kind == "pairs":
-                if lane == 0:
-                    Dispatches[0] = T.max(
-                        T.uint32(1),
-                        T.ceildiv(
-                            T.min(PairCount[0], T.uint32(case["pair_capacity"])), 64
-                        ),
+    @T.macro
+    def publish(PairCount, Plan, Buckets, Dispatches, lane):
+        if kind == "pairs":
+            if lane == 0:
+                Dispatches[0] = T.max(
+                    T.uint32(1),
+                    T.ceildiv(T.min(PairCount[0], T.uint32(case["pair_capacity"])), 64),
+                )
+                Dispatches[1], Dispatches[2] = T.uint32(1), T.uint32(1)
+        elif kind == "contacts":
+            if lane < 3:
+                count = T.alloc_local((1,), "uint32")
+                count[0] = Plan[layout["plan"]["bound"]]
+                if lane == 1:
+                    count[0] = Plan[layout["plan"]["pfm_base"]]
+                if lane == 2:
+                    count[0] = Plan[layout["plan"]["pfm_len"]]
+                slot = (1 + lane) * 3
+                # Key generation publishes SortCount even for an empty frame.
+                Dispatches[slot] = T.max(
+                    T.uint32(1), T.ceildiv(T.min(count[0], T.uint32(cap)), 64)
+                )
+                Dispatches[slot + 1], Dispatches[slot + 2] = (
+                    T.uint32(1),
+                    T.uint32(1),
+                )
+        else:
+            if lane == 0:
+                Dispatches[12] = T.ceildiv(
+                    T.min(Buckets[stride * nb - 1], T.uint32(cap)), 64
+                )
+                Dispatches[13], Dispatches[14] = T.uint32(1), T.uint32(1)
+            if lane > 0 and lane < stride - 1:
+                start = Buckets[lane * nb - 1]
+                end = Buckets[(lane + 1) * nb - 1]
+                slot = (COLOR_BASE + lane) * 3
+                Dispatches[slot] = T.ceildiv(T.min(end - start, T.uint32(cap)), 64)
+                Dispatches[slot + 1], Dispatches[slot + 2] = (
+                    T.uint32(1),
+                    T.uint32(1),
+                )
+
+    if target == "ascend":
+        import tilelang.ascend.language as A
+
+        @A.prim_func
+        def kernel(
+            PairCount: T.Tensor((sizes["PairCount"],), "uint32"),
+            Plan: T.Tensor((sizes["Plan"],), "uint32"),
+            Buckets: T.Tensor((sizes["Buckets"],), "uint32"),
+            Dispatches: T.Tensor((sizes["Dispatches"],), "uint32"),
+        ):
+            with A.Kernel(1):
+                with A.SimtVF(threads=64):
+                    publish(
+                        PairCount, Plan, Buckets, Dispatches, A.get_thread_binding()
                     )
-                    Dispatches[1], Dispatches[2] = T.uint32(1), T.uint32(1)
-            elif kind == "contacts":
-                if lane < 3:
-                    count = T.alloc_local((1,), "uint32")
-                    count[0] = Plan[layout["plan"]["bound"]]
-                    if lane == 1:
-                        count[0] = Plan[layout["plan"]["pfm_base"]]
-                    if lane == 2:
-                        count[0] = Plan[layout["plan"]["pfm_len"]]
-                    slot = (1 + lane) * 3
-                    # Key generation publishes SortCount even for an empty frame.
-                    Dispatches[slot] = T.max(
-                        T.uint32(1), T.ceildiv(T.min(count[0], T.uint32(cap)), 64)
-                    )
-                    Dispatches[slot + 1], Dispatches[slot + 2] = (
-                        T.uint32(1),
-                        T.uint32(1),
-                    )
-            else:
-                if lane == 0:
-                    Dispatches[12] = T.ceildiv(
-                        T.min(Buckets[stride * nb - 1], T.uint32(cap)), 64
-                    )
-                    Dispatches[13], Dispatches[14] = T.uint32(1), T.uint32(1)
-                if lane > 0 and lane < stride - 1:
-                    start = Buckets[lane * nb - 1]
-                    end = Buckets[(lane + 1) * nb - 1]
-                    slot = (COLOR_BASE + lane) * 3
-                    Dispatches[slot] = T.ceildiv(T.min(end - start, T.uint32(cap)), 64)
-                    Dispatches[slot + 1], Dispatches[slot + 2] = (
-                        T.uint32(1),
-                        T.uint32(1),
-                    )
+    else:
+
+        @T.prim_func
+        def kernel(
+            PairCount: T.Tensor((sizes["PairCount"],), "uint32"),
+            Plan: T.Tensor((sizes["Plan"],), "uint32"),
+            Buckets: T.Tensor((sizes["Buckets"],), "uint32"),
+            Dispatches: T.Tensor((sizes["Dispatches"],), "uint32"),
+        ):
+            with T.Kernel(1, threads=64):
+                publish(PairCount, Plan, Buckets, Dispatches, T.get_thread_binding())
 
     return kernel
 
 
 def apply_indirect_dispatches(plans, layout, case, target):
-    if target != "metal":
-        raise ValueError("Native indirect scene scheduling is qualified on Metal only")
+    if target not in ("metal", "cuda", "ascend"):
+        raise ValueError("Device scheduling requires a GPU/NPU target")
     result = []
 
     def publish(kind):
         result.append(
             {
                 "name": "dispatch_" + kind,
-                "kernel": make_grids(layout, case, kind),
+                "kernel": make_grids(layout, case, kind, target),
                 "buffer_map": {
                     n: n for n in ("PairCount", "Plan", "Buckets", "Dispatches")
                 },
@@ -153,22 +171,38 @@ def apply_indirect_dispatches(plans, layout, case, target):
     return result
 
 
-def copy_live_states(layout, case):
+def copy_live_states(layout, case, target="metal"):
     """The ABI places both state generations in one allocation; copy live rows."""
     sizes = case["buffer_words"]
     half = case["contact_storage"] * layout["state_words"]
     groups = max(1, (case["contact_capacity"] + 63) // 64)
 
-    @T.prim_func
-    def kernel(
-        States: T.Tensor((sizes["States"],), "uint32"),
-        Plan: T.Tensor((sizes["Plan"],), "uint32"),
-    ):
-        with T.Kernel(groups, threads=64) as group:
-            row = group * 64 + T.get_thread_binding()
-            if row < Plan[layout["plan"]["bound"]]:
-                for word in T.serial(layout["state_words"]):
-                    i = row * layout["state_words"] + word
-                    States[i] = States[half + i]
+    @T.macro
+    def copy_rows(States, Plan, row):
+        if row < Plan[layout["plan"]["bound"]]:
+            for word in T.serial(layout["state_words"]):
+                i = row * layout["state_words"] + word
+                States[i] = States[half + i]
+
+    if target == "ascend":
+        import tilelang.ascend.language as A
+
+        @A.prim_func
+        def kernel(
+            States: T.Tensor((sizes["States"],), "uint32"),
+            Plan: T.Tensor((sizes["Plan"],), "uint32"),
+        ):
+            with A.Kernel(groups) as group:
+                with A.SimtVF(threads=64):
+                    copy_rows(States, Plan, group * 64 + A.get_thread_binding())
+    else:
+
+        @T.prim_func
+        def kernel(
+            States: T.Tensor((sizes["States"],), "uint32"),
+            Plan: T.Tensor((sizes["Plan"],), "uint32"),
+        ):
+            with T.Kernel(groups, threads=64) as group:
+                copy_rows(States, Plan, group * 64 + T.get_thread_binding())
 
     return kernel

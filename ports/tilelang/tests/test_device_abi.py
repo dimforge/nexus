@@ -152,6 +152,11 @@ class DeviceAbi(unittest.TestCase):
         )
         self.assertIn("aclrtGetLastError(ACL_RT_THREAD_LEVEL)", code)
         with self.assertRaisesRegex(ValueError, "parameter"):
-            ascend_wrapper(source.replace("uint32_t", "float"), bindings)
+            ascend_wrapper(source.replace("uint32_t", "double"), bindings)
         with self.assertRaisesRegex(ValueError, "count"):
             ascend_wrapper(source, dict(bindings, buffers=["A"]))
+
+        with self.assertRaisesRegex(ValueError, "order"):
+            ascend_wrapper(source, dict(bindings, buffers=["A", "B"]))
+        typed = ascend_wrapper(source.replace("uint32_t* A", "float* A"), bindings)
+        self.assertIn("reinterpret_cast<float*>(args[1])", typed)
