@@ -1,0 +1,35 @@
+{
+  "id": "0128-lbvh-scene-scaling",
+  "features": [
+    "rbd.broadphase.lbvh_domain3d",
+    "rbd.broadphase.lbvh_morton3d",
+    "rbd.broadphase.lbvh_build3d",
+    "rbd.broadphase.lbvh_escapes3d",
+    "rbd.broadphase.lbvh_leaves3d",
+    "rbd.broadphase.lbvh_pairs3d",
+    "rbd.broadphase.lbvh_program3d",
+    "rbd.pipeline.analytic_lbvh_scene3d",
+    "rbd.pipeline.general_lbvh_scene3d",
+    "rbd.pipeline.joint_lbvh_scene3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "bugfix",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Restore the Rust LBVH traversal early exit and native-sized scene launches, removing the one-workgroup large-scene bottleneck.",
+  "regressions": [
+    "Fresh noalias-disabled Rust pair fixtures: empty and singleton trees, filters, two batches, partial workgroups and capacity overflow; exact counts and guards, independent pair membership checks.",
+    "The complete 129-collider duplicate-key LBVH program uses automatic scene launches and matches fresh Rust topology, bounds, sorting, guards and pair membership.",
+    "Launch policy tests cover the 63,005-body Balls workload, empty inputs, group boundaries and the 64-group domain scratch limit.",
+    "These focused tests are included in the existing bounded smoke suite; full parity remains opt-in."
+  ],
+  "differences": [
+    "Scene stages use the dispatch geometry from src_rbd/broad_phase/lbvh.rs: one thread per collider or tree node, and about 4096 colliders per domain workgroup capped at 64. Standalone fixtures retain explicit group counts. Domain partials and nondeterministic atomic allocation order can differ, without changing the merged domain or legal pair membership.",
+    "Rust uses a bounded for loop with break to avoid a SPIR-V/macOS while-loop issue. The pinned TileLang C/Metal emitters reject tl.loop_break, so the mirrored shader expresses the same node-count bound and sentinel exit as a while loop; focused Metal execution covers this code generation. All workgroup publication barriers remain outside the divergent traversal.",
+    "No physics formula, tolerance, Rust source or qualification baseline changed. Ascend/CUDA hardware execution and the previously recorded production-reference discrepancy remain unqualified."
+  ]
+}

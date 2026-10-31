@@ -2,20 +2,21 @@
 
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
+
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from cpu_oracle import export_fixtures
-from ordered import CompilationSession, execute_c_program, lower_program
-from replay import HERE, build_native, run
 import canonical_kernels
 import canonical_replay as canonical
 import colored_kernels
 import colored_replay as colored
+from cpu_oracle import export_fixtures
+from ordered import CompilationSession, execute_c_program, lower_program
+from replay import HERE, build_native, run
 
 
 class ExecutionOptimizations(unittest.TestCase):
@@ -139,9 +140,53 @@ class ExecutionOptimizations(unittest.TestCase):
 
     def test_fusion_policy_retains_wide_dispatches_for_large_capacity(self):
         for batches in (1, 3, 64):
-            case = dict(batches=batches, contact_capacity=512*batches)
+            case = {"batches": batches, "contact_capacity": 512*batches}
             self.assertTrue(colored_kernels.fuse_scene_colors(case, "metal"))
             for target in ("c", "ascend", "cuda"):
                 self.assertFalse(colored_kernels.fuse_scene_colors(case, target))
             case["contact_capacity"] += 1
             self.assertFalse(colored_kernels.fuse_scene_colors(case, "metal"))
+
+    def test_lbvh_scene_launches_scale_like_native(self):
+        from lbvh_program_kernels import scene_groups
+        # Balls: spread independent leaves over 985 groups, escape nodes over
+        # 1969 groups; domain scratch remains bounded by 64 groups per batch.
+        for kind, want in (("lbvh_pairs", 985), ("lbvh_morton", 985),
+                           ("lbvh_build", 985), ("lbvh_leaves", 985),
+                           ("lbvh_escapes", 1969), ("lbvh_domain", 16)):
+            self.assertEqual(scene_groups(kind, 63005), want)
+        for n in (0, 1, 63, 64, 65, 4096, 4097, 262144, 1000000):
+            self.assertEqual(scene_groups("lbvh_pairs", n), max(1, (n + 63)//64))
+            self.assertEqual(scene_groups("lbvh_domain", n),
+                             min(64, max(1, (n + 4095)//4096)))
+
+    def test_lbvh_early_exit_preserves_pairs_filters_overflow_and_batches(self):
+        import lbvh_kernels as kernels
+        import lbvh_validation as validation
+        for name in ("n0-b1-g1-mixed", "n1-b2-g1-collapsed",
+                     "n65-b2-g2-filters", "n33-b2-g1-overflow",
+                     "n257-b2-g3-mixed"):
+            with self.subTest(case=name):
+                l, c, b, e, k = self.fixture("lbvh", "lbvh_pairs", name)
+                blocks, threads, _ = kernels.dimensions(c)
+                plans = [{"name": "pairs", "kernel": kernels.make_kernel(l, c, self.target),
+                              "buffer_map": {n: n for n in b}, "blocks": blocks, "threads": threads}]
+                a, sources = self.execute(plans, b)
+                validation.check_outputs(l, c, b, a, e, k)
+                if c["colliders"] > 1:
+                    self.assertTrue(any("while (" in source for source in sources.values()))
+
+    def test_automatic_lbvh_program_matches_fresh_rust(self):
+        import lbvh_program_kernels as kernels
+        import lbvh_program_validation as validation
+        # Rust's fixture uses one grid-striding workgroup. The scene schedule
+        # uses 3 leaf groups and 5 escape groups, including partial groups.
+        # Domain geometry agrees here, so every deterministic scratch word can
+        # also be compared directly with Rust, alongside legal unordered pairs.
+        l, c, b, e, k = self.fixture("lbvh", "lbvh_program", "n129-b1-g1-duplicates")
+        plans = kernels.make_program(l, dict(c, groups=None), self.target)
+        by_name = {p["name"]: p for p in plans}
+        self.assertEqual(by_name["lbvh_pairs"]["blocks"], 3)
+        self.assertEqual(by_name["lbvh_escapes"]["blocks"], 5)
+        a, _ = self.execute(plans, b)
+        validation.check_outputs(l, c, b, a, e, k)

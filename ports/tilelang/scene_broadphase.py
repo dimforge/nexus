@@ -39,7 +39,10 @@ def make_program(l, c, target):
     case = dict(
         c,
         kind="lbvh_program",
-        groups=1,
+        # Each stage follows the native launch geometry instead of funneling
+        # every collider through one workgroup. Explicit fixture groups remain
+        # available in the standalone LBVH program.
+        groups=None,
         buffer_words={n: c["buffer_words"][p] for n, p in MAPPING.items()},
     )
     for stage in lbvh.make_program(l, case, target):

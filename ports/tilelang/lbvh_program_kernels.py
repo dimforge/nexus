@@ -4,6 +4,20 @@ import lbvh_kernels as lbvh
 import radix_kernels as radix
 
 
+def scene_groups(kind, colliders):
+    """Native Rust launch geometry; standalone fixtures retain explicit groups."""
+    if kind == "lbvh_domain":
+        return min(64, max(1, (colliders + 4095) // 4096))
+    count = (
+        max(0, 2 * colliders - 1)
+        if kind == "lbvh_escapes"
+        else max(0, colliders - 1)
+        if kind == "lbvh_build"
+        else colliders
+    )
+    return max(1, (count + 63) // 64)
+
+
 def make_program(l, c, target):
     plans = []
     sizes = c["buffer_words"]
@@ -13,7 +27,14 @@ def make_program(l, c, target):
         mapping = {n: n for n in lbvh.BUFFERS}
         if kind == "lbvh_build":
             mapping["Keys"] = "SortKeys"
-        sc = dict(c, kind=kind, buffer_words={n: sizes[p] for n, p in mapping.items()})
+        sc = dict(
+            c,
+            kind=kind,
+            groups=scene_groups(kind, c["colliders"])
+            if c["groups"] is None
+            else c["groups"],
+            buffer_words={n: sizes[p] for n, p in mapping.items()},
+        )
         blocks, threads, _ = lbvh.dimensions(sc)
         plans.append(
             {

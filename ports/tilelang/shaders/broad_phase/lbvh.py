@@ -566,6 +566,7 @@ def gpu_lbvh_find_collision_pairs(l, c, target):
         root = root_id(scratch_start(BatchIds, b, batch))
         counts = T.alloc_local((64 if cpu else 1,), "int32")
         current = T.alloc_local((1,), "uint32")
+        visited = T.alloc_local((1,), "int32")
         lo = T.alloc_local((3,), "float32")
         hi = T.alloc_local((3,), "float32")
         hit = T.alloc_local((1,), "bool")
@@ -599,87 +600,79 @@ def gpu_lbvh_find_collision_pairs(l, c, target):
                             Tree, leaf_off + f["aabb"] + a["maxs"] + d
                         ) + T.float32(0.002)
                     current[0] = T.uint32(0)
-                    for _ in T.serial(2 * n):
-                        if current[0] != T.uint32(0xFFFFFFFF):
-                            node = T.cast(current[0], "int32")
-                            off = (root + node) * w
-                            is_leaf = node >= n - 1
-                            maximum = f32(Tree, off + f["max_extent"])
-                            owned = (maximum > T.float32(2) * extent) | (
-                                (leaf < T.cast(Tree[off + f["last_leaf"]], "int32"))
-                                & (maximum >= T.float32(0.5) * extent)
+                    # Rust uses a bounded for + break (its SPIR-V path has a
+                    # macOS while-loop workaround). TileLang's C/Metal emitters
+                    # do not support loop_break; express the same bound and exit
+                    # as a while. Keep publication barriers outside traversal.
+                    visited[0] = 0
+                    while visited[0] < 2 * n and current[0] != T.uint32(0xFFFFFFFF):
+                        visited[0] = visited[0] + 1
+                        node = T.cast(current[0], "int32")
+                        off = (root + node) * w
+                        is_leaf = node >= n - 1
+                        maximum = f32(Tree, off + f["max_extent"])
+                        owned = (maximum > T.float32(2) * extent) | (
+                            (leaf < T.cast(Tree[off + f["last_leaf"]], "int32"))
+                            & (maximum >= T.float32(0.5) * extent)
+                        )
+                        hit[0] = owned
+                        for d in T.serial(3):
+                            hit[0] = (
+                                hit[0]
+                                & (lo[d] <= f32(Tree, off + f["aabb"] + a["maxs"] + d))
+                                & (hi[d] >= f32(Tree, off + f["aabb"] + a["mins"] + d))
                             )
-                            hit[0] = owned
-                            for d in T.serial(3):
-                                hit[0] = (
-                                    hit[0]
-                                    & (
-                                        lo[d]
-                                        <= f32(Tree, off + f["aabb"] + a["maxs"] + d)
-                                    )
-                                    & (
-                                        hi[d]
-                                        >= f32(Tree, off + f["aabb"] + a["mins"] + d)
-                                    )
-                                )
-                            current[0] = T.if_then_else(
-                                hit[0] & ~is_leaf,
-                                Tree[off + f["left"]],
-                                Tree[off + f["escape"]],
+                        current[0] = T.if_then_else(
+                            hit[0] & ~is_leaf,
+                            Tree[off + f["left"]],
+                            Tree[off + f["escape"]],
+                        )
+                        if hit[0] and is_leaf:
+                            j = T.cast(Tree[off + f["left"]], "int32")
+                            gj = (j * nb + batch) * l["group_words"]
+                            fj = (j * nb + batch) * 2
+                            left = (
+                                Groups[gi + g["memberships"]] & Groups[gj + g["filter"]]
+                            ) != T.uint32(0)
+                            right = (
+                                Groups[gj + g["memberships"]] & Groups[gi + g["filter"]]
+                            ) != T.uint32(0)
+                            either = (Groups[gi + g["test_mode"]] == T.uint32(1)) & (
+                                Groups[gj + g["test_mode"]] == T.uint32(1)
                             )
-                            if hit[0] and is_leaf:
-                                j = T.cast(Tree[off + f["left"]], "int32")
-                                gj = (j * nb + batch) * l["group_words"]
-                                fj = (j * nb + batch) * 2
-                                left = (
-                                    Groups[gi + g["memberships"]]
-                                    & Groups[gj + g["filter"]]
-                                ) != T.uint32(0)
-                                right = (
-                                    Groups[gj + g["memberships"]]
-                                    & Groups[gi + g["filter"]]
-                                ) != T.uint32(0)
-                                either = (
-                                    Groups[gi + g["test_mode"]] == T.uint32(1)
-                                ) & (Groups[gj + g["test_mode"]] == T.uint32(1))
-                                allowed = T.if_then_else(
-                                    either, left | right, left & right
+                            allowed = T.if_then_else(either, left | right, left & right)
+                            if (
+                                allowed
+                                and Filters[fi] != Filters[fj]
+                                and (
+                                    Filters[fi + 1] == T.uint32(0)
+                                    or Filters[fi + 1] != Filters[fj + 1]
                                 )
-                                if (
-                                    allowed
-                                    and Filters[fi] != Filters[fj]
-                                    and (
-                                        Filters[fi + 1] == T.uint32(0)
-                                        or Filters[fi + 1] != Filters[fj + 1]
+                            ):
+                                ci = T.cast(T.min(i, j) * nb + batch, "uint32")
+                                cj = T.cast(T.max(i, j) * nb + batch, "uint32")
+                                if counts[slot] < 8:
+                                    WgPairs[
+                                        counts[slot] * pair_stride + pair_lane, 0
+                                    ] = ci
+                                    WgPairs[
+                                        counts[slot] * pair_stride + pair_lane, 1
+                                    ] = cj
+                                    counts[slot] = counts[slot] + 1
+                                else:
+                                    dest = T.atomic_add(
+                                        PairCount[0], T.uint32(1), return_prev=True
                                     )
-                                ):
-                                    ci = T.cast(T.min(i, j) * nb + batch, "uint32")
-                                    cj = T.cast(T.max(i, j) * nb + batch, "uint32")
-                                    if counts[slot] < 8:
-                                        WgPairs[
-                                            counts[slot] * pair_stride + pair_lane, 0
+                                    if dest < BatchIds[b["collision_pairs_capacity"]]:
+                                        Pairs[
+                                            T.cast(dest, "int32") * l["pair_words"]
+                                            + l["pair_colliders"]
                                         ] = ci
-                                        WgPairs[
-                                            counts[slot] * pair_stride + pair_lane, 1
+                                        Pairs[
+                                            T.cast(dest, "int32") * l["pair_words"]
+                                            + l["pair_colliders"]
+                                            + 1
                                         ] = cj
-                                        counts[slot] = counts[slot] + 1
-                                    else:
-                                        dest = T.atomic_add(
-                                            PairCount[0], T.uint32(1), return_prev=True
-                                        )
-                                        if (
-                                            dest
-                                            < BatchIds[b["collision_pairs_capacity"]]
-                                        ):
-                                            Pairs[
-                                                T.cast(dest, "int32") * l["pair_words"]
-                                                + l["pair_colliders"]
-                                            ] = ci
-                                            Pairs[
-                                                T.cast(dest, "int32") * l["pair_words"]
-                                                + l["pair_colliders"]
-                                                + 1
-                                            ] = cj
             Scan[who] = T.cast(counts[slot], "uint32")
         for step in T.serial(6):
             if not cpu:
