@@ -140,6 +140,11 @@ def apply_indirect_dispatches(plans, layout, case, target):
                 )
         if slot is not None:
             stage = dict(stage, indirect={"buffer": "Dispatches", "word": slot * 3})
+            if slot > COLOR_BASE and c.get("color_checks"):
+                stage["frame_condition"] = {
+                    "gate": "colors",
+                    "minimum": slot - COLOR_BASE,
+                }
         result.append(stage)
         if stage.get("capacity_gate", {}).get("id") == "pairs":
             publish("pairs")

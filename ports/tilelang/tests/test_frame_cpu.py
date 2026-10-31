@@ -119,6 +119,32 @@ extern "C" int32_t commit(uint32_t* s,uint32_t* d) {{d[{offset}]=s[{offset}]+1; 
             with self.assertRaises(ValueError):
                 CpuFrameSession([v], self.temp.name)
 
+    def test_gate_condition_skips_and_reenables_commit(self):
+        from frame_manifest import validate_frame
+
+        v = variant(8)
+        v["manifest"].update(
+            schema=2, conditions={"commit": {"gate": "pairs", "minimum": 6}}
+        )
+        s = CpuFrameSession([v], self.temp.name)
+        s.step()
+        self.assertEqual(s.storage["State"][0], 42)
+        s.storage["Input"][0] = 6
+        s.step()
+        self.assertEqual(s.storage["State"][0], 43)
+        for stage, gate, minimum in (
+            ("count", "pairs", 1),
+            ("commit", "missing", 1),
+            ("commit", "pairs", 0),
+            ("missing", "pairs", 1),
+        ):
+            v = variant(8)
+            v["manifest"].update(
+                schema=2, conditions={stage: {"gate": gate, "minimum": minimum}}
+            )
+            with self.assertRaises(ValueError):
+                validate_frame(v["manifest"])
+
     def test_same_stage_limits_retry_before_commit(self):
         import copy
 

@@ -29,11 +29,19 @@ pub struct PersistentRegion {
     pub word_len: usize,
 }
 #[derive(Clone, Debug, Deserialize)]
+pub struct FrameCondition {
+    pub gate: String,
+    pub minimum: u64,
+}
+#[derive(Clone, Debug, Deserialize)]
 pub struct FrameManifest {
     pub schema: u32,
     /// Logical ownership exchanges, applied only after all commit stages succeed.
     #[serde(default)]
     pub swaps: Vec<[String; 2]>,
+    /// Omit empty commit stages using counters already read by capacity gates.
+    #[serde(default)]
+    pub conditions: BTreeMap<String, FrameCondition>,
     pub program: ProgramManifest,
     pub gates: Vec<CapacityGate>,
     /// Stable region identities. Larger variants retain each prior region's
@@ -51,7 +59,7 @@ impl FrameManifest {
     pub fn validate(&self) -> Result<Vec<usize>, String> {
         self.program.validate()?;
         if !matches!(self.schema, 1 | 2)
-            || (self.schema == 1 && !self.swaps.is_empty())
+            || (self.schema == 1 && (!self.swaps.is_empty() || !self.conditions.is_empty()))
             || self.program.iterations != 1
             || self.max_steps == Some(0)
             || (self.max_steps.is_none()
@@ -105,6 +113,15 @@ impl FrameManifest {
                 }
             }
             ends.push(end);
+        }
+        for (name, condition) in &self.conditions {
+            let index = self.program.stages.iter().position(|s| &s.name == name);
+            if condition.minimum == 0
+                || !names.contains(&condition.gate)
+                || index.is_none_or(|i| i < ends.last().copied().unwrap_or(0))
+            {
+                return Err("Condition must use a completed gate before commit".into());
+            }
         }
         let mut spans = BTreeMap::<&str, Vec<(usize, usize)>>::new();
         if self.persistent.is_empty() {
@@ -501,8 +518,16 @@ impl FrameSession {
                 continue;
             }
             if let Err(error) = unsafe {
-                self.program
-                    .dispatch_stages(backend, &self.refs(), start..m.program.stages.len())
+                self.program.dispatch_stages_if(
+                    backend,
+                    &self.refs(),
+                    start..m.program.stages.len(),
+                    |i| {
+                        m.conditions
+                            .get(&m.program.stages[i].name)
+                            .is_none_or(|condition| counts[&condition.gate] >= condition.minimum)
+                    },
+                )
             } {
                 self.poisoned = true;
                 return Err(StepError::Backend(error));
@@ -620,7 +645,7 @@ mod tests {
         state[offset..offset + 2].copy_from_slice(&[42, 17]);
         FrameVariant{
             libraries:BTreeMap::new(),
-            manifest:FrameManifest{schema:1,swaps:vec![],program:ProgramManifest{schema:2,storage_buffers:sizes.keys().cloned().collect(),buffer_bytes:sizes,iterations:1,stages:vec![count,commit]},
+            manifest:FrameManifest{schema:1,swaps:vec![],conditions:BTreeMap::new(),program:ProgramManifest{schema:2,storage_buffers:sizes.keys().cloned().collect(),buffer_bytes:sizes,iterations:1,stages:vec![count,commit]},
                 gates:vec![CapacityGate{id:"pairs".into(),after_stage:"count".into(),counters:vec![Counter{buffer:"Count".into(),word:0}],capacity}],
                 persistent:BTreeMap::from([("pose_and_velocity".into(),PersistentRegion{buffer:"State".into(),word_start:offset,word_len:2})]),max_steps:Some(2)},
             sources:BTreeMap::from([
@@ -683,6 +708,44 @@ mod tests {
         assert!(v.manifest.validate().is_err());
         v.manifest.schema = 1;
         assert!(v.manifest.validate().is_err());
+    }
+    #[test]
+    fn completed_gate_can_skip_and_reenable_a_commit_stage() {
+        let backend = Metal::new().unwrap();
+        let mut v = variant(8, 0);
+        v.manifest.schema = 2;
+        v.manifest.conditions.insert(
+            "commit".into(),
+            FrameCondition {
+                gate: "pairs".into(),
+                minimum: 6,
+            },
+        );
+        let mut s = unsafe { FrameSession::new(&backend, vec![v]) }.unwrap();
+        s.step(&backend).unwrap();
+        assert_eq!(s.read(&backend, "State").unwrap()[0], 42);
+        unsafe {
+            *s.storage["Input"].contents().cast::<u32>() = 6;
+        }
+        s.step(&backend).unwrap();
+        assert_eq!(s.read(&backend, "State").unwrap()[0], 43);
+        for (stage, gate, minimum) in [
+            ("count", "pairs", 1),
+            ("commit", "missing", 1),
+            ("commit", "pairs", 0),
+            ("missing", "pairs", 1),
+        ] {
+            let mut v = variant(8, 0);
+            v.manifest.schema = 2;
+            v.manifest.conditions.insert(
+                stage.into(),
+                FrameCondition {
+                    gate: gate.into(),
+                    minimum,
+                },
+            );
+            assert!(v.manifest.validate().is_err());
+        }
     }
     #[test]
     fn same_stage_limits_retry_before_commit() {

@@ -69,6 +69,20 @@ def validate_frame(frame):
             if type(w) is not int or not 0 <= w < sizes.get(n, 0) or (n, w) in counters:
                 raise ValueError("Invalid capacity counter")
             counters.add((n, w))
+    conditions = frame.get("conditions", {})
+    if not isinstance(conditions, dict) or (conditions and frame["schema"] != 2):
+        raise ValueError("Frame conditions require schema 2")
+    for name, condition in conditions.items():
+        if (
+            name not in names
+            or names.index(name) <= last
+            or not isinstance(condition, dict)
+            or set(condition) != {"gate", "minimum"}
+            or condition["gate"] not in seen
+            or type(condition["minimum"]) is not int
+            or not 1 <= condition["minimum"] <= 0xFFFFFFFFFFFFFFFF
+        ):
+            raise ValueError("Condition must use a completed gate before commit")
     if not frame["persistent"]:
         raise ValueError("Missing persistent state")
     spans = {}
@@ -169,6 +183,9 @@ def from_program(l, c, plans, program):
         {
             "schema": 2 if c.get("native_schedule") else 1,
             "swaps": CACHE_SWAPS if c.get("native_schedule") else [],
+            "conditions": {
+                p["name"]: p["frame_condition"] for p in plans if "frame_condition" in p
+            },
             "program": program,
             "gates": gates,
             "persistent": persistent_regions(l, c),

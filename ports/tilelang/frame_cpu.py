@@ -157,13 +157,19 @@ class CpuFrameSession:
         self.loaded_programs[index] = result
         return result
 
-    def _range(self, start, end):
+    def _range(self, start, end, counts=None):
         v = self.variants[self.current]
         stages = v["manifest"]["program"]["stages"]
         if not 0 <= start <= end <= len(stages):
             raise ValueError("Invalid stage range")
         for i in range(start, end):
             s = stages[i]
+            condition = v["manifest"].get("conditions", {}).get(s["name"])
+            if (
+                condition is not None
+                and counts[condition["gate"]] < condition["minimum"]
+            ):
+                continue
             local = {n: self.storage[p] for n, p in s["buffer_map"].items()}
             self.environment.update(
                 execute_c(
@@ -236,7 +242,7 @@ class CpuFrameSession:
                 retries += 1
                 continue
             try:
-                self._range(start, len(names))
+                self._range(start, len(names), counts)
             except Exception:
                 self.poisoned = True
                 raise

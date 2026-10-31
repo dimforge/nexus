@@ -349,6 +349,17 @@ impl NativeProgram {
         buffers: &BTreeMap<String, &BufferRef>,
         range: std::ops::Range<usize>,
     ) -> Result<(), String> {
+        unsafe { self.dispatch_stages_if(backend, buffers, range, |_| true) }
+    }
+
+    /// Same trusted-kernel contract as dispatch_stages; omitted stages must have no semantic work.
+    pub(crate) unsafe fn dispatch_stages_if(
+        &self,
+        backend: &Metal,
+        buffers: &BTreeMap<String, &BufferRef>,
+        range: std::ops::Range<usize>,
+        active: impl Fn(usize) -> bool,
+    ) -> Result<(), String> {
         if range.start > range.end || range.end > self.kernels.len() {
             return Err("Invalid native stage range".into());
         }
@@ -387,6 +398,9 @@ impl NativeProgram {
             .then(|| backend.device().new_fence());
         let mut previous_pass = false;
         for index in range {
+            if !active(index) {
+                continue;
+            }
             let kernel = &self.kernels[index];
             for _ in 0..kernel.manifest.iterations {
                 let encoder = command.new_compute_command_encoder();

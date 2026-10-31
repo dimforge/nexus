@@ -1,0 +1,22 @@
+{
+  "id": "0138-empty-color-encoding",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "abi",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Omit color stages above the highest live color using existing completed capacity-gate feedback, avoiding zero-work Metal encoding overhead.",
+  "regressions": [
+    "CPU and Metal frame tests skip and reenable a stage as its gate count changes; validators reject unknown, zero, missing and not-yet-completed conditions.",
+    "Six-frame Balls replay compares exact poses, velocities, pair membership, active links, active cached states and active tile fields against the saved original schedule."
+  ],
+  "differences": [
+    "Conditions only apply after all gates. The highest-color counter was already read for palette overflow; no new readback or synchronization point is added. Standalone programs safely retain all launches.",
+    "No additional physics changes or tolerance relaxations. Full baseline remains stale and the existing Rust production-reference divergence stays open."
+  ]
+}
