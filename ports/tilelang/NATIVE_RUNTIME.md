@@ -228,3 +228,15 @@ C/Metal frame-control tests cover multiple gates at one stage and preserved stat
 when a later gate rejects an attempt. Bounded-coloring fixtures retain deliberate
 round/palette exhaustion cases. These checks do not imply a public scene requiring
 round growth was observed.
+
+
+Preparation performance: a configured kernel cache also retains state-free prepared
+programs. Exact layout/case/buffer dimensions and the transitive local Python
+builder sources key those entries; full-IR/compiler identities key lowerings, and
+native source/ABI/compiler flags key libraries. Evidence provenance remains tied
+to the full source envelope independently of reusable compiled code. Worker
+processes isolate TileLang compiler globals, and the default concurrency is up to
+four (`NEXUS_TILELANG_COMPILE_JOBS=1..16`). Compilation flags, dispatch order and
+numerical tolerances are unchanged. `preparation_timings()` exposes measured
+compiler/export/runtime setup phases; `specialization.json` also retains per-kernel
+lowering times. A program-cache hit always receives fresh native scene buffers.

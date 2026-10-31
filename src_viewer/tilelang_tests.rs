@@ -274,7 +274,7 @@ async fn exercise_cache(backend_type: BackendType) {
             "{stats:?}"
         );
         assert!(
-            stats.lowering_hits > 0 && stats.binary_hits > 0,
+            (stats.program_hits > 0 || stats.lowering_hits > 0) && stats.binary_hits > 0,
             "{stats:?}"
         );
         let slot = fresh.rigid_body_gpu_index(0, body).unwrap() as usize;

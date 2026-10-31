@@ -784,8 +784,8 @@ fn tilelang_status(ui: &mut egui::Ui, state: &mut UiState) {
     ));
     if let Some(cache) = &t.cache {
         ui.label(format!(
-            "Cache: {} lowerings + {} libraries reused; {} lowerings + {} libraries built",
-            cache.lowering_hits, cache.binary_hits, cache.lowering_misses, cache.binary_misses
+            "Cache: {} programs + {} lowerings + {} libraries reused; {} lowerings + {} libraries built",
+            cache.program_hits, cache.lowering_hits, cache.binary_hits, cache.lowering_misses, cache.binary_misses
         ));
         if cache.binary_hits + cache.binary_misses == 0 {
             ui.label("Native source compilation used; offline library caching is unavailable.");

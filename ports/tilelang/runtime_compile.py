@@ -2,12 +2,15 @@
 
 import argparse
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor
+from time import perf_counter
 from pathlib import Path
 
 import numpy as np
 from cpu_oracle import export_fixtures
-from frame_manifest import from_program, validate_frame
-from ordered import CompilationSession, lower_program
+from frame_manifest import validate_frame
+from program_cache import prepare_program
 from parity import digest, evidence_inputs
 from replay import ROOT, write_json
 
@@ -33,8 +36,16 @@ def specialize(
     cache_directory=None,
 ):
     from runtime_scene_validation import validate_case
-    from scene_kernels import make_program
 
+    started = perf_counter()
+    timings = {}
+    workers = int(
+        os.environ.get(
+            "NEXUS_TILELANG_COMPILE_JOBS", min(4, max(1, (os.cpu_count() or 1) // 2))
+        )
+    )
+    if not 1 <= workers <= 16:
+        raise ValueError("NEXUS_TILELANG_COMPILE_JOBS must be 1..16")
     archive, output = Path(archive).resolve(), Path(output).resolve()
     if target not in ("c", "metal", "ascend", "cuda"):
         raise ValueError("Unsupported compiler target")
@@ -60,6 +71,7 @@ def specialize(
     archive_before = archive_hashes(archive)
     # This mode calls native typed constructors and allocation only. It never
     # advances the Rust CPU solver or uploads expected outputs to the target.
+    before = perf_counter()
     profile = export_fixtures(
         "runtime-scenes",
         output / "native",
@@ -76,6 +88,7 @@ def specialize(
             ),
         ),
     )
+    timings["native_export"] = perf_counter() - before
     layout = json.loads((output / "native/layout.json").read_text())
     operation = (
         "runtime_twist_scene"
@@ -96,39 +109,56 @@ def specialize(
     initial["ColorRequirements"] = np.full(5, 0xDEADBEEF, np.uint32)
     case["buffer_words"].update(ColorBudget=2, ColorRequirements=5)
     validate_case(layout, case, initial)
+    before = perf_counter()
     cache = None
     if cache_directory is not None:
         from kernel_cache import KernelCache
 
         cache = KernelCache(cache_directory)
-    plans = make_program(layout, case, target)
-    sources, program = lower_program(
-        plans, initial, target, session=CompilationSession(persistent_cache=cache)
+    timings["compiler_identity"] = perf_counter() - before
+    before = perf_counter()
+    sources, program, frame = prepare_program(
+        layout,
+        case,
+        initial,
+        target,
+        cache,
+        workers=workers,
+        timings=timings,
     )
-    frame = from_program(layout, case, plans, program)
+    timings["program_preparation"] = perf_counter() - before
+    before = perf_counter()
     for name, source in sources.items():
         (output / name).write_text(source)
     libraries = {}
     if cache is not None and target in ("c", "metal"):
-        compiled = {}
+        jobs = {}
         for stage in program["stages"]:
             name = stage["source"]
-            source = sources[name]
-            # Native binary reuse does not depend on launch grid, iteration
-            # count, body values or physical buffer mappings.
             abi = {k: stage["bindings"][k] for k in ("schema", "entry", "buffers")}
-            key = (source, json.dumps(abi, sort_keys=True))
-            if key not in compiled:
-                compiled[key] = (
-                    cache.c_library(source, abi)
-                    if target == "c"
-                    else cache.metal_library(source)
-                )
-            payload = compiled[key]
-            if payload is not None:
-                filename = name + (".metallib" if target == "metal" else ".native")
-                (output / filename).write_bytes(payload)
-                libraries[name] = filename
+            key = (sources[name], json.dumps(abi, sort_keys=True))
+            jobs.setdefault(key, (sources[name], abi, []))[2].append(name)
+
+        def build_library(job):
+            source, abi, names = job
+            payload = (
+                cache.c_library(source, abi)
+                if target == "c"
+                else cache.metal_library(source)
+            )
+            return names, payload
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for names, payload in pool.map(build_library, jobs.values()):
+                if payload is not None:
+                    filename = names[0] + (
+                        ".metallib" if target == "metal" else ".native"
+                    )
+                    (output / filename).write_bytes(payload)
+                    for name in names:
+                        libraries[name] = filename
+    timings["native_libraries"] = perf_counter() - before
+    before = perf_counter()
     for name, words in initial.items():
         words.tofile(output / f"{name}.bin")
     write_json(output / "frame.json", frame)
@@ -138,7 +168,13 @@ def specialize(
         raise ValueError(
             "Compiler sources or native archive changed during specialization"
         )
+    timings["write_inputs"] = perf_counter() - before
+    timings["total"] = perf_counter() - started
+    lowering_tasks = timings.pop("lowering_tasks", [])
     metadata = {
+        "lowering_tasks": lowering_tasks,
+        "timings_seconds": timings,
+        "compile_workers": workers,
         "schema": 1,
         "libraries": libraries,
         "cache": cache.stats if cache is not None else None,

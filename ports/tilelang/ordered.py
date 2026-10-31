@@ -9,9 +9,13 @@ from collections import OrderedDict
 class CompilationSession:
     """Bounded reuse within one runner process; no fixtures or outputs are cached."""
 
-    def __init__(self, capacity=256, *, persistent_cache=None):
+    def __init__(self, capacity=256, *, persistent_cache=None, workers=1):
         if type(capacity) is not int or capacity < 1:
             raise ValueError("Invalid compiler session capacity")
+        if type(workers) is not int or not 1 <= workers <= 16:
+            raise ValueError("Compiler workers must be between 1 and 16")
+        self.workers = workers
+        self.lowering_timings = []
         self.capacity = capacity
         self.persistent_cache = persistent_cache
         self.lowered = OrderedDict()
@@ -56,6 +60,70 @@ class CompilationSession:
             ),
             "lowering",
         )
+
+    def lower_many(self, kernels, target):
+        """Lower distinct full IRs in isolated processes; warm hits spawn none."""
+        from concurrent.futures import ProcessPoolExecutor
+        from multiprocessing import get_context
+        from tilelang import tvm
+        from lowering_worker import decode_artifact, lower_serialized
+
+        unique, by_id, artifacts, missing = {}, {}, {}, []
+        for kernel in kernels:
+            ir = tvm.ir.save_json(kernel)
+            by_id[id(kernel)] = ir
+            unique.setdefault(ir, kernel)
+        for ir in unique:
+            key = (target, ir)
+            if key in self.lowered:
+                artifacts[ir] = self.lowered[key]
+                self.hits["lowering"] += 1
+                continue
+            payload = (
+                self.persistent_cache.lookup("lowering", {"target": target, "ir": ir})
+                if self.persistent_cache is not None
+                else None
+            )
+            if payload is None:
+                missing.append(ir)
+            else:
+                artifacts[ir] = decode_artifact(payload)
+        # Start large kernels first to reduce the tail of the compilation batch.
+        missing.sort(key=len, reverse=True)
+
+        def accept(ir, result):
+            payload, seconds = result
+            self.lowering_timings.append(
+                {
+                    "ir_sha256": hashlib.sha256(ir.encode()).hexdigest(),
+                    "ir_bytes": len(ir),
+                    "seconds": seconds,
+                }
+            )
+            if self.persistent_cache is not None:
+                self.persistent_cache.publish(
+                    "lowering", {"target": target, "ir": ir}, payload
+                )
+            artifacts[ir] = decode_artifact(payload)
+
+        if len(missing) > 1 and self.workers > 1:
+            with ProcessPoolExecutor(
+                max_workers=min(self.workers, len(missing)),
+                mp_context=get_context("spawn"),
+            ) as pool:
+                results = pool.map(
+                    lower_serialized, [(ir, target) for ir in missing], chunksize=1
+                )
+                for ir, result in zip(missing, results, strict=True):
+                    accept(ir, result)
+        else:
+            for ir in missing:
+                accept(ir, lower_serialized((ir, target)))
+        for ir, artifact in artifacts.items():
+            self.lowered[(target, ir)] = artifact
+            if len(self.lowered) > self.capacity:
+                self.lowered.popitem(last=False)
+        return {key: artifacts[ir] for key, ir in by_id.items()}
 
     def compile_c(self, source, bindings, directory):
         from replay import compile_c
@@ -210,11 +278,21 @@ def lower_program(plans, arrays, target, iterations=1, *, session=None):
     sources = {}
     lowered = {}
     session = session or CompilationSession()
-    for i, plan in enumerate(plans):
+    checked = set()
+    for plan in plans:
+        launch_key = (id(plan["kernel"]), plan["blocks"], plan["threads"])
+        if launch_key in checked:
+            continue
+        checked.add(launch_key)
         try:
             validate_launch(plan["kernel"], target, plan["blocks"], plan["threads"])
         except ValueError as error:
             raise ValueError(f"{plan['name']}: {error}") from error
+    if session.workers > 1:
+        lowered = session.lower_many(
+            list({id(p["kernel"]): p["kernel"] for p in plans}.values()), target
+        )
+    for i, plan in enumerate(plans):
         # Repeated stages may deliberately share the same immutable PrimFunc.
         # Reuse lowering only within this program, by object identity.
         key = id(plan["kernel"])

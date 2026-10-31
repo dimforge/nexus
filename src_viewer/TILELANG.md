@@ -99,11 +99,22 @@ Set `NEXUS_TILELANG_KERNEL_CACHE` to an alternate directory, or to `off` to disa
 persistent caching. Delete the cache directory while the testbed is closed to clear
 it; there is currently no automatic disk eviction. Cache entries contain code,
 never scene state or reference results. Source, compiler, target, ABI or specialization
-changes invalidate the relevant entries. The source fingerprint is conservative:
-port tooling, tests and contract changes also invalidate it. An already loaded
+changes invalidate the relevant entries. The code cache uses complete kernel IR, compiler adapters/toolchains and native
+source/ABI keys. A prepared program additionally hashes the transitive local
+Python builder imports, native layout and specialization dimensions. Test or
+documentation edits do not evict unchanged code. The independent parity evidence
+fingerprint remains conservative: these edits still make qualification stale. An already loaded
 runtime keeps its code until replaced or the application exits.
 
-Initial specialization can take several minutes. The window presents a compilation
+Independent TileLang lowerings run in isolated worker processes; native library
+builds run concurrently. The default is up to four workers. Set
+`NEXUS_TILELANG_COMPILE_JOBS=1` for serial diagnostics, or 2–16 to control compiler
+concurrency. Complete program hits skip kernel construction and lowering; uploaded
+scene buffers are always rebuilt. Identical source/ABI stages share artifact files
+while retaining every ordered dispatch. The terminal and `specialization.json`
+record preparation phases and individual lowering timings.
+
+Initial specialization can still take time on a new shape/configuration. The window presents a compilation
 banner before blocking; the artifact path and any errors are printed in the terminal. Capacity growth,
 solver specialization changes and scene rebuilds can also compile and pause the
 window. Large existing stress scenes remain large: start with the comparison

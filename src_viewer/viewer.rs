@@ -1668,6 +1668,9 @@ impl NexusViewer {
                         .await?
                     });
                     eprintln!("TileLang ready in {:.2}s: loaded restart={}, cache={:?}", self.ui.tilelang.preparation_ms / 1000.0, self.ui.tilelang.reused_runtime, self.ui.tilelang.cache);
+                    if !self.ui.tilelang.preparation_timings.is_empty() {
+                        eprintln!("TileLang preparation phases (seconds): {:?}", self.ui.tilelang.preparation_timings);
+                    }
                 }
                 self.tilelang
                     .as_mut()

@@ -18,6 +18,7 @@ use std::{
     io::{BufRead, BufReader, Write},
     path::{Component, Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    time::Instant,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,7 +56,10 @@ pub struct RuntimeOptions {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
 pub struct CacheStats {
+    pub program_hits: usize,
+    pub program_misses: usize,
     pub lowering_hits: usize,
     pub lowering_misses: usize,
     pub binary_hits: usize,
@@ -210,6 +214,7 @@ impl RuntimeCheckpoint {
 }
 
 pub struct TileLangSimulation {
+    preparation_timings: BTreeMap<String, f64>,
     options: RuntimeOptions,
     archive: PathBuf,
     uploaded: RbdSceneUpload,
@@ -460,6 +465,7 @@ impl TileLangSimulation {
             .saturating_sub(2)
             .clamp(1, 63);
         let coloring_rounds = solver_colors.saturating_sub(1).max(2);
+        let preparation_started = Instant::now();
         let signature = compile(
             &options,
             &archive,
@@ -468,6 +474,13 @@ impl TileLangSimulation {
             solver_colors,
             coloring_rounds,
         )?;
+        let compiler_seconds = preparation_started.elapsed().as_secs_f64();
+        let native_started = Instant::now();
+        let mut preparation_timings: BTreeMap<String, f64> = serde_json::from_value(
+            read_json(&directory.join("specialization.json"))?["timings_seconds"].clone(),
+        )
+        .unwrap_or_default();
+        preparation_timings.insert("compiler_process".into(), compiler_seconds);
         let layout = read_json(&directory.join("layout.json"))?;
         let case = read_json(&directory.join("case.json"))?;
         if layout["pose_words"] != size_of::<Pose>() / 4
@@ -491,8 +504,13 @@ impl TileLangSimulation {
                 }
             }
         };
+        preparation_timings.insert(
+            "native_runtime".into(),
+            native_started.elapsed().as_secs_f64(),
+        );
         let workspace_root = options.workspace.clone();
         Ok(Self {
+            preparation_timings,
             uploaded: upload.clone(),
             workspace_root,
             next_configuration: 0,
@@ -508,6 +526,11 @@ impl TileLangSimulation {
             session,
         })
     }
+    /// Measured preparation phases in seconds; state upload is always fresh.
+    pub fn preparation_timings(&self) -> &BTreeMap<String, f64> {
+        &self.preparation_timings
+    }
+
     /// Cache activity for the initial specialization in the current configuration.
     pub fn preparation_cache(&self) -> Result<Option<CacheStats>, String> {
         serde_json::from_value(

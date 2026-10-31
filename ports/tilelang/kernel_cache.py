@@ -15,13 +15,13 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
 import uuid
 from types import SimpleNamespace
 
-from parity import evidence_inputs
 from replay import ROOT
 
-SCHEMA = 1
+SCHEMA = 2
 ENVIRONMENT = (
     "PATH",
     "CXX",
@@ -61,7 +61,20 @@ def identity():
 
     return {
         "schema": SCHEMA,
-        "source": evidence_inputs(ROOT),
+        # Kernel builders/layouts are represented by the full input IR. Reference
+        # code, tests, docs and evidence policies are not compiler inputs. Keep
+        # code-generation hooks and compiler adapters in this artifact identity;
+        # parity.evidence_inputs remains deliberately broad and unchanged.
+        "adapters": {
+            name: digest((Path(__file__).parent / name).read_bytes())
+            for name in (
+                "kernel_cache.py",
+                "ordered.py",
+                "lowering_worker.py",
+                "compiler_intrinsics.py",
+                "replay.py",
+            )
+        },
         "host": [
             platform.system(),
             platform.release(),
@@ -118,25 +131,36 @@ class KernelCache:
         self.identity = identity() if compiler_identity is None else compiler_identity
         self.identity_hash = digest(encoded(self.identity))
         self.stats = {
+            "program_hits": 0,
+            "program_misses": 0,
             "lowering_hits": 0,
             "lowering_misses": 0,
             "binary_hits": 0,
             "binary_misses": 0,
             "invalid_entries": 0,
         }
+        self._stats_lock = threading.Lock()
+        self._compiler_lock = threading.Lock()
         self._c_compiler = None
         self._metal_compiler = None
         self._metal_probed = False
 
-    def artifact(self, kind, key, build):
-        category = "lowering" if kind == "lowering" else "binary"
+    def _entry(self, kind, key):
         signature = {
             "schema": SCHEMA,
             "identity": self.identity_hash,
             "kind": kind,
             "key": key,
         }
-        entry = self.directory / kind / digest(encoded(signature))
+        return self.directory / kind / digest(encoded(signature)), signature
+
+    def _increment(self, name):
+        with self._stats_lock:
+            self.stats[name] += 1
+
+    def lookup(self, kind, key):
+        category = kind if kind in ("program", "lowering") else "binary"
+        entry, signature = self._entry(kind, key)
         try:
             if entry.is_symlink():
                 raise ValueError("Cache entry is a symlink")
@@ -151,11 +175,11 @@ class KernelCache:
                 "bytes": len(payload),
             }:
                 raise ValueError("Cache integrity mismatch")
-            self.stats[category + "_hits"] += 1
+            self._increment(category + "_hits")
             return payload
         except (OSError, ValueError, TypeError):
             if entry.exists() or entry.is_symlink():
-                self.stats["invalid_entries"] += 1
+                self._increment("invalid_entries")
                 # Move the invalid entry aside before replacing it. A concurrent
                 # reader either has complete bytes already or observes a miss.
                 quarantine = entry.with_name(
@@ -170,8 +194,11 @@ class KernelCache:
                         quarantine.unlink()
                     else:
                         shutil.rmtree(quarantine)
-        self.stats[category + "_misses"] += 1
-        payload = build()
+        self._increment(category + "_misses")
+        return None
+
+    def publish(self, kind, key, payload):
+        entry, signature = self._entry(kind, key)
         if not isinstance(payload, bytes):
             raise TypeError("Cache builders must return bytes")
         entry.parent.mkdir(parents=True, exist_ok=True)
@@ -199,6 +226,10 @@ class KernelCache:
                 shutil.rmtree(temporary)
         return payload
 
+    def artifact(self, kind, key, build):
+        payload = self.lookup(kind, key)
+        return self.publish(kind, key, build()) if payload is None else payload
+
     def lower(self, kernel, target, build):
         import tilelang
 
@@ -225,10 +256,11 @@ class KernelCache:
     def c_library(self, source, bindings):
         from replay import compile_c
 
-        if self._c_compiler is None:
-            self._c_compiler = executable_identity(
-                shlex.split(os.environ.get("CXX", "c++"))
-            )
+        with self._compiler_lock:
+            if self._c_compiler is None:
+                self._c_compiler = executable_identity(
+                    shlex.split(os.environ.get("CXX", "c++"))
+                )
         key = {"source": source, "abi": bindings, "compiler": self._c_compiler}
 
         def build():
@@ -244,21 +276,22 @@ class KernelCache:
         return self.artifact("c", key, build)
 
     def metal_library(self, source):
-        if not self._metal_probed:
-            self._metal_probed = True
-            try:
-                tool = subprocess.run(
-                    ["xcrun", "--find", "metal"],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                ).stdout.strip()
-                # Publish only after every probe succeeds. A partial probe must
-                # consistently use runtime source compilation on later stages.
-                compiler = executable_identity([tool])
-                self._metal_compiler = compiler
-            except (OSError, subprocess.CalledProcessError):
-                return None
+        with self._compiler_lock:
+            if not self._metal_probed:
+                self._metal_probed = True
+                try:
+                    tool = subprocess.run(
+                        ["xcrun", "--find", "metal"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout.strip()
+                    # Publish only after every probe succeeds. A partial probe must
+                    # consistently use runtime source compilation on later stages.
+                    compiler = executable_identity([tool])
+                    self._metal_compiler = compiler
+                except (OSError, subprocess.CalledProcessError):
+                    return None
         if self._metal_compiler is None:
             return None
         flags = ["-fno-fast-math", "-ffp-contract=off"]

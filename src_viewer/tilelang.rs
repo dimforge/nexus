@@ -101,6 +101,7 @@ pub struct TileLangUi {
     pub preparation_ms: f64,
     pub reused_runtime: bool,
     pub cache: Option<CacheStats>,
+    pub preparation_timings: std::collections::BTreeMap<String, f64>,
 }
 
 impl TileLangUi {
@@ -357,11 +358,13 @@ impl TileLangDriver {
             ui.preparation_ms = time.elapsed().as_secs_f64() * 1000.0;
             ui.workspace = Some(previous.original_options.workspace.clone());
             ui.cache = None;
+            ui.preparation_timings.clear();
             return Ok(previous);
         }
         // SAFETY: forwarded caller contract; generated artifacts remain private.
         let driver = unsafe { Self::new(state, options, ui.compare).await? };
         ui.cache = driver.simulation.preparation_cache()?;
+        ui.preparation_timings = driver.simulation.preparation_timings().clone();
         ui.reused_runtime = false;
         ui.preparation_ms = time.elapsed().as_secs_f64() * 1000.0;
         ui.workspace = Some(driver.original_options.workspace.clone());

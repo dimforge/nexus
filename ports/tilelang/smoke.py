@@ -30,6 +30,7 @@ CASES = {
 OPERATIONS = tuple(CASES)
 UNIT_MODULES = (
     "test_kernel_cache",
+    "test_preparation",
     "test_frame_cpu",
     "test_runtime_service",
     "test_matrix",
