@@ -164,7 +164,8 @@
   "regressions": [
     "Exact serial/parallel generated sources, fresh-state program reuse, code/layout/case dependency invalidation and corruption recovery.",
     "Preserve every ordered dispatch and ABI when sharing identical artifact files.",
-    "Bounded Metal smoke and focused cached-versus-uncached contact/restart tests; preparation timing and source equivalence against the prior implementation."
+    "Bounded Metal smoke and focused cached-versus-uncached contact/restart tests; preparation timing and source equivalence against the prior implementation.",
+    "Dynamic Python builder imports bypass the whole-program cache; per-kernel reuse still requires exact freshly generated IR."
   ],
   "differences": [
     "Full parity matrix remains deferred until an explicit user request; no baseline reconciliation.",

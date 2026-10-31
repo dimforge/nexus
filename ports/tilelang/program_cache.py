@@ -40,6 +40,26 @@ def builder_sources(
             ".".join(module.split(".")[:i]) for i in range(1, len(module.split(".")))
         )
         for node in ast.walk(ast.parse(source)):
+            # A dynamically selected module or evaluated builder cannot be
+            # tracked by this static import graph. Bypass the program cache;
+            # its freshly built full IR can still use the ordinary kernel cache.
+            if isinstance(node, ast.Call):
+                name = getattr(node.func, "id", getattr(node.func, "attr", ""))
+                if name in (
+                    "__import__",
+                    "import_module",
+                    "exec_module",
+                    "load_module",
+                    "spec_from_file_location",
+                    "eval",
+                    "exec",
+                ):
+                    return None
+            if isinstance(node, ast.ImportFrom) and any(
+                a.name in ("__import__", "import_module", "spec_from_file_location")
+                for a in node.names
+            ):
+                return None
             if isinstance(node, ast.Import):
                 todo.extend(alias.name for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
@@ -76,8 +96,9 @@ def prepare_program(layout, case, initial, target, cache, *, workers=1, timings=
 
     timings = {} if timings is None else timings
     sizes = {name: array.nbytes for name, array in initial.items()}
+    dependencies = builder_sources()
     key = {
-        "builder_sources": builder_sources(),
+        "builder_sources": dependencies,
         "layout": layout,
         "case": case,
         "target": target,
@@ -106,7 +127,11 @@ def prepare_program(layout, case, initial, target, cache, *, workers=1, timings=
         frame = from_program(layout, case, plans, program)
         return encoded({"sources": sources, "frame": frame})
 
-    payload = cache.artifact("program", key, build) if cache is not None else build()
+    payload = (
+        cache.artifact("program", key, build)
+        if cache is not None and dependencies is not None
+        else build()
+    )
     value = json.loads(payload)
     frame, sources = validate_frame(value["frame"]), value["sources"]
     program = frame["program"]

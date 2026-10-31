@@ -45,6 +45,19 @@ class PreparationTests(unittest.TestCase):
             (root / "new_helper.py").unlink()
             self.assertNotIn("new_helper.py", signature())
 
+    def test_dynamic_imports_bypass_program_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for source in (
+                "import importlib; importlib.import_module(selected)",
+                "from importlib import import_module as load; load(selected)",
+                "__import__(selected)",
+                "exec(source)",
+            ):
+                (root / "builder.py").write_text(source)
+                self.assertIsNone(program_cache.builder_sources(root, ("builder",)))
+        self.assertIsNotNone(program_cache.builder_sources())
+
     def test_program_cache_does_not_store_state_and_invalidates_code_or_case(self):
         from test_frame_cpu import variant
 
@@ -92,6 +105,10 @@ class PreparationTests(unittest.TestCase):
             program_cache.prepare_program({}, {}, original, "c", cache)
             program_cache.prepare_program({}, {"rows": 2}, original, "c", cache)
             self.assertEqual(make.call_count, 4)
+            sources.return_value = None
+            for _ in range(2):
+                program_cache.prepare_program({}, {}, original, "c", cache)
+            self.assertEqual(make.call_count, 6)
 
     def test_source_compaction_preserves_all_dispatches_and_bindings(self):
         from frame_cpu import CpuFrameSession

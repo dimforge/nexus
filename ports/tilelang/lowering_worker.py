@@ -29,8 +29,9 @@ def lower_serialized(task):
 
 
 def decode_artifact(payload):
-    import tilelang
     from types import SimpleNamespace
+
+    import tilelang
 
     value = json.loads(payload)
     return SimpleNamespace(
