@@ -45,6 +45,17 @@ Path(sys.argv[sys.argv.index('-o')+1]).write_bytes(b'TEST ONLY binary')
                 "example", dict(bindings, shared_memory_bytes=512), root / "cache"
             )
             self.assertNotEqual(binary, second)
+            original_command = compiler.command
+            with patch.object(
+                compiler,
+                "command",
+                side_effect=lambda source, output: [
+                    *original_command(source, output),
+                    "-DTEST_CHANGED_COMPILER_FLAG=1",
+                ],
+            ):
+                changed_flags, _ = compiler.compile("example", bindings, root / "cache")
+            self.assertNotEqual(binary, changed_flags)
             with self.assertRaisesRegex(RuntimeError, "source and log"):
                 compiler.compile("FAIL_TEST", bindings, root / "cache")
             failed = list((root / "cache").glob("*.failed"))

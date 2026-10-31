@@ -207,7 +207,12 @@ class DeviceCompiler:
             **self.identity,
             "source_sha256": sha256(code.encode()),
             "abi": abi,
-            "flags": "strict-f32-v1",
+            # Normalize only temporary paths. Cache invalidation follows actual
+            # compiler flags automatically, without a manually bumped label.
+            "command": self.command(
+                Path("kernel.cu" if self.target == "cuda" else "kernel.asc"),
+                Path("kernel.ptx" if self.target == "cuda" else "kernel.so"),
+            ),
         }
         key_hash = sha256(json.dumps(key, sort_keys=True).encode())
         root = Path(os.environ.get("NEXUS_TILELANG_DEVICE_CACHE", directory)).resolve()

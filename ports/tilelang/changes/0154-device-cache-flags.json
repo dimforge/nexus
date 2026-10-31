@@ -1,0 +1,20 @@
+{
+  "id": "0154-device-cache-flags",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Invalidate vendor-compiled binary caches using the actual compiler arguments instead of a manually maintained flag-version label.",
+  "regressions": [
+    "A changed compiler flag reused the old binary before the fix. The regression now requires a different cache artifact. All 13 focused device ABI/compiler/frame/replay tests pass in 8.263 seconds."
+  ],
+  "differences": [
+    "Temporary source/output paths are normalized; compiler identity, full arguments, source and ABI are retained in the key. Existing binaries rebuild once. Current compilation flags, shaders and tolerances are unchanged; no device execution claim."
+  ]
+}

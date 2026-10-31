@@ -1,0 +1,14 @@
+F
+======================================================================
+FAIL: test_strict_flags_cache_reuse_corruption_and_failed_build_logs (test_device_compiler.DeviceCompilerTests.test_strict_flags_cache_reuse_corruption_and_failed_build_logs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/test_device_compiler.py", line 58, in test_strict_flags_cache_reuse_corruption_and_failed_build_logs
+    self.assertNotEqual(binary, changed_flags)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: PosixPath('/private/var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmplq_7wcno/cache/6448313c67ecf6876eb5e7e19c38753ac89654a8eb61483372d4923614d9410c/kernel.ptx') == PosixPath('/private/var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmplq_7wcno/cache/6448313c67ecf6876eb5e7e19c38753ac89654a8eb61483372d4923614d9410c/kernel.ptx')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.405s
+
+FAILED (failures=1)
