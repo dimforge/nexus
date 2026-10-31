@@ -1,0 +1,27 @@
+{
+  "id": "0132-data-dependent-early-exits",
+  "features": [
+    "rbd.collision.deferred_pairs3d",
+    "rbd.collision.reduce_contacts3d",
+    "rbd.query.mesh_projection3d",
+    "rbd.contact.match_links3d",
+    "rbd.scheduling.luby_step3d",
+    "rbd.scheduling.topo_fix3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Restore Rust early exits in composite traversal, mesh projection, reduction runs/merges, previous-contact matching and coloring neighbor scans.",
+  "regressions": [
+    "Focused fresh Rust execution cases in tests/test_traversal_exits.py cover mesh/polyline candidates, overflow, reduction with normal and permissive merge thresholds, mesh projection hits/misses, first duplicate warmstart match, same-round Luby priorities and deterministic/nondeterministic conflict pruning.",
+    "Control-flow assertions require the early-exit predicates in actual loop conditions because numerical parity cannot detect inactive-tail iteration."
+  ],
+  "differences": [
+    "The pinned TileLang C/Metal emitters reject loop_break; bounded while loops retain Rust traversal limits and first-match behavior. No barriers occur inside these divergent loops.",
+    "Fixed-size GJK/EPA and LBVH search/escape loops are recorded separately in the audit; cooperative refit barriers are unchanged.",
+    "No tolerance, Rust physics or baseline changes. These focused geometry tests run explicitly and do not expand routine smoke's fixed wall-clock budget. Ascend and CUDA execution remain unqualified."
+  ]
+}

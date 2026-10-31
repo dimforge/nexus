@@ -158,56 +158,56 @@ def project_local_point(l):
         best_feature[0], best_feature[1] = T.uint32(3), T.uint32(0)
         for d in T.serial(3):
             output[d] = pt[d]
-        for step in T.serial(nodes):
-            if current[0] < nodes:
-                node = T.alloc_local((3,), "uint32")
-                bvh_node_idx(index_root, current[0], Indices, node)
-                if node[0] == T.uint32(0xFFFFFFFF):
-                    points = T.alloc_local((3, 3), "float32")
-                    a = T.alloc_local((3,), "float32")
-                    b = T.alloc_local((3,), "float32")
-                    c = T.alloc_local((3,), "float32")
-                    values = T.alloc_local((6,), "float32")
-                    flags = T.alloc_local((3,), "uint32")
-                    delta = T.alloc_local((3,), "float32")
-                    read_triangle(
-                        index_root,
-                        vertex_root,
-                        nodes,
-                        T.cast(node[2], "int32"),
-                        Indices,
-                        Vertices,
-                        points,
-                    )
+        visited = T.alloc_local((1,), "int32")
+        visited[0] = 0
+        while visited[0] < nodes and current[0] < nodes:
+            visited[0] += 1
+            node = T.alloc_local((3,), "uint32")
+            bvh_node_idx(index_root, current[0], Indices, node)
+            if node[0] == T.uint32(0xFFFFFFFF):
+                points = T.alloc_local((3, 3), "float32")
+                a = T.alloc_local((3,), "float32")
+                b = T.alloc_local((3,), "float32")
+                c = T.alloc_local((3,), "float32")
+                values = T.alloc_local((6,), "float32")
+                flags = T.alloc_local((3,), "uint32")
+                delta = T.alloc_local((3,), "float32")
+                read_triangle(
+                    index_root,
+                    vertex_root,
+                    nodes,
+                    T.cast(node[2], "int32"),
+                    Indices,
+                    Vertices,
+                    points,
+                )
+                for d in T.serial(3):
+                    a[d], b[d], c[d] = points[0, d], points[1, d], points[2, d]
+                triangle_project_local_point_and_get_location(
+                    a, b, c, pt, values, flags
+                )
+                for d in T.serial(3):
+                    delta[d] = values[d] - pt[d]
+                distance = T.sqrt(dot(delta, delta))
+                if distance <= best[0]:
+                    found[0] = True
+                    best[0] = distance
+                    best_triangle[0] = T.cast(node[2], "int32")
+                    best_feature[0], best_feature[1] = flags[0], flags[1]
                     for d in T.serial(3):
-                        a[d], b[d], c[d] = points[0, d], points[1, d], points[2, d]
-                    triangle_project_local_point_and_get_location(
-                        a, b, c, pt, values, flags
-                    )
-                    for d in T.serial(3):
-                        delta[d] = values[d] - pt[d]
-                    distance = T.sqrt(dot(delta, delta))
-                    if distance <= best[0]:
-                        found[0] = True
-                        best[0] = distance
-                        best_triangle[0] = T.cast(node[2], "int32")
-                        best_feature[0], best_feature[1] = flags[0], flags[1]
-                        for d in T.serial(3):
-                            output[d] = values[d]
-                    current[0] = T.cast(node[1], "int32")
-                else:
-                    mins = T.alloc_local((3,), "float32")
-                    maxs = T.alloc_local((3,), "float32")
-                    delta = T.alloc_local((3,), "float32")
-                    read_bounds(vertex_root, current[0], Vertices, mins, maxs)
-                    for d in T.serial(3):
-                        delta[d] = T.max(mins[d] - pt[d], 0.0) - T.max(
-                            pt[d] - maxs[d], 0.0
-                        )
-                    distance = T.sqrt(dot(delta, delta))
-                    current[0] = T.cast(
-                        T.if_then_else(distance <= best[0], node[0], node[1]), "int32"
-                    )
+                        output[d] = values[d]
+                current[0] = T.cast(node[1], "int32")
+            else:
+                mins = T.alloc_local((3,), "float32")
+                maxs = T.alloc_local((3,), "float32")
+                delta = T.alloc_local((3,), "float32")
+                read_bounds(vertex_root, current[0], Vertices, mins, maxs)
+                for d in T.serial(3):
+                    delta[d] = T.max(mins[d] - pt[d], 0.0) - T.max(pt[d] - maxs[d], 0.0)
+                distance = T.sqrt(dot(delta, delta))
+                current[0] = T.cast(
+                    T.if_then_else(distance <= best[0], node[0], node[1]), "int32"
+                )
         inside[0] = False
         if found[0]:
             pn = T.alloc_local((3,), "float32")

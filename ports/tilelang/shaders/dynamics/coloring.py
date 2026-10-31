@@ -109,19 +109,25 @@ def gpu_step_graph_coloring_luby(layout):
                     ranges(Counts, Links, BodyGroup, Ranges, cid)
                     greatest[0] = 1
                     for side in T.unroll(2, explicit=True):
-                        for offset in T.serial(Ranges[side, 1] - Ranges[side, 0]):
-                            if greatest[0] != 0:
-                                other = T.Cast("int32", Ids[Ranges[side, 0] + offset])
-                                # A winner from THIS round must still block smaller
-                                # neighbors: the Rust reference has the same fix.
-                                previous = (Colors[other] != T.uint32(0xFFFFFFFF)) & (
-                                    Colors[other] != CurrentColor[0]
-                                )
-                                wins = (Rands[cid] > Rands[other]) | (
-                                    (Rands[cid] == Rands[other]) & (cid >= other)
-                                )
-                                if not (previous | wins):
-                                    greatest[0] = 0
+                        offset = T.alloc_local((1,), "int32")
+                        offset[0] = 0
+                        while (
+                            offset[0] < Ranges[side, 1] - Ranges[side, 0]
+                            and greatest[0] != 0
+                        ):
+                            other = T.Cast("int32", Ids[Ranges[side, 0] + offset[0]])
+                            # A winner from THIS round must still block smaller
+                            # neighbors: the Rust reference has the same fix.
+                            previous = (Colors[other] != T.uint32(0xFFFFFFFF)) & (
+                                Colors[other] != CurrentColor[0]
+                            )
+                            wins = (Rands[cid] > Rands[other]) | (
+                                (Rands[cid] == Rands[other]) & (cid >= other)
+                            )
+                            if not (previous | wins):
+                                greatest[0] = 0
+                            offset[0] += 1
+
                     if greatest[0] != 0:
                         Colors[cid] = CurrentColor[0]
                     else:
@@ -279,13 +285,16 @@ def gpu_fix_conflicts_topo_gc(layout):
                         ranges(Counts, Links, BodyGroup, Ranges, cid)
                         for side in T.unroll(2, explicit=True):
                             if (side == 0) | (Colored[cid] != 0):
-                                for offset in T.serial(
-                                    Ranges[side, 1] - Ranges[side, 0]
+                                offset = T.alloc_local((1,), "int32")
+                                conflict = T.alloc_local((1,), "bool")
+                                offset[0] = 0
+                                conflict[0] = False
+                                while (
+                                    offset[0] < Ranges[side, 1] - Ranges[side, 0]
+                                    and not conflict[0]
                                 ):
-                                    # The Rust loop breaks after finding a conflict.
-                                    # Further comparisons cannot change its zero mark.
                                     other = T.Cast(
-                                        "int32", Ids[Ranges[side, 0] + offset]
+                                        "int32", Ids[Ranges[side, 0] + offset[0]]
                                     )
                                     if cid < other:
                                         other_pick = T.alloc_local((1,), "uint32")
@@ -298,6 +307,8 @@ def gpu_fix_conflicts_topo_gc(layout):
                                             other_color[0] = other_pick[0]
                                         if Own[0] == other_color[0]:
                                             Colored[cid] = T.uint32(0)
+                                            conflict[0] = True
+                                    offset[0] += 1
                         if (Pick[0] != T.uint32(0xFFFFFFFF)) & (
                             Colored[cid] == T.uint32(2)
                         ):

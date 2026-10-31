@@ -356,72 +356,74 @@ def composite_convex(l, polyline):
                 )
                 current = T.alloc_local((1,), "int32")
                 current[0] = 0
-                for step in T.serial(node_count):
-                    if current[0] < node_count:
-                        index_record = T.alloc_local((3,), "uint32")
-                        node_idx(index_base, current[0], Indices, index_record)
-                        entry = T.reinterpret(index_record[0], "int32")
-                        exit_id = T.if_then_else(
-                            index_record[1] < T.cast(node_count, "uint32"),
-                            T.cast(index_record[1], "int32"),
-                            node_count,
+                visited = T.alloc_local((1,), "int32")
+                visited[0] = 0
+                while visited[0] < node_count and current[0] < node_count:
+                    visited[0] += 1
+                    index_record = T.alloc_local((3,), "uint32")
+                    node_idx(index_base, current[0], Indices, index_record)
+                    entry = T.reinterpret(index_record[0], "int32")
+                    exit_id = T.if_then_else(
+                        index_record[1] < T.cast(node_count, "uint32"),
+                        T.cast(index_record[1], "int32"),
+                        node_count,
+                    )
+                    part = T.cast(index_record[2], "int32")
+                    if entry == T.int32(-1):
+                        sub1 = T.alloc_local((l["shape_words"],), "uint32")
+                        for w in T.serial(l["shape_words"]):
+                            sub1[w] = T.uint32(0)
+                        sub1[sf["a"] + 3] = T.uint32(
+                            types["capsule"] if polyline else types["triangle"]
                         )
-                        part = T.cast(index_record[2], "int32")
-                        if entry == T.int32(-1):
-                            sub1 = T.alloc_local((l["shape_words"],), "uint32")
-                            for w in T.serial(l["shape_words"]):
-                                sub1[w] = T.uint32(0)
-                            sub1[sf["a"] + 3] = T.uint32(
-                                types["capsule"] if polyline else types["triangle"]
-                            )
-                            coords = T.alloc_local((3, 3), "float32")
-                            part_points(
-                                index_base,
-                                vertex_base,
-                                node_count,
-                                part,
-                                Indices,
-                                Vertices,
-                                coords,
-                            )
-                            for v in T.serial(2 if polyline else 3):
-                                for d in T.serial(3):
-                                    sub1[
-                                        (
-                                            sf["a"]
-                                            if v == 0
-                                            else sf["b"]
-                                            if v == 1
-                                            else sf["c"]
-                                        )
-                                        + d
-                                    ] = T.reinterpret(coords[v, d], "uint32")
-                            emit(
-                                PfmPairs,
-                                PfmCount,
-                                capacity,
-                                sub1,
-                                sub2,
-                                Q,
-                                Translation,
-                                thickness,
-                                radius[0],
-                                c1,
-                                c2,
-                                pair,
-                                part + 1,
-                                T.float32(-1),
-                            )
-                            current[0] = exit_id
-                        else:
-                            low = T.alloc_local((3,), "float32")
-                            high = T.alloc_local((3,), "float32")
-                            node_aabb(vertex_base, current[0], Vertices, low, high)
-                            current[0] = T.if_then_else(
-                                intersects(mins, maxs, low, high),
-                                T.cast(entry, "int32"),
-                                exit_id,
-                            )
+                        coords = T.alloc_local((3, 3), "float32")
+                        part_points(
+                            index_base,
+                            vertex_base,
+                            node_count,
+                            part,
+                            Indices,
+                            Vertices,
+                            coords,
+                        )
+                        for v in T.serial(2 if polyline else 3):
+                            for d in T.serial(3):
+                                sub1[
+                                    (
+                                        sf["a"]
+                                        if v == 0
+                                        else sf["b"]
+                                        if v == 1
+                                        else sf["c"]
+                                    )
+                                    + d
+                                ] = T.reinterpret(coords[v, d], "uint32")
+                        emit(
+                            PfmPairs,
+                            PfmCount,
+                            capacity,
+                            sub1,
+                            sub2,
+                            Q,
+                            Translation,
+                            thickness,
+                            radius[0],
+                            c1,
+                            c2,
+                            pair,
+                            part + 1,
+                            T.float32(-1),
+                        )
+                        current[0] = exit_id
+                    else:
+                        low = T.alloc_local((3,), "float32")
+                        high = T.alloc_local((3,), "float32")
+                        node_aabb(vertex_base, current[0], Vertices, low, high)
+                        current[0] = T.if_then_else(
+                            intersects(mins, maxs, low, high),
+                            T.cast(entry, "int32"),
+                            exit_id,
+                        )
 
     return one
 
@@ -839,12 +841,13 @@ def gpu_reduce_contacts(l, c):
                     active = T.alloc_local((1,), "bool")
                     n[0] = 1
                     active[0] = True
-                    for j in T.serial(t + 1, total):
-                        if active[0]:
-                            if Keys[j] == Keys[t]:
-                                n[0] = n[0] + 1
-                            else:
-                                active[0] = False
+                    # Stop at the first different key, as Rust does. Scanning
+                    # the inactive tail made many short runs quadratic work.
+                    while t + n[0] < total and active[0]:
+                        if Keys[t + n[0]] == Keys[t]:
+                            n[0] = n[0] + 1
+                        else:
+                            active[0] = False
                     if n[0] > 1:
                         write = T.alloc_local((1,), "int32")
                         write[0] = 0
@@ -855,152 +858,145 @@ def gpu_reduce_contacts(l, c):
                             if im[co + mf["len"]] != 0:
                                 merged = T.alloc_local((1,), "bool")
                                 merged[0] = False
-                                for j in T.serial(write[0]):
-                                    if not merged[0]:
-                                        out = T.alloc_local((cw,), "uint32")
-                                        n1 = T.alloc_local((3,), "float32")
-                                        n2 = T.alloc_local((3,), "float32")
-                                        for word in T.serial(cw):
-                                            out[word] = Contacts[
-                                                (base + t + j) * cw + word
-                                            ]
-                                        for d in T.serial(3):
-                                            n1[d] = f32(out, co + mf["normal_a"] + d)
-                                            n2[d] = f32(im, co + mf["normal_a"] + d)
-                                        if dot(n1, n2) >= merge_cos:
-                                            na = T.cast(
-                                                T.min(out[co + mf["len"]], T.uint32(4)),
-                                                "int32",
-                                            )
-                                            nb = T.cast(
-                                                T.min(im[co + mf["len"]], T.uint32(4)),
-                                                "int32",
-                                            )
-                                            candidates = T.alloc_local(
-                                                (8, 4), "float32"
-                                            )
-                                            num = T.alloc_local((1,), "int32")
-                                            point = T.alloc_local((4,), "float32")
-                                            num[0] = 0
-                                            for v in T.serial(8):
-                                                for d in T.serial(4):
-                                                    candidates[v, d] = 0.0
-                                            eps = prediction * T.float32(0.25)
-                                            eps_sq = eps * eps
-                                            for v in T.serial(na):
-                                                for d in T.serial(3):
-                                                    point[d] = f32(
-                                                        out,
-                                                        co
-                                                        + mf["points_a"]
-                                                        + v * l["manifold_point_words"]
-                                                        + pf["pt"]
-                                                        + d,
-                                                    )
-                                                point[3] = f32(
-                                                    out,
-                                                    co
-                                                    + mf["points_a"]
-                                                    + v * l["manifold_point_words"]
-                                                    + pf["dist"],
-                                                )
-                                                pool_dedup(
-                                                    candidates, num, point, eps_sq
-                                                )
-                                            for v in T.serial(nb):
-                                                for d in T.serial(3):
-                                                    point[d] = f32(
-                                                        im,
-                                                        co
-                                                        + mf["points_a"]
-                                                        + v * l["manifold_point_words"]
-                                                        + pf["pt"]
-                                                        + d,
-                                                    )
-                                                point[3] = f32(
-                                                    im,
-                                                    co
-                                                    + mf["points_a"]
-                                                    + v * l["manifold_point_words"]
-                                                    + pf["dist"],
-                                                )
-                                                pool_dedup(
-                                                    candidates, num, point, eps_sq
-                                                )
-                                            deep1 = T.alloc_local((1,), "float32")
-                                            deep2 = T.alloc_local((1,), "float32")
-                                            deep1[0] = f32(
-                                                out, co + mf["points_a"] + pf["dist"]
-                                            )
-                                            deep2[0] = f32(
-                                                im, co + mf["points_a"] + pf["dist"]
-                                            )
-                                            for v in T.serial(1, na):
-                                                value = f32(
-                                                    out,
-                                                    co
-                                                    + mf["points_a"]
-                                                    + v * l["manifold_point_words"]
-                                                    + pf["dist"],
-                                                )
-                                                if value < deep1[0]:  # noqa: PLR1730 -- Python min cannot compare TIR expressions
-                                                    deep1[0] = value
-                                            for v in T.serial(1, nb):
-                                                value = f32(
-                                                    im,
-                                                    co
-                                                    + mf["points_a"]
-                                                    + v * l["manifold_point_words"]
-                                                    + pf["dist"],
-                                                )
-                                                if value < deep2[0]:  # noqa: PLR1730 -- Python min cannot compare TIR expressions
-                                                    deep2[0] = value
-                                            normal = T.alloc_local((3,), "float32")
-                                            points = T.alloc_local((4, 4), "float32")
-                                            count = T.alloc_local((1,), "int32")
+                                merge_index = T.alloc_local((1,), "int32")
+                                merge_index[0] = 0
+                                while merge_index[0] < write[0] and not merged[0]:
+                                    out = T.alloc_local((cw,), "uint32")
+                                    n1 = T.alloc_local((3,), "float32")
+                                    n2 = T.alloc_local((3,), "float32")
+                                    for word in T.serial(cw):
+                                        out[word] = Contacts[
+                                            (base + t + merge_index[0]) * cw + word
+                                        ]
+                                    for d in T.serial(3):
+                                        n1[d] = f32(out, co + mf["normal_a"] + d)
+                                        n2[d] = f32(im, co + mf["normal_a"] + d)
+                                    if dot(n1, n2) >= merge_cos:
+                                        na = T.cast(
+                                            T.min(out[co + mf["len"]], T.uint32(4)),
+                                            "int32",
+                                        )
+                                        nb = T.cast(
+                                            T.min(im[co + mf["len"]], T.uint32(4)),
+                                            "int32",
+                                        )
+                                        candidates = T.alloc_local((8, 4), "float32")
+                                        num = T.alloc_local((1,), "int32")
+                                        point = T.alloc_local((4,), "float32")
+                                        num[0] = 0
+                                        for v in T.serial(8):
+                                            for d in T.serial(4):
+                                                candidates[v, d] = 0.0
+                                        eps = prediction * T.float32(0.25)
+                                        eps_sq = eps * eps
+                                        for v in T.serial(na):
                                             for d in T.serial(3):
-                                                normal[d] = T.if_then_else(
-                                                    deep2[0] < deep1[0], n2[d], n1[d]
+                                                point[d] = f32(
+                                                    out,
+                                                    co
+                                                    + mf["points_a"]
+                                                    + v * l["manifold_point_words"]
+                                                    + pf["pt"]
+                                                    + d,
                                                 )
-                                            manifold_reduction(
-                                                candidates,
-                                                num[0],
-                                                normal,
-                                                prediction,
-                                                points,
-                                                count,
+                                            point[3] = f32(
+                                                out,
+                                                co
+                                                + mf["points_a"]
+                                                + v * l["manifold_point_words"]
+                                                + pf["dist"],
                                             )
-                                            for v in T.serial(4):
-                                                for d in T.serial(3):
-                                                    out[
-                                                        co
-                                                        + mf["points_a"]
-                                                        + v * l["manifold_point_words"]
-                                                        + pf["pt"]
-                                                        + d
-                                                    ] = T.reinterpret(
-                                                        points[v, d], "uint32"
-                                                    )
+                                            pool_dedup(candidates, num, point, eps_sq)
+                                        for v in T.serial(nb):
+                                            for d in T.serial(3):
+                                                point[d] = f32(
+                                                    im,
+                                                    co
+                                                    + mf["points_a"]
+                                                    + v * l["manifold_point_words"]
+                                                    + pf["pt"]
+                                                    + d,
+                                                )
+                                            point[3] = f32(
+                                                im,
+                                                co
+                                                + mf["points_a"]
+                                                + v * l["manifold_point_words"]
+                                                + pf["dist"],
+                                            )
+                                            pool_dedup(candidates, num, point, eps_sq)
+                                        deep1 = T.alloc_local((1,), "float32")
+                                        deep2 = T.alloc_local((1,), "float32")
+                                        deep1[0] = f32(
+                                            out, co + mf["points_a"] + pf["dist"]
+                                        )
+                                        deep2[0] = f32(
+                                            im, co + mf["points_a"] + pf["dist"]
+                                        )
+                                        for v in T.serial(1, na):
+                                            value = f32(
+                                                out,
+                                                co
+                                                + mf["points_a"]
+                                                + v * l["manifold_point_words"]
+                                                + pf["dist"],
+                                            )
+                                            if value < deep1[0]:  # noqa: PLR1730 -- Python min cannot compare TIR expressions
+                                                deep1[0] = value
+                                        for v in T.serial(1, nb):
+                                            value = f32(
+                                                im,
+                                                co
+                                                + mf["points_a"]
+                                                + v * l["manifold_point_words"]
+                                                + pf["dist"],
+                                            )
+                                            if value < deep2[0]:  # noqa: PLR1730 -- Python min cannot compare TIR expressions
+                                                deep2[0] = value
+                                        normal = T.alloc_local((3,), "float32")
+                                        points = T.alloc_local((4, 4), "float32")
+                                        count = T.alloc_local((1,), "int32")
+                                        for d in T.serial(3):
+                                            normal[d] = T.if_then_else(
+                                                deep2[0] < deep1[0], n2[d], n1[d]
+                                            )
+                                        manifold_reduction(
+                                            candidates,
+                                            num[0],
+                                            normal,
+                                            prediction,
+                                            points,
+                                            count,
+                                        )
+                                        for v in T.serial(4):
+                                            for d in T.serial(3):
                                                 out[
                                                     co
                                                     + mf["points_a"]
                                                     + v * l["manifold_point_words"]
-                                                    + pf["dist"]
+                                                    + pf["pt"]
+                                                    + d
                                                 ] = T.reinterpret(
-                                                    points[v, 3], "uint32"
+                                                    points[v, d], "uint32"
                                                 )
-                                            for d in T.serial(3):
-                                                out[co + mf["normal_a"] + d] = (
-                                                    T.reinterpret(normal[d], "uint32")
-                                                )
-                                            out[co + mf["len"]] = T.cast(
-                                                count[0], "uint32"
+                                            out[
+                                                co
+                                                + mf["points_a"]
+                                                + v * l["manifold_point_words"]
+                                                + pf["dist"]
+                                            ] = T.reinterpret(points[v, 3], "uint32")
+                                        for d in T.serial(3):
+                                            out[co + mf["normal_a"] + d] = (
+                                                T.reinterpret(normal[d], "uint32")
                                             )
-                                            for word in T.serial(cw):
-                                                Contacts[(base + t + j) * cw + word] = (
-                                                    out[word]
-                                                )
-                                            merged[0] = True
+                                        out[co + mf["len"]] = T.cast(count[0], "uint32")
+                                        for word in T.serial(cw):
+                                            Contacts[
+                                                (base + t + merge_index[0]) * cw + word
+                                            ] = out[word]
+                                        merged[0] = True
+                                    merge_index[0] += 1
+
                                 if not merged[0]:
                                     for word in T.serial(cw):
                                         Contacts[(base + t + write[0]) * cw + word] = (

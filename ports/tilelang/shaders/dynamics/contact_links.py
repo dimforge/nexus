@@ -67,33 +67,29 @@ def find_previous_constraint(layout):
         first = T.if_then_else(use_a, first_a[0], first_b[0])
         last = T.if_then_else(use_a, last_a, last_b)
         previous[0] = -1
-        for entry in T.serial(first, last):
-            if previous[0] == -1:
-                cid = T.cast(Ids[entry], "int32")
-                old = T.cast(cid, "int32") * layout["link_words"]
-                if (
-                    (
-                        OldLinks[old + l["solver_body_a"]]
-                        == Links[lb + l["solver_body_a"]]
-                    )
-                    & (
-                        OldLinks[old + l["solver_body_b"]]
-                        == Links[lb + l["solver_body_b"]]
-                    )
-                    & (
-                        OldLinks[old + l["warmstart_collider_a"]]
-                        == Links[lb + l["warmstart_collider_a"]]
-                    )
-                    & (
-                        OldLinks[old + l["warmstart_collider_b"]]
-                        == Links[lb + l["warmstart_collider_b"]]
-                    )
-                    & (
-                        OldLinks[old + l["warmstart_subshape"]]
-                        == Links[lb + l["warmstart_subshape"]]
-                    )
-                ):
-                    previous[0] = cid
+        entry = T.alloc_local((1,), "int32")
+        entry[0] = first
+        while entry[0] < last and previous[0] == -1:
+            cid = T.cast(Ids[entry[0]], "int32")
+            old = T.cast(cid, "int32") * layout["link_words"]
+            if (
+                (OldLinks[old + l["solver_body_a"]] == Links[lb + l["solver_body_a"]])
+                & (OldLinks[old + l["solver_body_b"]] == Links[lb + l["solver_body_b"]])
+                & (
+                    OldLinks[old + l["warmstart_collider_a"]]
+                    == Links[lb + l["warmstart_collider_a"]]
+                )
+                & (
+                    OldLinks[old + l["warmstart_collider_b"]]
+                    == Links[lb + l["warmstart_collider_b"]]
+                )
+                & (
+                    OldLinks[old + l["warmstart_subshape"]]
+                    == Links[lb + l["warmstart_subshape"]]
+                )
+            ):
+                previous[0] = cid
+            entry[0] += 1
 
     return one
 
