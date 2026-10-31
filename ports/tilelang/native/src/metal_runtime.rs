@@ -1,7 +1,7 @@
 //! Native execution of exported TileLang MSL with an existing khal device/queue.
-//! This synchronous boundary flushes khal writes and preserves command ordering.
-//! It is intended for correctness integration; asynchronous pass integration is
-//! separate work. No Python, TVM, or repacking is used at execution time.
+//! Consecutive stages share one command buffer, with explicit GPU buffer barriers.
+//! CPU completion boundaries remain at capacity checks and frame publication.
+//! No Python, TVM, or repacking is used at execution time.
 use khal::backend::{Backend, Metal};
 use metal::{BufferRef, ComputePipelineState, MTLCommandBufferStatus, MTLSize};
 use serde::Deserialize;
@@ -213,12 +213,14 @@ impl ProgramManifest {
     }
 }
 
-/// A correctness-first native schedule: no CPU physics, readback or repacking
-/// between stages. Completed dispatches establish dependencies for later kernels.
+/// Ordered native stages with explicit GPU dependencies and no intermediate
+/// CPU physics, readback or repacking.
 #[derive(Clone)]
 pub struct NativeProgram {
     manifest: ProgramManifest,
     kernels: Vec<NativeKernel>,
+    binding_slots: Vec<Vec<usize>>,
+    device_id: u64,
 }
 impl NativeProgram {
     pub fn new(
@@ -270,7 +272,30 @@ impl NativeProgram {
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self { manifest, kernels })
+        let binding_slots = manifest
+            .stages
+            .iter()
+            .map(|stage| {
+                stage
+                    .bindings
+                    .buffers
+                    .iter()
+                    .map(|local| {
+                        manifest
+                            .storage_buffers
+                            .iter()
+                            .position(|physical| physical == &stage.buffer_map[local])
+                            .unwrap()
+                    })
+                    .collect()
+            })
+            .collect();
+        Ok(Self {
+            manifest,
+            kernels,
+            binding_slots,
+            device_id: backend.device().registry_id(),
+        })
     }
 
     /// Execute the full schedule on persistent native buffers.
@@ -306,27 +331,69 @@ impl NativeProgram {
         if range.start > range.end || range.end > self.kernels.len() {
             return Err("Invalid native stage range".into());
         }
-        // Validate all physical storage before the first stage can mutate anything.
-        for name in &self.manifest.storage_buffers {
-            let buffer = buffers
-                .get(name)
-                .ok_or_else(|| format!("Missing buffer {name}"))?;
-            if buffer.length() != self.manifest.buffer_bytes[name]
-                || buffer.device().registry_id() != backend.device().registry_id()
-            {
-                return Err(format!("Invalid buffer {name}"));
+        if backend.device().registry_id() != self.device_id {
+            return Err("Program and backend devices differ".into());
+        }
+        // Validate every physical allocation before encoding any writes. Mappings
+        // and the immutable ABI were checked when constructing the program.
+        let physical = self
+            .manifest
+            .storage_buffers
+            .iter()
+            .map(|name| {
+                let buffer = *buffers
+                    .get(name)
+                    .ok_or_else(|| format!("Missing buffer {name}"))?;
+                if buffer.length() != self.manifest.buffer_bytes[name]
+                    || buffer.device().registry_id() != self.device_id
+                {
+                    return Err(format!("Invalid buffer {name}"));
+                }
+                Ok(buffer)
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        if range.is_empty() {
+            return Ok(());
+        }
+        // Flush staged khal uploads once at this host boundary, never per shader.
+        backend.synchronize().map_err(|e| e.to_string())?;
+        let command = backend.queue().new_command_buffer();
+        let encoder = command.new_compute_command_encoder();
+        for index in range {
+            let kernel = &self.kernels[index];
+            encoder.set_compute_pipeline_state(&kernel.pipeline);
+            let resources = self.binding_slots[index]
+                .iter()
+                .map(|&physical_slot| {
+                    let buffer = physical[physical_slot];
+                    let resource: &metal::ResourceRef = buffer;
+                    resource
+                })
+                .collect::<Vec<_>>();
+            for (slot, &physical_slot) in self.binding_slots[index].iter().enumerate() {
+                encoder.set_buffer(slot as u64, Some(physical[physical_slot]), 0);
+            }
+            for _ in 0..kernel.manifest.iterations {
+                encoder.dispatch_thread_groups(
+                    MTLSize::new(kernel.manifest.blocks, 1, 1),
+                    MTLSize::new(kernel.manifest.threads, 1, 1),
+                );
+                // Cover storage writes between dispatches, including untracked
+                // resources and consecutive iterations of the same kernel. This
+                // orders GPU work without a CPU wait or cross-workgroup barrier.
+                if !resources.is_empty() {
+                    encoder.memory_barrier_with_resources(&resources);
+                }
             }
         }
-        for index in range {
-            let stage = &self.manifest.stages[index];
-            let local = stage
-                .buffer_map
-                .iter()
-                .map(|(name, physical)| (name.clone(), buffers[physical]))
-                .collect();
-            unsafe {
-                self.kernels[index].dispatch(backend, &local)?;
-            }
+        encoder.end_encoding();
+        command.commit();
+        command.wait_until_completed();
+        if command.status() != MTLCommandBufferStatus::Completed {
+            return Err(format!(
+                "Metal program dispatch failed: {:?}",
+                command.status()
+            ));
         }
         Ok(())
     }
@@ -468,6 +535,59 @@ mod tests {
             .max_total_threads_per_threadgroup()
             + 1;
         assert!(NativeProgram::new(&backend, m, &sources).is_err());
+    }
+
+    #[test]
+    fn batched_dependencies_cover_untracked_buffers_and_workgroups() {
+        let backend = Metal::new().unwrap();
+        let mut m = program();
+        m.iterations = 4;
+        m.buffer_bytes.values_mut().for_each(|n| *n = 257 * 4);
+        let first = &mut m.stages[0];
+        first.bindings.buffer_bytes.insert("A".into(), 257 * 4);
+        first.bindings.blocks = 5;
+        first.bindings.threads = 64;
+        first.bindings.iterations = 3;
+        let mut second = first.clone();
+        second.name = "cross_workgroup_consumer".into();
+        second.source = "second.metal".into();
+        second.bindings.iterations = 2;
+        second.bindings.buffers.push("B".into());
+        second.bindings.storage_buffers.push("B".into());
+        second.bindings.buffer_bytes.insert("B".into(), 257 * 4);
+        second.buffer_map.insert("B".into(), "Y".into());
+        m.stages.push(second);
+        let sources = BTreeMap::from([
+            ("first.metal".into(), "#include <metal_stdlib>\nusing namespace metal;\nkernel void stage(device uint* a [[buffer(0)]], uint i [[thread_position_in_grid]]) { if(i<257) a[i] += 1; }".into()),
+            ("second.metal".into(), "#include <metal_stdlib>\nusing namespace metal;\nkernel void stage(device uint* a [[buffer(0)]], device uint* b [[buffer(1)]], uint i [[thread_position_in_grid]]) { if(i<257) b[i] += a[(i+67)%257]; }".into()),
+        ]);
+        let program = NativeProgram::new(&backend, m, &sources).unwrap();
+        let initial: Vec<u32> = (0..257).map(|i| i * 3).collect();
+        let options = metal::MTLResourceOptions::StorageModeShared
+            | metal::MTLResourceOptions::HazardTrackingModeUntracked;
+        let x = backend
+            .device()
+            .new_buffer_with_data(initial.as_ptr().cast(), 257 * 4, options);
+        let y = backend
+            .device()
+            .new_buffer_with_data(initial.as_ptr().cast(), 257 * 4, options);
+        let bad = backend.device().new_buffer(4, options);
+        let mut buffers = BTreeMap::from([("X".into(), x.as_ref()), ("Y".into(), bad.as_ref())]);
+        unsafe {
+            assert!(program.dispatch(&backend, &buffers).is_err());
+            assert_eq!(
+                std::slice::from_raw_parts(x.contents().cast::<u32>(), 257),
+                initial
+            );
+            buffers.insert("Y".into(), y.as_ref());
+            program.dispatch(&backend, &buffers).unwrap();
+            let actual_x = std::slice::from_raw_parts(x.contents().cast::<u32>(), 257);
+            let actual_y = std::slice::from_raw_parts(y.contents().cast::<u32>(), 257);
+            for i in 0..257 {
+                assert_eq!(actual_x[i], initial[i] + 12);
+                assert_eq!(actual_y[i], initial[i] + 8 * initial[(i + 67) % 257] + 60);
+            }
+        }
     }
 
     #[test]

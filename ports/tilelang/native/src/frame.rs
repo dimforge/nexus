@@ -168,6 +168,7 @@ pub struct FrameStats {
 
 pub struct FrameSession {
     variants: Vec<FrameVariant>,
+    gate_ends: Vec<Vec<usize>>,
     current: usize,
     program: NativeProgram,
     initial_program: NativeProgram,
@@ -230,9 +231,10 @@ impl FrameSession {
         if variants.is_empty() {
             return Err("No frame specialization".into());
         }
-        for v in &variants {
-            v.validate()?;
-        }
+        let gate_ends = variants
+            .iter()
+            .map(FrameVariant::validate)
+            .collect::<Result<Vec<_>, _>>()?;
         for pair in variants.windows(2) {
             validate_growth(&pair[0].manifest, &pair[1].manifest)?;
         }
@@ -246,6 +248,7 @@ impl FrameSession {
         let storage = upload(backend, first)?;
         Ok(Self {
             variants,
+            gate_ends,
             current: 0,
             initial_program: program.clone(),
             program,
@@ -264,9 +267,10 @@ impl FrameSession {
         if self.poisoned {
             return Err("Poisoned frame".into());
         }
-        variant.validate()?;
+        let ends = variant.validate()?;
         validate_growth(&self.variants.last().unwrap().manifest, &variant.manifest)?;
         self.variants.push(variant);
+        self.gate_ends.push(ends);
         Ok(())
     }
     /// Copy the semantic state required to continue at the same frame boundary.
@@ -430,11 +434,12 @@ impl FrameSession {
         let mut retries = 0;
         loop {
             let m = &self.variants[self.current].manifest;
-            let ends = m.validate().map_err(StepError::Backend)?;
+            // Variants are immutable after new/extend validated the complete ABI.
+            let ends = &self.gate_ends[self.current];
             let mut start = 0;
             let mut overflow = None;
             let mut counts = BTreeMap::new();
-            for (gate, end) in m.gates.iter().zip(&ends) {
+            for (gate, end) in m.gates.iter().zip(ends) {
                 if let Err(error) = unsafe {
                     self.program
                         .dispatch_stages(backend, &self.refs(), start..*end)

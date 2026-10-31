@@ -240,3 +240,5 @@ four (`NEXUS_TILELANG_COMPILE_JOBS=1..16`). Compilation flags, dispatch order an
 numerical tolerances are unchanged. `preparation_timings()` exposes measured
 compiler/export/runtime setup phases; `specialization.json` also retains per-kernel
 lowering times. A program-cache hit always receives fresh native scene buffers.
+
+Metal execution batches each consecutive range between capacity gates in one compute encoder and command buffer. Explicit buffer memory barriers preserve dependencies between dispatches and repeated kernel iterations, including untracked resources. The host waits at gate/readback boundaries; it does not submit or wait per shader. Native allocation sizes and devices still validate before execution, while immutable manifest and binding checks are retained from construction.
