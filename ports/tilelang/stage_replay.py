@@ -41,8 +41,6 @@ def parse_args(operations, default):
     )
     parser.add_argument("--output", type=Path, default=HERE / "results")
     args = parser.parse_args()
-    if args.target in ("ascend", "cuda") and not args.compile_only:
-        parser.error("CUDA/Ascend execution is unavailable; use --compile-only")
     return args
 
 
@@ -130,7 +128,12 @@ def run_stage(
 
     compiler_session = CompilationSession()
     active_case = None
+    device = None
     try:
+        if args.target in ("cuda", "ascend") and not args.compile_only:
+            from device_replay import create_device
+
+            device = create_device(args.target)
         runner = (
             build_native() if args.target == "metal" and not args.compile_only else None
         )
@@ -179,6 +182,8 @@ def run_stage(
                 source = artifact.kernel_source
                 if args.target == "metal":
                     source = "#pragma clang fp contract(off)\n" + source
+                from device_compiler import launch_metadata
+
                 bindings = {
                     "schema": 1,
                     "entry": str(function.attrs["global_symbol"]),
@@ -188,6 +193,11 @@ def run_stage(
                     "blocks": blocks,
                     "threads": threads,
                     "iterations": iterations,
+                    **(
+                        launch_metadata(function)
+                        if args.target in ("cuda", "ascend")
+                        else {}
+                    ),
                 }
                 sources = {f"kernel.{args.target}": source}
             write_json(directory / "bindings.json", bindings)
@@ -217,6 +227,19 @@ def run_stage(
                     else:
                         execution = execute_c(source, bindings, directory, actual)
                     report["environment"].update(execution)
+                elif args.target in ("cuda", "ascend"):
+                    from device_replay import execute_program
+
+                    report["environment"].update(
+                        execute_program(
+                            sources,
+                            bindings,
+                            directory / "device-build",
+                            actual,
+                            args.target,
+                            device=device,
+                        )
+                    )
                 else:
                     report["environment"].update(json.loads(run([runner, directory])))
                     actual = {
@@ -263,4 +286,6 @@ def run_stage(
         report.update(status="failed", error=str(error), failed_case=active_case)
         raise
     finally:
+        if device is not None:
+            device.close()
         write_json(output / "report.json", report)

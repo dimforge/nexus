@@ -1,0 +1,9 @@
+{
+  "id": "0147-native-device-integration",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["feature", "abi", "optimization", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Connect CUDA/Ascend execution to native simulation, the feature-gated testbed and contract replay runners; use binary body-state readback and persistent device binary caches.",
+  "regressions": ["24 native tests passed; Rust fmt/clippy, a runtime build without Metal, and the testbed build passed. Both CUDA/Ascend executable selections and launcher flags are accepted.", "Nine protocol/replay regressions passed in 5.625 seconds, including binary reply framing, target rejection, iteration preservation and host-only execution through the device interface. Missing real drivers fail explicitly during preflight."],
+  "differences": ["CUDA/Ascend execution still needs actual hardware qualification. Driver/compiler preflight occurs before expensive scene specialization. --compare retains the existing Rust CPU reference. Native Windows remains unqualified; no GPU dependency is added to the Rust tilelang feature and no CPU physics fallback is used."]
+}

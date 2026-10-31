@@ -37,6 +37,37 @@ def write_variant(directory, value):
 
 
 class RuntimeServiceTests(unittest.TestCase):
+    def test_binary_readback_keeps_following_control_reply_aligned(self):
+        import numpy as np
+
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "variant"
+            value = variant(8)
+            write_variant(directory, value)
+            raw = io.BytesIO()
+            output = io.TextIOWrapper(raw, encoding="utf-8", write_through=True)
+            requests = [
+                {"command": "read_binary", "buffer": "State"},
+                {"command": "close"},
+            ]
+            serve(directory, io.StringIO("\n".join(map(json.dumps, requests))), output)
+            raw.seek(0)
+            self.assertEqual(json.loads(raw.readline()), {"ready": True})
+            count = json.loads(raw.readline())["ok"]["binary_words"]
+            np.testing.assert_array_equal(
+                np.frombuffer(raw.read(count * 4), dtype="<u4"),
+                value["initial"]["State"],
+            )
+            self.assertEqual(json.loads(raw.readline()), {"ok": None})
+            self.assertEqual(raw.read(), b"")
+
+    def test_specialization_rejects_a_different_device_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "variant"
+            write_variant(directory, variant(8))
+            with self.assertRaisesRegex(ValueError, "target differs"):
+                load_variant(directory, expected_target="cuda")
+
     def test_checkpoint_restore_and_reset_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

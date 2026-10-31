@@ -159,7 +159,10 @@ fn parse_command_line() -> CliOptions {
             "--example" => opts.example = args.next(),
             "--list" => opts.list = true,
             "--tilelang" => {
-                opts.tilelang = Some(args.next().expect("--tilelang requires c or metal"))
+                opts.tilelang = Some(
+                    args.next()
+                        .expect("--tilelang requires c, metal, cuda or ascend"),
+                )
             }
             "--compare" => opts.compare = true,
             "--reference-view" => {
@@ -189,8 +192,8 @@ pub async fn main() {
     env_logger::init();
     let opts = parse_command_line();
     if let Some(target) = &opts.tilelang {
-        if !matches!(target.as_str(), "c" | "metal") {
-            panic!("--tilelang expects c or metal");
+        if !matches!(target.as_str(), "c" | "metal" | "cuda" | "ascend") {
+            panic!("--tilelang expects c, metal, cuda or ascend");
         }
         if !cfg!(all(feature = "tilelang", not(target_arch = "wasm32"))) {
             panic!("Rebuild with --features tilelang on a native target");
@@ -199,7 +202,7 @@ pub async fn main() {
             panic!("Rebuild with --features tilelang,metal");
         }
     } else if opts.compare {
-        panic!("--compare/--reference-view require --tilelang c or metal");
+        panic!("--compare/--reference-view require --tilelang c, metal, cuda or ascend");
     }
     let demos = demo_list();
 
@@ -253,6 +256,8 @@ pub async fn main() {
     if let Some(target) = &opts.tilelang {
         let backend = match target.as_str() {
             "c" => BackendType::TileLangC,
+            "cuda" => BackendType::TileLangCuda,
+            "ascend" => BackendType::TileLangAscend,
             #[cfg(feature = "metal")]
             "metal" => BackendType::TileLangMetal,
             _ => unreachable!(),

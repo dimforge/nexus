@@ -193,6 +193,7 @@ def lower(layout, case, target):
 
     requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
     from ordered import validate_launch
+    from device_compiler import launch_metadata
 
     kernel = make_kernel(layout, case, target)
     blocks = max((case.get("active_bodies", case["count"]) + 63) // 64, 1)
@@ -218,6 +219,7 @@ def lower(layout, case, target):
         source = "#pragma clang fp contract(off)\n" + source
     return source, {
         "schema": 1,
+        **(launch_metadata(function) if target in ("cuda", "ascend") else {}),
         "entry": str(function.attrs["global_symbol"]),
         "buffer_bytes": {
             "Tiles": case["tiles"] * layout["tile_words"] * 4,
@@ -344,10 +346,6 @@ def main():
     )
     parser.add_argument("--output", type=Path, default=HERE / "results")
     args = parser.parse_args()
-    if args.target in ("cuda", "ascend") and not args.compile_only:
-        parser.error(
-            "CUDA/Ascend execution runners are not implemented; use --compile-only"
-        )
     if args.boundary_stress and args.operation != "solve":
         parser.error("Boundary stress applies only to solve")
     if args.operation == "all":
@@ -447,6 +445,18 @@ def main():
                 if args.target == "c":
                     result["environment"].update(
                         execute_c(source, bindings, directory, arrays)
+                    )
+                elif args.target in ("cuda", "ascend"):
+                    from device_replay import execute_program
+
+                    result["environment"].update(
+                        execute_program(
+                            {f"kernel.{args.target}": source},
+                            bindings,
+                            directory / "device-build",
+                            arrays,
+                            args.target,
+                        )
                     )
                 else:
                     result["environment"].update(json.loads(run([runner, directory])))

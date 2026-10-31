@@ -23,7 +23,7 @@ def interpreter_path(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend", choices=("c", "metal"), default="c")
+    parser.add_argument("--backend", choices=("c", "metal", "cuda", "ascend"), default="c")
     parser.add_argument("--python", default=os.environ.get("NEXUS_TILELANG_PYTHON"))
     parser.add_argument("--compare", action="store_true")
     parser.add_argument("--release", action="store_true")

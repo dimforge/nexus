@@ -13,6 +13,12 @@ pub enum BackendType {
     /// Generated TileLang kernels on the CPU, with native CPU scene storage.
     #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
     TileLangC,
+    /// Generated TileLang kernels through the CUDA driver and NVCC.
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    TileLangCuda,
+    /// Generated TileLang kernels through AscendCL and Bisheng (950 SIMT profile).
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    TileLangAscend,
     /// Generated TileLang kernels on Metal, with native CPU scene storage.
     #[cfg(all(
         feature = "tilelang",
@@ -28,7 +34,7 @@ impl BackendType {
     pub fn is_tilelang(self) -> bool {
         match self {
             #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
-            Self::TileLangC => true,
+            Self::TileLangC | Self::TileLangCuda | Self::TileLangAscend => true,
             #[cfg(all(
                 feature = "tilelang",
                 feature = "dim3",

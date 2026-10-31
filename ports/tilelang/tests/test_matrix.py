@@ -49,10 +49,11 @@ class MatrixTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     matrix.features(root)
 
-    def test_unsupported_execution_is_not_lowering_evidence(self):
+    def test_device_execution_is_distinct_from_lowering_evidence(self):
         row = matrix.features()[0]
-        with self.assertRaises(ValueError):
-            matrix.command(row, "ascend", Path("results"))
+        self.assertNotIn(
+            "--compile-only", matrix.command(row, "ascend", Path("results"))
+        )
         self.assertIn(
             "--compile-only", matrix.command(row, "ascend", Path("results"), True)
         )

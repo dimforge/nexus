@@ -1,8 +1,8 @@
 //! Rust-owned TileLang simulation with explicit backend selection and lazy growth.
 //!
 //! The compiler and generated kernels are trusted executable code. No reference
-//! physics runs during specialization or stepping. Ascend execution is not yet
-//! available; its source bundles are produced by the separate compiler entrypoint.
+//! physics runs during specialization or stepping. CUDA and Ascend require their
+//! vendor compiler and driver; their device execution remains hardware-unqualified.
 use nexus_rbd3d::{
     Velocity,
     math::Pose,
@@ -15,7 +15,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Read, Write},
     path::{Component, Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
     time::Instant,
@@ -24,6 +24,8 @@ use std::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TileLangBackend {
     C,
+    Cuda,
+    Ascend,
     #[cfg(feature = "metal")]
     Metal,
 }
@@ -31,6 +33,8 @@ impl TileLangBackend {
     fn target(self) -> &'static str {
         match self {
             Self::C => "c",
+            Self::Cuda => "cuda",
+            Self::Ascend => "ascend",
             #[cfg(feature = "metal")]
             Self::Metal => "metal",
         }
@@ -108,17 +112,24 @@ enum StepFailure {
     Capacity { gate: String, required: u64 },
     Runtime(String),
 }
-struct CProcess {
+struct DeviceProcess {
     child: Child,
     input: ChildStdin,
     output: BufReader<ChildStdout>,
 }
-impl CProcess {
+impl DeviceProcess {
     fn new(options: &RuntimeOptions, variant: &Path) -> Result<Self, String> {
-        let mut child = Command::new(&options.python)
+        let mut command = Command::new(&options.python);
+        if let Some(cache) = &options.kernel_cache
+            && std::env::var_os("NEXUS_TILELANG_DEVICE_CACHE").is_none()
+        {
+            command.env("NEXUS_TILELANG_DEVICE_CACHE", cache.join("device"));
+        }
+        let mut child = command
             .arg("-u")
             .arg(options.port_directory.join("runtime_service.py"))
             .arg(variant)
+            .args(["--target", options.backend.target()])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
@@ -132,7 +143,7 @@ impl CProcess {
             output,
         };
         if result.receive()?["ready"] != true {
-            return Err("C runtime did not initialize".into());
+            return Err("Device runtime did not initialize".into());
         }
         Ok(result)
     }
@@ -144,7 +155,7 @@ impl CProcess {
             .map_err(|e| e.to_string())?
             == 0
         {
-            return Err("Generated-C runtime exited before replying".into());
+            return Err("Device runtime exited before replying".into());
         }
         serde_json::from_str(&line).map_err(|e| format!("Invalid runtime response: {e}"))
     }
@@ -181,8 +192,30 @@ impl CProcess {
             StepFailure::Capacity { .. } => "Unexpected capacity error outside step".into(),
         })
     }
+    fn read_words(&mut self, name: &str) -> Result<Vec<u32>, String> {
+        let reply = self.call(json!({"command":"read_binary","buffer":name}))?;
+        let count = usize::try_from(
+            reply["binary_words"]
+                .as_u64()
+                .ok_or("Missing binary word count")?,
+        )
+        .map_err(|e| e.to_string())?;
+        if count > isize::MAX as usize / 4 {
+            return Err("Binary readback size overflow".into());
+        }
+        let mut words = Vec::new();
+        words.try_reserve_exact(count).map_err(|e| e.to_string())?;
+        words.resize(count, 0u32);
+        self.output
+            .read_exact(bytemuck::cast_slice_mut(&mut words))
+            .map_err(|e| e.to_string())?;
+        for word in &mut words {
+            *word = u32::from_le(*word);
+        }
+        Ok(words)
+    }
 }
-impl Drop for CProcess {
+impl Drop for DeviceProcess {
     fn drop(&mut self) {
         if self.child.try_wait().ok().flatten().is_none() {
             let _ = self.child.kill();
@@ -191,7 +224,7 @@ impl Drop for CProcess {
     }
 }
 enum Session {
-    C(CProcess),
+    Process(DeviceProcess),
     #[cfg(feature = "metal")]
     Metal {
         backend: khal::backend::Metal,
@@ -450,6 +483,23 @@ impl TileLangSimulation {
             .port_directory
             .canonicalize()
             .map_err(|e| e.to_string())?;
+        if matches!(
+            options.backend,
+            TileLangBackend::Cuda | TileLangBackend::Ascend
+        ) {
+            let output = Command::new(&options.python)
+                .arg(options.port_directory.join("device_replay.py"))
+                .args(["--target", options.backend.target(), "--probe"])
+                .output()
+                .map_err(|e| e.to_string())?;
+            if !output.status.success() {
+                return Err(format!(
+                    "{} preflight failed: {}",
+                    options.backend.target(),
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            }
+        }
         fs::create_dir(&options.workspace).map_err(|e| e.to_string())?;
         options.workspace = options
             .workspace
@@ -491,7 +541,9 @@ impl TileLangSimulation {
         let body_count = usize::try_from(case["body_count"].as_u64().ok_or("Missing body count")?)
             .map_err(|e| e.to_string())?;
         let session = match options.backend {
-            TileLangBackend::C => Session::C(CProcess::new(&options, &directory)?),
+            TileLangBackend::C | TileLangBackend::Cuda | TileLangBackend::Ascend => {
+                Session::Process(DeviceProcess::new(&options, &directory)?)
+            }
             #[cfg(feature = "metal")]
             TileLangBackend::Metal => {
                 let backend = khal::backend::Metal::new().map_err(|e| e.to_string())?;
@@ -542,31 +594,30 @@ impl TileLangSimulation {
     /// Advance once, compiling and retrying larger capacity only before commit.
     pub fn step(&mut self) -> Result<FrameProgress, RuntimeError> {
         loop {
-            let outcome: Result<FrameProgress, StepFailure> = match &mut self.session {
-                Session::C(process) => {
-                    process
+            let outcome: Result<FrameProgress, StepFailure> =
+                match &mut self.session {
+                    Session::Process(process) => process
                         .request(json!({"command":"step"}))
                         .and_then(|value| {
                             serde_json::from_value(value)
                                 .map_err(|e| StepFailure::Runtime(e.to_string()))
+                        }),
+                    #[cfg(feature = "metal")]
+                    Session::Metal { backend, frame } => frame
+                        .step(backend)
+                        .map(|s| FrameProgress {
+                            step: s.step,
+                            retries: s.retries,
+                            variant: s.variant,
+                            counts: s.counts,
                         })
-                }
-                #[cfg(feature = "metal")]
-                Session::Metal { backend, frame } => frame
-                    .step(backend)
-                    .map(|s| FrameProgress {
-                        step: s.step,
-                        retries: s.retries,
-                        variant: s.variant,
-                        counts: s.counts,
-                    })
-                    .map_err(|e| match e {
-                        crate::frame::StepError::Capacity { gate, required, .. } => {
-                            StepFailure::Capacity { gate, required }
-                        }
-                        other => StepFailure::Runtime(format!("{other:?}")),
-                    }),
-            };
+                        .map_err(|e| match e {
+                            crate::frame::StepError::Capacity { gate, required, .. } => {
+                                StepFailure::Capacity { gate, required }
+                            }
+                            other => StepFailure::Runtime(format!("{other:?}")),
+                        }),
+                };
             match outcome {
                 Ok(mut progress) => {
                     progress.retries = progress
@@ -639,7 +690,7 @@ impl TileLangSimulation {
             return Err("Sources or scene archive changed during the session".into());
         }
         match &mut self.session {
-            Session::C(process) => {
+            Session::Process(process) => {
                 process.call(json!({"command":"extend","directory":directory}))?;
             }
             #[cfg(feature = "metal")]
@@ -654,7 +705,7 @@ impl TileLangSimulation {
     /// Capture persistent state and contact caches at a frame boundary.
     pub fn checkpoint(&mut self) -> Result<RuntimeCheckpoint, String> {
         let frame = match &mut self.session {
-            Session::C(process) => {
+            Session::Process(process) => {
                 serde_json::from_value(process.call(json!({"command":"checkpoint"}))?)
                     .map_err(|e| e.to_string())?
             }
@@ -706,7 +757,7 @@ impl TileLangSimulation {
             )?;
         }
         let index = match &mut self.session {
-            Session::C(process) => serde_json::from_value(
+            Session::Process(process) => serde_json::from_value(
                 process.call(json!({"command":"restore","checkpoint":checkpoint.frame}))?,
             )
             .map_err(|e| e.to_string())?,
@@ -721,7 +772,7 @@ impl TileLangSimulation {
     /// Reset physical state, contact caches and the step counter to the original upload.
     pub fn reset(&mut self) -> Result<(), String> {
         match &mut self.session {
-            Session::C(process) => {
+            Session::Process(process) => {
                 process.call(json!({"command":"reset"}))?;
             }
             #[cfg(feature = "metal")]
@@ -941,7 +992,7 @@ impl TileLangSimulation {
         words: &[u32],
     ) -> Result<(), String> {
         match &mut self.session {
-            Session::C(process) => {
+            Session::Process(process) => {
                 process.call(json!({"command":"write", "region":region,"word_offset":word_offset,"words":words}))?;
                 Ok(())
             }
@@ -1006,10 +1057,7 @@ impl TileLangSimulation {
     /// Explicit readback for diagnostics or application state publication.
     pub fn read_words(&mut self, name: &str) -> Result<Vec<u32>, String> {
         match &mut self.session {
-            Session::C(process) => {
-                serde_json::from_value(process.call(json!({"command":"read","buffer":name}))?)
-                    .map_err(|e| e.to_string())
-            }
+            Session::Process(process) => process.read_words(name),
             #[cfg(feature = "metal")]
             Session::Metal { backend, frame } => frame.read(backend, name),
         }

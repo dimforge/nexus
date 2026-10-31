@@ -733,6 +733,16 @@ fn backend_selector(ui: &mut egui::Ui, state: &mut UiState, gpu_available: bool)
         {
             new_backend = Some(BackendType::TileLangC);
         }
+        for (backend, label) in [
+            (BackendType::TileLangCuda, "TileLang (CUDA)"),
+            (BackendType::TileLangAscend, "TileLang (Ascend)"),
+        ] {
+            if ui.radio(state.backend_type == backend, label).clicked()
+                && state.backend_type != backend
+            {
+                new_backend = Some(backend);
+            }
+        }
         #[cfg(feature = "metal")]
         if ui
             .radio(

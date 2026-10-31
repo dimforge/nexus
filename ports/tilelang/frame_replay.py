@@ -131,6 +131,19 @@ def main():
                     stats = [runtime.step() for _ in range(c["frames"])]
                     actual = runtime.storage
                     report["environment"].update(runtime.environment)
+                elif args.target in ("cuda", "ascend"):
+                    from device_frame import DeviceFrameSession
+                    from device_replay import create_device
+
+                    runtime = DeviceFrameSession(
+                        loaded, directory / "device-build", create_device(args.target)
+                    )
+                    try:
+                        stats = [runtime.step() for _ in range(c["frames"])]
+                        actual = {n: runtime.read(n) for n in before}
+                        report["environment"].update(runtime.device.environment)
+                    finally:
+                        runtime.close()
                 else:
                     report["environment"].update(
                         json.loads(run([runner, directory / "variants"]))

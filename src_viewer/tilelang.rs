@@ -119,6 +119,8 @@ impl TileLangUi {
 pub fn options(backend: BackendType, native_pair_capacity: u32) -> Result<RuntimeOptions, String> {
     let target = match backend {
         BackendType::TileLangC => TileLangBackend::C,
+        BackendType::TileLangCuda => TileLangBackend::Cuda,
+        BackendType::TileLangAscend => TileLangBackend::Ascend,
         #[cfg(feature = "metal")]
         BackendType::TileLangMetal => TileLangBackend::Metal,
         _ => return Err("Expected a TileLang backend".into()),

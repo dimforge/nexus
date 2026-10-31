@@ -69,8 +69,6 @@ def partitions(rows, count, root=HERE):
 
 
 def command(row, target, output, compile_only=False, root=HERE):
-    if target in ("ascend", "cuda") and not compile_only:
-        raise ValueError("This runner supports source lowering only for Ascend/CUDA")
     result = [
         sys.executable,
         str(root / row.get("runner", "replay.py")),
