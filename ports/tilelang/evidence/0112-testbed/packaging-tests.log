@@ -1,0 +1,12 @@
+test_cargo_packages_viewer_while_private_testbed_keeps_its_feature (test_package_tilelang_viewer.ViewerPackagingTests.test_cargo_packages_viewer_while_private_testbed_keeps_its_feature) ... ok
+test_multiline_change_requires_review_and_preserves_input (test_package_tilelang_viewer.ViewerPackagingTests.test_multiline_change_requires_review_and_preserves_input) ... ok
+test_publish_staging_restores_manifests_and_root_lock_on_failure (test_package_tilelang_viewer.ViewerPackagingTests.test_publish_staging_restores_manifests_and_root_lock_on_failure) ... ok
+test_real_manifest_keeps_normal_backends (test_package_tilelang_viewer.ViewerPackagingTests.test_real_manifest_keeps_normal_backends) ... ok
+test_unrecognized_manifest_fails_without_silent_changes (test_package_tilelang_viewer.ViewerPackagingTests.test_unrecognized_manifest_fails_without_silent_changes) ... ok
+test_missing_interpreter_fails_before_launch (test_run_tilelang_testbed.InterpreterPathTests.test_missing_interpreter_fails_before_launch) ... ok
+test_virtualenv_symlink_keeps_its_environment (test_run_tilelang_testbed.InterpreterPathTests.test_virtualenv_symlink_keeps_its_environment) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 1.234s
+
+OK

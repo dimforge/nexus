@@ -1,0 +1,5 @@
+    Checking nexus_viewer3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d)
+    Checking nexus_examples_3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/examples3d)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.45s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
