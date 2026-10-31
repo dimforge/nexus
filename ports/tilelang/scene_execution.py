@@ -82,15 +82,15 @@ def apply_indirect_dispatches(plans, layout, case, target):
 
     def publish(kind):
         result.append(
-            dict(
-                name="dispatch_" + kind,
-                kernel=make_grids(layout, case, kind),
-                buffer_map={
+            {
+                "name": "dispatch_" + kind,
+                "kernel": make_grids(layout, case, kind),
+                "buffer_map": {
                     n: n for n in ("PairCount", "Plan", "Buckets", "Dispatches")
                 },
-                blocks=1,
-                threads=64,
-            )
+                "blocks": 1,
+                "threads": 64,
+            }
         )
 
     for stage in plans:
@@ -108,9 +108,7 @@ def apply_indirect_dispatches(plans, layout, case, target):
                 "pfm_permuted_keys",
             ):
                 slot = GRIDS["pfm"]
-        if phase == "canonical" and (
-            op.startswith("keys_") or op.startswith("permute_")
-        ):
+        if phase == "canonical" and (op.startswith(("keys_", "permute_"))):
             slot = GRIDS["contacts"]
         if phase in (
             "init_links",
@@ -140,7 +138,7 @@ def apply_indirect_dispatches(plans, layout, case, target):
                 )
         if slot is not None:
             stage = dict(stage, indirect={"buffer": "Dispatches", "word": slot * 3})
-            if slot > COLOR_BASE and c.get("color_checks"):
+            if slot > COLOR_BASE and case.get("color_checks"):
                 stage["frame_condition"] = {
                     "gate": "colors",
                     "minimum": slot - COLOR_BASE,

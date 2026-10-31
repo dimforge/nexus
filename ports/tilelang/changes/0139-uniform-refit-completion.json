@@ -1,0 +1,20 @@
+{
+  "id": "0139-uniform-refit-completion",
+  "features": [
+    "rbd.broadphase.lbvh_refit_chunks3d",
+    "rbd.broadphase.lbvh_refit_frontier3d"
+  ],
+  "kinds": [
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Use a workgroup-uniform completion vote in Metal LBVH refit, preserving all storage fences while ending inactive tail levels like native non-web Rust.",
+  "regressions": [
+    "Focused fresh-Rust single-leaf, duplicate-key and multiple-batch chunk/frontier refit fixtures; actual Metal execution covers the completion barriers."
+  ],
+  "differences": [
+    "The three workgroup barriers around the vote prevent flag reset/read races; atomics publish the shared flag. Existing device-memory fences remain unconditional within each visited level.",
+    "C/CUDA/Ascend retain the fixed-depth schedule. Their behavior is not qualified by these Metal tests. Full baseline stays stale."
+  ]
+}

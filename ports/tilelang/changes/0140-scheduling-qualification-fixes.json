@@ -1,0 +1,21 @@
+{
+  "id": "0140-scheduling-qualification-fixes",
+  "features": [
+    "rbd.scheduling.color_requirements3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Keep feedback reduction scratch local on the serial C backend and verify optional color-stage conditions in native scene composition.",
+  "regressions": [
+    "Fresh Rust C feedback and packed/two-field sorting cases pass; frame composition regression covers enabled and disabled palette feedback.",
+    "The explicit eight-frame mesh/joint integration test exports only its selected native scene and compares complete body trajectories with the existing generated schedule."
+  ],
+  "differences": [
+    "These fix target lowering and metadata generation introduced by changes 0136 and 0138. No arithmetic or tolerance changes."
+  ]
+}

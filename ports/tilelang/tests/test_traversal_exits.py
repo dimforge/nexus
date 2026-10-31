@@ -135,10 +135,10 @@ class TraversalExits(unittest.TestCase):
                         self.assertIn(predicate, conditions)
 
     def test_bounded_gjk_epa_exits(self):
-        import support_kernels
-        import support_validation
         import epa_kernels
         import epa_validation
+        import support_kernels
+        import support_validation
 
         for op, kernels, validation in (
             ("gjk_closest", support_kernels, support_validation),
@@ -157,13 +157,42 @@ class TraversalExits(unittest.TestCase):
                 l, c, b, e, k = self.fixture("lbvh", op, name)
                 blocks, threads, _ = kernels.dimensions(c)
                 plans = [
-                    dict(
-                        name=op,
-                        kernel=kernels.make_kernel(l, c, self.target),
-                        blocks=blocks,
-                        threads=threads,
-                        buffer_map={n: n for n in kernels.BUFFERS},
-                    )
+                    {
+                        "name": op,
+                        "kernel": kernels.make_kernel(l, c, self.target),
+                        "blocks": blocks,
+                        "threads": threads,
+                        "buffer_map": {n: n for n in kernels.BUFFERS},
+                    }
                 ]
                 a, _ = self.execute(plans, b)
                 validation.check_outputs(l, c, b, a, e, k)
+
+    def test_cooperative_refit_uniform_completion(self):
+        import lbvh_kernels as kernels
+        import lbvh_validation as validation
+
+        for op in ("lbvh_refit_chunks", "lbvh_refit_frontier"):
+            for name in (
+                "n1-b2-g1-collapsed",
+                "n129-b1-g1-duplicates",
+                "n257-b2-g3-mixed",
+            ):
+                with self.subTest(operation=op, case=name):
+                    l, c, b, e, k = self.fixture("lbvh", op, name)
+                    blocks, threads, _ = kernels.dimensions(c)
+                    plans = [
+                        {
+                            "name": op,
+                            "kernel": kernels.make_kernel(l, c, self.target),
+                            "blocks": blocks,
+                            "threads": threads,
+                            "buffer_map": {n: n for n in kernels.BUFFERS},
+                        }
+                    ]
+                    a, sources = self.execute(plans, b)
+                    validation.check_outputs(l, c, b, a, e, k)
+                    if self.target == "metal" and c["colliders"] > 1:
+                        self.assertTrue(
+                            any("while (" in source for source in sources.values())
+                        )

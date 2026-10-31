@@ -4,14 +4,14 @@ import argparse
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
-from time import perf_counter
 from pathlib import Path
+from time import perf_counter
 
 import numpy as np
 from cpu_oracle import export_fixtures
 from frame_manifest import validate_frame
-from program_cache import prepare_program
 from parity import digest, evidence_inputs
+from program_cache import prepare_program
 from replay import ROOT, write_json
 
 

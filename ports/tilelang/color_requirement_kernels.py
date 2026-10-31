@@ -35,6 +35,20 @@ def make_kernel(layout, case, target):
                         Pending,
                         A.get_thread_binding(),
                     )
+    elif target == "c":
+
+        @T.prim_func
+        def kernel(
+            Colors: T.Tensor((nc,), "uint32"),
+            Links: T.Tensor((nl,), "uint32"),
+            Plan: T.Tensor((np,), "uint32"),
+            Budget: T.Tensor((nb,), "uint32"),
+            Requirements: T.Tensor((nr,), "uint32"),
+        ):
+            with T.Kernel(1):
+                Highest = T.alloc_local((64,), "uint32")
+                Pending = T.alloc_local((64,), "uint32")
+                one(Colors, Links, Plan, Budget, Requirements, Highest, Pending, 0)
     else:
 
         @T.prim_func

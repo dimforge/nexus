@@ -1,9 +1,10 @@
 """Bounded native scheduling regressions, independent of solver arithmetic."""
 
 import unittest
+
 import numpy as np
-import test_execution_optimizations as execution
 import scene_execution as schedule
+import test_execution_optimizations as execution
 from ordered import validate_program
 
 
@@ -30,13 +31,13 @@ class SceneExecution(unittest.TestCase):
         }
         c["buffer_words"] = {n: len(v) for n, v in b.items()}
         plans = [
-            dict(
-                name=k,
-                kernel=schedule.make_grids(l, c, k),
-                buffer_map={n: n for n in b},
-                blocks=1,
-                threads=64,
-            )
+            {
+                "name": k,
+                "kernel": schedule.make_grids(l, c, k),
+                "buffer_map": {n: n for n in b},
+                "blocks": 1,
+                "threads": 64,
+            }
             for k in ("pairs", "contacts", "colors")
         ]
         for empty in (False, True):
@@ -117,13 +118,13 @@ class SceneExecution(unittest.TestCase):
                     "color-requirements", "color_requirements", name
                 )
                 plans = [
-                    dict(
-                        name="requirements",
-                        kernel=kernels.make_kernel(l, c, self.target),
-                        buffer_map={n: n for n in b},
-                        blocks=1,
-                        threads=64,
-                    )
+                    {
+                        "name": "requirements",
+                        "kernel": kernels.make_kernel(l, c, self.target),
+                        "buffer_map": {n: n for n in b},
+                        "blocks": 1,
+                        "threads": 64,
+                    }
                 ]
                 a, _ = self.execute(plans, b)
                 replay.check_outputs(l, c, b, a, e, k)
@@ -174,13 +175,13 @@ class SceneExecution(unittest.TestCase):
         case = {"rows": n, "storage": 6}
         self.assertEqual(kernels.groups(n), 65535)
         plans = [
-            dict(
-                name="stabilize",
-                kernel=kernels.make_kernel(case, self.target),
-                buffer_map={k: k for k in b},
-                blocks=65535,
-                threads=64,
-            )
+            {
+                "name": "stabilize",
+                "kernel": kernels.make_kernel(case, self.target),
+                "buffer_map": {k: k for k in b},
+                "blocks": 65535,
+                "threads": 64,
+            }
         ]
         a, _ = self.execute(plans, b)
         np.testing.assert_array_equal(a["Sorted"], [1, 1, 9, 2, 8, 0xDEADBEEF])
@@ -203,14 +204,96 @@ class SceneExecution(unittest.TestCase):
             e[: count * 20] = e[2640 : 2640 + count * 20]
             a, _ = self.execute(
                 [
-                    dict(
-                        name="states",
-                        kernel=schedule.copy_live_states(l, c),
-                        buffer_map={k: k for k in b},
-                        blocks=3,
-                        threads=64,
-                    )
+                    {
+                        "name": "states",
+                        "kernel": schedule.copy_live_states(l, c),
+                        "buffer_map": {k: k for k in b},
+                        "blocks": 3,
+                        "threads": 64,
+                    }
                 ],
                 b,
             )
             np.testing.assert_array_equal(a["States"], e)
+
+    def test_mesh_joint_frames_preserve_live_state(self):
+        """Explicit focused integration; not part of the routine smoke budget."""
+        import json
+
+        import scene_kernels
+        from cpu_oracle import export_fixtures, export_native_scenes
+        from frame_manifest import from_program
+        from ordered import lower_program
+        from replay import build_native, run
+
+        if self.target != "metal":
+            self.skipTest("Native schedule is Metal-only")
+        upload, fixtures = self.root / "native-upload", self.root / "runtime-fixtures"
+        export_native_scenes(upload, "twist")
+        export_fixtures(
+            "runtime-scenes",
+            fixtures,
+            (upload / "mesh-contact-joint", "8", "64", "execute", "reduced"),
+        )
+        self.exports["runtime-scenes"] = fixtures
+        l, c, b, e, k = self.fixture(
+            "runtime-scenes", "runtime_twist_scene", "native-upload"
+        )
+        runner = build_native(frame=True)
+        results = []
+        for optimize in (False, True):
+            case = dict(c, buffer_words=dict(c["buffer_words"]))
+            initial = {n: a.copy() for n, a in b.items()}
+            if optimize:
+                case["native_schedule"] = True
+                initial["Dispatches"] = np.zeros(schedule.grid_words(case), np.uint32)
+                case["buffer_words"]["Dispatches"] = len(initial["Dispatches"])
+            plans = scene_kernels.make_program(l, case, self.target)
+            sources, program = lower_program(
+                plans, initial, self.target, iterations=1, session=self.session
+            )
+            frame = from_program(l, case, plans, program)
+            root = self.root / ("optimized-frame" if optimize else "original-frame")
+            directory = root / "variant"
+            directory.mkdir(parents=True)
+            (root / "variants.json").write_text(json.dumps(["variant"]))
+            (directory / "frame.json").write_text(json.dumps(frame))
+            for n, a in initial.items():
+                a.tofile(directory / f"{n}.bin")
+            for n, source in sources.items():
+                (directory / n).write_text(source)
+            run([runner, root])
+            results.append(
+                {
+                    n: np.fromfile(root / f"{n}.actual.bin", np.uint32)
+                    for n in (
+                        "Poses",
+                        "Velocities",
+                        "Trajectory",
+                        "PairCount",
+                        "Plan",
+                        "OldCounts",
+                    )
+                }
+            )
+        for n in results[0]:
+            np.testing.assert_array_equal(results[0][n], results[1][n], err_msg=n)
+
+    def test_native_color_conditions_follow_capacity_feedback(self):
+        stage = {
+            "name": "solve",
+            "operation": "colored_solve",
+            "phase": "colored_solve",
+            "buffer_map": {"Color": "Color7"},
+            "threads": 64,
+            "blocks": 9375,
+        }
+        case = {"contact_capacity": 600000, "batches": 1, "color_checks": True}
+        optimized = schedule.apply_indirect_dispatches([stage], {}, case, "metal")[0]
+        self.assertEqual(optimized["frame_condition"], {"gate": "colors", "minimum": 7})
+        self.assertEqual(optimized["indirect"], {"buffer": "Dispatches", "word": 36})
+        case["color_checks"] = False
+        self.assertNotIn(
+            "frame_condition",
+            schedule.apply_indirect_dispatches([stage], {}, case, "metal")[0],
+        )

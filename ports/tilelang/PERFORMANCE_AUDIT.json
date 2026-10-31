@@ -55,51 +55,77 @@
     },
     {
       "id": "capacity-dispatch",
-      "status": "open",
-      "change": null,
+      "status": "fixed",
+      "change": "0134-live-count-metal-dispatch",
       "reference": "src_rbd/dynamics/solver.rs",
       "implementation": "ports/tilelang/scene_kernels.py",
-      "description": "Use live-count/per-color indirect grids instead of capacity-wide launches."
+      "description": "Use live-count/per-color indirect grids instead of capacity-wide launches.",
+      "qualification_scope": "Native Metal runtime; other targets retain static scheduling. State halves copy live rows."
     },
     {
       "id": "persistence-copies",
-      "status": "open",
-      "change": null,
+      "status": "fixed",
+      "change": "0135-cache-swaps",
       "reference": "src_rbd/pipeline/rbd_step.rs",
       "implementation": "ports/tilelang/scene_kernels.py",
-      "description": "Runtime copies all cache buffers where Rust swaps ownership/offsets."
+      "description": "Runtime copies all cache buffers where Rust swaps ownership/offsets.",
+      "qualification_scope": "Native Metal runtime; other targets retain static scheduling. State halves copy live rows."
     },
     {
       "id": "serial-color-feedback",
-      "status": "open",
-      "change": null,
+      "status": "fixed",
+      "change": "0136-native-scheduling-policy",
       "reference": null,
       "implementation": "ports/tilelang/shaders/dynamics/coloring.py",
       "description": "TileLang runtime extension scans the live contact bound on one thread."
     },
     {
       "id": "canonical-pass-selection",
-      "status": "open",
-      "change": null,
+      "status": "fixed",
+      "change": "0136-native-scheduling-policy",
       "reference": "src_rbd/dynamics/canonical_order.rs",
       "implementation": "ports/tilelang/scene_kernels.py",
       "description": "Omit irrelevant subshape pass and select packed pair key when native bounds allow."
     },
     {
       "id": "bounded-inactive-loops",
-      "status": "open",
-      "change": null,
+      "status": "fixed",
+      "change": "0137-bounded-search-exits",
       "reference": "src_rbd_shaders/queries/gjk/epa3.rs",
       "implementation": "ports/tilelang/shaders/queries/gjk/epa3.py",
       "description": "Profile constant-bound GJK/EPA and LBVH build/escape inactive tails; preserve cooperative barriers."
     },
     {
       "id": "adjacency-group-cap",
-      "status": "open",
-      "change": null,
+      "status": "fixed",
+      "change": "0136-native-scheduling-policy",
       "reference": "src_rbd/dynamics/canonical_order.rs",
       "implementation": "ports/tilelang/primitive_kernels.py",
       "description": "Preserve native 65535-group cap and grid-stride remaining bodies."
+    },
+    {
+      "id": "empty-color-encoding",
+      "status": "fixed",
+      "change": "0138-empty-color-encoding",
+      "reference": "src_rbd/pipeline/rbd_step.rs",
+      "implementation": "ports/tilelang/frame_manifest.py",
+      "description": "Omit unused color stages using completed palette-capacity feedback; no extra readback."
+    },
+    {
+      "id": "uniform-refit-completion",
+      "status": "fixed",
+      "change": "0139-uniform-refit-completion",
+      "reference": "src_rbd_shaders/broad_phase/lbvh.rs::any_lane_active",
+      "implementation": "ports/tilelang/shaders/broad_phase/lbvh.py",
+      "description": "Metal uses native-style uniform completion voting while retaining device-memory fences. Other targets retain fixed-depth loops."
+    },
+    {
+      "id": "remaining-launch-policy",
+      "status": "open",
+      "change": null,
+      "reference": "src_rbd/pipeline/rbd_step.rs",
+      "implementation": "ports/tilelang/scene_hubs.py",
+      "description": "Small hub/round-completion stages still use capacity grids, and all-color fusion uses the specialization capacity heuristic. These are bounded remaining launch-policy differences, not a claim of performance equivalence."
     }
   ]
 }

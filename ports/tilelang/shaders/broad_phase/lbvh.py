@@ -428,15 +428,34 @@ def refit_node(l):
     return one
 
 
+def any_lane_active():
+    """Uniform workgroup completion, matching native non-web refit control."""
+
+    @T.macro
+    def one(active, Flag, Result, lane):
+        if lane == 0:
+            Flag[0] = T.uint32(0)
+        T.sync_threads()
+        if active:
+            T.atomic_add(Flag[0], T.uint32(1))
+        T.sync_threads()
+        Result[0] = Flag[0] != 0
+        # Prevent lane zero's next reset from racing with another lane's read.
+        T.sync_threads()
+
+    return one
+
+
 def gpu_lbvh_refit_chunks(l, target):
     cpu = target == "c"
     b, f = l["batch"], l["lbvh_node"]
     w = l["lbvh_node_words"]
     merge = refit_node(l)
     barrier = refit_barrier(target)
+    any_active = any_lane_active()
 
     @T.macro
-    def one(Tree, Frontier, FrontierLen, BatchIds, chunk, batch, lane):
+    def one(Tree, Frontier, FrontierLen, BatchIds, Flag, chunk, batch, lane):
         n = T.cast(BatchIds[b["colliders_len"]], "int32")
         base = scratch_start(BatchIds, b, batch)
         root = root_id(base)
@@ -454,9 +473,14 @@ def gpu_lbvh_refit_chunks(l, target):
                 nodes[slot] = Tree[
                     (root + T.cast(children[slot], "int32")) * w + f["parent"]
                 ]
-        # Fixed-depth schedule matches native web-compatible semantics; all lanes
-        # reach the storage fence even after their arrival is no longer active.
-        for _ in T.serial(64):
+        depth = T.alloc_local((1,), "int32")
+        has_work = T.alloc_local((1,), "bool")
+        depth[0], has_work[0] = 0, True
+        # Completion is workgroup-uniform; every lane still reaches each storage fence.
+        while (depth[0] < 64) & has_work[0]:
+            depth[0] = depth[0] + 1
+            if target == "metal":
+                any_active(active[0], Flag, has_work, lane)
             for t in T.serial(256 if cpu else 1):
                 slot = t if cpu else 0
                 if active[slot]:
@@ -499,9 +523,10 @@ def gpu_lbvh_refit_frontier(l, target):
     w = l["lbvh_node_words"]
     merge = refit_node(l)
     barrier = refit_barrier(target)
+    any_active = any_lane_active()
 
     @T.macro
-    def one(Tree, Frontier, FrontierLen, BatchIds, Rounds, batch, lane):
+    def one(Tree, Frontier, FrontierLen, BatchIds, Rounds, Flag, batch, lane):
         base = scratch_start(BatchIds, b, batch)
         root = root_id(base)
         count = T.cast(T.min(FrontierLen[batch], BatchIds[b["colliders_len"]]), "int32")
@@ -517,7 +542,13 @@ def gpu_lbvh_refit_frontier(l, target):
                 if active[slot]:
                     child = T.cast(Frontier[base + k], "int32")
                     nodes[slot] = Tree[(root + child) * w + f["parent"]]
-            for _ in T.serial(64):
+            depth = T.alloc_local((1,), "int32")
+            has_work = T.alloc_local((1,), "bool")
+            depth[0], has_work[0] = 0, True
+            while (depth[0] < 64) & has_work[0]:
+                depth[0] = depth[0] + 1
+                if target == "metal":
+                    any_active(active[0], Flag, has_work, lane)
                 for t in T.serial(256 if cpu else 1):
                     slot = t if cpu else 0
                     if active[slot]:

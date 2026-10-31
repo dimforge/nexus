@@ -283,3 +283,12 @@ by the physical grid stride, and place a uniform workgroup barrier between
 iterations. This preserves workgroup-local synchronization without CPU readback.
 The TileLang CUDA/Ascend wrapper for this fallback still needs implementation and
 device qualification; the Metal tests do not establish those targets' behavior.
+
+Frame schema 2 also permits commit-stage conditions based on an already completed
+capacity gate. Metal omits colors above the highest color returned by the existing
+palette check. Conditions cannot precede a gate or add a new readback. Counts are
+refreshed every frame, so a previously absent color becomes executable again.
+
+Metal LBVH refit uses a workgroup-uniform active vote to stop completed levels,
+matching native non-web Rust. The vote has three shared-memory barriers and the
+refit retains its device-memory fence; no lane-local early exit bypasses a barrier.

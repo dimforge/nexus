@@ -146,9 +146,9 @@ def make_kernel(l, c, target):
                 lane,
             )
         if kind == "lbvh_refit_chunks" and c["colliders"] >= 2:
-            chunks(Tree, Frontier, FrontierLen, BatchIds, group, batch, lane)
+            chunks(Tree, Frontier, FrontierLen, BatchIds, Base, group, batch, lane)
         if kind == "lbvh_refit_frontier" and c["colliders"] >= 2:
-            frontier(Tree, Frontier, FrontierLen, BatchIds, Rounds, batch, lane)
+            frontier(Tree, Frontier, FrontierLen, BatchIds, Rounds, Base, batch, lane)
         if kind == "lbvh_refit_plan":
             plan(FrontierLen, Rounds, BatchIds)
         if kind == "lbvh_reset":
