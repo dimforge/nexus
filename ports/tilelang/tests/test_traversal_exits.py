@@ -28,13 +28,13 @@ class TraversalExits(unittest.TestCase):
             else c["groups"]
         )
         plans = [
-            dict(
-                name=op,
-                kernel=kernel,
-                blocks=blocks,
-                threads=64,
-                buffer_map={n: n for n in (buffers or b)},
-            )
+            {
+                "name": op,
+                "kernel": kernel,
+                "blocks": blocks,
+                "threads": 64,
+                "buffer_map": {n: n for n in (buffers or b)},
+            }
         ]
         a, sources = self.execute(plans, b, c.get("iterations", 1))
         validation.check_outputs(l, c, b, a, e, k)
@@ -64,7 +64,7 @@ class TraversalExits(unittest.TestCase):
         import link_kernels as kernels
         import link_replay as validation
 
-        l, _, b, a = self.checked("links", "match_links", "n129", kernels, validation)
+        l, _, _b, a = self.checked("links", "match_links", "n129", kernels, validation)
         rows = a["Links"].reshape(-1, l["link_words"])
         # Duplicate identities must choose the FIRST adjacency entry, not the
         # last matching identity. Misses retain the all-ones sentinel.

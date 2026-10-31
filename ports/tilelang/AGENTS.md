@@ -102,3 +102,15 @@ of its unforced output, independently recomputed outward distance intervals, and
 one complete branch outcome per manifold. Do not widen intervals or mix output
 components to accept a mismatch. The policy does not cover multiple ambiguous
 points, changing poses or more than three passes; extend its proof and tests first.
+
+Performance preservation is part of port review. Compare each shader with both
+its Rust shader and the production Rust host call site; the CPU fixture driver
+is not the launch-policy reference. Record workgroups, lanes, live-count versus
+capacity bounds, early exits, barriers, sorting passes and buffer copies/swaps.
+Output parity cannot detect unnecessary iterations or lost parallelism. For a
+scheduling change, add a focused launch/control-flow regression and execute a
+small representative Rust-reference case. For performance claims, use bounded
+before/after measurements with identical input buffers and simulation settings;
+keep end-to-end timing separate from instrumented individual dispatch timing.
+Do not add the full matrix to this workflow. Known open scheduling differences
+are indexed in PERFORMANCE_AUDIT.json and explained in PERFORMANCE_AUDIT.md.

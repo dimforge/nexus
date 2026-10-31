@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "date": "2026-10-31",
+  "audited_revision": "0f1ed6d9e",
+  "scope": "Implemented 3D launch composition, traversal/search termination and persistence; not exhaustive physics or device qualification.",
+  "baseline": "stale; no full matrix requested",
+  "findings": [
+    {
+      "id": "canonical-launch",
+      "status": "fixed",
+      "change": "0131-canonical-scene-launches",
+      "reference": "src_rbd/dynamics/canonical_order.rs",
+      "implementation": "ports/tilelang/scene_kernels.py",
+      "description": "One workgroup for all contact keys and permutation; now capacity-scaled."
+    },
+    {
+      "id": "composite-traversal",
+      "status": "fixed",
+      "change": "0132-data-dependent-early-exits",
+      "reference": "src_rbd_shaders/broad_phase/narrow_phase.rs",
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py",
+      "description": "Missing traversal exit in mesh/polyline candidate enumeration."
+    },
+    {
+      "id": "mesh-projection",
+      "status": "fixed",
+      "change": "0132-data-dependent-early-exits",
+      "reference": "src_rbd_shaders/shapes/trimesh.rs",
+      "implementation": "ports/tilelang/shaders/shapes/trimesh.py",
+      "description": "Missing traversal exit in mesh point projection."
+    },
+    {
+      "id": "reduction-search",
+      "status": "fixed",
+      "change": "0132-data-dependent-early-exits",
+      "reference": "src_rbd_shaders/broad_phase/narrow_phase.rs",
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py",
+      "description": "Quadratic inactive-tail run detection; merge-search exit omitted."
+    },
+    {
+      "id": "warmstart-search",
+      "status": "fixed",
+      "change": "0132-data-dependent-early-exits",
+      "reference": "src_rbd_shaders/dynamics/contact_links.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/contact_links.py",
+      "description": "First matching contact did not terminate the scan."
+    },
+    {
+      "id": "coloring-search",
+      "status": "fixed",
+      "change": "0132-data-dependent-early-exits",
+      "reference": "src_rbd_shaders/dynamics/coloring.rs",
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py",
+      "description": "Luby and topo-conflict scans lost early exits."
+    },
+    {
+      "id": "capacity-dispatch",
+      "status": "open",
+      "change": null,
+      "reference": "src_rbd/dynamics/solver.rs",
+      "implementation": "ports/tilelang/scene_kernels.py",
+      "description": "Use live-count/per-color indirect grids instead of capacity-wide launches."
+    },
+    {
+      "id": "persistence-copies",
+      "status": "open",
+      "change": null,
+      "reference": "src_rbd/pipeline/rbd_step.rs",
+      "implementation": "ports/tilelang/scene_kernels.py",
+      "description": "Runtime copies all cache buffers where Rust swaps ownership/offsets."
+    },
+    {
+      "id": "serial-color-feedback",
+      "status": "open",
+      "change": null,
+      "reference": null,
+      "implementation": "ports/tilelang/shaders/dynamics/coloring.py",
+      "description": "TileLang runtime extension scans the live contact bound on one thread."
+    },
+    {
+      "id": "canonical-pass-selection",
+      "status": "open",
+      "change": null,
+      "reference": "src_rbd/dynamics/canonical_order.rs",
+      "implementation": "ports/tilelang/scene_kernels.py",
+      "description": "Omit irrelevant subshape pass and select packed pair key when native bounds allow."
+    },
+    {
+      "id": "bounded-inactive-loops",
+      "status": "open",
+      "change": null,
+      "reference": "src_rbd_shaders/queries/gjk/epa3.rs",
+      "implementation": "ports/tilelang/shaders/queries/gjk/epa3.py",
+      "description": "Profile constant-bound GJK/EPA and LBVH build/escape inactive tails; preserve cooperative barriers."
+    },
+    {
+      "id": "adjacency-group-cap",
+      "status": "open",
+      "change": null,
+      "reference": "src_rbd/dynamics/canonical_order.rs",
+      "implementation": "ports/tilelang/primitive_kernels.py",
+      "description": "Preserve native 65535-group cap and grid-stride remaining bodies."
+    }
+  ]
+}

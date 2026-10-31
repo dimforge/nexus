@@ -1,0 +1,10 @@
+test_coloring_conflicts_and_luby_priority (test_traversal_exits.TraversalExits.test_coloring_conflicts_and_luby_priority) ... ok
+test_composite_pairs_and_reduction (test_traversal_exits.TraversalExits.test_composite_pairs_and_reduction) ... ok
+test_data_dependent_exits_survive_translation (test_traversal_exits.TraversalExits.test_data_dependent_exits_survive_translation) ... ok
+test_first_warmstart_match (test_traversal_exits.TraversalExits.test_first_warmstart_match) ... ok
+test_mesh_projection (test_traversal_exits.TraversalExits.test_mesh_projection) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 65.224s
+
+OK

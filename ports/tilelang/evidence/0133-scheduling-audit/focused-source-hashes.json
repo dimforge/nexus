@@ -1,0 +1,11 @@
+{
+  "source_commit": "0f1ed6d9e",
+  "sha256": {
+    "ports/tilelang/shaders/broad_phase/narrow_phase.py": "5ae036d9f0ffc91b8380a356d386ea676f3e3b12c300b7e8b4614b2d31b21b95",
+    "ports/tilelang/shaders/dynamics/coloring.py": "9a6b1b7e255247e2496625bd9d634af41e91c1e863602fff00c27e0e3a74dda2",
+    "ports/tilelang/shaders/dynamics/contact_links.py": "03679e8bf05bac407237cdec49082a9b071ea1a1d8a4c922937f782c801b0c6d",
+    "ports/tilelang/shaders/shapes/trimesh.py": "840e0ab536176958dcda314f52fda3c1c147132df912e487e1953032c71ef449",
+    "ports/tilelang/tests/test_traversal_exits.py": "7135b7cb4a228b2d8953e12987c06b345b7ec0415f7d60582045604db9d9ad98"
+  },
+  "note": "Focused early-exit run. Later test-only lint cleanup is covered by Python parsing/lint; shader sources are unchanged."
+}

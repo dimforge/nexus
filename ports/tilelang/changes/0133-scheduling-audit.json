@@ -1,0 +1,22 @@
+{
+  "id": "0133-scheduling-audit",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d",
+    "rbd.scheduling.color_requirements3d",
+    "rbd.scheduling.canonical_contacts3d"
+  ],
+  "kinds": [
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Record fixed and open scheduling deviations with stable finding IDs and require review against production Rust orchestration.",
+  "regressions": [
+    "Changes 0131/0132 have focused fresh-Rust Metal execution and launch/termination assertions; see PERFORMANCE_AUDIT.md and evidence/0133-scheduling-audit."
+  ],
+  "differences": [
+    "Open findings retain capacity-wide dispatch, persistence copies, serial color feedback, excess sort passes, bounded inactive loops and adjacency launch cap differences.",
+    "Scope is scheduling, not full parity or arithmetic proof. The existing production-reference divergence remains blocking; Ascend/CUDA remain unqualified and full baseline stale."
+  ]
+}
