@@ -157,6 +157,7 @@ def make_program(l, c, target):
         storage=cs,
         groups=1,
         passes=[4, 1, 2],
+        collider_count=collider_count,
         iterations=1,
     )
     program("canonical", canonical_kernels.make_program(l, cc, target), cm)

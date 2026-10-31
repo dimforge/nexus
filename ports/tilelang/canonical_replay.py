@@ -144,6 +144,15 @@ def validate_case(layout, case, arrays):
     length = rows[:, layout["contact"]["contact"] + layout["manifold"]["len"]]
     if np.any(length > 4):
         raise ValueError("Invalid native manifold length")
+    if "collider_count" in case:
+        bound = case["collider_count"]
+        live = rows[length != 0]
+        offset = layout["contact"]["colliders"]
+        if (
+            type(bound) is not int or not 0 <= bound < 2**32
+            or np.any(live[:, offset : offset + 2] >= bound)
+        ):
+            raise ValueError("Contact collider IDs exceed the declared bound")
     if case["kind"] == "canonical_contacts":
         if case["passes"] not in ([7], [5, 2], [4, 1, 2]):
             raise ValueError("Unsupported native canonical field schedule")
@@ -193,7 +202,11 @@ def expected_outputs(layout, case, before):
                 # Independent sorted order, in addition to checking workspace state.
                 stable = np.argsort(a["Keys"][:n], kind="stable")
                 ids = a["Values"][:n][stable]
-                for p in range(8):
+                bits = 32
+                if "collider_count" in case and field in (1, 2):
+                    bits = max(1, case["collider_count"].bit_length())
+                # Independent integer workspace specification at byte granularity.
+                for p in range(((bits + 7) // 8) * 2):
                     mapping = sort_mapping(p)
                     local = {k: a[v] for k, v in mapping.items()}
                     rc = dict(

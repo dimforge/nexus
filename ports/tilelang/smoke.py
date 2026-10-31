@@ -31,6 +31,7 @@ OPERATIONS = tuple(CASES)
 UNIT_MODULES = (
     "test_kernel_cache",
     "test_preparation",
+    "test_execution_optimizations",
     "test_frame_cpu",
     "test_runtime_service",
     "test_matrix",
@@ -58,7 +59,7 @@ def selected_features(rows=None):
     return rows
 
 
-def run_command(command, cwd, log, deadline):
+def run_command(command, cwd, log, deadline, env=None):
     """One shared wall-clock deadline, including compilation and fixture export."""
     remaining = deadline - time.monotonic()
     if remaining <= 0:
@@ -67,6 +68,7 @@ def run_command(command, cwd, log, deadline):
         process = subprocess.Popen(
             command,
             cwd=cwd,
+            env=env,
             stdout=output,
             stderr=subprocess.STDOUT,
             start_new_session=True,
@@ -161,7 +163,10 @@ def run_smoke(target, output, budget):
             before = time.monotonic()
             print(f"Smoke: {name} ({before - started:.1f}s elapsed)", flush=True)
             try:
-                run_command(command, cwd, directory / step["log"], deadline)
+                run_command(
+                    command, cwd, directory / step["log"], deadline,
+                    env=dict(os.environ, NEXUS_TILELANG_TEST_TARGET=target),
+                )
                 if row is not None:
                     step["cases"] = validate_report(
                         directory / name / target / "report.json",

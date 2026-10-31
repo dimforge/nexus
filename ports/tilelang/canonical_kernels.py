@@ -176,6 +176,21 @@ def make_kernel(layout, case, target, phase, selector=None):
     return kernel
 
 
+def radix_digits(selector, collider_count=None):
+    """Keep full subshape/packed keys; bounded IDs reserve all-ones for inert rows.
+
+    An even digit count leaves the final permutation in InOrder. Rounding to a
+    byte also retains a strictly larger sentinel when count is a power of two.
+    """
+    if collider_count is not None and (
+        type(collider_count) is not int or not 0 <= collider_count < 2**32
+    ):
+        raise ValueError("Invalid canonical collider count")
+    if collider_count is None or selector % 4 not in (1, 2):
+        return 8
+    return 2 * ((max(1, collider_count.bit_length()) + 7) // 8)
+
+
 def make_program(layout, case, target):
     plans = []
     cache = {}
@@ -238,7 +253,7 @@ def make_program(layout, case, target):
         for selector in case["passes"]:
             add("keys", selector)
             sorting_stage("radix_dispatch", 0)
-            for p in range(8):
+            for p in range(radix_digits(selector, case.get("collider_count"))):
                 for kind in radix.STAGES:
                     sorting_stage(kind, p)
         add("permute")

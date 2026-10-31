@@ -1,0 +1,25 @@
+{
+  "id": "0125-bounded-collider-radix",
+  "features": [
+    "rbd.scheduling.canonical_contacts3d",
+    "rbd.pipeline.analytic_scene3d",
+    "rbd.pipeline.joint_scene3d",
+    "rbd.pipeline.general_scene3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Sort only meaningful collider ID bytes, retaining full subshape keys and exact stable contact order.",
+  "regressions": [
+    "Fresh Rust duplicate and multi-field fixtures retain exact output contacts and permutation; shortened workspace checked against independent integer specification, including guards.",
+    "Sentinel and ping-pong parity checks at every byte boundary; unknown bounds and subshape/packed keys retain all eight digits."
+  ],
+  "differences": [
+    "Production scenes derive a strict collider ID bound from immutable scene dimensions. Radix scratch differs from the full-width reference, while semantic ordering is unchanged. Standalone contracts without a bound retain their exact original workspace.",
+    "Full matrix deferred by user instruction; baseline remains stale."
+  ]
+}
