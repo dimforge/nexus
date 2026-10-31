@@ -1022,17 +1022,51 @@ impl TileLangSimulation {
             .checked_mul(size_of::<T>())
             .ok_or("Readback size overflow")?;
         let data = bytes.get(..length).ok_or("Truncated native readback")?;
-        // Generic size_of::<T>() is not a stable as_chunks const argument.
-        #[allow(clippy::chunks_exact_to_as_chunks)]
-        Ok(data
-            .chunks_exact(size_of::<T>())
-            .map(bytemuck::pod_read_unaligned)
-            .collect())
+        decode_readback(data)
     }
+
     pub fn body_poses(&mut self) -> Result<Vec<Pose>, String> {
         self.read_typed("Poses")
     }
     pub fn velocities(&mut self) -> Result<Vec<Velocity>, String> {
         self.read_typed("Velocities")
+    }
+}
+
+/// Preserve every bit while using a bulk copy for naturally aligned shared storage.
+fn decode_readback<T: bytemuck::Pod>(data: &[u8]) -> Result<Vec<T>, String> {
+    if size_of::<T>() == 0 || !data.len().is_multiple_of(size_of::<T>()) {
+        return Err("Misaligned native readback length".into());
+    }
+    if let Ok(rows) = bytemuck::try_cast_slice::<u8, T>(data) {
+        return Ok(rows.to_vec());
+    }
+    #[allow(clippy::chunks_exact_to_as_chunks)]
+    Ok(data
+        .chunks_exact(size_of::<T>())
+        .map(bytemuck::pod_read_unaligned)
+        .collect())
+}
+
+#[cfg(test)]
+mod readback_tests {
+    use super::decode_readback;
+
+    #[test]
+    fn aligned_and_unaligned_body_records_are_bitwise_identical() {
+        let records = vec![[u128::MAX, 0], [0xdeadbeef, 0x7fc000003f800000]];
+        let data = bytemuck::cast_slice(&records);
+        assert!(bytemuck::try_cast_slice::<u8, [u128; 2]>(data).is_ok());
+        assert_eq!(decode_readback::<[u128; 2]>(data).unwrap(), records);
+        let mut unaligned = vec![0x5au8; data.len() + 32];
+        let offset = (16 - unaligned.as_ptr() as usize % 16) % 16 + 1;
+        unaligned[offset..offset + data.len()].copy_from_slice(data);
+        let bytes = &unaligned[offset..offset + data.len()];
+        assert!(bytemuck::try_cast_slice::<u8, [u128; 2]>(bytes).is_err());
+        assert_eq!(decode_readback::<[u128; 2]>(bytes).unwrap(), records);
+        assert!(unaligned[..offset].iter().all(|v| *v == 0x5a));
+        assert!(unaligned[offset + data.len()..].iter().all(|v| *v == 0x5a));
+        assert!(decode_readback::<[u128; 2]>(&bytes[..bytes.len() - 1]).is_err());
+        assert!(decode_readback::<[u128; 2]>(&[]).unwrap().is_empty());
     }
 }

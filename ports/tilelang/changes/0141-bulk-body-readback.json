@@ -1,0 +1,20 @@
+{
+  "id": "0141-bulk-body-readback",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Decode aligned application body readbacks with a bulk Pod copy instead of a per-record iterator; keep the unaligned fallback.",
+  "regressions": [
+    "Native tests compare exact aligned/unaligned bit patterns, empty data, truncated lengths and source guards.",
+    "An isolated noalias-disabled debug microbenchmark of 63005 32-byte records measures about 1.32 ms per legacy decode versus 0.027 ms for the aligned bulk path; this is not the whole frame time."
+  ],
+  "differences": [
+    "No upload, shader, arithmetic, readback frequency or public layout changes. The checked native body prefix still excludes capacity guards."
+  ]
+}
