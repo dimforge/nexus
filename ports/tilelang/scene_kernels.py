@@ -155,7 +155,7 @@ def make_program(l, c, target):
         cm,
         kind="canonical_contacts",
         storage=cs,
-        groups=1,
+        groups=canonical_kernels.scene_groups(cap),
         passes=[4, 1, 2],
         collider_count=collider_count,
         iterations=1,

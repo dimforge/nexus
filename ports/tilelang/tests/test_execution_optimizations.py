@@ -75,7 +75,9 @@ class ExecutionOptimizations(unittest.TestCase):
                 live = rows[:, l["contact"]["contact"] + l["manifold"]["len"]] != 0
                 offset = l["contact"]["colliders"]
                 bound = int(rows[live, offset:offset + 2].max()) + 1
-                optimized = dict(c, collider_count=bound)
+                optimized = dict(c, collider_count=bound,
+                                 groups=canonical_kernels.scene_groups(c["count"]))
+                self.assertEqual(optimized["groups"], 2)
                 plans = canonical_kernels.make_program(l, optimized, self.target)
                 self.assertLess(len(plans), len(canonical_kernels.make_program(l, c, self.target)))
                 actual, _ = self.execute(plans, b)
@@ -85,6 +87,11 @@ class ExecutionOptimizations(unittest.TestCase):
                     np.testing.assert_array_equal(actual[field], e[field], err_msg=field)
                 with self.assertRaisesRegex(ValueError, "declared bound"):
                     canonical.validate_case(l, dict(c, collider_count=bound - 1), b)
+
+    def test_canonical_scene_launches_cover_capacity(self):
+        for capacity, groups in ((0, 1), (1, 1), (64, 1), (65, 2),
+                                 (600000, 9375)):
+            self.assertEqual(canonical_kernels.scene_groups(capacity), groups)
 
     def test_sort_digit_boundaries_reserve_inert_sentinel(self):
         for count, digits in ((0, 2), (255, 2), (256, 4), (65535, 4),

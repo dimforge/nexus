@@ -1,0 +1,21 @@
+{
+  "id": "0131-canonical-scene-launches",
+  "features": [
+    "rbd.scheduling.canonical_contacts3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Remove the remaining one-workgroup scene launch for contact key generation and permutation.",
+  "regressions": [
+    "Existing 65-contact duplicate/two-field sorting cases now execute two workgroups and compare final order and all deterministic workspace against fresh noalias-disabled Rust outputs and the independent specification.",
+    "Launch boundaries cover empty, partial workgroups and the 600000-contact Balls capacity."
+  ],
+  "differences": [
+    "The production Rust pipeline dispatches by live contact count. TileLang uses capacity-bounded groups with the same live-count grid-stride loops; native indirect dispatch remains separate work.",
+    "No Rust source, physics arithmetic, tolerance or parity baseline changed."
+  ]
+}

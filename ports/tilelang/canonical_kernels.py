@@ -35,6 +35,11 @@ BUFFERS = (
 )
 
 
+def scene_groups(capacity):
+    """One lane per possible contact until the runtime supports indirect grids."""
+    return max(1, (capacity + 63) // 64)
+
+
 def make_kernel(layout, case, target, phase, selector=None):
     if layout["default_contact"] != [0] * layout["contact_words"]:
         raise ValueError("Native default contact changed")
