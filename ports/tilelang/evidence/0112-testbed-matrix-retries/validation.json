@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "qualification": "Initial parallel runner failures are preserved; both operations were rerun in full from fresh Rust fixtures without concurrent Cargo builds. No solver code, case or tolerance changed.",
+  "failures": [
+    {
+      "operation": "luby_reset",
+      "target": "metal",
+      "error": "[Errno 2] No such file or directory: '/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/native-replay'",
+      "failed_case": "n64-chain-d1"
+    },
+    {
+      "operation": "segment_projection",
+      "target": "metal",
+      "error": "Command failed (-9): [PosixPath('/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/native-replay'), PosixPath('/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/results-testbed-0112/segment_projection/metal/fixtures/segment_projection/n0')]\n\n",
+      "failed_case": "n0"
+    }
+  ],
+  "diagnosis": "All replay builds share target/debug/native-replay. One launch observed that file missing during concurrent build activity; another process ended with SIGKILL and no output. Concurrent executable replacement is suspected for the launch failures, but the SIGKILL cause is not proven. The stock matrix.py runs each shard serially.",
+  "resolution": "Serial full reruns, followed by the complete artifact audit and regression gates. Future parallel local sharding should isolate build/output workspaces or stabilize executables before launching concurrent replays.",
+  "artifacts": {
+    "ports/tilelang/evidence/0112-testbed-matrix-retries/luby_reset.failed-report.json": "3c029a508a35e13ec2c813cf0b4823b0268a2c494a6c09b13bf58676e74134f3",
+    "ports/tilelang/evidence/0112-testbed-matrix-retries/luby_reset.failed.log": "74c543d0febc293718b4b51e5a60accf46d71345745df7ca22748d7e525cb6f1",
+    "ports/tilelang/evidence/0112-testbed-matrix-retries/luby_reset.serial-retry.log": "f805f05768a98fa38a9fc1ee8a4c1dca111dbb57b93e3b108ebf83bd6756a6cf",
+    "ports/tilelang/evidence/0112-testbed-matrix-retries/segment_projection.failed-report.json": "ac6152efdc911cdc978c60d6f4f0ee66c53cbf01d5bf1beb69a5db92e77ef0fa",
+    "ports/tilelang/evidence/0112-testbed-matrix-retries/segment_projection.failed.log": "9829a54f38631909111bed51abc9cd8eace72fca2ce9b6191def4e5bb7fcb811",
+    "ports/tilelang/evidence/0112-testbed-matrix-retries/segment_projection.serial-retry.log": "3ca31dd5f0774ab25ff7a682904a93546cf05b3256bbdb33ca5d235fa800c342"
+  }
+}

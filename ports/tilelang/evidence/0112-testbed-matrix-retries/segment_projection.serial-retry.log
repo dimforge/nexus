@@ -1,0 +1,6 @@
+metal: segment_projection/n0: passed
+metal: segment_projection/n1: passed
+metal: segment_projection/n24: passed
+metal: segment_projection/n33: passed
+metal: segment_projection/n65: passed
+metal: segment_projection/n129: passed

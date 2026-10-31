@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/geometry_replay.py", line 39, in <module>
+    main()
+    ~~~~^^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/geometry_replay.py", line 26, in main
+    run_stage(
+    ~~~~~~~~~^
+        args,
+        ^^^^^
+    ...<6 lines>...
+        launch=None,
+        ^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/stage_replay.py", line 199, in run_stage
+    report["environment"].update(json.loads(run([runner, directory])))
+                                            ~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/replay.py", line 33, in run
+    raise RuntimeError(
+        f"Command failed ({completed.returncode}): {command}\n{completed.stderr}\n{completed.stdout}"
+    )
+RuntimeError: Command failed (-9): [PosixPath('/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/native-replay'), PosixPath('/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/results-testbed-0112/segment_projection/metal/fixtures/segment_projection/n0')]
+
+

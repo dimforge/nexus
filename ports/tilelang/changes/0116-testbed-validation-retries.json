@@ -1,0 +1,24 @@
+{
+  "id": "0116-testbed-validation-retries",
+  "features": [
+    "rbd.scheduling.luby_reset3d",
+    "rbd.query.segment_projection3d"
+  ],
+  "kinds": [
+    "test",
+    "tooling"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Record two process-launch failures during the temporary parallel testbed parity refresh and retain complete serial reruns without changing solver sources or numerical contracts.",
+  "regressions": [
+    "Fresh full Metal luby_reset suite, run without concurrent Cargo builds.",
+    "Fresh full Metal segment_projection suite, run without concurrent Cargo builds.",
+    "Full 456-report current-source artifact audit and complete Python regression suite."
+  ],
+  "differences": [
+    "The first runs failed before a result could be compared: one missing shared native-replay executable and one SIGKILL with no output.",
+    "Executable replacement under concurrent Cargo builds is suspected; the SIGKILL cause is unconfirmed. Stock matrix.py is serial per shard.",
+    "Original failure reports and logs are preserved in evidence/0112-testbed-matrix-retries. Serial reruns must pass before acceptance.",
+    "No arithmetic, cases, tolerances, runtime implementation or shader mapping changes."
+  ]
+}

@@ -1,0 +1,57 @@
+metal: luby_reset/n0-chain-d0: passed
+metal: luby_reset/n1-chain-d0: passed
+metal: luby_reset/n31-chain-d0: passed
+metal: luby_reset/n32-chain-d0: passed
+metal: luby_reset/n33-chain-d0: passed
+metal: luby_reset/n63-chain-d0: passed
+metal: luby_reset/n64-chain-d0: passed
+metal: luby_reset/n65-chain-d0: passed
+metal: luby_reset/n129-chain-d0: passed
+metal: luby_reset/n33-grouped-d0: passed
+metal: luby_reset/n33-body-zero-d0: passed
+metal: luby_reset/n65-split-d0: passed
+metal: luby_reset/n4-clique-d0: passed
+metal: luby_reset/n33-converged-d0: passed
+metal: luby_reset/n0-chain-d1: passed
+metal: luby_reset/n1-chain-d1: passed
+metal: luby_reset/n31-chain-d1: passed
+metal: luby_reset/n32-chain-d1: passed
+metal: luby_reset/n33-chain-d1: passed
+metal: luby_reset/n63-chain-d1: passed
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/coloring_replay.py", line 384, in <module>
+    main()
+    ~~~~^^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/coloring_replay.py", line 371, in main
+    run_stage(
+    ~~~~~~~~~^
+        args,
+        ^^^^^
+    ...<6 lines>...
+        launch=lambda case: (case["groups"], case["threads"], case["iterations"]),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/stage_replay.py", line 199, in run_stage
+    report["environment"].update(json.loads(run([runner, directory])))
+                                            ~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/replay.py", line 29, in run
+    completed = subprocess.run(
+        [str(x) for x in command], text=True, capture_output=True, **kwargs
+    )
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/subprocess.py", line 554, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/subprocess.py", line 1991, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/native-replay'
