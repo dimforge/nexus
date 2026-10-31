@@ -169,6 +169,7 @@
   "differences": [
     "The previous matrix attempt was stopped before acceptance because startup profiling found repeated C library loading. Its partial output remains in results-cache-0117 and is not accepted evidence.",
     "Caches never include physics results or initial state; repeated stages retain their own dispatch bindings and iteration count.",
-    "No kernel arithmetic or comparison tolerances change."
+    "No kernel arithmetic or comparison tolerances change.",
+    "The first contact regression compared both trajectories successfully but inspected the fixed ground body count for nonempty contacts. Corrected the assertion to use the dynamic body slot and reran both tests; no physics change."
   ]
 }

@@ -332,9 +332,9 @@ async fn exercise_cache(backend_type: BackendType) {
             bytemuck::cast_slice::<Velocity, u8>(&plain_driver.simulation.velocities().unwrap())
         );
     }
-    assert!(driver.simulation.read_words("OldCounts").unwrap()[0] > 0);
+    assert!(driver.simulation.read_words("OldCounts").unwrap()[slot] > 0);
     driver.simulation.reset().unwrap();
-    assert_eq!(driver.simulation.read_words("OldCounts").unwrap()[0], 0);
+    assert_eq!(driver.simulation.read_words("OldCounts").unwrap()[slot], 0);
 }
 
 #[test]
