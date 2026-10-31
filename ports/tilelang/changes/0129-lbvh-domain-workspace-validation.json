@@ -1,0 +1,24 @@
+{
+  "id": "0129-lbvh-domain-workspace-validation",
+  "features": [
+    "rbd.pipeline.analytic_lbvh_scene3d",
+    "rbd.pipeline.general_lbvh_scene3d",
+    "rbd.pipeline.joint_lbvh_scene3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Validate exact LBVH domain partials for both documented CPU-oracle and production scene launch partitions.",
+  "regressions": [
+    "4097 colliders across two batches exercise both one-group and two-group partitions, including empty groups; a one-bit corrupted partial is rejected in both.",
+    "The existing strict program checker still verifies guards, merged bounds, Morton keys, tree geometry, topology, pair membership and counters."
+  ],
+  "differences": [
+    "This explicit workspace policy accompanies 0128 scene launch scaling: the Rust CPU composed oracle still uses one domain workgroup, while production scene launches scale to at most 64. No arbitrary grouping, approximate partials, physics tolerance changes or expected-output edits are accepted.",
+    "Full baseline remains stale and unreconciled."
+  ]
+}

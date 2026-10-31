@@ -301,7 +301,8 @@
     "All-frame finite states, unit rotations and exact immobility of fixed zero-velocity bodies. Final trace and published body state agree exactly.",
     "Empty BVH leaf bounds preserve the native infinity sentinel bits; only proven-unused leaf slots are normalized in a validation copy. Physical vertices and internal bounds stay finite.",
     "No numerical exceptions: default tolerances apply to all imported scenes.",
-    "Native hub reservations are checked by exact totals, membership, contiguous capacity-bounded ownership, body/contact slot identities, and independent scaled mass/inertia. Only verified allocation-dependent link and tile velocity-slot numbers are compared by semantic identity."
+    "Native hub reservations are checked by exact totals, membership, contiguous capacity-bounded ownership, body/contact slot identities, and independent scaled mass/inertia. Only verified allocation-dependent link and tile velocity-slot numbers are compared by semantic identity.",
+    "LBVH domain partials must exactly reproduce either the composed Rust CPU oracle single-group partition or the production Rust scene partition (ceil(colliders / 4096), clamped to 1..64 groups per batch). Every partial and the merged domain are independently checked; guards and all other spatial invariants remain mandatory."
   ],
   "outside_scope": [
     "Articulated multibodies, MPM and 2D.",

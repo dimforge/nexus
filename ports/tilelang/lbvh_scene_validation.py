@@ -87,6 +87,25 @@ def check_outputs(l, c, b, a, e, k):
     return errors
 
 
+def checked_domain_groups(l, c, before, tree):
+    """Check either documented scene schedule, never infer arbitrary partitions.
+
+    The composed Rust CPU oracle grid-strides through one domain group. Scene
+    GPU launches follow the production Rust policy. Both must independently
+    reproduce every partial min/max, including empty groups in every batch.
+    """
+    native = min(64, max(1, (c["colliders"] + 4095) // 4096))
+    for groups in dict.fromkeys((1, native)):
+        try:
+            lbvh.stage.check_domains(
+                l, dict(c, kind="lbvh_domain", groups=groups), before, tree
+            )
+        except AssertionError:
+            continue
+        return groups
+    raise AssertionError("LBVH partial domains match neither documented scene schedule")
+
+
 def check_trees(l, c, b, a, e, k, restarted=False):
     before = normalized_tree(l, c, b, restarted)
     lc = tree_case(c, before)
@@ -101,4 +120,5 @@ def check_trees(l, c, b, a, e, k, restarted=False):
         ]:
             initial[n] = before[n].copy()
             initial[n][:limit] = tree[n][:limit]
-        lbvh.check_outputs(l, lc, initial, tree, tree, k)
+        groups = checked_domain_groups(l, lc, initial, tree)
+        lbvh.check_outputs(l, dict(lc, groups=groups), initial, tree, tree, k)

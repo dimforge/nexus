@@ -302,7 +302,8 @@
     "Empty BVH leaf bounds preserve the native infinity sentinel bits; only proven-unused leaf slots are normalized in a validation copy. Physical vertices and internal bounds stay finite.",
     "Only the named eight-frame unreduced mesh scene has scoped final velocity, joint impulse and joint RHS budgets; geometry, identities, contact response and other frames remain strict. Eight live native restarts and independent all-frame mesh/joint/motion checks are required.",
     "Native hub reservations are checked by exact totals, membership, contiguous capacity-bounded ownership, body/contact slot identities, and independent scaled mass/inertia. Only verified allocation-dependent link and tile velocity-slot numbers are compared by semantic identity.",
-    "Independent f64 compact point masses, manifold center, radii, central tangent matrix and angular effective mass; exact inactive vector zeros, friction padding and body cache tags."
+    "Independent f64 compact point masses, manifold center, radii, central tangent matrix and angular effective mass; exact inactive vector zeros, friction padding and body cache tags.",
+    "LBVH domain partials must exactly reproduce either the composed Rust CPU oracle single-group partition or the production Rust scene partition (ceil(colliders / 4096), clamped to 1..64 groups per batch). Every partial and the merged domain are independently checked; guards and all other spatial invariants remain mandatory."
   ],
   "outside_scope": [
     "Articulated multibodies, MPM and 2D.",

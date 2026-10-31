@@ -266,7 +266,8 @@
     "The numerical exception is tied to this exact bounded scene configuration and its required restart fixtures; other cases and unknown fields keep default tolerances",
     "The resident LBVH program creates Morton keys, sorts, builds, refits and traverses the tree every frame. No host collision computation or brute-force pair fallback.",
     "Independently validate final-frame Morton keys, stable sorting, graph topology, shape support bounds, refit arrivals and complete filtered overlap set for both target and native output. Integer fields and untouched storage remain exact.",
-    "Native LBVH uses a fixed 0.002 broad-phase margin. Preserve this distinct reference behavior; narrow phase still uses RbdSimParams prediction settings."
+    "Native LBVH uses a fixed 0.002 broad-phase margin. Preserve this distinct reference behavior; narrow phase still uses RbdSimParams prediction settings.",
+    "LBVH domain partials must exactly reproduce either the composed Rust CPU oracle single-group partition or the production Rust scene partition (ceil(colliders / 4096), clamped to 1..64 groups per batch). Every partial and the merged domain are independently checked; guards and all other spatial invariants remain mandatory."
   ],
   "outside_scope": [
     "Arbitrary runtime upload, backend selection, adaptive capacity resize/retry, joint/general-shape combined scenes, hubs, twist friction and unbounded Luby",

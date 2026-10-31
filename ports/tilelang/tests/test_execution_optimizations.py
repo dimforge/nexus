@@ -190,3 +190,28 @@ class ExecutionOptimizations(unittest.TestCase):
         self.assertEqual(by_name["lbvh_escapes"]["blocks"], 5)
         a, _ = self.execute(plans, b)
         validation.check_outputs(l, c, b, a, e, k)
+
+    def test_scene_domain_validation_checks_both_documented_partitions(self):
+        from lbvh_scene_validation import checked_domain_groups
+        l, _, _, _, _ = self.fixture("lbvh", "lbvh_program", "n129-b1-g1-duplicates")
+        n, nb = 4097, 2
+        c = {"colliders": n, "batches": nb}
+        poses = np.zeros((n * nb, l["pose_words"]), np.float32)
+        xyz = l["pose_translation"]
+        poses[:, xyz:xyz+3] = np.arange(n * nb, dtype=np.float32)[:, None]
+        for groups in (1, 2):
+            rows = np.zeros((nb * 64, l["aabb_words"]), np.float32)
+            for batch in range(nb):
+                for group in range(64):
+                    ids = np.arange(n)[(np.arange(n)//128) % groups == group]
+                    points = poses[ids * nb + batch, xyz:xyz+3]
+                    for field, reduce, empty in (("mins", np.min, 1e18),
+                                                  ("maxs", np.max, -1e18)):
+                        off = l["aabb"][field]
+                        rows[batch*64+group, off:off+3] = reduce(points, axis=0) if ids.size else empty
+            arrays = {"Poses": poses.reshape(-1).view(np.uint32),
+                      "Partials": rows.reshape(-1).view(np.uint32)}
+            self.assertEqual(checked_domain_groups(l, c, arrays, arrays), groups)
+            arrays["Partials"][l["aabb"]["mins"]] ^= 1
+            with self.assertRaisesRegex(AssertionError, "neither documented"):
+                checked_domain_groups(l, c, arrays, arrays)
