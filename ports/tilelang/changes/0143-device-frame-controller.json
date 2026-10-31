@@ -1,0 +1,9 @@
+{
+  "id": "0143-device-frame-controller",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["refactor", "feature", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Share resident frame transactions between C and device executors through explicit allocation, read, write, copy and synchronization hooks.",
+  "regressions": ["Existing C capacity, continuation, checkpoint, swaps and failure regressions; device-interface transfer and failure tests."],
+  "differences": ["No host physics. Device migrations use device-to-device copies; capacity counters and explicit reads remain the only downloads. Interface tests do not qualify CUDA/Ascend execution."]
+}

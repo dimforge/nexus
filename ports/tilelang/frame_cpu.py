@@ -1,4 +1,4 @@
-"""Native C counterpart of the resident frame controller; kernels do all physics."""
+"""Shared resident frame controller with native C storage/execution defaults."""
 
 import itertools
 from pathlib import Path
@@ -36,7 +36,42 @@ class CpuFrameSession:
         for old, new in itertools.pairwise(variants):
             validate_growth(old["manifest"], new["manifest"])
         self.compiled = self._compile(0)
-        self.storage = {n: a.copy() for n, a in variants[0]["initial"].items()}
+        self.storage = self._allocate(variants[0]["initial"])
+
+    def _allocate(self, initial):
+        return {n: a.copy() for n, a in initial.items()}
+
+    def _discard(self, storage):
+        """Device subclasses release the allocations owned by this mapping."""
+
+    def _synchronize(self):
+        """CPU calls are synchronous; device subclasses wait only at boundaries."""
+
+    def _read(self, buffer, start, count):
+        return buffer[start : start + count].copy()
+
+    def _write(self, buffer, start, words):
+        buffer[start : start + len(words)] = words
+
+    def _copy(self, destination, dst_start, source, src_start, count):
+        destination[dst_start : dst_start + count] = source[
+            src_start : src_start + count
+        ]
+
+    def read(self, name):
+        if self.poisoned:
+            raise RuntimeError("Poisoned frame")
+        count = (
+            self.variants[self.current]["manifest"]["program"]["buffer_bytes"][name]
+            // 4
+        )
+        self._synchronize()
+        return self._read(self.storage[name], 0, count)
+
+    def close(self):
+        self._discard(self.storage)
+        self.storage = {}
+        self.poisoned = True
 
     @staticmethod
     def _validate_variant(v):
@@ -71,7 +106,7 @@ class CpuFrameSession:
         ):
             raise ValueError("Invalid persistent write range or words")
         start = r["word_start"] + word_offset
-        self.storage[r["buffer"]][start : start + words.size] = words
+        self._write(self.storage[r["buffer"]], start, words)
 
     def checkpoint(self):
         if self.poisoned:
@@ -82,9 +117,9 @@ class CpuFrameSession:
             "steps": self.steps,
             "capacities": {g["id"]: g["capacity"] for g in m["gates"]},
             "regions": {
-                name: self.storage[r["buffer"]][
-                    r["word_start"] : r["word_start"] + r["word_len"]
-                ].tolist()
+                name: self._read(
+                    self.storage[r["buffer"]], r["word_start"], r["word_len"]
+                ).tolist()
                 for name, r in m["persistent"].items()
             },
         }
@@ -104,11 +139,19 @@ class CpuFrameSession:
             raise ValueError("Checkpoint has no compatible capacity specialization")
         v = self.variants[index]
         compiled = self._compile(index)
-        storage = {n: a.copy() for n, a in v["initial"].items()}
-        for name, words in checkpoint["regions"].items():
-            region = v["manifest"]["persistent"][name]
-            start = region["word_start"]
-            storage[region["buffer"]][start : start + len(words)] = words
+        storage = self._allocate(v["initial"])
+        try:
+            for name, words in checkpoint["regions"].items():
+                region = v["manifest"]["persistent"][name]
+                start = region["word_start"]
+                self._write(
+                    storage[region["buffer"]], start, np.array(words, np.uint32)
+                )
+            self._synchronize()
+        except Exception:
+            self._discard(storage)
+            raise
+        self._discard(self.storage)
         self.compiled, self.storage, self.current, self.steps = (
             compiled,
             storage,
@@ -123,7 +166,13 @@ class CpuFrameSession:
             raise RuntimeError("Poisoned frame")
         v = self.variants[0]
         compiled = self._compile(0)
-        storage = {n: a.copy() for n, a in v["initial"].items()}
+        storage = self._allocate(v["initial"])
+        try:
+            self._synchronize()
+        except Exception:
+            self._discard(storage)
+            raise
+        self._discard(self.storage)
         self.compiled, self.storage, self.current, self.steps = compiled, storage, 0, 0
 
     def _compile(self, index):
@@ -184,13 +233,25 @@ class CpuFrameSession:
     def _grow(self, index):
         v = self.variants[index]
         compiled = self._compile(index)
-        storage = {n: a.copy() for n, a in v["initial"].items()}
-        for name, old in self.variants[self.current]["manifest"]["persistent"].items():
-            new = v["manifest"]["persistent"][name]
-            n = old["word_len"]
-            storage[new["buffer"]][new["word_start"] : new["word_start"] + n] = (
-                self.storage[old["buffer"]][old["word_start"] : old["word_start"] + n]
-            )
+        storage = self._allocate(v["initial"])
+        try:
+            for name, old in self.variants[self.current]["manifest"][
+                "persistent"
+            ].items():
+                new = v["manifest"]["persistent"][name]
+                n = old["word_len"]
+                self._copy(
+                    storage[new["buffer"]],
+                    new["word_start"],
+                    self.storage[old["buffer"]],
+                    old["word_start"],
+                    n,
+                )
+            self._synchronize()
+        except Exception:
+            self._discard(storage)
+            raise
+        self._discard(self.storage)
         self.compiled, self.storage, self.current = compiled, storage, index
 
     def step(self):
@@ -212,11 +273,13 @@ class CpuFrameSession:
                 end = names.index(gate["after_stage"]) + 1
                 try:
                     self._range(start, end)
+                    self._synchronize()
                 except Exception:
                     self.poisoned = True
                     raise
                 needed = sum(
-                    int(self.storage[c["buffer"]][c["word"]]) for c in gate["counters"]
+                    int(self._read(self.storage[c["buffer"]], c["word"], 1)[0])
+                    for c in gate["counters"]
                 )
                 counts[gate["id"]] = needed
                 if needed > gate["capacity"]:
@@ -243,6 +306,7 @@ class CpuFrameSession:
                 continue
             try:
                 self._range(start, len(names), counts)
+                self._synchronize()
             except Exception:
                 self.poisoned = True
                 raise
