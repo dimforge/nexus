@@ -82,6 +82,18 @@ def identity():
     }
 
 
+def apple_sdk_identity():
+    return {
+        option: subprocess.run(
+            ["xcrun", "--sdk", "macosx", option],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        for option in ("--show-sdk-path", "--show-sdk-build-version")
+    }
+
+
 def executable_identity(command):
     path = shutil.which(command[0])
     if path is None:
@@ -91,6 +103,7 @@ def executable_identity(command):
         [*command, "--version"], check=True, capture_output=True, text=True
     ).stdout
     return {
+        "sdk": apple_sdk_identity() if platform.system() == "Darwin" else None,
         "command": command,
         "executable": str(path),
         "sha256": digest(path.read_bytes()),
@@ -240,13 +253,10 @@ class KernelCache:
                     capture_output=True,
                     text=True,
                 ).stdout.strip()
-                self._metal_compiler = executable_identity([tool])
-                self._metal_compiler["sdk"] = subprocess.run(
-                    ["xcrun", "--sdk", "macosx", "--show-sdk-build-version"],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                ).stdout.strip()
+                # Publish only after every probe succeeds. A partial probe must
+                # consistently use runtime source compilation on later stages.
+                compiler = executable_identity([tool])
+                self._metal_compiler = compiler
             except (OSError, subprocess.CalledProcessError):
                 return None
         if self._metal_compiler is None:

@@ -191,13 +191,13 @@ enum Session {
     #[cfg(feature = "metal")]
     Metal {
         backend: khal::backend::Metal,
-        frame: crate::frame::FrameSession,
+        frame: Box<crate::frame::FrameSession>,
     },
 }
 
 /// A source/archive-bound continuation, including contact caches and step count.
 /// Serialize to retain it between processes. Restoring serialized words requires trusted provenance.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeCheckpoint {
     signature: Value,
@@ -485,7 +485,10 @@ impl TileLangSimulation {
                 let frame = unsafe {
                     crate::frame::FrameSession::new(&backend, vec![load_metal(&directory)?])
                 }?;
-                Session::Metal { backend, frame }
+                Session::Metal {
+                    backend,
+                    frame: Box::new(frame),
+                }
             }
         };
         let workspace_root = options.workspace.clone();

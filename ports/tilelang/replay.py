@@ -256,11 +256,15 @@ def compile_c(source, bindings, directory):
             str(library),
         ]
     )
-    return load_c_library(library, bindings, {
-        "device": platform.machine(),
-        "runtime": "native TileLang C++",
-        "compiler": run(compiler + ["--version"]).splitlines()[0],
-    })
+    return load_c_library(
+        library,
+        bindings,
+        {
+            "device": platform.machine(),
+            "runtime": "native TileLang C++",
+            "compiler": run(compiler + ["--version"]).splitlines()[0],
+        },
+    )
 
 
 def load_c_library(library, bindings, environment):
@@ -309,7 +313,11 @@ def build_native(reference=False, *, frame=False):
         "--target-dir",
         target,
     ]
-    command += ["--features", "rust-reference"] if reference else ["--bin", binary]
+    # Selecting the binary prevents a reference build from relinking the shared
+    # native-replay executable while another independent replay is launching it.
+    command += ["--bin", binary]
+    if reference:
+        command += ["--features", "rust-reference"]
     run(command, cwd=HERE / "native")
     return target / "debug" / binary
 

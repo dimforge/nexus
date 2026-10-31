@@ -37,6 +37,7 @@ class CompilationSession:
         # Target and full IR equality are required, not a function name or shape.
         key = (target, tvm.ir.save_json(kernel))
         requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
+
         def build():
             return tilelang.lower(
                 kernel,
@@ -48,8 +49,11 @@ class CompilationSession:
         return self.get(
             self.lowered,
             key,
-            lambda: self.persistent_cache.lower(kernel, target, build)
-            if self.persistent_cache is not None else build(),
+            lambda: (
+                self.persistent_cache.lower(kernel, target, build)
+                if self.persistent_cache is not None
+                else build()
+            ),
             "lowering",
         )
 

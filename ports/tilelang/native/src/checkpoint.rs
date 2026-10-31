@@ -1,7 +1,7 @@
 //! Vendor-neutral frame state. Kernels and restored words remain trusted.
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct FrameCheckpoint {
     pub schema: u32,

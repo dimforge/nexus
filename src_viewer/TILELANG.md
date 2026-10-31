@@ -77,7 +77,31 @@ The UI counts and labels these resets; numerical measurements across a reset
 must not be interpreted as an uninterrupted independent trajectory. Native
 Nexus full rebuilds can themselves reset bodies from the host Rapier world.
 
-## Compilation and errors
+## Kernel reuse and errors
+
+An unchanged restart reuses the loaded solver and resets every body, contact cache,
+scratch buffer and frame counter. Switching examples or relaunching the application
+creates fresh scene state and reuses compatible compiled kernels from
+`target/tilelang-kernel-cache`. Only the most recent loaded runtime is retained.
+A changed topology or solver configuration uses a fresh runtime; compatible kernels
+can still hit the disk cache. Changed initial poses or velocities are never taken
+from a prior example. Switching C/Metal uses distinct target entries.
+
+The panel and terminal report preparation time, loaded-runtime reuse, and numbers
+of lowerings/libraries reused or built. A warm launch still imports Python, checks
+source/compiler hashes, constructs native inputs and allocates buffers. Metal also
+creates device pipeline objects, so reuse does not make startup instantaneous.
+Installing Apple's optional offline Metal compiler enables cached `.metallib`
+libraries; without it the MSL lowering is cached and the device compiler still runs
+for each new runtime. Loaded-runtime restarts need neither compiler path.
+
+Set `NEXUS_TILELANG_KERNEL_CACHE` to an alternate directory, or to `off` to disable
+persistent caching. Delete the cache directory while the testbed is closed to clear
+it; there is currently no automatic disk eviction. Cache entries contain code,
+never scene state or reference results. Source, compiler, target, ABI or specialization
+changes invalidate the relevant entries. The source fingerprint is conservative:
+port tooling, tests and contract changes also invalidate it. An already loaded
+runtime keeps its code until replaced or the application exits.
 
 Initial specialization can take several minutes. The window presents a compilation
 banner before blocking; the artifact path and any errors are printed in the terminal. Capacity growth,
@@ -94,7 +118,7 @@ steps in the small running scene (initial synchronization takes one frame).
 
 `NEXUS_TILELANG_WORKDIR` chooses the parent directory for retained runtime
 artifacts (default: the OS temporary directory's `nexus-tilelang-testbed`). Every
-run uses a fresh subdirectory. `NEXUS_TILELANG_MAX_PAIRS` sets an application pair
+new runtime uses a fresh subdirectory; a reused restart keeps its existing one. `NEXUS_TILELANG_MAX_PAIRS` sets an application pair
 capacity limit (default: at least 1,048,576); it is not a solver/device limit.
 `NEXUS_TILELANG_PORT` overrides the compiler source directory. These interpreter,
 source and artifact paths identify trusted executable code. Retained artifacts
@@ -113,7 +137,8 @@ The C/Metal integration tests are opt-in because they require the compiler/devic
 add `-- --include-ignored --test-threads=1` and set `NEXUS_TILELANG_PYTHON` to run them.
 They exercise actual execution, independent divergence, live edits, solver setting
 changes, explicit scene rebuilds, and the absence of Rust execution in TileLang-only
-mode. Root Cargo resolution and feature unification are distinct from the standalone
+mode, cache hits across fresh compiler processes, A–B–A scene changes, exact restart
+reset, and cached/uncached numerical equality. Root Cargo resolution and feature unification are distinct from the standalone
 runtime build; retain the root lockfile and testbed evidence alongside port parity.
 
 The opt-in offscreen UI transition regression is separate: use the same Cargo

@@ -142,6 +142,22 @@ class RuntimeServiceTests(unittest.TestCase):
                 self.assertEqual(row["kind"], "runtime")
             self.assertEqual(rows[-1]["ok"][3:5], [101, 200])
 
+    def test_library_inventory_requires_known_sources_and_verified_payloads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "variant"
+            write_variant(directory, variant(8))
+            path = directory / "specialization.json"
+            original = json.loads(path.read_text())
+            for libraries in (
+                {"count.c": "../outside"},
+                {"unknown.c": "State.bin"},
+                {"count.c": "missing.native"},
+            ):
+                metadata = dict(original, libraries=libraries)
+                path.write_text(json.dumps(metadata))
+                with self.assertRaises(ValueError):
+                    load_variant(directory)
+
     def test_modified_or_missing_artifact_inventory_rejects_load(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp) / "variant"

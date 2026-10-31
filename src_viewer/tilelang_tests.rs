@@ -166,3 +166,162 @@ fn c_live_adapter() {
 fn metal_live_adapter() {
     futures::executor::block_on(exercise(BackendType::TileLangMetal));
 }
+
+async fn exercise_cache(backend_type: BackendType) {
+    let (mut state, _) = scene();
+    let mut opts = super::options(backend_type, 32).unwrap();
+    opts.kernel_cache = Some(opts.workspace.with_extension("kernel-cache"));
+    let cache = opts.kernel_cache.clone();
+    let workspace = opts.workspace.clone();
+    let mut ui = TileLangUi {
+        compare: true,
+        ..Default::default()
+    };
+    let mut pipeline = NexusPipeline::default();
+    // SAFETY: explicitly selected trusted local compiler, as in exercise().
+    let mut driver = unsafe {
+        TileLangDriver::start(&mut state, opts, None, &mut ui)
+            .await
+            .unwrap()
+    };
+    eprintln!(
+        "{backend_type:?} cold: {:.3}s {:?}",
+        ui.preparation_ms / 1000.0,
+        ui.cache
+    );
+    let cold = ui.cache.as_ref().unwrap();
+    assert!(
+        cold.lowering_misses > 0 && cold.binary_misses > 0,
+        "{cold:?}"
+    );
+    let initial_poses = bytemuck::cast_slice::<Pose, u8>(&driver.poses).to_vec();
+    let initial = driver.simulation.checkpoint().unwrap();
+    for _ in 0..3 {
+        driver
+            .step(&mut state, &mut pipeline, &mut ui)
+            .await
+            .unwrap();
+    }
+    let expected = bytemuck::cast_slice::<Pose, u8>(&driver.poses).to_vec();
+    assert_ne!(initial_poses, expected);
+
+    let (mut restarted, _) = scene();
+    let mut opts = super::options(backend_type, 32).unwrap();
+    opts.kernel_cache = cache.clone();
+    let unused_workspace = opts.workspace.clone();
+    ui.clear_run();
+    driver = unsafe {
+        TileLangDriver::start(&mut restarted, opts, Some(driver), &mut ui)
+            .await
+            .unwrap()
+    };
+    eprintln!(
+        "{backend_type:?} restart: {:.3}s",
+        ui.preparation_ms / 1000.0
+    );
+    assert!(ui.reused_runtime);
+    assert_eq!(ui.workspace.as_ref(), Some(&workspace));
+    assert!(
+        !unused_workspace.exists(),
+        "Restart must not start the compiler/exporter"
+    );
+    assert_eq!(driver.simulation.checkpoint().unwrap().step(), 0);
+    assert_eq!(
+        bytemuck::cast_slice::<Pose, u8>(&driver.poses),
+        initial_poses
+    );
+    // Equality includes all semantic state, contact caches and frame count.
+    assert_eq!(driver.simulation.checkpoint().unwrap(), initial);
+    for _ in 0..3 {
+        driver
+            .step(&mut restarted, &mut pipeline, &mut ui)
+            .await
+            .unwrap();
+    }
+    assert_eq!(bytemuck::cast_slice::<Pose, u8>(&driver.poses), expected);
+    assert!(ui.comparison.as_ref().unwrap().max_position < 1.0e-4);
+
+    // A -> B -> A: shape-compatible kernels hit, but initial state is never reused.
+    for height in [3.0, 2.0] {
+        let (mut fresh, body) = scene();
+        fresh.finalize(&GpuBackend::Cpu).await.unwrap();
+        fresh
+            .set_rigid_body_pose(
+                &GpuBackend::Cpu,
+                0,
+                body,
+                Pose::from_translation(Vec3::new(0.0, height, 0.0)),
+            )
+            .unwrap();
+        let mut opts = super::options(backend_type, 32).unwrap();
+        opts.kernel_cache = cache.clone();
+        ui.clear_run();
+        driver = unsafe {
+            TileLangDriver::start(&mut fresh, opts, Some(driver), &mut ui)
+                .await
+                .unwrap()
+        };
+        eprintln!(
+            "{backend_type:?} switched height {height}: {:.3}s {:?}",
+            ui.preparation_ms / 1000.0,
+            ui.cache
+        );
+        assert!(!ui.reused_runtime);
+        let stats = ui.cache.as_ref().unwrap();
+        assert_eq!(
+            (stats.lowering_misses, stats.binary_misses),
+            (0, 0),
+            "{stats:?}"
+        );
+        assert!(
+            stats.lowering_hits > 0 && stats.binary_hits > 0,
+            "{stats:?}"
+        );
+        let slot = fresh.rigid_body_gpu_index(0, body).unwrap() as usize;
+        assert_eq!(driver.poses[slot].translation.y, height);
+        for _ in 0..3 {
+            driver
+                .step(&mut fresh, &mut pipeline, &mut ui)
+                .await
+                .unwrap();
+        }
+        assert!(ui.comparison.as_ref().unwrap().max_position < 1.0e-4);
+        if height == 2.0 {
+            assert_eq!(bytemuck::cast_slice::<Pose, u8>(&driver.poses), expected);
+        }
+    }
+    // A new runtime with the cache disabled is the numerical comparison baseline.
+    let (mut plain, _) = scene();
+    let mut opts = super::options(backend_type, 32).unwrap();
+    opts.kernel_cache = None;
+    ui.clear_run();
+    let mut plain_driver = unsafe {
+        TileLangDriver::start(&mut plain, opts, None, &mut ui)
+            .await
+            .unwrap()
+    };
+    assert!(ui.cache.is_none());
+    for _ in 0..3 {
+        plain_driver
+            .step(&mut plain, &mut pipeline, &mut ui)
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        bytemuck::cast_slice::<Pose, u8>(&plain_driver.poses),
+        expected
+    );
+}
+
+#[test]
+#[ignore = "requires pinned TileLang and the C compiler"]
+fn c_kernel_cache_and_restart() {
+    futures::executor::block_on(exercise_cache(BackendType::TileLangC));
+}
+
+#[cfg(feature = "metal")]
+#[test]
+#[ignore = "requires pinned TileLang, Metal device and offline Metal compiler"]
+fn metal_kernel_cache_and_restart() {
+    futures::executor::block_on(exercise_cache(BackendType::TileLangMetal));
+}

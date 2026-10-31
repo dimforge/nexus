@@ -145,3 +145,61 @@ CompilationSession(persistent_cache=cache).lower(make_kernel({"rows":2,"storage"
             for path in (root / "cache").rglob("entry.json"):
                 metadata = json.loads(path.read_text())
                 self.assertNotIn("initial", metadata)
+
+
+class CompilerSelectionTests(unittest.TestCase):
+    def test_reference_build_only_selects_its_requested_binary(self):
+        import replay
+
+        with patch.object(replay, "run") as run:
+            for reference, frame, expected in (
+                (False, False, "native-replay"),
+                (False, True, "native-frame"),
+                (True, False, "rust-reference"),
+            ):
+                binary = replay.build_native(reference, frame=frame)
+                command = run.call_args.args[0]
+                self.assertEqual(command[command.index("--bin") + 1], expected)
+                self.assertEqual(binary.name, expected)
+                self.assertEqual("--features" in command, reference)
+
+    def test_missing_metal_toolchain_keeps_runtime_compilation_fallback(self):
+        import kernel_cache
+
+        with tempfile.TemporaryDirectory() as directory:
+            cache = KernelCache(directory, compiler_identity={})
+            with (
+                patch.object(
+                    kernel_cache.subprocess,
+                    "run",
+                    return_value=type("Probe", (), {"stdout": "/tool/metal"})(),
+                ),
+                patch.object(
+                    kernel_cache,
+                    "executable_identity",
+                    side_effect=OSError("SDK missing"),
+                ) as probe,
+            ):
+                self.assertIsNone(cache.metal_library("source"))
+                self.assertIsNone(cache.metal_library("source"))
+                self.assertEqual(probe.call_count, 1)
+                self.assertEqual(cache.stats["binary_misses"], 0)
+
+    def test_native_compiler_identity_includes_sdk_selection(self):
+        import kernel_cache
+
+        with (
+            patch.object(kernel_cache.platform, "system", return_value="Darwin"),
+            patch.object(
+                kernel_cache, "apple_sdk_identity", return_value={"sdk": "one"}
+            ),
+        ):
+            first = kernel_cache.executable_identity(["c++"])
+        with (
+            patch.object(kernel_cache.platform, "system", return_value="Darwin"),
+            patch.object(
+                kernel_cache, "apple_sdk_identity", return_value={"sdk": "two"}
+            ),
+        ):
+            second = kernel_cache.executable_identity(["c++"])
+        self.assertNotEqual(first, second)

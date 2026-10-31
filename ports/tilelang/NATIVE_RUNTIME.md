@@ -24,6 +24,7 @@ let options = RuntimeOptions {
     python: compiler_python,
     port_directory: tilelang_port_directory,
     workspace: new_artifact_directory,
+    kernel_cache: None, // Some(cache_directory) opts into immutable compiler reuse.
     initial_pair_capacity: 64,
     max_pair_capacity: 1_048_576,
     trace_steps: None,
@@ -42,6 +43,22 @@ The caller selects a Python environment with the pinned compiler dependencies an
 a C++ compiler for C execution. No Rust reference physics runs during specialization.
 The native typed constructors supply initial memory; translated kernels perform
 all subsequent dynamics.
+
+`kernel_cache: Some(path)` enables a persistent cache of lowered modules and native
+C/Metal libraries. Keys include full input IR, target, conservative source inputs,
+compiler packages, host/environment and native toolchain identities. Entries have
+hash-checked payloads and atomic publication; corruption causes a rebuild. Cache
+paths contain trusted executable code. Ordinary parity runners and API examples
+leave this disabled so their evidence still exercises compilation. Initial native
+allocations, physics state and all scene values are always exported afresh.
+`preparation_cache()` exposes hit/miss counts for the initial specialization.
+
+Metal library caching uses `xcrun --sdk macosx metal` when the optional offline
+Metal toolchain is installed, with fast math and contraction disabled. Otherwise
+lowered MSL still comes from the cache and the native device compiles it normally.
+The device creates pipeline objects and validates dispatch limits on each new
+runtime. A reset retains the initial loaded program, even after capacity growth.
+No cross-device pipeline objects or simulation storage are persisted.
 
 Each `step` advances exactly one frame. On pair/deferred-work overflow or insufficient contact coloring, the
 runtime asks the compiler for a larger variant and retries before solver commit.

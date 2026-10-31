@@ -673,6 +673,11 @@ mod tests {
             &fresh.read(&backend, "State").unwrap()[7..9],
             &expected[3..5]
         );
+        // Reset must retain the initial loaded pipelines, even after growth.
+        // A broken source would make an accidental recompilation fail here.
+        for source in session.variants[0].sources.values_mut() {
+            *source = "intentionally invalid MSL".into();
+        }
         session.reset(&backend).unwrap();
         assert_eq!(
             serde_json::to_value(session.checkpoint(&backend).unwrap()).unwrap(),

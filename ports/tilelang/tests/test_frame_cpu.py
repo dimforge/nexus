@@ -113,7 +113,13 @@ class FrameCpuTests(unittest.TestCase):
         self.assertEqual(fresh.step()["step"], 2)
         np.testing.assert_array_equal(fresh.storage["State"][7:9], expected[3:5])
         np.testing.assert_array_equal(fresh.storage["State"][:7], [0xDEADBEEF] * 7)
-        s.reset()
+        # A restart must retain handles even if the lowering LRU evicted kernels.
+        from unittest.mock import patch
+
+        with patch.object(
+            s.compiler, "compile_c", side_effect=AssertionError("compiled on reset")
+        ):
+            s.reset()
         self.assertEqual(s.checkpoint(), initial)
         self.assertEqual(s.step()["step"], 1)
         self.assertEqual(s.checkpoint(), saved)
