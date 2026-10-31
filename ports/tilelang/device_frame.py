@@ -8,13 +8,15 @@ from frame_cpu import CpuFrameSession
 
 
 class DeviceFrameSession(CpuFrameSession):
-    def __init__(self, variants, directory, device):
+    def __init__(self, variants, directory, device, *, owns_device=True):
         self.device = device
+        self.owns_device = owns_device
         try:
             super().__init__(variants, directory)
             self.environment.update(device.environment)
         except Exception:
-            device.close()
+            if self.owns_device:
+                device.close()
             raise
 
     def _allocate(self, initial):
@@ -39,10 +41,18 @@ class DeviceFrameSession(CpuFrameSession):
             raise
 
     def _read(self, buffer, start, count):
-        return self.device.read(buffer, start, count)
+        try:
+            return self.device.read(buffer, start, count)
+        except Exception:
+            self.poisoned = True
+            raise
 
     def _write(self, buffer, start, words):
-        self.device.write(buffer, start, words)
+        try:
+            self.device.write(buffer, start, words)
+        except Exception:
+            self.poisoned = True
+            raise
 
     def _copy(self, destination, dst_start, source, src_start, count):
         self.device.copy(destination, dst_start, source, src_start, count)
@@ -85,4 +95,5 @@ class DeviceFrameSession(CpuFrameSession):
         try:
             super().close()
         finally:
-            self.device.close()
+            if self.owns_device:
+                self.device.close()

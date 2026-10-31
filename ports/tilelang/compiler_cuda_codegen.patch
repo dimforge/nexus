@@ -20,6 +20,7 @@
 +  message(STATUS "Nexus CUDA source lowering only; device runtime disabled")
 +  return()
 +endif()
- 
+-
++
  if(NOT USE_CUDA)
    return()

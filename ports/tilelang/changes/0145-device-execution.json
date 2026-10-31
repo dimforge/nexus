@@ -1,0 +1,9 @@
+{
+  "id": "0145-device-execution",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["feature", "abi", "tooling", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Add CUDA Driver API and AscendCL storage, ordered stream execution, explicit readback, device copies and strict vendor compiler caches.",
+  "regressions": ["Ten focused host ABI, cache and frame tests passed in 6.308 seconds. Test libraries exercise real ctypes signatures, pointer argument order, offsets, cleanup and asynchronous errors; fake compiler tests verify cache corruption rejection and retained failure logs."],
+  "differences": ["No CUDA/Ascend hardware or vendor compiler is available locally. Host test libraries are not device execution evidence. CUDA targets compute_80 PTX; Ascend uses the provisional dav-3510 SIMT profile. Ascend growth uses synchronous device-to-device copies to permit word-aligned offsets. No CPU physics fallback is provided."]
+}

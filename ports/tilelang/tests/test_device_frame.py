@@ -104,9 +104,11 @@ class DeviceFrames(unittest.TestCase):
                     raise MemoryError("allocation failed")
                 return upload(words)
 
-            with patch.object(device, "upload", side_effect=fail_later):
-                with self.assertRaises(MemoryError):
-                    runtime.step()
+            with (
+                patch.object(device, "upload", side_effect=fail_later),
+                self.assertRaises(MemoryError),
+            ):
+                runtime.step()
             self.assertEqual(set(device.allocations), old_ids)
             self.assertEqual(runtime.checkpoint(), checkpoint)
             self.assertEqual(runtime.step()["step"], 1)
@@ -149,3 +151,20 @@ class DeviceFrames(unittest.TestCase):
             self.assertEqual(set(device.allocations), before)
             self.assertTrue(runtime.poisoned)
             runtime.close()
+
+    def test_borrowed_device_survives_close_and_failed_read_poisoned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            device = HostTestDevice()
+            runtime = DeviceFrameSession(
+                [variant(8)], Path(tmp), device, owns_device=False
+            )
+            with (
+                patch.object(device, "read", side_effect=RuntimeError("copy failed")),
+                self.assertRaisesRegex(RuntimeError, "copy failed"),
+            ):
+                runtime.read("State")
+            self.assertTrue(runtime.poisoned)
+            runtime.close()
+            self.assertFalse(device.closed)
+            self.assertEqual(device.allocations, {})
+            device.close()
