@@ -9,11 +9,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import subprocess
 import sys
 import venv
+from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
@@ -42,7 +42,7 @@ def verify_source(source, lock):
     return submodules
 
 
-def receipt(source, wheels, lock):
+def receipt(source, wheels, lock, cuda_codegen_only=False):
     return {
         "schema": 1,
         "level": "compiler_built",
@@ -58,6 +58,16 @@ def receipt(source, wheels, lock):
             {"name": p.name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
             for p in sorted(wheels.glob("tilelang-*.whl"))
         ],
+        "local_patches": (
+            {
+                "compiler_cuda_codegen.patch": hashlib.sha256(
+                    (HERE / "compiler_cuda_codegen.patch").read_bytes()
+                ).hexdigest()
+            }
+            if cuda_codegen_only
+            else {}
+        ),
+        "cuda_source_lowering_only": cuda_codegen_only,
         "device_execution": "unvalidated",
     }
 
@@ -69,6 +79,11 @@ def main():
         "--source", type=Path, help="Existing checkout at the exact pinned revision"
     )
     parser.add_argument("--jobs", type=int, default=6)
+    parser.add_argument(
+        "--cuda-codegen-only",
+        action="store_true",
+        help="Apply the recorded compiler-only CUDA patch; no toolkit, driver or device execution",
+    )
     parser.add_argument(
         "--record-only",
         action="store_true",
@@ -130,28 +145,37 @@ def main():
             **lock["environment"],
             "USE_METAL": "ON" if sys.platform == "darwin" else "OFF",
             "CMAKE_BUILD_PARALLEL_LEVEL": str(args.jobs),
+            "TILELANG_CUDA_CODEGEN_ONLY": "ON" if args.cuda_codegen_only else "OFF",
         }
         # CMake arguments override cached backend settings in an existing build.
         environment["CMAKE_ARGS"] = " ".join(
             f"-D{k}={v}"
             for k, v in environment.items()
-            if k in {*lock["environment"], "USE_METAL"}
+            if k in {*lock["environment"], "USE_METAL", "TILELANG_CUDA_CODEGEN_ONLY"}
         )
-        run(
-            [
-                python,
-                "-m",
-                "pip",
-                "wheel",
-                "--no-deps",
-                "--no-build-isolation",
-                "--wheel-dir",
-                wheels,
-                source,
-            ],
-            env=environment,
-        )
-    result = receipt(source, wheels, lock)
+        patch = HERE / "compiler_cuda_codegen.patch"
+        if args.cuda_codegen_only:
+            run(["git", "-C", source, "apply", "--check", patch])
+            run(["git", "-C", source, "apply", patch])
+        try:
+            run(
+                [
+                    python,
+                    "-m",
+                    "pip",
+                    "wheel",
+                    "--no-deps",
+                    "--no-build-isolation",
+                    "--wheel-dir",
+                    wheels,
+                    source,
+                ],
+                env=environment,
+            )
+        finally:
+            if args.cuda_codegen_only:
+                run(["git", "-C", source, "apply", "--reverse", patch])
+    result = receipt(source, wheels, lock, args.cuda_codegen_only)
     if not result["wheels"]:
         raise ValueError("No compiler wheel found")
     (root / "compiler-receipt.json").write_text(json.dumps(result, indent=2) + "\n")

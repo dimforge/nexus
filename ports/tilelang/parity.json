@@ -39,7 +39,8 @@
     "ports/tilelang/FRAME_RUNTIME.md",
     "ports/tilelang/native/build.rs",
     "ports/tilelang/native/tests/*.rs",
-    "ports/tilelang/NATIVE_RUNTIME.md"
+    "ports/tilelang/NATIVE_RUNTIME.md",
+    "ports/tilelang/compiler_cuda_codegen.patch"
   ],
   "features": [
     {

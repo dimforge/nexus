@@ -1,0 +1,9 @@
+{
+  "id": "0144-offline-cuda-compiler",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["tooling", "feature", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Build the pinned CUDA compiler passes on hosts without a CUDA toolkit using a recorded compiler-only CMake patch.",
+  "regressions": ["Built the patched wheel on macOS and lowered a shared-memory/barrier CUDA kernel; emitted dynamic shared-memory demand remains explicit."],
+  "differences": ["The patch adds compiler/code-generation sources only; CUDA runtime/stubs remain disabled. It does not compile PTX or execute CUDA and is restored from the compiler checkout after the build. Patch hashes are part of compiler receipts and the conservative source envelope."]
+}

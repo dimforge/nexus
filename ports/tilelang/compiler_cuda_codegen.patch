@@ -1,0 +1,25 @@
+--- a/src/cuda/CMakeLists.txt
++++ b/src/cuda/CMakeLists.txt
+@@ -12,6 +12,22 @@
+   src/cuda/transform/ptx_async_copy_injector.cc
+ )
+ list(APPEND TILE_LANG_SRCS ${TILE_LANG_CUDA_ALWAYS_SRCS})
++
++# Nexus offline compiler extension: compiler passes only, no CUDA runtime/SDK.
++# Generated source is not a device binary and cannot execute in this build.
++option(TILELANG_CUDA_CODEGEN_ONLY "Build CUDA source lowering without a toolkit" OFF)
++if(TILELANG_CUDA_CODEGEN_ONLY AND NOT USE_CUDA)
++  file(GLOB TILE_LANG_CUDA_CODEGEN_SRCS
++    src/cuda/codegen/*.cc
++    src/cuda/op/*.cc
++    src/cuda/transform/*.cc
++    src/cuda/transform/auto_schedule/*.cc
++  )
++  list(REMOVE_ITEM TILE_LANG_CUDA_CODEGEN_SRCS ${TILE_LANG_CUDA_ALWAYS_SRCS})
++  list(APPEND TILE_LANG_SRCS ${TILE_LANG_CUDA_CODEGEN_SRCS})
++  message(STATUS "Nexus CUDA source lowering only; device runtime disabled")
++  return()
++endif()
+ 
+ if(NOT USE_CUDA)
+   return()
