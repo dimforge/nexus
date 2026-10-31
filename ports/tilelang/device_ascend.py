@@ -108,7 +108,6 @@ class AscendDevice:
             or self.allocations.get(allocation.pointer) is not allocation
         ):
             raise ValueError("Foreign or released Ascend allocation")
-        self.check("aclrtSetCurrentContext", self.context)
 
     def upload(self, words):
         words = words_array(words)
@@ -130,6 +129,7 @@ class AscendDevice:
 
     def free(self, allocation):
         self._owned(allocation)
+        self.check("aclrtSetCurrentContext", self.context)
         self.check("aclrtFree", allocation.pointer)
         del self.allocations[allocation.pointer]
 

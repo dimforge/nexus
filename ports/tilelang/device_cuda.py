@@ -160,7 +160,6 @@ class CudaDevice:
             or self.allocations.get(allocation.pointer) is not allocation
         ):
             raise ValueError("Foreign or released CUDA allocation")
-        self.check("cuCtxSetCurrent", self.context)
 
     def upload(self, words):
         words = words_array(words)
@@ -180,6 +179,7 @@ class CudaDevice:
 
     def free(self, allocation):
         self._owned(allocation)
+        self.check("cuCtxSetCurrent", self.context)
         self.check("cuMemFree_v2", allocation.pointer)
         del self.allocations[allocation.pointer]
 
@@ -216,6 +216,7 @@ class CudaDevice:
         dst, size = destination.region(dst_start, count)
         src, _ = source.region(src_start, count)
         if size:
+            self.check("cuCtxSetCurrent", self.context)
             self.check("cuMemcpyDtoDAsync_v2", dst, src, size, self.stream)
 
     def compile(self, source, bindings, directory):

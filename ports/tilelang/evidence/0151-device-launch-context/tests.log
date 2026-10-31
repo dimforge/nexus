@@ -1,0 +1,19 @@
+test_ascend_wrapper_argument_order_and_unrecognized_abi (test_device_abi.DeviceAbi.test_ascend_wrapper_argument_order_and_unrecognized_abi) ... ok
+test_async_failure_surfaces_and_close_still_releases (test_device_abi.DeviceAbi.test_async_failure_surfaces_and_close_still_releases) ... ok
+test_cuda_and_ascend_pointer_abi_offsets_and_cleanup (test_device_abi.DeviceAbi.test_cuda_and_ascend_pointer_abi_offsets_and_cleanup) ... ok
+test_pageable_upload_completes_before_nonblocking_stream_use (test_device_abi.DeviceAbi.test_pageable_upload_completes_before_nonblocking_stream_use) ... ok
+test_async_failure_poisoned_before_ownership_commit (test_device_frame.DeviceFrames.test_async_failure_poisoned_before_ownership_commit) ... /private/tmp/nexus-tilelang-probe-20261029/lib/python3.13/site-packages/tilelang/language/eager/builder.py:1171: DeprecationWarning: Failing to pass a value to the 'type_params' parameter of 'typing._eval_type' is deprecated, as it leads to incorrect behaviour when calling typing._eval_type on a stringified annotation that references a PEP 695 type parameter. It will be disallowed in Python 3.15.
+  hints[name] = _eval_type(value, globalns=globalns, localns=localns)
+ok
+test_borrowed_device_survives_close_and_failed_read_poisoned (test_device_frame.DeviceFrames.test_borrowed_device_survives_close_and_failed_read_poisoned) ... ok
+test_device_rejects_native_indirect_instead_of_reading_dispatch_size (test_device_frame.DeviceFrames.test_device_rejects_native_indirect_instead_of_reading_dispatch_size) ... ok
+test_failed_growth_keeps_original_allocations_and_state (test_device_frame.DeviceFrames.test_failed_growth_keeps_original_allocations_and_state) ... ok
+test_failed_reset_discards_unpublished_storage (test_device_frame.DeviceFrames.test_failed_reset_discards_unpublished_storage) ... ok
+test_growth_uses_device_copies_and_only_reads_gate_counters (test_device_frame.DeviceFrames.test_growth_uses_device_copies_and_only_reads_gate_counters) ... ok
+test_ordered_program_preserves_iterations_and_borrowed_device (test_device_replay.DeviceReplayTests.test_ordered_program_preserves_iterations_and_borrowed_device) ... ok
+test_prepared_scene_checks_target_steps_and_writes_actuals (test_device_replay.DeviceReplayTests.test_prepared_scene_checks_target_steps_and_writes_actuals) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 7.849s
+
+OK

@@ -16,7 +16,8 @@ SHIM = r"""
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-static int live=0, fault=0, launches=0, shared=0;
+static int live=0, fault=0, launches=0, shared=0, contexts=0;
+int test_contexts(void){return contexts;}
 static void* pending_dst=0; static void* pending_data=0; static size_t pending_size=0;
 int test_pending(void){return pending_data!=0;}
 int test_live(void){return live;} int test_launches(void){return launches;}
@@ -29,7 +30,7 @@ int cuDriverGetVersion(int* v){*v=12000;return 0;}
 int cuCtxGetCurrent(void** p){*p=0;return 0;}
 int cuDevicePrimaryCtxRetain(void** p,int d){*p=(void*)1;return 0;}
 int cuDevicePrimaryCtxRelease_v2(int d){return 0;}
-int cuCtxSetCurrent(void* c){return 0;}
+int cuCtxSetCurrent(void* c){contexts++;return 0;}
 int cuStreamCreate(void** s,unsigned f){*s=(void*)2;return 0;}
 int cuStreamSynchronize(void* s){
  if(!s && pending_data){memcpy(pending_dst,pending_data,pending_size);free(pending_data);pending_dst=0;pending_data=0;}
@@ -58,7 +59,7 @@ int cuGetErrorString(int e,const char** s){*s="host injected failure";return 0;}
 int aclInit(const char* s){return 0;} int aclFinalize(void){return 0;}
 int aclrtSetDevice(int d){return 0;} int aclrtResetDevice(int d){return 0;}
 int aclrtCreateContext(void** c,int d){*c=(void*)1;return 0;}
-int aclrtSetCurrentContext(void* c){return 0;} int aclrtDestroyContext(void* c){return 0;}
+int aclrtSetCurrentContext(void* c){contexts++;return 0;} int aclrtDestroyContext(void* c){return 0;}
 int aclrtCreateStream(void** s){*s=(void*)2;return 0;}
 int aclrtDestroyStream(void* s){return 0;} int aclrtSynchronizeStream(void* s){return fault;}
 int aclrtMalloc(void** p,size_t n,int policy){*p=malloc(n);live++;return 0;}
@@ -126,7 +127,9 @@ class DeviceAbi(unittest.TestCase):
                 function = (
                     C.c_void_p(4) if kind is CudaDevice else self.lib.test_ascend_launch
                 )
+                contexts = self.lib.test_contexts()
                 device.launch(function, [a], bindings)
+                self.assertEqual(self.lib.test_contexts() - contexts, 1)
                 self.assertEqual(device.read(a, 0, 1)[0], 3)
                 if kind is CudaDevice:
                     self.assertEqual(self.lib.test_shared(), 256)

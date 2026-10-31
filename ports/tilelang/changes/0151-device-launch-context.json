@@ -1,0 +1,9 @@
+{
+  "id": "0151-device-launch-context",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["optimization", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Select the CUDA/Ascend context once per launch instead of again for every bound argument.",
+  "regressions": ["Twelve host device ABI/frame/replay tests pass in 7.849 seconds. Driver shims count context selections and require exactly one per launch while preserving argument ownership, transfers, cleanup and failure checks."],
+  "differences": ["No shader or physics change, no hardware timing claim. Copies/frees and synchronization still activate the owning context at their operation boundary."]
+}
