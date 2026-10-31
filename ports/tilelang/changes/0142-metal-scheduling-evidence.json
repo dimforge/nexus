@@ -1,0 +1,31 @@
+{
+  "id": "0142-metal-scheduling-evidence",
+  "features": [
+    "rbd.broadphase.lbvh_build3d",
+    "rbd.broadphase.lbvh_escapes3d",
+    "rbd.broadphase.lbvh_refit_chunks3d",
+    "rbd.broadphase.lbvh_refit_frontier3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d",
+    "rbd.query.epa_closest3d",
+    "rbd.query.gjk_closest3d",
+    "rbd.query.gjk_epa3d",
+    "rbd.scheduling.canonical_contacts3d",
+    "rbd.scheduling.color_requirements3d"
+  ],
+  "kinds": [
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Record final Metal scheduling measurements, focused correctness evidence and the bounded routine smoke without advancing full parity qualification.",
+  "regressions": [
+    "24 native runtime tests, Rust fmt/clippy, focused fresh-Rust scheduling/search/refit cases, exact eight-frame mesh/joint schedule comparison and six-frame Balls active-state comparison passed.",
+    "Routine Metal smoke passed 71 regressions and 11 representative physics cases in 238.766 seconds with the unchanged 290-second budget."
+  ],
+  "differences": [
+    "Same-input initial Balls debug testbed step fell from 27.911 to 5.792 ms; repeated 30-frame stage replay medians fell from about 23.05 to 4.05-4.16 ms. No current Rust timing or settled-pile performance claim.",
+    "Native indirect/swap scheduling is Metal-specific. The khal-style virtual-grid fallback is documented but not implemented or qualified for TileLang CUDA/Ascend.",
+    "Small hub/round capacity grids and the fusion capacity heuristic remain. Change 0127 production-reference divergence remains blocking; full matrix and reconciliation were not run, and the full baseline remains stale."
+  ]
+}

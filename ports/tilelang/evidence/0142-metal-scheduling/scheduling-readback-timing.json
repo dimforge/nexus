@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/all_examples3",
+    "--example",
+    "balls",
+    "--tilelang",
+    "metal",
+    "--run",
+    "--headless",
+    "--snapshot",
+    "8",
+    "/private/tmp/nexus-tilelang-balls-20261031/scheduling-readback.png"
+  ],
+  "elapsed_seconds": 83.8860599170439,
+  "code": 0
+}

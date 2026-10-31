@@ -1,0 +1,27 @@
+running 24 tests
+test frame::tests::unbounded_manifest_cannot_silently_overrun_a_trace ... ok
+test frame::tests::invalid_gates_regions_and_variant_meanings_are_rejected ... ok
+test metal_runtime::tests::permits_compiler_eliminated_bindings ... ok
+test metal_runtime::tests::rejects_invalid_binding_and_dispatch_contracts ... ok
+test metal_runtime::tests::rejects_invalid_program_dependencies ... ok
+test metal_runtime::tests::rejects_missing_misaligned_or_unknown_buffer_sizes ... ok
+test frame::tests::failed_dispatch_requires_explicit_recovery ... ok
+test runtime::readback_tests::aligned_and_unaligned_body_records_are_bitwise_identical ... ok
+test scene_lifecycle::tests::remaps_must_be_one_to_one_and_inside_active_storage ... ok
+test frame::tests::stage_ranges_run_once_and_reject_invalid_ranges_before_writes ... ok
+test metal_runtime::tests::reused_metal_pipeline_keeps_bindings_iterations_and_launch_checks ... ok
+test frame::tests::rejected_extension_preserves_the_current_session ... ok
+test frame::tests::exhausted_capacity_never_advances_physics_or_frame_count ... ok
+test frame::tests::completed_gate_can_skip_and_reenable_a_commit_stage ... ok
+test metal_runtime::tests::batched_dependencies_cover_untracked_buffers_and_workgroups ... ok
+test metal_runtime::tests::ordered_native_stages_share_storage_across_iterations ... ok
+test frame::tests::same_stage_limits_retry_before_commit ... ok
+test metal_runtime::tests::gpu_indirect_dispatch_tracks_zero_and_changing_counts ... ok
+test frame::tests::input_updates_survive_relocation_and_reject_invalid_ranges ... ok
+test frame::tests::growth_retries_before_commit_and_relocates_state_on_device ... ok
+test frame::tests::swaps_preserve_odd_even_checkpoint_growth_and_failed_steps ... ok
+test frame::tests::unbounded_session_accepts_capacity_compiled_after_exhaustion ... ok
+test frame::tests::checkpoint_restore_reset_and_rejections_are_transactional ... ok
+test frame::tests::failed_growth_keeps_the_previous_frame_available ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s

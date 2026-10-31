@@ -1,0 +1,92 @@
+[
+  {
+    "frame": 1,
+    "exact": {
+      "Poses": true,
+      "Velocities": true,
+      "pair_set": true,
+      "pair_count": true,
+      "canonical_links": true,
+      "canonical_tiles": true,
+      "canonical_states": true,
+      "live_bound": true,
+      "OldCounts": true,
+      "color_requirements": true
+    }
+  },
+  {
+    "frame": 2,
+    "exact": {
+      "Poses": true,
+      "Velocities": true,
+      "pair_set": true,
+      "pair_count": true,
+      "canonical_links": true,
+      "canonical_tiles": true,
+      "canonical_states": true,
+      "live_bound": true,
+      "OldCounts": true,
+      "color_requirements": true
+    }
+  },
+  {
+    "frame": 3,
+    "exact": {
+      "Poses": true,
+      "Velocities": true,
+      "pair_set": true,
+      "pair_count": true,
+      "canonical_links": true,
+      "canonical_tiles": true,
+      "canonical_states": true,
+      "live_bound": true,
+      "OldCounts": true,
+      "color_requirements": true
+    }
+  },
+  {
+    "frame": 4,
+    "exact": {
+      "Poses": true,
+      "Velocities": true,
+      "pair_set": true,
+      "pair_count": true,
+      "canonical_links": true,
+      "canonical_tiles": true,
+      "canonical_states": true,
+      "live_bound": true,
+      "OldCounts": true,
+      "color_requirements": true
+    }
+  },
+  {
+    "frame": 5,
+    "exact": {
+      "Poses": true,
+      "Velocities": true,
+      "pair_set": true,
+      "pair_count": true,
+      "canonical_links": true,
+      "canonical_tiles": true,
+      "canonical_states": true,
+      "live_bound": true,
+      "OldCounts": true,
+      "color_requirements": true
+    }
+  },
+  {
+    "frame": 6,
+    "exact": {
+      "Poses": true,
+      "Velocities": true,
+      "pair_set": true,
+      "pair_count": true,
+      "canonical_links": true,
+      "canonical_tiles": true,
+      "canonical_states": true,
+      "live_bound": true,
+      "OldCounts": true,
+      "color_requirements": true
+    }
+  }
+]

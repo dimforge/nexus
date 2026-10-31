@@ -1,0 +1,107 @@
+{
+  "baseline": "/private/tmp/nexus-tilelang-balls-20261031/testbed-work/TileLangMetal-49246-1793453306239381000/variant-0",
+  "optimized": "/private/tmp/nexus-tilelang-balls-20261031/testbed-work/TileLangMetal-87295-1793456292462660000/variant-0",
+  "inputs": {
+    "Poses": {
+      "sha256": "b2d58c0ce3bf1c074c4114d88d13433d175cfab76c5de7da603b72555ac678d6",
+      "bytes": 2016256,
+      "equal": true
+    },
+    "Velocities": {
+      "sha256": "66be4699a8009272de689dfe52f1f315e5f82d3bce4f2dcc8c437555383443fc",
+      "bytes": 2016256,
+      "equal": true
+    },
+    "LocalPoses": {
+      "sha256": "119466a2c28a7729140ecc28ccfc4f5fc0821314395ab084ce93b5e09b51635d",
+      "bytes": 2016256,
+      "equal": true
+    },
+    "LocalMass": {
+      "sha256": "6c2119f876881e04ba38b8e7c4dc76af2db193833b3229ae91f7ddd021f76e4e",
+      "bytes": 4032512,
+      "equal": true
+    },
+    "WorldMass": {
+      "sha256": "99059739681c6fc5dd130d21cbc115f41966c28984e9e1e59f705f365773ff1d",
+      "bytes": 6048768,
+      "equal": true
+    },
+    "Parents": {
+      "sha256": "7157595d1f529e611e819f4c84715e9e2127bc762a61183408b6b5e413a64862",
+      "bytes": 252032,
+      "equal": true
+    },
+    "Shapes": {
+      "sha256": "12745239260ce651056b77b5dcd9081979b740bd1803741837e3608ccc5060c1",
+      "bytes": 3024384,
+      "equal": true
+    },
+    "Vertices": {
+      "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb",
+      "bytes": 16,
+      "equal": true
+    },
+    "GeometryIndices": {
+      "sha256": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+      "bytes": 12,
+      "equal": true
+    },
+    "Materials": {
+      "sha256": "ab3586859095fdbde30ea85ea2fc0d9cc909e265f27356b81d834ed26f1d0d47",
+      "bytes": 1008128,
+      "equal": true
+    },
+    "Filters": {
+      "sha256": "48e53507e419bd3a3057b2b86f685d004b5be424ced1f7aacb5ff0405e1a54e1",
+      "bytes": 504064,
+      "equal": true
+    },
+    "Groups": {
+      "sha256": "b07265a762fbfd2f30188ebb1c07b391a6a5a56179f031380d13f11dd5d061b3",
+      "bytes": 756096,
+      "equal": true
+    },
+    "Gravity": {
+      "sha256": "d2fb6c929069b0fbdbf37602207783c8afeda36206c816f7f7b40119e0ad3f95",
+      "bytes": 16,
+      "equal": true
+    },
+    "Params": {
+      "sha256": "cdadbc3a0afe1d304f6b2eb4df614557f9f8ec1d201a1f1ed707f46b8420a83e",
+      "bytes": 24,
+      "equal": true
+    },
+    "RbdParams": {
+      "sha256": "911240c91278d2c02f712bfb8c03bd02f00d9c276c719e2153c9dd43b8a98149",
+      "bytes": 76,
+      "equal": true
+    },
+    "Joints": {
+      "sha256": "a9e080790cc3b9e7a988324b4ec1cc1432a8f43cf897c78318943a0670f171f6",
+      "bytes": 1008,
+      "equal": true
+    },
+    "JointColors": {
+      "sha256": "d9e0d4c3850aa130f909e1bcafebea98a16700e02171c1df5a2fe31789d94b0f",
+      "bytes": 4,
+      "equal": true
+    },
+    "MotorParams": {
+      "sha256": "8c72bfc4150327cca61c33394aae67680d626e413d226c88d9cbe5e3349a0116",
+      "bytes": 432,
+      "equal": true
+    },
+    "IsMultibody": {
+      "sha256": "bc119c912a699f52a4517ced405c18968843f12b6ccb113467e9fa206d659fd4",
+      "bytes": 252032,
+      "equal": true
+    }
+  },
+  "allowed_metadata_changes": [
+    "has_composite_shapes=false",
+    "native_schedule=true",
+    "Dispatches storage",
+    "BatchIds contact_sort_collider_shift derived from collider count"
+  ]
+}

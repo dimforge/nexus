@@ -1,0 +1,8 @@
+test_bounded_gjk_epa_exits (test_traversal_exits.TraversalExits.test_bounded_gjk_epa_exits) ... ok
+test_bounded_lbvh_build_escape_exits (test_traversal_exits.TraversalExits.test_bounded_lbvh_build_escape_exits) ... ok
+test_data_dependent_exits_survive_translation (test_traversal_exits.TraversalExits.test_data_dependent_exits_survive_translation) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 61.751s
+
+OK

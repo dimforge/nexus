@@ -1,0 +1,310 @@
+{
+  "state_validation_variant": "/private/tmp/nexus-tilelang-balls-20261031/testbed-work/TileLangMetal-74878-1793455861133655000/variant-0",
+  "final_readback_variant": "/private/tmp/nexus-tilelang-balls-20261031/testbed-work/TileLangMetal-87295-1793456292462660000/variant-0",
+  "files": {
+    "frame.json": {
+      "sha256": "f25389c93233990055ecdc105fb74363485079a166c3754b997a97a9573dab7c",
+      "equal": true
+    },
+    "case.json": {
+      "sha256": "a34dd443a2ae7dd8a7ac4a5a2507fe0fb70b59ebc472c7edf2310c4927738721",
+      "equal": true
+    },
+    "layout.json": {
+      "sha256": "ed47bbd5b43049bab59a1d29bbb71b6a1f9ab6553a4981f52f5a98a386c4f7fb",
+      "equal": true
+    },
+    "kernel.109.metal": {
+      "sha256": "2469123b5b6a5979270f070ca89505814eacfbdf30ed679bb952e6c521ae4e0b",
+      "equal": true
+    },
+    "kernel.110.metal": {
+      "sha256": "af1a4fa79deb078679ca1b0a9a6c405dce3df81f8ba6bd14a1b07adac0e5c64d",
+      "equal": true
+    },
+    "kernel.14.metal": {
+      "sha256": "ee9871c1ad20d975d316c1809ad16a5120134e3557af839314128cc74b745b16",
+      "equal": true
+    },
+    "kernel.112.metal": {
+      "sha256": "2e511682fa79ab58b353891478967003e11dcaf07f9ee2326edaa3e16b25b7c8",
+      "equal": true
+    },
+    "kernel.53.metal": {
+      "sha256": "af4e3908a4955cbfd595befc5a4921475bfa844a118551836109572c535ea498",
+      "equal": true
+    },
+    "kernel.16.metal": {
+      "sha256": "2b391be45eba01d5fde09cf56dbfb84b1e7f7a1ecc048b8e008f1c4cacfc1055",
+      "equal": true
+    },
+    "kernel.73.metal": {
+      "sha256": "ccfea4ff9179f08d54c1e5293c6a75c59d3a34a7ca7c240e60f456132be9182f",
+      "equal": true
+    },
+    "kernel.57.metal": {
+      "sha256": "c9f7dc16fa896646c76e43024c27b92441c9469c682a118915443926fa58e2a0",
+      "equal": true
+    },
+    "kernel.12.metal": {
+      "sha256": "b65295b6dc5b764e85d400eca8cfdb6bf30db7dca94f936876aeb7bca2775e85",
+      "equal": true
+    },
+    "kernel.116.metal": {
+      "sha256": "cecf71c7cc6221cafd4011a07e27ce34345bc8e737e0433d407871669b1f8385",
+      "equal": true
+    },
+    "kernel.9.metal": {
+      "sha256": "3d0f8b4392c55309d1b5e7d1826fa0814d2d51c511904347089f9b1823b866d3",
+      "equal": true
+    },
+    "kernel.228.metal": {
+      "sha256": "8ba1159588eda2c0eafa24853d09afb26989eb472ac14e7304aa999ee37d1857",
+      "equal": true
+    },
+    "kernel.55.metal": {
+      "sha256": "5d6f62957e3ab428a76262becb83acca78cd517290c229ae1b3ed071dd1126bb",
+      "equal": true
+    },
+    "kernel.10.metal": {
+      "sha256": "ccc59955a819a1a971d35c07360feb917339fd267776aaf07060a1872f446ce4",
+      "equal": true
+    },
+    "kernel.114.metal": {
+      "sha256": "ec2ff84610e627781afc549350f649e78009d97fc60b4e767b55ea7bb780e45c",
+      "equal": true
+    },
+    "kernel.658.metal": {
+      "sha256": "64aa9f2b81a24436e736cf90490dcca19cb6ea78746f0c23c6aeb2daeffca8c6",
+      "equal": true
+    },
+    "kernel.231.metal": {
+      "sha256": "0d8f622042435687e9fdea1f7ed65d49f5eb8420096440bd74dfd64e0c535905",
+      "equal": true
+    },
+    "kernel.52.metal": {
+      "sha256": "f86c4e92f375cc864bdfe50979bdfb5dcb0897a0c3ea7d6e97bb33bb061d8656",
+      "equal": true
+    },
+    "kernel.113.metal": {
+      "sha256": "d9684edfd2d7a691474ed193ab5e3a21402e56ddfd0e541f9b2e56f70c4b6ef2",
+      "equal": true
+    },
+    "kernel.15.metal": {
+      "sha256": "0957b2f9c66fa5561b2aeab40286ea51f9c2495e78a69fc64c564621d48aa90f",
+      "equal": true
+    },
+    "kernel.111.metal": {
+      "sha256": "8c88a4f9219cf0fed0cd022307c4f4f9db57c1f28d90cb72bcfd8950ffc7ef24",
+      "equal": true
+    },
+    "kernel.115.metal": {
+      "sha256": "8e89890b3919af44c5803672ca3f598bac4aab7bc066f29ceecf07a11c858104",
+      "equal": true
+    },
+    "kernel.11.metal": {
+      "sha256": "37f4916cfb9eba46774c626f145ee4eb6b249acc5c7a24d726c9de20d7d59ac7",
+      "equal": true
+    },
+    "kernel.54.metal": {
+      "sha256": "a96b6e225a723949895f235ea923171d26711ed71039c6d5b4bee34510caead0",
+      "equal": true
+    },
+    "kernel.69.metal": {
+      "sha256": "2badaf72695e0bb931044161b3a08cc86b1e7d7d382d08d8ba90654554a202c3",
+      "equal": true
+    },
+    "kernel.229.metal": {
+      "sha256": "af42e5765359bbf4026f05d124450b75a4c8f645fb3b8b34567dbaa621db0b33",
+      "equal": true
+    },
+    "kernel.230.metal": {
+      "sha256": "8a303b2a1aa8bcb6c89d34fae0b01f25b21fec8a60750a6792217649a809f035",
+      "equal": true
+    },
+    "kernel.70.metal": {
+      "sha256": "ac1f41939fcb01dfe9034040f89a29a1fa596c9e4541f507a376c2f454d7ec87",
+      "equal": true
+    },
+    "kernel.72.metal": {
+      "sha256": "8b45ee3ec8138aa0527e4cafba7c1b1c9c6404bd9d9a5bdd064b78eb4d1b452e",
+      "equal": true
+    },
+    "kernel.8.metal": {
+      "sha256": "9f515f82618885884e254dadb212158aa07c70b4da6f25cdd5ca78ecd5105e19",
+      "equal": true
+    },
+    "kernel.117.metal": {
+      "sha256": "50cee5826a5c66c7cfdee44001c0e030d062a0744cb71a57d8d9abd5f420615f",
+      "equal": true
+    },
+    "kernel.13.metal": {
+      "sha256": "a91f54f63894c9bb01576ee85db1dc801e4c8f2719c6f007fc25d89a69117b2e",
+      "equal": true
+    },
+    "kernel.56.metal": {
+      "sha256": "5d2e7b4d2e9605ab765c11076bcd5e0ef4599d974a400463bfc37d7ace5e1cc2",
+      "equal": true
+    },
+    "kernel.67.metal": {
+      "sha256": "49287c6b7bc749e6580e125c300dca5feb77dde75e9eb246ae928b2b04fa9f00",
+      "equal": true
+    },
+    "kernel.227.metal": {
+      "sha256": "4981db228a011fcca0923e3bd8645b1c3b2568079d885e7d8e8ea8337d786ffe",
+      "equal": true
+    },
+    "kernel.4.metal": {
+      "sha256": "668d4e77ae298e015d8a3982f503680bf30ff48174fde9ac9dc069dcd5880b5e",
+      "equal": true
+    },
+    "kernel.126.metal": {
+      "sha256": "2e831a2647e38885214758fe0cbbef67c58c56bf327ddc7815d815c15c0a93a1",
+      "equal": true
+    },
+    "kernel.metal": {
+      "sha256": "84f8965911ebe3b1e75ef92c97b99342c09fa6e0953af303e27aea34753a03b0",
+      "equal": true
+    },
+    "kernel.657.metal": {
+      "sha256": "56003bbe6d2b4bdd56b36af1f821eeeb96e4b39f3bac866cec7dafd435f45238",
+      "equal": true
+    },
+    "kernel.65.metal": {
+      "sha256": "cb64592d3cd59d645baa9d0d27501e919c95676e180b279520be33d124728b05",
+      "equal": true
+    },
+    "kernel.124.metal": {
+      "sha256": "22d7a8d78a4147c4d7f4378a19469b33cda0951f58113bc228237b9ed629e27a",
+      "equal": true
+    },
+    "kernel.225.metal": {
+      "sha256": "de79dcb01dc92090e758952a956ce47bced371d98b755cc4d7ad3cd8f8c4ac19",
+      "equal": true
+    },
+    "kernel.6.metal": {
+      "sha256": "edbf38a7121c3d2778e1b6442248942e6093308579da6adc6ec0f7168460fb3c",
+      "equal": true
+    },
+    "kernel.119.metal": {
+      "sha256": "ae1807f3b60649ba2b63c7d686dccb321310458dabb4bea19dab7b0ce5d89930",
+      "equal": true
+    },
+    "kernel.58.metal": {
+      "sha256": "9bc188cbffee8bc1b4e0ab538b3b1c69966e49ce5aeb09847c466451a4563567",
+      "equal": true
+    },
+    "kernel.264.metal": {
+      "sha256": "994a0f9116a80e66ef89252583299cb2ad8375c6d2ddf367f65258065fd0da15",
+      "equal": true
+    },
+    "kernel.221.metal": {
+      "sha256": "928f1d216f230917a9e9444ff098ec032affaf5f52b39fbc15aef150138b44a5",
+      "equal": true
+    },
+    "kernel.2.metal": {
+      "sha256": "98cb86d9eb1e5ad19cd584817467f3088a3924bdb50c41ca546e1d75f3c4d912",
+      "equal": true
+    },
+    "kernel.120.metal": {
+      "sha256": "7ad5751749b0b186d0feaa427ed99a35bf2b723444a44849a9bd34f39ad47e0e",
+      "equal": true
+    },
+    "kernel.61.metal": {
+      "sha256": "f67ac6ffb6940c1fa61c2d0047c7e443f8c3d9fa75a09a381017c91eb420817c",
+      "equal": true
+    },
+    "kernel.122.metal": {
+      "sha256": "4e360fa2bb9b91e55f10ddc00b65e915c2bf2170eb497d6888e55b85fcc1c697",
+      "equal": true
+    },
+    "kernel.266.metal": {
+      "sha256": "f83354e8b6752a83b2e3f7a19cb3ce0df49f6c0a0a3e64329eaf2b2e6e189932",
+      "equal": true
+    },
+    "kernel.223.metal": {
+      "sha256": "c92498f51bf1d0b90a42c6e30a01508d8932172ed853046510ec4e21cea6ac0d",
+      "equal": true
+    },
+    "kernel.63.metal": {
+      "sha256": "5408f5022e939cb6e63a9c6205b1a6afa34e26ed4c35dea7baa6f3bc32e40eb5",
+      "equal": true
+    },
+    "kernel.59.metal": {
+      "sha256": "af82cee7f44b063078553bbd63059f884d522d86d1a343ebf9b1a1ce3dd44203",
+      "equal": true
+    },
+    "kernel.219.metal": {
+      "sha256": "58d88f7d268c50a4f494e610e8fff0a2a75e1d194b38ddbe1bdeb627464b1e9c",
+      "equal": true
+    },
+    "kernel.118.metal": {
+      "sha256": "68b1b716ca1526673de895f3a4ca5b8edd77053e73035a33211fdaa249d3a11f",
+      "equal": true
+    },
+    "kernel.125.metal": {
+      "sha256": "bb16eab37886698459cd3e56db75073130b0c10981ff0492f78538b54a15507c",
+      "equal": true
+    },
+    "kernel.224.metal": {
+      "sha256": "5e0a9865bf4494b0cd38b54ded843de2b1609a2f054e70fa6abd89b7727df65f",
+      "equal": true
+    },
+    "kernel.7.metal": {
+      "sha256": "397a9dbbc55603fc6dea75a04a8fa62334acc6c58bae3cf8a0e876b74dd8a3f9",
+      "equal": true
+    },
+    "kernel.64.metal": {
+      "sha256": "571180f2b39e8ec214dc06151328ee7829baa92a3fd7b7cead902fe7f47cebc0",
+      "equal": true
+    },
+    "kernel.226.metal": {
+      "sha256": "cc33465b3a2f5bba6637ba0e8b9502b9cf68729c795dcbf811d460b5a1e474fc",
+      "equal": true
+    },
+    "kernel.5.metal": {
+      "sha256": "61ec66d65ce137fdbc4a440597e29926388dd140e9f2aa1a492fdf831ef4cf9d",
+      "equal": true
+    },
+    "kernel.66.metal": {
+      "sha256": "0ad4c53dc686be2b17bea299ba140bfb32a38d512562bdc2e3bd4b1888096770",
+      "equal": true
+    },
+    "kernel.62.metal": {
+      "sha256": "21e9638b2d2472cb6e3258745d01be6b99c97af75d9f50b2cf5764d702313a2d",
+      "equal": true
+    },
+    "kernel.123.metal": {
+      "sha256": "ceb0506e06ec71ad95020c3064b4b031cae1dbcb9e78672dff7b323c85dd0b84",
+      "equal": true
+    },
+    "kernel.222.metal": {
+      "sha256": "bfee6cd7e1cc07d9b0cd73c4e6866a3b4deb0d917ec6118584f72c163de2acbf",
+      "equal": true
+    },
+    "kernel.1.metal": {
+      "sha256": "3c760d89487f398024074ab10668064c5bed73a1bb05595cb4753deea60ea657",
+      "equal": true
+    },
+    "kernel.300.metal": {
+      "sha256": "9b27519ec3670f804d3992c2d67bcc5a7d294d3e91506f8d0d1779b95a419e01",
+      "equal": true
+    },
+    "kernel.60.metal": {
+      "sha256": "c87bc2c953a9c36fa3460f8baacd3f470df87ee7c5282c578fee703a5b1c94e7",
+      "equal": true
+    },
+    "kernel.220.metal": {
+      "sha256": "b2db9f57f05b41c9a86902f2179f6f4495d30abe0347b2f4cae8638d85ebb064",
+      "equal": true
+    },
+    "kernel.3.metal": {
+      "sha256": "5474d16b22eb54016c97d4f287c507f9f3139f926a2dae2bbacd070add538f14",
+      "equal": true
+    },
+    "kernel.121.metal": {
+      "sha256": "5e204180af2e1ce379964c05da578c54d392f02cd4e2acbb738ad779c40b4bb9",
+      "equal": true
+    }
+  }
+}

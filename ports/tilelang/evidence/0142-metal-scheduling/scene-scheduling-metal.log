@@ -1,0 +1,12 @@
+test_adjacency_grid_stride_covers_bodies_above_native_cap (test_scene_execution.SceneExecution.test_adjacency_grid_stride_covers_bodies_above_native_cap) ... ok
+test_device_grids_bound_live_contacts_colors_and_empty_work (test_scene_execution.SceneExecution.test_device_grids_bound_live_contacts_colors_and_empty_work) ... ok
+test_invalid_indirect_offsets_are_rejected (test_scene_execution.SceneExecution.test_invalid_indirect_offsets_are_rejected) ... ok
+test_live_color_ranges_match_fresh_rust (test_scene_execution.SceneExecution.test_live_color_ranges_match_fresh_rust) ... ok
+test_native_sort_pass_policy_matches_rust (test_scene_execution.SceneExecution.test_native_sort_pass_policy_matches_rust) ... ok
+test_parallel_color_feedback_matches_rust (test_scene_execution.SceneExecution.test_parallel_color_feedback_matches_rust) ... ok
+test_state_persistence_touches_only_live_rows (test_scene_execution.SceneExecution.test_state_persistence_touches_only_live_rows) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 21.031s
+
+OK

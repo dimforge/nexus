@@ -1,0 +1,33 @@
+{
+  "source_commit": "7e2a03abb93120e1965d8549af761c4cfbfdb657",
+  "baseline_commit": "a776b24d4",
+  "device": "Apple M4 Max",
+  "scene": "Balls",
+  "body_count": 63005,
+  "pair_capacity": 300000,
+  "contact_capacity": 600000,
+  "substeps": 4,
+  "pgs": 1,
+  "contact_model": "twist",
+  "initial_color_stride": 35,
+  "rust_comparison_enabled": false,
+  "testbed_build_profile": "debug",
+  "testbed_reported_step_ms": {
+    "before": 27.910958,
+    "after": 5.791583999999999
+  },
+  "replay_order": [
+    "baseline",
+    "optimized",
+    "optimized",
+    "baseline"
+  ],
+  "replay_frames": 30,
+  "median_excludes_first_frames": 2,
+  "scope": "Initial scene frames. Stage replay excludes application readback and Rust bookkeeping; no settled-pile or current Rust performance qualification.",
+  "full_matrix": "not_run",
+  "full_parity_baseline": "stale",
+  "smoke_seconds": 238.766,
+  "smoke_regressions": 71,
+  "smoke_physics_cases": 11
+}

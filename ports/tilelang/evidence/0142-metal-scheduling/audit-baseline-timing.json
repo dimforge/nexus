@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/target/debug/all_examples3",
+    "--example",
+    "balls",
+    "--tilelang",
+    "metal",
+    "--run",
+    "--headless",
+    "--snapshot",
+    "8",
+    "/private/tmp/nexus-tilelang-balls-20261031/audit-baseline.png"
+  ],
+  "elapsed_seconds": 124.33193570794538,
+  "code": 0
+}

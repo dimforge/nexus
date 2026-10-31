@@ -1,0 +1,7 @@
+test_mesh_joint_frames_preserve_live_state (test_scene_execution.SceneExecution.test_mesh_joint_frames_preserve_live_state)
+Explicit focused integration; not part of the routine smoke budget. ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 205.762s
+
+OK

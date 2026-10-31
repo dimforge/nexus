@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-31",
-  "audited_revision": "0f1ed6d9e",
+  "audited_revision": "7e2a03abb93120e1965d8549af761c4cfbfdb657",
   "scope": "Implemented 3D launch composition, traversal/search termination and persistence; not exhaustive physics or device qualification.",
   "baseline": "stale; no full matrix requested",
   "findings": [
@@ -11,7 +11,7 @@
       "change": "0131-canonical-scene-launches",
       "reference": "src_rbd/dynamics/canonical_order.rs",
       "implementation": "ports/tilelang/scene_kernels.py",
-      "description": "One workgroup for all contact keys and permutation; now capacity-scaled."
+      "description": "Key generation/permutation first became capacity-scaled (0131); native Metal runtime now uses live indirect grids (0134)."
     },
     {
       "id": "composite-traversal",
@@ -68,7 +68,7 @@
       "change": "0135-cache-swaps",
       "reference": "src_rbd/pipeline/rbd_step.rs",
       "implementation": "ports/tilelang/scene_kernels.py",
-      "description": "Runtime copies all cache buffers where Rust swaps ownership/offsets.",
+      "description": "Swap six cache owners after successful frame commit; copy only live rows between state halves.",
       "qualification_scope": "Native Metal runtime; other targets retain static scheduling. State halves copy live rows."
     },
     {
@@ -77,7 +77,7 @@
       "change": "0136-native-scheduling-policy",
       "reference": null,
       "implementation": "ports/tilelang/shaders/dynamics/coloring.py",
-      "description": "TileLang runtime extension scans the live contact bound on one thread."
+      "description": "Replace the serial live-contact scan with a 64-lane reduction, retaining exact invalid/pending feedback."
     },
     {
       "id": "canonical-pass-selection",
@@ -93,7 +93,7 @@
       "change": "0137-bounded-search-exits",
       "reference": "src_rbd_shaders/queries/gjk/epa3.rs",
       "implementation": "ports/tilelang/shaders/queries/gjk/epa3.py",
-      "description": "Profile constant-bound GJK/EPA and LBVH build/escape inactive tails; preserve cooperative barriers."
+      "description": "Restore bounded GJK/EPA and LBVH build/escape exits without changing the Rust split-search bound."
     },
     {
       "id": "adjacency-group-cap",
@@ -120,6 +120,14 @@
       "description": "Metal uses native-style uniform completion voting while retaining device-memory fences. Other targets retain fixed-depth loops."
     },
     {
+      "id": "body-readback-decoding",
+      "status": "fixed",
+      "change": "0141-bulk-body-readback",
+      "reference": null,
+      "implementation": "ports/tilelang/native/src/runtime.rs",
+      "description": "Bulk-copy aligned body records instead of per-record decoding; retain unaligned fallback and checked readback lengths."
+    },
+    {
       "id": "remaining-launch-policy",
       "status": "open",
       "change": null,
@@ -127,5 +135,7 @@
       "implementation": "ports/tilelang/scene_hubs.py",
       "description": "Small hub/round-completion stages still use capacity grids, and all-color fusion uses the specialization capacity heuristic. These are bounded remaining launch-policy differences, not a claim of performance equivalence."
     }
-  ]
+  ],
+  "evidence": "ports/tilelang/evidence/0142-metal-scheduling",
+  "performance_baseline_revision": "a776b24d4"
 }

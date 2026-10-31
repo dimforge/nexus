@@ -1,0 +1,29 @@
+{
+  "source_commit": "7e2a03abb93120e1965d8549af761c4cfbfdb657",
+  "sha256": {
+    "ports/tilelang/canonical_kernels.py": "3939b1d3ec65865e6616178b8d98a4e0da71a10fc32b814905e93625977a1947",
+    "ports/tilelang/canonical_replay.py": "e1dfbad24f1503a0e725c6a3daaef50fd23b20da75d217c0f9ab291c176b64e3",
+    "ports/tilelang/color_requirement_kernels.py": "cbf58efd6baa6f2dbfdc6beebdf4fdc9241e5b1934df322b6910d64ee2270b15",
+    "ports/tilelang/color_requirement_replay.py": "18c6b85b7b8956d9afd4a011a46048aea72e69fa25564242127ada0626cc2f6c",
+    "ports/tilelang/frame_cpu.py": "77a24c2700fd43df8a71bddc3edc0d19db88156151ac962d9cdf6d1f2bbc984d",
+    "ports/tilelang/frame_manifest.py": "491285247fd86858dc742f19d7bfd1c1421bbd46571c4149d60401d67c8d1604",
+    "ports/tilelang/lbvh_kernels.py": "1f5d0d9d4442b6fe4fc3989e0310f81b6e6275877a399d7a275bb1f82853e65c",
+    "ports/tilelang/native/src/frame.rs": "21b5d62de936b6a752863c347b0ea646d6b4684e868e17a7c22aa733efb66532",
+    "ports/tilelang/native/src/metal_runtime.rs": "fdcb3cb140dddabc18c904ab17fd7c27117330f9fc33b88707ffb7686ce1dfd5",
+    "ports/tilelang/native/src/runtime.rs": "739d4e85c7033fd70aaf65c84cde1cdbaabb8e7f0b71b147778e05f359641f96",
+    "ports/tilelang/ordered.py": "4e879ccb37b5dbfbab5beb938892c18810f12694207ee78de1c87ce78c008ddf",
+    "ports/tilelang/primitive_kernels.py": "576c73beeca8b94a4e89b12b7a2948957d3e2af560a22c15a73462042ddea94b",
+    "ports/tilelang/runtime_compile.py": "ddd8f8403de0ae3eba5d5d09d2975a877d57e9949d8fb0cb756275689eb1e200",
+    "ports/tilelang/runtime_scene_validation.py": "1ad97c797e61cb826b42f558ea940ac29337b40ccee78cd7f0b7e6e1a61668cf",
+    "ports/tilelang/scene_execution.py": "810d87f3b2225f50fe2d080c5c61c336bb8ee5d1a00f473adf18fcbbaa0cc8e9",
+    "ports/tilelang/scene_kernels.py": "540f78cf7d628ad50e103cabba4a349856fe27533fa73cf6821bdb1a71c7fc8e",
+    "ports/tilelang/shaders/broad_phase/lbvh.py": "3400e13ffd388c61a95fb8fd12add693cec60058ac7ac3e8c5bac7b507a0b873",
+    "ports/tilelang/shaders/dynamics/coloring.py": "fc38c792457f304fae99d7f3d13592a1d10f6d228ae0dd33316f0d8bff30693a",
+    "ports/tilelang/shaders/queries/gjk/epa3.py": "b1cfdde9400ca8173fdf1c126943391dd9ff8206ada166b258b291f6783e4bb8",
+    "ports/tilelang/shaders/queries/gjk/gjk.py": "4fd24e56652ba0002278c212b7901046d2e0b312e50a3a9f78133199c913e015",
+    "ports/tilelang/tests/test_frame_cpu.py": "5833cab234e7186676a919e6414852cd3813bff4ee5cbb6d5bc5b48c2ef1de17",
+    "ports/tilelang/tests/test_scene_execution.py": "a7ebc0be562672db7963482cd3cac8a1c49093dad08976112b674fd91a141e14",
+    "ports/tilelang/tests/test_traversal_exits.py": "da340205ee61f6a3f6bf2f7c22f3e7c63af3c3c6802d1de93cf70eb5ee5ca365"
+  },
+  "probe_sha256": "697d5dea4a305b02ac1be22fc2a8c356e0e9ecb1dbcfbd6141e19d4266f96cb9"
+}
