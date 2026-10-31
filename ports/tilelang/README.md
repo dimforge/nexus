@@ -10,10 +10,12 @@ coloring, scene reconstruction, live controls and continuation checkpoints.
 current qualification comes from `parity.py report`, not historical milestone notes.
 
 The CUDA/Ascend path generates kernels, binding manifests and source-bound
-fixtures and includes vendor compiler/driver adapters. See [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md). Ascend vendor compilation, device
-execution, synchronization and performance remain unvalidated. Articulated
-multibodies, MPM and 2D are explicitly deferred. CUDA execution and native Windows
-replay are also unvalidated. Available C and Metal execution is not NPU emulation.
+fixtures and includes vendor compiler/driver adapters. Complete prepared Coulomb
+and twist-friction scenes pass real NVCC/PTXAS and Bisheng compilation locally.
+See [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md) for pinned profiles, evidence and commands.
+CUDA/Ascend execution, synchronization and performance remain unvalidated.
+Articulated multibodies, MPM and 2D are deferred; native Windows replay is also
+unvalidated. Available C and Metal execution is not NPU emulation.
 
 ## Use the runtime
 

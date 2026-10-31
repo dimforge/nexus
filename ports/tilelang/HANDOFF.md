@@ -2,10 +2,12 @@
 
 This package contains solver-operation replays, connected scene and restart
 fixtures, and resident-frame capacity-retry programs. The Rust-owned runtime runs
-the connected 3D rigid-body path on C and Metal. Its Ascend qualification is
-**source lowering only**; a CANN execution adapter is now implemented but unqualified. The
-provisional profile is Ascend 950 SIMT. Confirm the actual device, CANN, driver,
-and compiler combination before choosing an SDK/runtime adapter. No NPU access
+the connected 3D rigid-body path on C and Metal. An AscendCL execution adapter is
+implemented but has no hardware execution evidence. Selected complete Coulomb
+and twist scenes pass real Bisheng compilation with CANN 9.2.1 for the provisional
+Ascend 950 SIMT (`dav-3510`) profile. This does not refresh the stale full-parity
+baseline. Confirm the actual device, CANN, driver and compiler combination before
+execution. No NPU access
 is required to maintain the port, run C/Metal parity, or build this package.
 
 For initial device testing without a new full matrix, use the bounded preparation

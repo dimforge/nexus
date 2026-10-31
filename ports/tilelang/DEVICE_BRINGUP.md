@@ -3,10 +3,10 @@
 CUDA and Ascend have execution adapters, native `TileLangSimulation` backend
 selection, testbed selection, resident frame transactions and contract replay
 runners. They are ready for **initial hardware bring-up**, not qualified devices.
-This Mac can lower their source and test host ABI/control behavior. CUDA vendor
-compilation now also runs locally through a Linux container; neither accelerator
-is available, and Ascend vendor compilation remains unvalidated. Metal execution tests the shared
-virtual-grid algorithm, not either vendor's compiler or memory model.
+This Mac can lower their source, test host ABI/control behavior, and run both
+real vendor compilers in Linux containers. Neither accelerator is available.
+Metal execution tests the shared virtual-grid algorithm; CUDA/Ascend execution,
+memory ordering and numerical behavior still require their actual devices.
 
 The CUDA profile is `compute_80` PTX for Ampere or newer. The provisional Ascend
 profile is `dav-3510` / Ascend 950 SIMT from the pinned TileLang backend. This does
@@ -49,23 +49,31 @@ native cold-start scene; `--pair-capacity N` chooses its initial allocation.
 This deliberately does not invoke the full parity matrix or reconcile a baseline.
 First-time source preparation is separate from the 290-second routine smoke.
 
-## CUDA vendor compilation on this Mac
+## Vendor compilation on this Mac
 
-With Docker Desktop running, the pinned interpreter can invoke real NVCC and
-PTXAS in NVIDIA's Linux ARM64 container, without a GPU:
+With Docker Desktop running, the pinned interpreter can invoke real NVCC/PTXAS
+and Bisheng in vendor Linux ARM64 containers, without an accelerator:
 
 ```sh
 docker pull nvidia/cuda:13.0.2-devel-ubuntu24.04
-python ports/tilelang/cuda_container_compile.py \
-  ports/tilelang/results-device-ready/cuda --output /tmp/nexus-cuda-vendor-check
+python ports/tilelang/device_container_compile.py \
+  ports/tilelang/results-device-ready/cuda --target cuda \
+  --output /tmp/nexus-cuda-vendor-check
+
+docker pull quay.io/ascend/cann:9.2.1-950-ubuntu22.04-py3.12
+python ports/tilelang/device_container_compile.py \
+  ports/tilelang/results-device-ready/ascend --target ascend \
+  --output /tmp/nexus-ascend-vendor-check
 ```
 
-The helper pins the image digest, uses the same DeviceCompiler flags and ABI as
-the execution adapter, and assembles the resulting PTX for `sm_80`. It mounts only
+The helper pins each image digest and uses the production DeviceCompiler flags
+and ABI. CUDA PTX is assembled for `sm_80`; Ascend libraries must export
+`nexus_launch` and embed a nonempty `.aicore_binary` device-code section. It mounts only
 compiler headers read-only and its isolated output directory read-write; its
 owned container has no network or devices and is removed afterward. `--jobs`
 controls concurrent compilers, default four. Receipts include image identity,
-NVCC version, source/PTX/cubin hashes, commands and PTXAS resource reports.
+compiler version, source/binary hashes, commands, and PTXAS resource reports or
+Ascend ELF sections. `cuda_container_compile.py` remains a compatibility entrypoint.
 
 CUDA 13.0.88 compiled and assembled all 92 unique kernels in each of the two
 416-stage mesh/contact/joint scenes (Coulomb and simplified twist friction), in
@@ -73,6 +81,15 @@ CUDA 13.0.88 compiled and assembled all 92 unique kernels in each of the two
 GPU execution or numerical parity. The general collision kernel uses 255 registers
 and a 6,192-byte stack frame with reported spills; profile this on actual hardware
 before drawing performance conclusions. See evidence/0150-cuda-vendor-compilation.
+
+CANN 9.2.1 Bisheng compiled all 92 unique kernels in each of the two 416-stage
+Ascend scenes for `dav-3510`, in 62.480 and 61.305 seconds. All libraries expose
+the host launch entrypoint and contain device code. A sample library also passed
+link-symbol resolution inside that container, whose driver dependencies use CANN
+development libraries. No ACL initialization or NPU execution was attempted.
+These results qualify compilation for this toolkit/profile only; they do not
+establish correctness or compatibility on a different Ascend model or CANN version.
+See evidence/0152-ascend-vendor-compilation.
 
 ## On the CUDA/NPU host
 

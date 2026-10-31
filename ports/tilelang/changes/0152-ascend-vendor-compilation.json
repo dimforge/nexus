@@ -1,0 +1,19 @@
+{
+  "id": "0152-ascend-vendor-compilation",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Compile complete Ascend Coulomb/twist scenes using real CANN 9.2.1 Bisheng in a pinned device-free Linux ARM64 container; share the container helper with CUDA.",
+  "regressions": [
+    "Both 416-stage Ascend scenes passed all 92 unique kernel builds for dav-3510, in 62.480 and 61.305 seconds. Each launch library exports nexus_launch and embeds nonempty device code. The shared-helper CUDA regression passed all 92 NVCC/PTXAS builds in 26.420 seconds."
+  ],
+  "differences": [
+    "No NPU or CUDA execution, ACL initialization, full matrix or reconciliation. A sample Ascend library passed link-symbol checks using CANN development libraries; this is not driver validation. The real hardware, memory ordering, numerical behavior and performance remain unqualified. No shader arithmetic, layouts or tolerances changed."
+  ]
+}

@@ -285,8 +285,10 @@ by the physical grid stride, and place a uniform workgroup barrier between
 iterations. This preserves workgroup-local synchronization without CPU readback.
 `virtual_dispatch.py` implements this transformation in original IR for CUDA/Ascend,
 with at most 256 physical groups. Metal execution tests cover virtual waves, shared
-scratch reuse, zero work and tails. CUDA/Ascend source checks cover the ABI; their
-actual compiler and device synchronization still require hardware qualification.
+scratch reuse, zero work and tails. Prepared complete CUDA/Ascend scenes also
+pass NVCC/PTXAS and Bisheng compilation for the profiles in DEVICE_BRINGUP.md.
+Their device synchronization, numerical behavior and performance still require
+hardware qualification.
 
 Frame schema 2 also permits commit-stage conditions based on an already completed
 capacity gate. Metal omits colors above the highest color returned by the existing
