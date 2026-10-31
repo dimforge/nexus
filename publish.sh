@@ -33,7 +33,9 @@
 # To work around it *only during publishing*, this script temporarily, for each
 # affected crate:
 #   1. rewrites the `[lib] path` to a crate-local one (e.g. `src/lib.rs`), and
-#   2. creates a symlink inside the crate pointing at the shared source tree.
+#   2. creates a symlink inside the crate pointing at the shared source tree,
+#   3. omits the viewer's source-checkout-only TileLang feature, whose runtime
+#      is not published yet. The normal CPU/GPU backends remain in the package.
 #
 # Cargo follows the symlink and bundles the real source into each `.crate`. A
 # trap restores the manifests and removes the symlinks on exit (including on
@@ -115,6 +117,10 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 backup_dir="$(mktemp -d)"
+# Staging changes dependency resolution. Preserve the tracked root lockfile too.
+if [ -f Cargo.lock ]; then
+    cp Cargo.lock "$backup_dir/Cargo.lock"
+fi
 
 cleanup() {
     for entry in "${CRATES[@]}"; do
@@ -128,6 +134,9 @@ cleanup() {
             cp "$backup_dir/$local_crate.Cargo.toml" "crates/$local_crate/Cargo.toml"
         fi
     done
+    if [ -f "$backup_dir/Cargo.lock" ]; then
+        cp "$backup_dir/Cargo.lock" Cargo.lock
+    fi
     rm -rf "$backup_dir"
 }
 trap cleanup EXIT INT TERM
@@ -144,6 +153,9 @@ link_shared() {
     tmp="$(mktemp)"
     sed "s#path = \"\.\./\.\./$shared_dir/lib.rs\"#path = \"$shared_dir/lib.rs\"#" "$manifest" > "$tmp"
     mv "$tmp" "$manifest"
+    if [ "$crate" = nexus_viewer3d ]; then
+        bash "$ROOT/scripts/package_tilelang_viewer.sh" "$manifest"
+    fi
 
     ln -s "../../$shared_dir" "crates/$crate/$shared_dir"
 }

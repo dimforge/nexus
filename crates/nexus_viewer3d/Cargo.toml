@@ -16,7 +16,7 @@ required-features = ["dim3"]
 
 [lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(feature, values("dim2", "cpu", "cuda", "metal"))',
+    'cfg(feature, values("dim2", "cpu", "cuda", "metal", "tilelang"))',
 ] }
 
 [features]

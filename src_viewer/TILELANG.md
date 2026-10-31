@@ -6,6 +6,10 @@ joints use the native Nexus scene conversion and the TileLang runtime. MPM and
 articulated multibodies report an error and pause. There is no Ascend testbed
 backend yet.
 
+This is a source-checkout feature. The existing release-packaging script omits
+`tilelang` from the published viewer manifest until the standalone runtime is
+published; normal registry viewer releases keep their existing backends.
+
 ## Run
 
 Use Python 3.13, the [pinned TileLang requirements](../ports/tilelang/requirements.txt),
