@@ -141,12 +141,22 @@ impl NativeKernel {
 
 /// Ordered kernels over persistent caller-owned storage. Each stage has its own
 /// compiler-selected ABI; buffer_map maps those local names onto physical buffers.
+/// A trusted GPU producer writes a bounded (x, 1, 1) grid here before use.
+/// Zero x is legal. x must not exceed the compiled specialization's block bound.
+#[derive(Debug, Clone, Deserialize)]
+pub struct IndirectDispatch {
+    pub buffer: String,
+    pub word: u64,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProgramStage {
     pub name: String,
     pub source: String,
     pub bindings: Manifest,
     pub buffer_map: BTreeMap<String, String>,
+    #[serde(default)]
+    pub indirect: Option<IndirectDispatch>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -178,6 +188,17 @@ impl ProgramManifest {
         let mut names = BTreeSet::new();
         for stage in &self.stages {
             stage.bindings.validate()?;
+            if let Some(indirect) = &stage.indirect {
+                let end = indirect.word.checked_add(3).and_then(|n| n.checked_mul(4));
+                if end.is_none()
+                    || self
+                        .buffer_bytes
+                        .get(&indirect.buffer)
+                        .is_none_or(|size| end.unwrap() > *size)
+                {
+                    return Err("Invalid indirect dispatch buffer/offset".into());
+                }
+            }
             if stage.name.is_empty()
                 || !names.insert(&stage.name)
                 || stage.source.is_empty()
@@ -376,10 +397,18 @@ impl NativeProgram {
                 for (slot, &physical_slot) in self.binding_slots[index].iter().enumerate() {
                     encoder.set_buffer(slot as u64, Some(physical[physical_slot]), 0);
                 }
-                encoder.dispatch_thread_groups(
-                    MTLSize::new(kernel.manifest.blocks, 1, 1),
-                    MTLSize::new(kernel.manifest.threads, 1, 1),
-                );
+                if let Some(indirect) = &self.manifest.stages[index].indirect {
+                    encoder.dispatch_thread_groups_indirect(
+                        buffers[&indirect.buffer],
+                        indirect.word * 4,
+                        MTLSize::new(kernel.manifest.threads, 1, 1),
+                    );
+                } else {
+                    encoder.dispatch_thread_groups(
+                        MTLSize::new(kernel.manifest.blocks, 1, 1),
+                        MTLSize::new(kernel.manifest.threads, 1, 1),
+                    );
+                }
                 if let Some(fence) = &fence {
                     encoder.update_fence(fence);
                 }
@@ -464,6 +493,7 @@ mod tests {
             buffer_bytes: BTreeMap::from([("X".into(), 4), ("Y".into(), 4)]),
             iterations: 2,
             stages: vec![ProgramStage {
+                indirect: None,
                 name: "first".into(),
                 source: "first.metal".into(),
                 bindings: local,
@@ -586,6 +616,76 @@ mod tests {
             for i in 0..257 {
                 assert_eq!(actual_x[i], initial[i] + 12);
                 assert_eq!(actual_y[i], initial[i] + 8 * initial[(i + 67) % 257] + 60);
+            }
+        }
+    }
+
+    #[test]
+    fn gpu_indirect_dispatch_tracks_zero_and_changing_counts() {
+        let backend = Metal::new().unwrap();
+        let make = |name: &str, buffer: &str, bytes: u64, blocks: u64| {
+            serde_json::json!({
+                "name": name, "source": format!("{name}.metal"),
+                "bindings": {"schema":1,"entry":"stage","buffers":[buffer],"storage_buffers":[buffer],
+                    "buffer_bytes":{buffer:bytes},"blocks":blocks,"threads":64,"iterations":1},
+                "buffer_map":{buffer:buffer}
+            })
+        };
+        let producer = make("producer", "Grid", 16, 1);
+        let mut consumer = make("consumer", "Output", 193 * 4, 4);
+        consumer["indirect"] = serde_json::json!({"buffer":"Grid","word":1});
+        let manifest: ProgramManifest = serde_json::from_value(serde_json::json!({
+            "schema":2,"storage_buffers":["Grid","Output"],
+            "buffer_bytes":{"Grid":16,"Output":193*4},"iterations":6,"stages":[producer,consumer]
+        }))
+        .unwrap();
+        for (name, word) in [("Missing", 0), ("Grid", 2), ("Grid", u64::MAX)] {
+            let mut bad = manifest.clone();
+            bad.stages[1].indirect = Some(IndirectDispatch {
+                buffer: name.into(),
+                word,
+            });
+            assert!(bad.validate().is_err());
+        }
+        let sources = BTreeMap::from([
+            ("producer.metal".into(), "#include <metal_stdlib>\nusing namespace metal;\nkernel void stage(device uint* g [[buffer(0)]], uint i [[thread_position_in_grid]]) {if(i==0){g[1]=g[0]%4;g[2]=1;g[3]=1;g[0]++;}}".into()),
+            ("consumer.metal".into(), "#include <metal_stdlib>\nusing namespace metal;\nkernel void stage(device uint* o [[buffer(0)]], uint i [[thread_position_in_grid]]) {if(i<193)o[i]++;}".into()),
+        ]);
+        let program = NativeProgram::new(&backend, manifest, &sources).unwrap();
+        for hazard in [
+            metal::MTLResourceOptions::HazardTrackingModeTracked,
+            metal::MTLResourceOptions::HazardTrackingModeUntracked,
+        ] {
+            let options = metal::MTLResourceOptions::StorageModeShared | hazard;
+            let g = [0u32; 4];
+            let o = [0u32; 193];
+            let grid = backend
+                .device()
+                .new_buffer_with_data(g.as_ptr().cast(), 16, options);
+            let output = backend
+                .device()
+                .new_buffer_with_data(o.as_ptr().cast(), 193 * 4, options);
+            let buffers = BTreeMap::from([
+                ("Grid".into(), grid.as_ref()),
+                ("Output".into(), output.as_ref()),
+            ]);
+            unsafe {
+                program.dispatch(&backend, &buffers).unwrap();
+                let words = std::slice::from_raw_parts(output.contents().cast::<u32>(), 193);
+                for (i, &word) in words.iter().enumerate() {
+                    assert_eq!(
+                        word,
+                        if i < 64 {
+                            4
+                        } else if i < 128 {
+                            2
+                        } else if i < 192 {
+                            1
+                        } else {
+                            0
+                        }
+                    );
+                }
             }
         }
     }

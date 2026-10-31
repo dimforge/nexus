@@ -331,28 +331,49 @@ def gpu_finalize_topo_gc(layout):
     return finalize
 
 
-def gpu_coloring_requirements(layout):
-    """Exact control feedback; no coloring or physics is performed on the host."""
+def gpu_coloring_requirements(layout, serial=False):
+    """64-lane control feedback; the serial target executes the same reduction."""
 
     @T.macro
-    def requirements(Colors, Links, Plan, Budget, Requirements):
-        highest = T.alloc_local((1,), "uint32")
-        pending = T.alloc_local((1,), "uint32")
-        highest[0] = T.uint32(0)
-        pending[0] = T.uint32(0)
-        for i in T.serial(T.Cast("int32", Plan[layout["plan"]["bound"]])):
+    def lane_values(Colors, Links, Plan, Budget, Highest, Pending, lane):
+        Highest[lane] = T.uint32(0)
+        Pending[lane] = T.uint32(0)
+        for i in T.serial(lane, T.Cast("int32", Plan[layout["plan"]["bound"]]), 64):
             if Links[i * layout["link_words"] + layout["link"]["len"]] != 0:
                 color = Colors[i]
-                highest[0] = T.max(
-                    highest[0], T.if_then_else(color < 64, color, T.uint32(0xFFFFFFFF))
+                Highest[lane] = T.max(
+                    Highest[lane],
+                    T.if_then_else(color < 64, color, T.uint32(0xFFFFFFFF)),
                 )
                 if color == 0:
-                    pending[0] = T.if_then_else(
+                    Pending[lane] = T.if_then_else(
                         Budget[0] == T.uint32(0xFFFFFFFF),
                         Budget[0],
                         Budget[0] + T.uint32(1),
                     )
-        Requirements[0] = highest[0]
-        Requirements[1] = pending[0]
+
+    @T.macro
+    def reduce(Highest, Pending, lane, stride):
+        Highest[lane] = T.max(Highest[lane], Highest[lane + stride])
+        Pending[lane] = T.max(Pending[lane], Pending[lane + stride])
+
+    @T.macro
+    def requirements(Colors, Links, Plan, Budget, Requirements, Highest, Pending, lane):
+        if serial:
+            for i in T.serial(64):
+                lane_values(Colors, Links, Plan, Budget, Highest, Pending, i)
+            for level in T.unroll(6):
+                for i in T.serial(32 >> level):
+                    reduce(Highest, Pending, i, 32 >> level)
+            Requirements[0], Requirements[1] = Highest[0], Pending[0]
+        else:
+            lane_values(Colors, Links, Plan, Budget, Highest, Pending, lane)
+            T.sync_threads()
+            for level in T.unroll(6):
+                if lane < (32 >> level):
+                    reduce(Highest, Pending, lane, 32 >> level)
+                T.sync_threads()
+            if lane == 0:
+                Requirements[0], Requirements[1] = Highest[0], Pending[0]
 
     return requirements

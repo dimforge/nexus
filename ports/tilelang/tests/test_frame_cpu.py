@@ -75,6 +75,50 @@ class FrameCpuTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
 
+    def test_swaps_checkpoint_growth_failure_and_reset(self):
+        def swapped(cap, offset):
+            v = variant(cap, offset)
+            m, p = v["manifest"], v["manifest"]["program"]
+            m.update(schema=2, swaps=[["Scratch", "State"]])
+            p["storage_buffers"].append("Scratch")
+            p["buffer_bytes"]["Scratch"] = p["buffer_bytes"]["State"]
+            stage = p["stages"][1]
+            stage["bindings"]["buffers"].append("Scratch")
+            stage["bindings"]["storage_buffers"] = list(stage["bindings"]["buffers"])
+            stage["bindings"]["buffer_bytes"]["Scratch"] = p["buffer_bytes"]["State"]
+            stage["buffer_map"]["Scratch"] = "Scratch"
+            v["initial"]["Scratch"] = np.full_like(v["initial"]["State"], 0xDEADBEEF)
+            v["sources"]["commit.c"] = f"""#include <cstdint>
+extern "C" int32_t commit(uint32_t* s,uint32_t* d) {{d[{offset}]=s[{offset}]+1; d[{offset + 1}]=s[{offset + 1}]; return 0;}}"""
+            return v
+
+        s = CpuFrameSession([swapped(8, 0)], self.temp.name)
+        s.step()
+        checkpoint = s.checkpoint()
+        self.assertEqual(checkpoint["regions"]["state"], [43, 17])
+        s.storage["Input"][0] = 9
+        with self.assertRaises(CapacityError):
+            s.step()
+        self.assertEqual(s.checkpoint(), checkpoint)
+        s.extend(swapped(16, 3))
+        self.assertEqual(s.step()["retries"], 1)
+        self.assertEqual(s.checkpoint()["regions"]["state"], [44, 17])
+        s.restore(checkpoint)
+        s.step()
+        self.assertEqual(s.checkpoint()["regions"]["state"], [44, 17])
+        s.reset()
+        self.assertEqual(s.checkpoint()["regions"]["state"], [42, 17])
+        for swaps in (
+            [["State", "State"]],
+            [["State", "Input"]],
+            [["State", "missing"]],
+            [["State", "Scratch"], ["Scratch", "State"]],
+        ):
+            v = swapped(8, 0)
+            v["manifest"]["swaps"] = swaps
+            with self.assertRaises(ValueError):
+                CpuFrameSession([v], self.temp.name)
+
     def test_same_stage_limits_retry_before_commit(self):
         import copy
 

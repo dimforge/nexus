@@ -70,7 +70,7 @@ def main():
         make_kernel=make_kernel,
         validate_case=validate_case,
         check_outputs=check_outputs,
-        launch=lambda c: (1, 1, 1),
+        launch=lambda c: (1, 64, 1),
     )
 
 

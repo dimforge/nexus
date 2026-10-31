@@ -9,7 +9,7 @@ BUFFERS = ("Colors", "Links", "Plan", "Budget", "Requirements")
 def make_kernel(layout, case, target):
     sizes = case["buffer_words"]
     nc, nl, np, nb, nr = [sizes[name] for name in BUFFERS]
-    one = gpu_coloring_requirements(layout)
+    one = gpu_coloring_requirements(layout, target == "c")
     if target == "ascend":
         import tilelang.ascend.language as A
 
@@ -22,8 +22,19 @@ def make_kernel(layout, case, target):
             Requirements: A.Tensor((nr,), "uint32"),
         ):
             with A.Kernel(1):  # noqa: SIM117 -- preserve nested accelerator scopes
-                with A.SimtVF(threads=1):
-                    one(Colors, Links, Plan, Budget, Requirements)
+                with A.SimtVF(threads=64):
+                    Highest = A.alloc_shared((64,), "uint32")
+                    Pending = A.alloc_shared((64,), "uint32")
+                    one(
+                        Colors,
+                        Links,
+                        Plan,
+                        Budget,
+                        Requirements,
+                        Highest,
+                        Pending,
+                        A.get_thread_binding(),
+                    )
     else:
 
         @T.prim_func
@@ -34,7 +45,18 @@ def make_kernel(layout, case, target):
             Budget: T.Tensor((nb,), "uint32"),
             Requirements: T.Tensor((nr,), "uint32"),
         ):
-            with T.Kernel(1, threads=1):
-                one(Colors, Links, Plan, Budget, Requirements)
+            with T.Kernel(1, threads=64):
+                Highest = T.alloc_shared((64,), "uint32")
+                Pending = T.alloc_shared((64,), "uint32")
+                one(
+                    Colors,
+                    Links,
+                    Plan,
+                    Budget,
+                    Requirements,
+                    Highest,
+                    Pending,
+                    0 if target == "c" else T.get_thread_binding(),
+                )
 
     return kernel

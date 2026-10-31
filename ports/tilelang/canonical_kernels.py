@@ -36,7 +36,7 @@ BUFFERS = (
 
 
 def scene_groups(capacity):
-    """One lane per possible contact until the runtime supports indirect grids."""
+    """Compiled capacity bound; the native runtime may dispatch fewer live groups."""
     return max(1, (capacity + 63) // 64)
 
 
@@ -181,7 +181,15 @@ def make_kernel(layout, case, target, phase, selector=None):
     return kernel
 
 
-def radix_digits(selector, collider_count=None):
+def scene_passes(collider_count, has_composite_shapes):
+    """Production GpuCanonicalOrder::canonicalize_contacts pass policy."""
+    bits = max(1, collider_count.bit_length())
+    if not has_composite_shapes and bits * 2 <= 32:
+        return [7]
+    return [4, 1, 2] if has_composite_shapes else [5, 2]
+
+
+def radix_digits(selector, collider_count=None, packed_pair=False):
     """Keep full subshape/packed keys; bounded IDs reserve all-ones for inert rows.
 
     An even digit count leaves the final permutation in InOrder. Rounding to a
@@ -191,9 +199,16 @@ def radix_digits(selector, collider_count=None):
         type(collider_count) is not int or not 0 <= collider_count < 2**32
     ):
         raise ValueError("Invalid canonical collider count")
-    if collider_count is None or selector % 4 not in (1, 2):
+    if collider_count is None:
         return 8
-    return 2 * ((max(1, collider_count.bit_length()) + 7) // 8)
+    bits = max(1, collider_count.bit_length())
+    if packed_pair and selector % 4 == 3:
+        if bits > 16:
+            raise ValueError("Packed pair key exceeds 32 bits")
+        bits *= 2
+    elif selector % 4 not in (1, 2):
+        return 8
+    return 2 * ((bits + 7) // 8)
 
 
 def make_program(layout, case, target):
@@ -258,7 +273,11 @@ def make_program(layout, case, target):
         for selector in case["passes"]:
             add("keys", selector)
             sorting_stage("radix_dispatch", 0)
-            for p in range(radix_digits(selector, case.get("collider_count"))):
+            for p in range(
+                radix_digits(
+                    selector, case.get("collider_count"), case.get("packed_pair", False)
+                )
+            ):
                 for kind in radix.STAGES:
                     sorting_stage(kind, p)
         add("permute")

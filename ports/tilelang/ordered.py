@@ -253,6 +253,17 @@ def validate_program(program):
             or bindings["blocks"] * bindings["threads"] > (1 << 64) - 1
         ):
             raise ValueError("Invalid program kernel ABI")
+        indirect = stage.get("indirect")
+        if indirect is not None:
+            if (
+                not isinstance(indirect, dict)
+                or set(indirect) != {"buffer", "word"}
+                or not isinstance(indirect["buffer"], str)
+                or type(indirect["word"]) is not int
+                or indirect["word"] < 0
+                or (indirect["word"] + 3) * 4 > physical.get(indirect["buffer"], 0)
+            ):
+                raise ValueError("Invalid indirect dispatch buffer/offset")
         mapping = stage["buffer_map"]
         if (
             set(mapping) != set(local)
@@ -326,6 +337,7 @@ def lower_program(plans, arrays, target, iterations=1, *, session=None):
                 "source": filename,
                 "bindings": bindings,
                 "buffer_map": mapping,
+                **({"indirect": plan["indirect"]} if "indirect" in plan else {}),
             }
         )
     return sources, validate_program(program)

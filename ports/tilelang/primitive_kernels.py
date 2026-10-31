@@ -4,6 +4,10 @@ import tilelang.language as T
 from shaders.dynamics.canonical_order import gpu_stabilize_body_constraint_ids
 
 
+def groups(rows):
+    return min(max(rows, 1), 65535)
+
+
 def make_kernel(case, target):
     rows, storage = case["rows"], case["storage"]
     counts = max(rows, 1)
@@ -29,9 +33,10 @@ def make_kernel(case, target):
             Ids: A.Tensor((storage,), "uint32"),
             Sorted: A.Tensor((storage,), "uint32"),
         ):
-            with A.Kernel(max(rows, 1)) as body:
+            with A.Kernel(groups(rows)) as group:
                 with A.SimtVF(threads=64):
-                    one(Counts, Ids, Sorted, body, A.get_thread_binding())
+                    for body in A.serial(group, rows, groups(rows)):
+                        one(Counts, Ids, Sorted, body, A.get_thread_binding())
     else:
 
         @T.prim_func
@@ -40,7 +45,8 @@ def make_kernel(case, target):
             Ids: T.Tensor((storage,), "uint32"),
             Sorted: T.Tensor((storage,), "uint32"),
         ):
-            with T.Kernel(max(rows, 1), threads=64) as body:
-                one(Counts, Ids, Sorted, body, T.get_thread_binding())
+            with T.Kernel(groups(rows), threads=64) as group:
+                for body in T.serial(group, rows, groups(rows)):
+                    one(Counts, Ids, Sorted, body, T.get_thread_binding())
 
     return kernel

@@ -260,3 +260,26 @@ for inactive contacts. This removes high zero-byte passes while leaving the fina
 permutation in the same buffer. Standalone fixtures without that bound keep the
 full-width workspace contract. Optimized scratch is checked independently; output
 contacts and stable permutations must match fresh Rust results exactly.
+
+## Device scheduling and frame ownership
+
+Metal runtime scenes publish live pair/contact/color grids on the device and use
+indirect dispatch for independent element kernels. Compiled capacity grids remain
+upper bounds, and cooperative radix/scan/refit launches retain their required
+shape. Empty color ranges dispatch zero workgroups; empty key generation still
+runs one group to publish a zero sort count. No dispatch-size readback is added.
+
+Frame schema 2 adds disjoint, equal-size logical buffer swaps at successful commit.
+The six link/adjacency/color/tile caches exchange owners instead of copying their
+capacity. Checkpoints, growth, reset and reads resolve logical buffer names after
+the exchange. Contact states retain their two-generation allocation ABI and copy
+only live rows. A failed capacity check never exchanges owners. Schema 1 remains
+supported. Other target schedules currently retain static launch/copy behavior.
+
+Native indirect launch is not an Ascend requirement. The fallback design follows
+`khal-derive/src/spirv_bindgen/cuda.rs::virtual_workgroup_loop`: launch a bounded
+physical grid, read the virtual grid from device memory, iterate virtual groups
+by the physical grid stride, and place a uniform workgroup barrier between
+iterations. This preserves workgroup-local synchronization without CPU readback.
+The TileLang CUDA/Ascend wrapper for this fallback still needs implementation and
+device qualification; the Metal tests do not establish those targets' behavior.

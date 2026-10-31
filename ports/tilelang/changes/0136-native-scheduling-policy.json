@@ -1,0 +1,23 @@
+{
+  "id": "0136-native-scheduling-policy",
+  "features": [
+    "rbd.scheduling.color_requirements3d",
+    "rbd.scheduling.canonical_contacts3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Parallelize color feedback and preserve native composite/packed contact sort policy and capped grid-stride adjacency launches.",
+  "regressions": [
+    "Focused Metal tests compare pending/invalid/empty/max-budget color feedback with fresh Rust; packed and two-field sort output and integer workspace remain exact.",
+    "A 65537-body sparse adjacency test exercises multiple virtual bodies per group and duplicate stable ordering; live-state persistence checks exact active writes and inactive guards."
+  ],
+  "differences": [
+    "Only runtime-specialized canonical schedules derive composite shape presence from uploaded shape tags; fixtures keep their explicit pass choices.",
+    "The CPU and GPU feedback reduction has 64 lanes and no host physics. Ascend synchronization and execution remain unqualified; full parity baseline remains stale."
+  ]
+}

@@ -240,6 +240,8 @@ class CpuFrameSession:
             except Exception:
                 self.poisoned = True
                 raise
+            for a, b in m.get("swaps", []):
+                self.storage[a], self.storage[b] = self.storage[b], self.storage[a]
             self.steps += 1
             return {
                 "step": self.steps,

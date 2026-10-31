@@ -1,0 +1,23 @@
+{
+  "id": "0135-cache-swaps",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "abi",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Exchange six native Metal cache buffer owners at successful frame commit and copy only live contact-state rows.",
+  "regressions": [
+    "CPU and Metal frame tests cover odd/even swaps, failed capacity gates, growth, checkpoint restore, reset, and invalid overlapping or unequal swaps.",
+    "Runtime scene continuation and bounded Balls replay exercise live-state persistence."
+  ],
+  "differences": [
+    "Frame schema 2 declares disjoint equal-size swaps. Persistent regions retain logical names across resize and checkpoint restore.",
+    "States retain the existing two-generation allocation ABI; a live-row device copy replaces the full-capacity copy. Inactive scratch contents are not a semantic output. Other backends and standalone fixtures retain their original schedule.",
+    "Full baseline remains stale; existing production-reference divergence and missing Ascend/CUDA qualification remain open."
+  ]
+}

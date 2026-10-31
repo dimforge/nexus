@@ -149,7 +149,8 @@ def validate_case(layout, case, arrays):
         live = rows[length != 0]
         offset = layout["contact"]["colliders"]
         if (
-            type(bound) is not int or not 0 <= bound < 2**32
+            type(bound) is not int
+            or not 0 <= bound < 2**32
             or np.any(live[:, offset : offset + 2] >= bound)
         ):
             raise ValueError("Contact collider IDs exceed the declared bound")
@@ -205,6 +206,8 @@ def expected_outputs(layout, case, before):
                 bits = 32
                 if "collider_count" in case and field in (1, 2):
                     bits = max(1, case["collider_count"].bit_length())
+                if "collider_count" in case and field == 3 and case.get("packed_pair"):
+                    bits = 2 * max(1, case["collider_count"].bit_length())
                 # Independent integer workspace specification at byte granularity.
                 for p in range(((bits + 7) // 8) * 2):
                     mapping = sort_mapping(p)

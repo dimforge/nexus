@@ -1,0 +1,22 @@
+{
+  "id": "0134-live-count-metal-dispatch",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "abi",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Dispatch independent native Metal scene kernels from device-written live contact and per-color counts while retaining compiled capacity strides.",
+  "regressions": [
+    "Native Metal tracked/untracked indirect dispatch test covers zero and changing counts and nonzero byte offsets; descriptor validators reject missing and out-of-range buffers.",
+    "Focused scene execution tests cover overflowing producer inputs, empty and multiple-batch color ranges, and fresh Rust colored-solver output."
+  ],
+  "differences": [
+    "Only Metal runtime scene specialization opts in; other backends retain static launch plans. Cooperative radix and scan launches are unchanged.",
+    "Producer grids are trusted kernel outputs, bounded by compiled capacity; no solver data is read to CPU to choose grids. Full parity evidence remains stale; existing production-reference divergence and missing Ascend/CUDA qualification remain open."
+  ]
+}

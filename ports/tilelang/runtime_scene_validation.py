@@ -30,6 +30,23 @@ def validate_case(l, c, b):
         or b["ColorRequirements"].shape != (5,)
     ):
         raise ValueError("Invalid runtime coloring budget")
+    if "has_composite_shapes" in c:
+        shapes = b["Shapes"].reshape(-1, l["shape_words"])[: c["collider_count"]]
+        kinds = shapes[:, l["shape"]["a"] + 3]
+        composite = bool(
+            np.isin(
+                kinds, [l["shape_types"]["trimesh"], l["shape_types"]["polyline"]]
+            ).any()
+        )
+        if (
+            type(c["has_composite_shapes"]) is not bool
+            or c["has_composite_shapes"] != composite
+        ):
+            raise ValueError("Canonical pass policy differs from uploaded shapes")
+        if b["BatchIds"][l["batch"]["contact_sort_collider_shift"]] != max(
+            1, c["collider_count"].bit_length()
+        ):
+            raise ValueError("Packed pair shift differs from collider bound")
     nb = c["batches"]
     if (
         nb < 1

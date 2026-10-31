@@ -52,6 +52,8 @@ def make_program(l, c, target):
         plans.append(
             {
                 "name": f"{name}_{len(plans)}",
+                "operation": name,
+                "phase": name,
                 "kernel": kernel,
                 "buffer_map": mapping,
                 "blocks": blocks,
@@ -65,6 +67,8 @@ def make_program(l, c, target):
                 dict(
                     stage,
                     name=f"{name}_{len(plans)}",
+                    operation=stage["name"],
+                    phase=name,
                     buffer_map={
                         k: (mapping or {}).get(v, v)
                         for k, v in stage["buffer_map"].items()
@@ -156,7 +160,10 @@ def make_program(l, c, target):
         kind="canonical_contacts",
         storage=cs,
         groups=canonical_kernels.scene_groups(cap),
-        passes=[4, 1, 2],
+        passes=canonical_kernels.scene_passes(
+            collider_count, c.get("has_composite_shapes", True)
+        ),
+        packed_pair="has_composite_shapes" in c and not c["has_composite_shapes"],
         collider_count=collider_count,
         iterations=1,
     )
@@ -200,7 +207,7 @@ def make_program(l, c, target):
         "stable_adjacency",
         primitive_kernels.make_kernel({"rows": n, "storage": sizes["Ids"]}, target),
         {"Counts": "Counts", "Ids": "Ids", "Sorted": "SortedIds"},
-        max(n, 1),
+        primitive_kernels.groups(n),
     )
     from coloring_replay import BUFFERS as COLORING
 
@@ -264,7 +271,7 @@ def make_program(l, c, target):
             "color_requirements",
             color_requirement_kernels.make_kernel(l, local(mapping), target),
             mapping,
-            threads=1,
+            threads=64,
         )
         plans[-1]["capacity_gates"] = [
             {
@@ -332,13 +339,19 @@ def make_program(l, c, target):
         )
         if kind not in cache:
             cache[kind] = colored_kernels.make_kernel(
-                l, local(cm, count=cap, groups=groups, batches=nb, fused_colors=fused_colors),
-                target, kind
+                l,
+                local(
+                    cm, count=cap, groups=groups, batches=nb, fused_colors=fused_colors
+                ),
+                target,
+                kind,
             )
         add(kind, cache[kind], cm, nb if fused_colors else groups)
 
     def colors(kind, mode):
-        selected = [c["color_stride"] - 2] if fused_colors else range(1, c["color_stride"] - 1)
+        selected = (
+            [c["color_stride"] - 2] if fused_colors else range(1, c["color_stride"] - 1)
+        )
         for col in selected:
             color(kind, col, mode)
 
@@ -431,24 +444,33 @@ def make_program(l, c, target):
             memory_kernels.increment(sizes["FrameIndex"], target),
             {"Data": "FrameIndex"},
         )
-    for source, dest in [
-        ("Links", "OldLinks"),
-        ("Counts", "OldCounts"),
-        ("SortedIds", "OldIds"),
-        ("Indices", "OldIndices"),
-        ("Colors", "OldColors"),
-        ("Tiles", "OldTiles"),
-    ]:
+    from frame_manifest import CACHE_SWAPS
+
+    for source, dest in [] if c.get("native_schedule") else CACHE_SWAPS:
         add(
             "persist_" + source,
             memory_kernels.copy(sizes[source], target),
             {"Source": source, "Dest": dest},
             max((sizes[source] + 63) // 64, 1),
         )
-    add(
-        "persist_states",
-        memory_kernels.states(sizes["States"], cs * l["state_words"], target),
-        {"Data": "States"},
-        max((cs * l["state_words"] + 63) // 64, 1),
-    )
+    if c.get("native_schedule"):
+        from scene_execution import copy_live_states
+
+        add(
+            "persist_states",
+            copy_live_states(l, c),
+            identity(["States", "Plan"]),
+            max((cap + 63) // 64, 1),
+        )
+    else:
+        add(
+            "persist_states",
+            memory_kernels.states(sizes["States"], cs * l["state_words"], target),
+            {"Data": "States"},
+            max((cs * l["state_words"] + 63) // 64, 1),
+        )
+    if c.get("native_schedule"):
+        from scene_execution import apply_indirect_dispatches
+
+        plans = apply_indirect_dispatches(plans, l, c, target)
     return plans

@@ -108,6 +108,22 @@ def specialize(
     initial["ColorBudget"] = np.array([case["rounds"], 0xDEADBEEF], np.uint32)
     initial["ColorRequirements"] = np.full(5, 0xDEADBEEF, np.uint32)
     case["buffer_words"].update(ColorBudget=2, ColorRequirements=5)
+    if target == "metal":
+        from scene_execution import grid_words
+
+        case["native_schedule"] = True
+        initial["Dispatches"] = np.zeros(grid_words(case), np.uint32)
+        case["buffer_words"]["Dispatches"] = len(initial["Dispatches"])
+    shapes = initial["Shapes"].reshape(-1, layout["shape_words"])[
+        : case["collider_count"]
+    ]
+    shape_kinds = shapes[:, layout["shape"]["a"] + 3]
+    case["has_composite_shapes"] = bool(
+        np.isin(
+            shape_kinds,
+            [layout["shape_types"]["trimesh"], layout["shape_types"]["polyline"]],
+        ).any()
+    )
     validate_case(layout, case, initial)
     before = perf_counter()
     cache = None

@@ -31,6 +31,9 @@ pub struct PersistentRegion {
 #[derive(Clone, Debug, Deserialize)]
 pub struct FrameManifest {
     pub schema: u32,
+    /// Logical ownership exchanges, applied only after all commit stages succeed.
+    #[serde(default)]
+    pub swaps: Vec<[String; 2]>,
     pub program: ProgramManifest,
     pub gates: Vec<CapacityGate>,
     /// Stable region identities. Larger variants retain each prior region's
@@ -47,7 +50,8 @@ fn deserialize_max_steps<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Optio
 impl FrameManifest {
     pub fn validate(&self) -> Result<Vec<usize>, String> {
         self.program.validate()?;
-        if self.schema != 1
+        if !matches!(self.schema, 1 | 2)
+            || (self.schema == 1 && !self.swaps.is_empty())
             || self.program.iterations != 1
             || self.max_steps == Some(0)
             || (self.max_steps.is_none()
@@ -58,6 +62,17 @@ impl FrameManifest {
                     .any(|n| n == "Trajectory" || n == "FrameIndex"))
         {
             return Err("Invalid resident frame schema, iteration count or step limit".into());
+        }
+        let mut swapped = BTreeSet::new();
+        for [a, b] in &self.swaps {
+            if !swapped.insert(a)
+                || !swapped.insert(b)
+                || !self.program.buffer_bytes.contains_key(a)
+                || !self.program.buffer_bytes.contains_key(b)
+                || self.program.buffer_bytes[a] != self.program.buffer_bytes[b]
+            {
+                return Err("Swapped buffers must be distinct, disjoint and equally sized".into());
+            }
         }
         let mut ends = Vec::new();
         let mut names = BTreeSet::new();
@@ -195,7 +210,8 @@ fn upload(backend: &Metal, variant: &FrameVariant) -> Result<BTreeMap<String, Bu
         .collect()
 }
 fn validate_growth(old: &FrameManifest, new: &FrameManifest) -> Result<(), String> {
-    if old.gates.len() != new.gates.len()
+    if old.swaps != new.swaps
+        || old.gates.len() != new.gates.len()
         || old.max_steps != new.max_steps
         || old.persistent.keys().ne(new.persistent.keys())
     {
@@ -491,6 +507,14 @@ impl FrameSession {
                 self.poisoned = true;
                 return Err(StepError::Backend(error));
             }
+            for [a, b] in &m.swaps {
+                let left = self.storage.remove(a).expect("validated swap buffer");
+                let right = self
+                    .storage
+                    .insert(b.clone(), left)
+                    .expect("validated swap buffer");
+                self.storage.insert(a.clone(), right);
+            }
             self.steps += 1;
             return Ok(FrameStats {
                 step: self.steps,
@@ -576,6 +600,7 @@ mod tests {
             iterations: 1,
         };
         let count = ProgramStage {
+            indirect: None,
             name: "count".into(),
             source: "count.metal".into(),
             bindings: local(vec!["Input".into(), "Count".into()], "count"),
@@ -585,6 +610,7 @@ mod tests {
             ]),
         };
         let commit = ProgramStage {
+            indirect: None,
             name: "commit".into(),
             source: "commit.metal".into(),
             bindings: local(vec!["State".into()], "commit"),
@@ -594,7 +620,7 @@ mod tests {
         state[offset..offset + 2].copy_from_slice(&[42, 17]);
         FrameVariant{
             libraries:BTreeMap::new(),
-            manifest:FrameManifest{schema:1,program:ProgramManifest{schema:2,storage_buffers:sizes.keys().cloned().collect(),buffer_bytes:sizes,iterations:1,stages:vec![count,commit]},
+            manifest:FrameManifest{schema:1,swaps:vec![],program:ProgramManifest{schema:2,storage_buffers:sizes.keys().cloned().collect(),buffer_bytes:sizes,iterations:1,stages:vec![count,commit]},
                 gates:vec![CapacityGate{id:"pairs".into(),after_stage:"count".into(),counters:vec![Counter{buffer:"Count".into(),word:0}],capacity}],
                 persistent:BTreeMap::from([("pose_and_velocity".into(),PersistentRegion{buffer:"State".into(),word_start:offset,word_len:2})]),max_steps:Some(2)},
             sources:BTreeMap::from([
@@ -602,6 +628,61 @@ mod tests {
                 ("commit.metal".into(),format!("#include <metal_stdlib>\nusing namespace metal;\nkernel void commit(device uint* state [[buffer(0)]]) {{state[{offset}]+=1;}}"))]),
             initial:BTreeMap::from([("State".into(),state),("Input".into(),vec![5]),("Count".into(),vec![0])]),
         }
+    }
+    fn swap_variant(capacity: u32, offset: usize) -> FrameVariant {
+        let mut v = variant(capacity, offset);
+        v.manifest.schema = 2;
+        v.manifest.max_steps = None;
+        v.manifest.swaps = vec![["Scratch".into(), "State".into()]];
+        let bytes = v.manifest.program.buffer_bytes["State"];
+        v.manifest.program.storage_buffers.push("Scratch".into());
+        v.manifest
+            .program
+            .buffer_bytes
+            .insert("Scratch".into(), bytes);
+        v.initial
+            .insert("Scratch".into(), vec![0xdeadbeef; bytes as usize / 4]);
+        let stage = &mut v.manifest.program.stages[1];
+        stage.bindings.buffers.push("Scratch".into());
+        stage.bindings.storage_buffers.push("Scratch".into());
+        stage.bindings.buffer_bytes.insert("Scratch".into(), bytes);
+        stage.buffer_map.insert("Scratch".into(), "Scratch".into());
+        v.sources.insert("commit.metal".into(), format!("#include <metal_stdlib>\nusing namespace metal;\nkernel void commit(device uint* state [[buffer(0)]], device uint* scratch [[buffer(1)]]) {{scratch[{offset}]=state[{offset}]+1; scratch[{}]=state[{}];}}", offset+1, offset+1));
+        v
+    }
+    #[test]
+    fn swaps_preserve_odd_even_checkpoint_growth_and_failed_steps() {
+        let backend = Metal::new().unwrap();
+        let mut s = unsafe { FrameSession::new(&backend, vec![swap_variant(8, 0)]) }.unwrap();
+        s.step(&backend).unwrap();
+        assert_eq!(&s.read(&backend, "State").unwrap()[..2], &[43, 17]);
+        let checkpoint = s.checkpoint(&backend).unwrap();
+        // Fail after an odd number of swaps. Neither logical owner nor state changes.
+        unsafe {
+            *s.storage["Input"].contents().cast::<u32>() = 9;
+        }
+        assert!(matches!(s.step(&backend), Err(StepError::Capacity { .. })));
+        assert_eq!(&s.read(&backend, "State").unwrap()[..2], &[43, 17]);
+        unsafe { s.extend(swap_variant(16, 3)) }.unwrap();
+        assert_eq!(s.step(&backend).unwrap().retries, 1);
+        assert_eq!(&s.read(&backend, "State").unwrap()[3..5], &[44, 17]);
+        unsafe { s.restore(&backend, &checkpoint) }.unwrap();
+        s.step(&backend).unwrap();
+        assert_eq!(&s.read(&backend, "State").unwrap()[..2], &[44, 17]);
+        s.reset(&backend).unwrap();
+        assert_eq!(&s.read(&backend, "State").unwrap()[..2], &[42, 17]);
+        s.step(&backend).unwrap();
+        assert_eq!(&s.read(&backend, "State").unwrap()[..2], &[43, 17]);
+        for pair in [["State", "State"], ["State", "Input"], ["State", "missing"]] {
+            let mut v = swap_variant(8, 0);
+            v.manifest.swaps = vec![pair.map(String::from)];
+            assert!(v.manifest.validate().is_err());
+        }
+        let mut v = swap_variant(8, 0);
+        v.manifest.swaps.push(v.manifest.swaps[0].clone());
+        assert!(v.manifest.validate().is_err());
+        v.manifest.schema = 1;
+        assert!(v.manifest.validate().is_err());
     }
     #[test]
     fn same_stage_limits_retry_before_commit() {

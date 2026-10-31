@@ -8,7 +8,7 @@ from ordered import validate_program
 def validate_frame(frame):
     program = validate_program(frame["program"])
     if (
-        frame.get("schema") != 1
+        frame.get("schema") not in (1, 2)
         or program["iterations"] != 1
         or "max_steps" not in frame
         or (
@@ -26,6 +26,25 @@ def validate_frame(frame):
         )
     ):
         raise ValueError("Invalid resident frame schema, iteration count or step limit")
+    swaps = frame.get("swaps", [])
+    used = set()
+    if not isinstance(swaps, list) or (swaps and frame["schema"] != 2):
+        raise ValueError("Buffer swaps require frame schema 2")
+    for pair in swaps:
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(
+                not isinstance(n, str) or n not in program["buffer_bytes"] or n in used
+                for n in pair
+            )
+            or pair[0] == pair[1]
+            or program["buffer_bytes"][pair[0]] != program["buffer_bytes"][pair[1]]
+        ):
+            raise ValueError(
+                "Swapped buffers must be distinct, disjoint and equally sized"
+            )
+        used.update(pair)
     names = [s["name"] for s in program["stages"]]
     sizes = {n: b // 4 for n, b in program["buffer_bytes"].items()}
     last = -1
@@ -71,6 +90,16 @@ def validate_frame(frame):
         if any(a[1] > b[0] for a, b in itertools.pairwise(ranges)):
             raise ValueError("Overlapping persistent regions")
     return frame
+
+
+CACHE_SWAPS = [
+    ["Links", "OldLinks"],
+    ["Counts", "OldCounts"],
+    ["SortedIds", "OldIds"],
+    ["Indices", "OldIndices"],
+    ["Colors", "OldColors"],
+    ["Tiles", "OldTiles"],
+]
 
 
 def persistent_regions(l, c):
@@ -138,7 +167,8 @@ def from_program(l, c, plans, program):
         raise ValueError("Missing or changed scene capacity gates")
     return validate_frame(
         {
-            "schema": 1,
+            "schema": 2 if c.get("native_schedule") else 1,
+            "swaps": CACHE_SWAPS if c.get("native_schedule") else [],
             "program": program,
             "gates": gates,
             "persistent": persistent_regions(l, c),
@@ -151,6 +181,7 @@ def validate_growth(a, b):
     """Validate a new specialization before publishing it to a live session."""
     if (
         a["max_steps"] != b["max_steps"]
+        or a.get("swaps", []) != b.get("swaps", [])
         or set(a["persistent"]) != set(b["persistent"])
         or len(a["gates"]) != len(b["gates"])
     ):
