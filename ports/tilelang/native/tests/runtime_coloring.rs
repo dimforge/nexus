@@ -61,6 +61,7 @@ fn exercise(target: TileLangBackend) {
                 .join(format!("coloring-{target:?}-{}-{now}", std::process::id()));
         println!("Coloring runtime artifacts: {}", workspace.display());
         let options = RuntimeOptions {
+            kernel_cache: None,
             backend: target,
             python: PathBuf::from(
                 std::env::var_os("NEXUS_TILELANG_RUNTIME_PYTHON").expect("Set compiler"),

@@ -256,19 +256,19 @@ def compile_c(source, bindings, directory):
             str(library),
         ]
     )
+    return load_c_library(library, bindings, {
+        "device": platform.machine(),
+        "runtime": "native TileLang C++",
+        "compiler": run(compiler + ["--version"]).splitlines()[0],
+    })
+
+
+def load_c_library(library, bindings, environment):
     native = ctypes.CDLL(str(library))
     function = getattr(native, bindings["entry"])
     function.argtypes = [ctypes.c_void_p] * len(bindings["buffers"])
     function.restype = ctypes.c_int32
-    return (
-        native,
-        function,
-        {
-            "device": platform.machine(),
-            "runtime": "native TileLang C++",
-            "compiler": run(compiler + ["--version"]).splitlines()[0],
-        },
-    )
+    return native, function, environment
 
 
 def execute_c(source, bindings, directory, arrays, *, compiled=None):

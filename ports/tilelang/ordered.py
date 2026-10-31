@@ -9,10 +9,11 @@ from collections import OrderedDict
 class CompilationSession:
     """Bounded reuse within one runner process; no fixtures or outputs are cached."""
 
-    def __init__(self, capacity=256):
+    def __init__(self, capacity=256, *, persistent_cache=None):
         if type(capacity) is not int or capacity < 1:
             raise ValueError("Invalid compiler session capacity")
         self.capacity = capacity
+        self.persistent_cache = persistent_cache
         self.lowered = OrderedDict()
         self.compiled = OrderedDict()
         self.hits = {"lowering": 0, "c_compilation": 0}
@@ -36,15 +37,19 @@ class CompilationSession:
         # Target and full IR equality are required, not a function name or shape.
         key = (target, tvm.ir.save_json(kernel))
         requested = {"kind": "cuda", "arch": "sm_80"} if target == "cuda" else target
-        return self.get(
-            self.lowered,
-            key,
-            lambda: tilelang.lower(
+        def build():
+            return tilelang.lower(
                 kernel,
                 target=requested,
                 enable_host_codegen=False,
                 enable_device_compile=False,
-            ),
+            )
+
+        return self.get(
+            self.lowered,
+            key,
+            lambda: self.persistent_cache.lower(kernel, target, build)
+            if self.persistent_cache is not None else build(),
             "lowering",
         )
 

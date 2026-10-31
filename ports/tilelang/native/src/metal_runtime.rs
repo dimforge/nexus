@@ -53,6 +53,7 @@ impl Manifest {
     }
 }
 
+#[derive(Clone)]
 pub struct NativeKernel {
     pipeline: ComputePipelineState,
     device_id: u64,
@@ -214,6 +215,7 @@ impl ProgramManifest {
 
 /// A correctness-first native schedule: no CPU physics, readback or repacking
 /// between stages. Completed dispatches establish dependencies for later kernels.
+#[derive(Clone)]
 pub struct NativeProgram {
     manifest: ProgramManifest,
     kernels: Vec<NativeKernel>,
@@ -224,8 +226,23 @@ impl NativeProgram {
         manifest: ProgramManifest,
         sources: &BTreeMap<String, String>,
     ) -> Result<Self, String> {
+        Self::with_libraries(backend, manifest, sources, &BTreeMap::new())
+    }
+
+    /// Load verified, trusted Metal libraries when supplied; otherwise compile MSL.
+    /// Library entries must be compiled from the corresponding source and ABI.
+    pub fn with_libraries(
+        backend: &Metal,
+        manifest: ProgramManifest,
+        sources: &BTreeMap<String, String>,
+        libraries: &BTreeMap<String, Vec<u8>>,
+    ) -> Result<Self, String> {
         manifest.validate()?;
-        let mut pipelines = BTreeMap::<(String, String), ComputePipelineState>::new();
+        if libraries.keys().any(|name| !sources.contains_key(name)) {
+            return Err("Library has no corresponding source".into());
+        }
+        let mut pipelines =
+            BTreeMap::<(String, String, Option<&[u8]>), ComputePipelineState>::new();
         let kernels = manifest
             .stages
             .iter()
@@ -233,11 +250,21 @@ impl NativeProgram {
                 let source = sources
                     .get(&stage.source)
                     .ok_or_else(|| format!("Missing source {}", stage.source))?;
-                let key = (source.clone(), stage.bindings.entry.clone());
+                let binary = libraries.get(&stage.source).map(Vec::as_slice);
+                let key = (source.clone(), stage.bindings.entry.clone(), binary);
                 if let Some(pipeline) = pipelines.get(&key) {
                     NativeKernel::with_pipeline(backend, pipeline.clone(), stage.bindings.clone())
                 } else {
-                    let kernel = NativeKernel::new(backend, source, stage.bindings.clone())?;
+                    let kernel = if let Some(binary) = binary {
+                        let library = backend.device().new_library_with_data(binary)?;
+                        let function = library.get_function(&stage.bindings.entry, None)?;
+                        let pipeline = backend
+                            .device()
+                            .new_compute_pipeline_state_with_function(&function)?;
+                        NativeKernel::with_pipeline(backend, pipeline, stage.bindings.clone())?
+                    } else {
+                        NativeKernel::new(backend, source, stage.bindings.clone())?
+                    };
                     pipelines.insert(key, kernel.pipeline.clone());
                     Ok(kernel)
                 }

@@ -8,7 +8,9 @@ use crate::BackendType;
 use khal::backend::{Backend, GpuBackend};
 use nexus::prelude::{NexusPipeline, NexusState};
 use nexus::rbd::{Velocity, math::Pose, pipeline::RbdSceneUpload};
-use nexus_tilelang_native::runtime::{RuntimeOptions, TileLangBackend, TileLangSimulation};
+use nexus_tilelang_native::runtime::{
+    CacheStats, RuntimeOptions, TileLangBackend, TileLangSimulation,
+};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -96,6 +98,9 @@ pub struct TileLangUi {
     pub retries: usize,
     pub reconstructions: usize,
     pub workspace: Option<PathBuf>,
+    pub preparation_ms: f64,
+    pub reused_runtime: bool,
+    pub cache: Option<CacheStats>,
 }
 
 impl TileLangUi {
@@ -136,7 +141,13 @@ pub fn options(backend: BackendType, native_pair_capacity: u32) -> Result<Runtim
             .map_err(|_| "NEXUS_TILELANG_MAX_PAIRS must be a positive u32")?,
         Err(_) => native_pair_capacity.max(1_048_576),
     };
+    let kernel_cache = match std::env::var_os("NEXUS_TILELANG_KERNEL_CACHE") {
+        Some(value) if value == "off" => None,
+        Some(value) => Some(PathBuf::from(value)),
+        None => Some(port.join("../../target/tilelang-kernel-cache")),
+    };
     Ok(RuntimeOptions {
+        kernel_cache,
         backend: target,
         python,
         port_directory: port,
@@ -150,6 +161,9 @@ pub fn options(backend: BackendType, native_pair_capacity: u32) -> Result<Runtim
 
 pub struct TileLangDriver {
     simulation: TileLangSimulation,
+    original_options: RuntimeOptions,
+    initial_scene: Vec<u8>,
+    restartable: bool,
     topology: Vec<u8>,
     slots: BodySlots,
     previous_poses: Vec<Pose>,
@@ -194,6 +208,20 @@ fn topology(upload: &RbdSceneUpload) -> Vec<u8> {
     append(&mut out, &[upload.joints_per_batch]);
     append(&mut out, &upload.joint_color_ends);
     out
+}
+
+fn initial_scene(upload: &RbdSceneUpload) -> Vec<u8> {
+    let mut bytes = topology(upload);
+    bytes.extend_from_slice(bytemuck::bytes_of(&upload.params));
+    bytes.extend_from_slice(bytemuck::bytes_of(&upload.gravity));
+    for values in [
+        bytemuck::cast_slice(&upload.body_poses),
+        bytemuck::cast_slice(&upload.velocities),
+    ] {
+        bytes.extend_from_slice(&(values.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(values);
+    }
+    bytes
 }
 
 fn changed_ranges<T: bytemuck::NoUninit>(before: &[T], after: &[T]) -> Vec<std::ops::Range<usize>> {
@@ -256,11 +284,16 @@ impl TileLangDriver {
             .await
             .map_err(|e| e.to_string())?;
         let topology = topology(&upload);
+        let original_options = options.clone();
+        let initial_scene = initial_scene(&upload);
         // SAFETY: compiler paths are selected explicitly by the local testbed
         // user, and its newly allocated artifact directory is caller-owned.
         let simulation = unsafe { TileLangSimulation::from_upload(&upload, options)? };
         Ok(Self {
             simulation,
+            original_options,
+            initial_scene,
+            restartable: true,
             topology,
             slots: slots(state),
             previous_poses: upload.body_poses.clone(),
@@ -269,6 +302,70 @@ impl TileLangDriver {
             reference_poses: upload.body_poses,
             compare,
         })
+    }
+
+    /// Reuse only an unchanged initial scene and compiler selection. The fresh
+    /// carrier remains the independent Rust reference; no prior trajectory survives.
+    async fn restart(
+        &mut self,
+        state: &mut NexusState,
+        options: &RuntimeOptions,
+        compare: bool,
+    ) -> Result<bool, String> {
+        let mut expected = self.original_options.clone();
+        expected.workspace = options.workspace.clone();
+        if !self.restartable || expected != *options {
+            return Ok(false);
+        }
+        let backend = GpuBackend::Cpu;
+        state.finalize(&backend).await.map_err(|e| e.to_string())?;
+        validate_scene(state)?;
+        let upload = state
+            .rbd
+            .as_ref()
+            .unwrap()
+            .read_scene_upload(&backend)
+            .await
+            .map_err(|e| e.to_string())?;
+        if self.initial_scene != initial_scene(&upload) || self.slots != slots(state) {
+            return Ok(false);
+        }
+        self.simulation.reset()?;
+        self.previous_poses = upload.body_poses.clone();
+        self.previous_velocities = upload.velocities;
+        self.poses = upload.body_poses.clone();
+        self.reference_poses = upload.body_poses;
+        self.compare = compare;
+        Ok(true)
+    }
+
+    /// Select a loaded restart or prepare a fresh scene using the disk cache.
+    ///
+    /// # Safety
+    /// The same trusted compiler and artifact requirements as `new` apply.
+    pub async unsafe fn start(
+        state: &mut NexusState,
+        options: RuntimeOptions,
+        previous: Option<Self>,
+        ui: &mut TileLangUi,
+    ) -> Result<Self, String> {
+        let time = Instant::now();
+        if let Some(mut previous) = previous
+            && previous.restart(state, &options, ui.compare).await?
+        {
+            ui.reused_runtime = true;
+            ui.preparation_ms = time.elapsed().as_secs_f64() * 1000.0;
+            ui.workspace = Some(previous.original_options.workspace.clone());
+            ui.cache = None;
+            return Ok(previous);
+        }
+        // SAFETY: forwarded caller contract; generated artifacts remain private.
+        let driver = unsafe { Self::new(state, options, ui.compare).await? };
+        ui.cache = driver.simulation.preparation_cache()?;
+        ui.reused_runtime = false;
+        ui.preparation_ms = time.elapsed().as_secs_f64() * 1000.0;
+        ui.workspace = Some(driver.original_options.workspace.clone());
+        Ok(driver)
     }
 
     pub async fn step(
@@ -290,6 +387,7 @@ impl TileLangDriver {
         let new_slots = slots(state);
         let new_topology = topology(&upload);
         if self.topology != new_topology || self.slots != new_slots {
+            self.restartable = false;
             // A native rebuild may reset its bodies from the host Rapier world.
             // Start a new comparison segment from that exact upload instead of
             // comparing preserved TileLang bodies with reset reference bodies.
@@ -311,6 +409,11 @@ impl TileLangDriver {
             }
         }
         self.slots = new_slots;
+        // Reconfiguration replaces the runtime's original upload. A later demo
+        // restart must then create fresh state, while reusing compatible code.
+        if upload.params != self.simulation.solver_parameters() {
+            self.restartable = false;
+        }
         self.simulation.set_solver_parameters(upload.params)?;
         self.simulation
             .set_gravity(upload.gravity.truncate().to_array())?;

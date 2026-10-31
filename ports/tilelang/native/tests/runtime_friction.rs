@@ -85,6 +85,7 @@ fn exercise(target: TileLangBackend) {
         let workspace = root.join(format!("friction-{target:?}-{}-{now}", std::process::id()));
         println!("Runtime friction artifacts: {}", workspace.display());
         let options = RuntimeOptions {
+            kernel_cache: None,
             backend: target,
             python: PathBuf::from(
                 std::env::var_os("NEXUS_TILELANG_RUNTIME_PYTHON").expect("Set compiler Python"),

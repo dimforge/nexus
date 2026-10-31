@@ -153,6 +153,7 @@ fn exercise(target: TileLangBackend) {
                     root.join(format!("lifecycle-{target:?}-{}-{now}", std::process::id()));
                 println!("Runtime lifecycle artifacts: {}", workspace.display());
                 let options = RuntimeOptions {
+                    kernel_cache: None,
                     backend: target,
                     python: PathBuf::from(
                         std::env::var_os("NEXUS_TILELANG_RUNTIME_PYTHON")

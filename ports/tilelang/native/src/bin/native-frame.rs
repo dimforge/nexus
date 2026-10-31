@@ -32,6 +32,7 @@ fn load(root: &Path) -> Result<FrameVariant, Box<dyn std::error::Error>> {
         })
         .collect::<Result<_, std::io::Error>>()?;
     Ok(FrameVariant {
+        libraries: BTreeMap::new(),
         manifest,
         sources,
         initial,

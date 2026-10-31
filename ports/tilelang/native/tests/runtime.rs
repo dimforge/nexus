@@ -97,6 +97,7 @@ fn exercise(backend: TileLangBackend, contact_reduction: bool) {
     let velocities = count * size_of::<nexus_rbd3d::Velocity>() / 4;
     let trace = floats(expected.join("Trajectory.expected.bin"));
     let options = RuntimeOptions {
+        kernel_cache: None,
         backend,
         python,
         port_directory: PathBuf::from(env!("CARGO_MANIFEST_DIR"))

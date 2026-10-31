@@ -216,6 +216,8 @@ const DEFAULT_SHADOW_ATLAS_LAYERS: u32 = 4;
 pub struct NexusViewer {
     #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
     tilelang: Option<crate::tilelang::TileLangDriver>,
+    #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+    tilelang_previous: Option<crate::tilelang::TileLangDriver>,
     window: Window,
     scene2d: SceneNode2d,
     scene3d: SceneNode3d,
@@ -423,6 +425,8 @@ impl NexusViewer {
             },
             #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
             tilelang: None,
+            #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
+            tilelang_previous: None,
             nexus_render: RenderContext::new(),
             rbd_prep_render: None,
             mpm_node: None,
@@ -1620,7 +1624,9 @@ impl NexusViewer {
         self.scene_synced = false;
         #[cfg(all(feature = "tilelang", feature = "dim3", not(target_arch = "wasm32")))]
         {
-            self.tilelang = None;
+            if let Some(driver) = self.tilelang.take() {
+                self.tilelang_previous = self.ui.tilelang.error.is_none().then_some(driver);
+            }
             self.ui.tilelang.clear_run();
         }
     }
@@ -1649,18 +1655,19 @@ impl NexusViewer {
                         .map(|r| r.collision_pairs_capacity())
                         .unwrap_or(1);
                     let options = crate::tilelang::options(self.ui.backend_type, capacity)?;
-                    eprintln!("Preparing {:?} kernels in {} (first specialization can take several minutes)", self.ui.backend_type, options.workspace.display());
-                    self.ui.tilelang.workspace = Some(options.workspace.clone());
+                    eprintln!("Loading/preparing {:?} kernels (new specializations can take several minutes)", self.ui.backend_type);
                     // SAFETY: these paths are explicitly selected trusted local
                     // compiler code; options() creates a fresh artifact path.
                     self.tilelang = Some(unsafe {
-                        crate::tilelang::TileLangDriver::new(
+                        crate::tilelang::TileLangDriver::start(
                             state,
                             options,
-                            self.ui.tilelang.compare,
+                            self.tilelang_previous.take(),
+                            &mut self.ui.tilelang,
                         )
                         .await?
                     });
+                    eprintln!("TileLang ready in {:.2}s: loaded restart={}, cache={:?}", self.ui.tilelang.preparation_ms / 1000.0, self.ui.tilelang.reused_runtime, self.ui.tilelang.cache);
                 }
                 self.tilelang
                     .as_mut()

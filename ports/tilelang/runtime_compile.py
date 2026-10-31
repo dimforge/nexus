@@ -30,6 +30,7 @@ def specialize(
     contact_reduction=False,
     solver_colors=None,
     coloring_rounds=None,
+    cache_directory=None,
 ):
     from runtime_scene_validation import validate_case
     from scene_kernels import make_program
@@ -95,13 +96,39 @@ def specialize(
     initial["ColorRequirements"] = np.full(5, 0xDEADBEEF, np.uint32)
     case["buffer_words"].update(ColorBudget=2, ColorRequirements=5)
     validate_case(layout, case, initial)
+    cache = None
+    if cache_directory is not None:
+        from kernel_cache import KernelCache
+
+        cache = KernelCache(cache_directory)
     plans = make_program(layout, case, target)
     sources, program = lower_program(
-        plans, initial, target, session=CompilationSession()
+        plans, initial, target, session=CompilationSession(persistent_cache=cache)
     )
     frame = from_program(layout, case, plans, program)
     for name, source in sources.items():
         (output / name).write_text(source)
+    libraries = {}
+    if cache is not None and target in ("c", "metal"):
+        compiled = {}
+        for stage in program["stages"]:
+            name = stage["source"]
+            source = sources[name]
+            # Native binary reuse does not depend on launch grid, iteration
+            # count, body values or physical buffer mappings.
+            abi = {k: stage["bindings"][k] for k in ("schema", "entry", "buffers")}
+            key = (source, json.dumps(abi, sort_keys=True))
+            if key not in compiled:
+                compiled[key] = (
+                    cache.c_library(source, abi)
+                    if target == "c"
+                    else cache.metal_library(source)
+                )
+            payload = compiled[key]
+            if payload is not None:
+                filename = name + (".metallib" if target == "metal" else ".native")
+                (output / filename).write_bytes(payload)
+                libraries[name] = filename
     for name, words in initial.items():
         words.tofile(output / f"{name}.bin")
     write_json(output / "frame.json", frame)
@@ -113,6 +140,8 @@ def specialize(
         )
     metadata = {
         "schema": 1,
+        "libraries": libraries,
+        "cache": cache.stats if cache is not None else None,
         "target": target,
         "level": "source_lowered",
         "inputs": inputs,
@@ -137,14 +166,20 @@ def load_variant(directory):
     for name, expected in metadata["files"].items():
         if Path(name).name != name or digest(directory / name) != expected:
             raise ValueError("Specialization artifact changed")
+    libraries = metadata.get("libraries", {})
+    if any(Path(n).name != n or n not in metadata["files"] for n in libraries.values()):
+        raise ValueError("Invalid compiled library inventory")
     frame = validate_frame(json.loads((directory / "frame.json").read_text()))
     program = frame["program"]
+    if not libraries.keys() <= {s["source"] for s in program["stages"]}:
+        raise ValueError("Library has no corresponding source")
     required = {"frame.json", "case.json", "layout.json"}
     required |= {s["source"] for s in program["stages"]}
     required |= {n + ".bin" for n in program["storage_buffers"]}
     if not required.issubset(metadata["files"]):
         raise ValueError("Specialization omits required artifacts")
     return {
+        "libraries": {n: directory / p for n, p in libraries.items()},
         "manifest": frame,
         "sources": {
             s["source"]: (directory / s["source"]).read_text()
@@ -167,6 +202,7 @@ def main():
     p.add_argument("--contact-reduction", action="store_true")
     p.add_argument("--solver-colors", type=int)
     p.add_argument("--coloring-rounds", type=int)
+    p.add_argument("--cache-directory", type=Path)
     a = p.parse_args()
     specialize(
         a.upload,
@@ -177,6 +213,7 @@ def main():
         a.contact_reduction,
         a.solver_colors,
         a.coloring_rounds,
+        a.cache_directory,
     )
 
 

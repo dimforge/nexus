@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from frame_manifest import validate_frame, validate_growth
 from ordered import CompilationSession
-from replay import execute_c
+from replay import execute_c, load_c_library
 
 
 class CapacityError(RuntimeError):
@@ -25,6 +25,7 @@ class CpuFrameSession:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.variants = variants
         self.compiler = CompilationSession()
+        self.loaded_programs = {}
         self.current = 0
         self.steps = 0
         self.poisoned = False
@@ -125,13 +126,24 @@ class CpuFrameSession:
         self.compiled, self.storage, self.current, self.steps = compiled, storage, 0, 0
 
     def _compile(self, index):
+        if index in self.loaded_programs:
+            return self.loaded_programs[index]
         v = self.variants[index]
-        return [
-            self.compiler.compile_c(
+        result = [
+            load_c_library(
+                v["libraries"][s["source"]],
+                s["bindings"],
+                {"runtime": "cached native TileLang C++"},
+            )
+            if s["source"] in v.get("libraries", {})
+            else self.compiler.compile_c(
                 v["sources"][s["source"]], s["bindings"], self.directory
             )
             for s in v["manifest"]["program"]["stages"]
         ]
+
+        self.loaded_programs[index] = result
+        return result
 
     def _range(self, start, end):
         v = self.variants[self.current]

@@ -109,7 +109,7 @@ pub fn compiling_overlay(ctx: &egui::Context, tilelang: bool) {
         .show(ctx, |ui| {
             ui.colored_label(
                 Color32::from_rgb(82, 130, 150),
-                if tilelang { "Preparing TileLang kernels…\nFirst specialization can take several minutes.\nThe window waits during compilation. Errors are reported in the terminal." } else { "Compiling shaders…\nThe window waits during compilation. Check the terminal for progress." },
+                if tilelang { "Loading/preparing TileLang kernels…\nNew specializations can take several minutes.\nThe window waits during compilation. Errors are reported in the terminal." } else { "Compiling shaders…\nThe window waits during compilation. Check the terminal for progress." },
             );
         });
 }
@@ -773,6 +773,21 @@ fn tilelang_status(ui: &mut egui::Ui, state: &mut UiState) {
         "TileLang {:.2} ms · capacity retries {} · scene rebuilds {}",
         t.step_ms, t.retries, t.reconstructions
     ));
+    ui.label(format!(
+        "Preparation {:.2} s{}",
+        t.preparation_ms / 1000.0,
+        if t.reused_runtime {
+            " · reused loaded solver"
+        } else {
+            ""
+        }
+    ));
+    if let Some(cache) = &t.cache {
+        ui.label(format!(
+            "Cache: {} lowerings + {} libraries reused; {} lowerings + {} libraries built",
+            cache.lowering_hits, cache.binary_hits, cache.lowering_misses, cache.binary_misses
+        ));
+    }
     if t.reconstructions > 0 {
         ui.label("Scene rebuild: comparison restarted from the native upload.");
     }

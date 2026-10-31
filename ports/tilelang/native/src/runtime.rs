@@ -20,7 +20,7 @@ use std::{
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TileLangBackend {
     C,
     #[cfg(feature = "metal")]
@@ -37,12 +37,14 @@ impl TileLangBackend {
 }
 
 /// Paths and allocation policy chosen by the caller. The workspace must not exist.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuntimeOptions {
     pub backend: TileLangBackend,
     pub python: PathBuf,
     pub port_directory: PathBuf,
     pub workspace: PathBuf,
+    /// Opt-in immutable compiler cache. None keeps the ordinary uncached evidence path.
+    pub kernel_cache: Option<PathBuf>,
     pub initial_pair_capacity: u32,
     /// An application resource limit, not a device or solver limit.
     pub max_pair_capacity: u32,
@@ -50,6 +52,15 @@ pub struct RuntimeOptions {
     pub trace_steps: Option<u32>,
     /// Merge per-subshape manifolds before solving. Native Nexus defaults to false.
     pub contact_reduction: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct CacheStats {
+    pub lowering_hits: usize,
+    pub lowering_misses: usize,
+    pub binary_hits: usize,
+    pub binary_misses: usize,
+    pub invalid_entries: usize,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -292,6 +303,14 @@ fn verify_artifacts(directory: &Path) -> Result<Value, String> {
     if required.iter().any(|name| !files.contains_key(name)) {
         return Err("Specialization omits required artifacts".into());
     }
+    if let Some(libraries) = metadata.get("libraries") {
+        for (source, file) in libraries.as_object().ok_or("Invalid library inventory")? {
+            let file = file.as_str().ok_or("Invalid library filename")?;
+            if !required.contains(source) || !files.contains_key(file) {
+                return Err("Invalid compiled library inventory".into());
+            }
+        }
+    }
     Ok(metadata)
 }
 fn compile(
@@ -317,6 +336,9 @@ fn compile(
         .arg(solver_colors.to_string())
         .arg("--coloring-rounds")
         .arg(coloring_rounds.to_string());
+    if let Some(cache) = &options.kernel_cache {
+        command.arg("--cache-directory").arg(cache);
+    }
     if options.contact_reduction {
         command.arg("--contact-reduction");
     }
@@ -347,6 +369,17 @@ fn compile(
 }
 #[cfg(feature = "metal")]
 fn load_metal(directory: &Path) -> Result<crate::frame::FrameVariant, String> {
+    let metadata = verify_artifacts(directory)?;
+    let mut libraries = BTreeMap::new();
+    if let Some(entries) = metadata["libraries"].as_object() {
+        for (name, file) in entries {
+            libraries.insert(
+                name.clone(),
+                fs::read(directory.join(file.as_str().ok_or("Invalid library filename")?))
+                    .map_err(|e| e.to_string())?,
+            );
+        }
+    }
     let manifest: crate::frame::FrameManifest =
         serde_json::from_value(read_json(&directory.join("frame.json"))?)
             .map_err(|e| e.to_string())?;
@@ -383,6 +416,7 @@ fn load_metal(directory: &Path) -> Result<crate::frame::FrameVariant, String> {
         })
         .collect::<Result<_, String>>()?;
     Ok(crate::frame::FrameVariant {
+        libraries,
         manifest,
         sources,
         initial,
@@ -470,6 +504,14 @@ impl TileLangSimulation {
             published_variant: 0,
             session,
         })
+    }
+    /// Cache activity for the initial specialization in the current configuration.
+    pub fn preparation_cache(&self) -> Result<Option<CacheStats>, String> {
+        serde_json::from_value(
+            read_json(&self.options.workspace.join("variant-0/specialization.json"))?["cache"]
+                .clone(),
+        )
+        .map_err(|e| e.to_string())
     }
     /// Advance once, compiling and retrying larger capacity only before commit.
     pub fn step(&mut self) -> Result<FrameProgress, RuntimeError> {

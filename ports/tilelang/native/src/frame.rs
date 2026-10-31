@@ -128,6 +128,7 @@ impl FrameManifest {
 pub struct FrameVariant {
     pub manifest: FrameManifest,
     pub sources: BTreeMap<String, String>,
+    pub libraries: BTreeMap<String, Vec<u8>>,
     pub initial: BTreeMap<String, Vec<u32>>,
 }
 impl FrameVariant {
@@ -169,6 +170,7 @@ pub struct FrameSession {
     variants: Vec<FrameVariant>,
     current: usize,
     program: NativeProgram,
+    initial_program: NativeProgram,
     storage: BTreeMap<String, Buffer>,
     steps: u64,
     poisoned: bool,
@@ -235,11 +237,17 @@ impl FrameSession {
             validate_growth(&pair[0].manifest, &pair[1].manifest)?;
         }
         let first = &variants[0];
-        let program = NativeProgram::new(backend, first.manifest.program.clone(), &first.sources)?;
+        let program = NativeProgram::with_libraries(
+            backend,
+            first.manifest.program.clone(),
+            &first.sources,
+            &first.libraries,
+        )?;
         let storage = upload(backend, first)?;
         Ok(Self {
             variants,
             current: 0,
+            initial_program: program.clone(),
             program,
             storage,
             steps: 0,
@@ -319,7 +327,12 @@ impl FrameSession {
             })
             .ok_or("Checkpoint has no compatible capacity specialization")?;
         let v = &self.variants[index];
-        let program = NativeProgram::new(backend, v.manifest.program.clone(), &v.sources)?;
+        let program = NativeProgram::with_libraries(
+            backend,
+            v.manifest.program.clone(),
+            &v.sources,
+            &v.libraries,
+        )?;
         let storage = upload(backend, v)?;
         backend.synchronize().map_err(|e| e.to_string())?;
         for (name, words) in &state.regions {
@@ -345,7 +358,7 @@ impl FrameSession {
             return Err("Poisoned frame or wrong device".into());
         }
         let v = &self.variants[0];
-        let program = NativeProgram::new(backend, v.manifest.program.clone(), &v.sources)?;
+        let program = self.initial_program.clone();
         let storage = upload(backend, v)?;
         backend.synchronize().map_err(|e| e.to_string())?;
         self.program = program;
@@ -364,7 +377,12 @@ impl FrameSession {
         let new = &self.variants[next];
         // Compile and allocate before touching the current state. Allocation or
         // compilation failure cannot publish a half-migrated specialization.
-        let program = NativeProgram::new(backend, new.manifest.program.clone(), &new.sources)?;
+        let program = NativeProgram::with_libraries(
+            backend,
+            new.manifest.program.clone(),
+            &new.sources,
+            &new.libraries,
+        )?;
         let storage = upload(backend, new)?;
         backend.synchronize().map_err(|e| e.to_string())?;
         let command = backend.queue().new_command_buffer();
@@ -570,6 +588,7 @@ mod tests {
         let mut state = vec![0xdeadbeef; offset + 4];
         state[offset..offset + 2].copy_from_slice(&[42, 17]);
         FrameVariant{
+            libraries:BTreeMap::new(),
             manifest:FrameManifest{schema:1,program:ProgramManifest{schema:2,storage_buffers:sizes.keys().cloned().collect(),buffer_bytes:sizes,iterations:1,stages:vec![count,commit]},
                 gates:vec![CapacityGate{id:"pairs".into(),after_stage:"count".into(),counters:vec![Counter{buffer:"Count".into(),word:0}],capacity}],
                 persistent:BTreeMap::from([("pose_and_velocity".into(),PersistentRegion{buffer:"State".into(),word_start:offset,word_len:2})]),max_steps:Some(2)},
