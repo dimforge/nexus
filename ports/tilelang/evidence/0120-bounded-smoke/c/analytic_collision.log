@@ -1,0 +1,3 @@
+c: analytic_collision/n3-b2-mixed: passed
+c: analytic_collision/n33-b2-rotated: passed
+c: analytic_collision/n33-b2-filters: passed

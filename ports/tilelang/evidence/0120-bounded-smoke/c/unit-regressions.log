@@ -1,0 +1,70 @@
+test_missing_metal_toolchain_keeps_runtime_compilation_fallback (test_kernel_cache.CompilerSelectionTests.test_missing_metal_toolchain_keeps_runtime_compilation_fallback) ... ok
+test_native_compiler_identity_includes_sdk_selection (test_kernel_cache.CompilerSelectionTests.test_native_compiler_identity_includes_sdk_selection) ... ok
+test_reference_build_only_selects_its_requested_binary (test_kernel_cache.CompilerSelectionTests.test_reference_build_only_selects_its_requested_binary) ... ok
+test_cached_c_library_executes_with_fresh_state_and_changed_source (test_kernel_cache.KernelCacheTests.test_cached_c_library_executes_with_fresh_state_and_changed_source) ... /private/tmp/nexus-tilelang-probe-20261029/lib/python3.13/site-packages/tilelang/language/eager/builder.py:1171: DeprecationWarning: Failing to pass a value to the 'type_params' parameter of 'typing._eval_type' is deprecated, as it leads to incorrect behaviour when calling typing._eval_type on a stringified annotation that references a PEP 695 type parameter. It will be disallowed in Python 3.15.
+  hints[name] = _eval_type(value, globalns=globalns, localns=localns)
+ok
+test_identity_key_corruption_and_incomplete_entries (test_kernel_cache.KernelCacheTests.test_identity_key_corruption_and_incomplete_entries) ... ok
+test_lowering_survives_process_exit_and_keys_full_ir_target_and_compiler (test_kernel_cache.KernelCacheTests.test_lowering_survives_process_exit_and_keys_full_ir_target_and_compiler) ... ok
+test_parallel_publication_is_complete (test_kernel_cache.KernelCacheTests.test_parallel_publication_is_complete) ... ok
+test_repeated_stages_load_identical_libraries_only_once (test_kernel_cache.KernelCacheTests.test_repeated_stages_load_identical_libraries_only_once) ... ok
+test_checkpoint_rejections_do_not_change_live_state (test_frame_cpu.FrameCpuTests.test_checkpoint_rejections_do_not_change_live_state) ... ok
+test_checkpoint_restore_and_reset_preserve_continuation (test_frame_cpu.FrameCpuTests.test_checkpoint_restore_and_reset_preserve_continuation) ... ok
+test_exhaustion_does_not_advance (test_frame_cpu.FrameCpuTests.test_exhaustion_does_not_advance) ... ok
+test_failed_growth_compilation_keeps_state (test_frame_cpu.FrameCpuTests.test_failed_growth_compilation_keeps_state) ... ok
+test_growth_after_prior_frame_preserves_state_and_limits (test_frame_cpu.FrameCpuTests.test_growth_after_prior_frame_preserves_state_and_limits) ... ok
+test_invalid_variant_cannot_shrink_or_change_meaning (test_frame_cpu.FrameCpuTests.test_invalid_variant_cannot_shrink_or_change_meaning) ... ok
+test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace (test_frame_cpu.FrameCpuTests.test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace) ... ok
+test_partial_commit_failure_poisoned (test_frame_cpu.FrameCpuTests.test_partial_commit_failure_poisoned) ... ok
+test_rejected_extension_does_not_mutate_the_session (test_frame_cpu.FrameCpuTests.test_rejected_extension_does_not_mutate_the_session) ... ok
+test_same_stage_limits_retry_before_commit (test_frame_cpu.FrameCpuTests.test_same_stage_limits_retry_before_commit) ... ok
+test_updates_migrate_and_rejections_preserve_guards (test_frame_cpu.FrameCpuTests.test_updates_migrate_and_rejections_preserve_guards) ... ok
+test_capacity_return_extend_step_and_explicit_read (test_runtime_service.RuntimeServiceTests.test_capacity_return_extend_step_and_explicit_read) ... ok
+test_checkpoint_restore_and_reset_protocol (test_runtime_service.RuntimeServiceTests.test_checkpoint_restore_and_reset_protocol) ... ok
+test_library_inventory_requires_known_sources_and_verified_payloads (test_runtime_service.RuntimeServiceTests.test_library_inventory_requires_known_sources_and_verified_payloads) ... ok
+test_modified_or_missing_artifact_inventory_rejects_load (test_runtime_service.RuntimeServiceTests.test_modified_or_missing_artifact_inventory_rejects_load) ... ok
+test_write_protocol_checks_words_and_preserves_updates (test_runtime_service.RuntimeServiceTests.test_write_protocol_checks_words_and_preserves_updates) ... ok
+test_every_registered_operation_exactly_once (test_matrix.MatrixTests.test_every_registered_operation_exactly_once) ... ok
+test_every_routed_command_uses_its_registered_runner (test_matrix.MatrixTests.test_every_routed_command_uses_its_registered_runner) ... ok
+test_invalid_shards_fail (test_matrix.MatrixTests.test_invalid_shards_fail) ... ok
+test_missing_specialized_runner_and_duplicate_fail (test_matrix.MatrixTests.test_missing_specialized_runner_and_duplicate_fail) ... ok
+test_unsupported_execution_is_not_lowering_evidence (test_matrix.MatrixTests.test_unsupported_execution_is_not_lowering_evidence) ... ok
+test_contract_is_selected_by_feature (test_parity.MultiFeatureTests.test_contract_is_selected_by_feature) ... ok
+test_one_operation_cannot_certify_another (test_parity.MultiFeatureTests.test_one_operation_cannot_certify_another) ... ok
+test_baseline_hash_bump_does_not_refresh_evidence (test_parity.ParityTests.test_baseline_hash_bump_does_not_refresh_evidence) ... ok
+test_deleted_dependency_invalidates_evidence (test_parity.ParityTests.test_deleted_dependency_invalidates_evidence) ... ok
+test_duplicate_overrides_cannot_hide_a_failed_report (test_parity.ParityTests.test_duplicate_overrides_cannot_hide_a_failed_report) ... ok
+test_failed_incomplete_or_wrong_toolchain_report_is_rejected (test_parity.ParityTests.test_failed_incomplete_or_wrong_toolchain_report_is_rejected) ... ok
+test_missing_or_unsafe_cpu_oracle_is_rejected (test_parity.ParityTests.test_missing_or_unsafe_cpu_oracle_is_rejected) ... ok
+test_modifying_accepted_evidence_or_change_record_is_visible (test_parity.ParityTests.test_modifying_accepted_evidence_or_change_record_is_visible) ... ok
+test_new_implementation_file_invalidates_evidence (test_parity.ParityTests.test_new_implementation_file_invalidates_evidence) ... ok
+test_new_rust_feature_cannot_be_silently_unmapped (test_parity.ParityTests.test_new_rust_feature_cannot_be_silently_unmapped) ... ok
+test_reconciliation_requires_execution_and_change_record (test_parity.ParityTests.test_reconciliation_requires_execution_and_change_record) ... ok
+test_reconciling_cpu_keeps_old_metal_evidence_stale (test_parity.ParityTests.test_reconciling_cpu_keeps_old_metal_evidence_stale) ... ok
+test_release_gate_rejects_explicit_known_gap (test_parity.ParityTests.test_release_gate_rejects_explicit_known_gap) ... ok
+test_rust_semantic_change_invalidates_evidence (test_parity.ParityTests.test_rust_semantic_change_invalidates_evidence) ... ok
+test_smoke_selection_never_satisfies_full_qualification (test_parity.ParityTests.test_smoke_selection_never_satisfies_full_qualification) ... ok
+test_success_is_scoped_and_ascend_is_unvalidated (test_parity.ParityTests.test_success_is_scoped_and_ascend_is_unvalidated) ... ok
+test_tolerance_change_invalidates_evidence (test_parity.ParityTests.test_tolerance_change_invalidates_evidence) ... ok
+test_budget_cannot_be_increased_past_five_minutes (test_smoke.SmokeTests.test_budget_cannot_be_increased_past_five_minutes) ... ok
+test_failed_command_and_expired_deadline_are_not_success (test_smoke.SmokeTests.test_failed_command_and_expired_deadline_are_not_success) ... ok
+test_failure_has_unique_receipt_and_does_not_continue (test_smoke.SmokeTests.test_failure_has_unique_receipt_and_does_not_continue) ... Source reconciliation: current
+Known gap: numeric-boundary: Unresolved boundary
+solve / c: executed
+solve / metal: unvalidated
+solve / ascend: unvalidated
+Smoke output: /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmpu83ppp09/c-klu82b00
+Smoke: unit-regressions (0.0s elapsed)
+Smoke timeout: 0.0s; /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmpu83ppp09/c-klu82b00/smoke.json
+deadline
+ok
+test_fixed_representative_contracts_and_missing_operation (test_smoke.SmokeTests.test_fixed_representative_contracts_and_missing_operation) ... ok
+test_full_matrix_requires_explicit_opt_in (test_smoke.SmokeTests.test_full_matrix_requires_explicit_opt_in) ... ok
+test_incomplete_stale_or_source_only_report_rejected (test_smoke.SmokeTests.test_incomplete_stale_or_source_only_report_rejected) ... ok
+test_selection_rejects_typos_and_duplicates (test_smoke.SmokeTests.test_selection_rejects_typos_and_duplicates) ... ok
+test_timeout_kills_owned_descendants (test_smoke.SmokeTests.test_timeout_kills_owned_descendants) ... ok
+
+----------------------------------------------------------------------
+Ran 54 tests in 17.843s
+
+OK

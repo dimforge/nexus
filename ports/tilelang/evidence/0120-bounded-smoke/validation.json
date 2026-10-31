@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "status": "representative_smoke_passed",
+  "created_utc": "2026-10-31T09:32:42.491531+00:00",
+  "code_commit": "e9e6def52da36e3b39540b047b676c24451f42fb",
+  "machine": "Apple M4 Max",
+  "execution_budget_seconds": 290,
+  "scope": "11 existing physics cases and 54 focused regressions per backend. Initial toolchain/dependency setup excluded; incremental builds, fresh Rust export, TileLang lowering, native compilation and execution included.",
+  "full_matrix": "not_run; deferred until explicitly requested",
+  "full_baseline": "unchanged; source reconciliation remains required",
+  "targets": {
+    "c": {
+      "elapsed_seconds": 89.158,
+      "physics_cases": 11,
+      "focused_regressions": 54,
+      "verified_case_artifacts": 406,
+      "reports_excluded_from_full_qualification": 5,
+      "steps": [
+        {
+          "name": "unit-regressions",
+          "elapsed_seconds": 18.091
+        },
+        {
+          "name": "free_step",
+          "elapsed_seconds": 3.498
+        },
+        {
+          "name": "colored_program",
+          "elapsed_seconds": 15.878
+        },
+        {
+          "name": "joint_program",
+          "elapsed_seconds": 18.089
+        },
+        {
+          "name": "analytic_collision",
+          "elapsed_seconds": 30.366
+        },
+        {
+          "name": "twist_solve",
+          "elapsed_seconds": 3.14
+        }
+      ]
+    },
+    "metal": {
+      "elapsed_seconds": 83.259,
+      "physics_cases": 11,
+      "focused_regressions": 54,
+      "verified_case_artifacts": 406,
+      "reports_excluded_from_full_qualification": 5,
+      "steps": [
+        {
+          "name": "unit-regressions",
+          "elapsed_seconds": 17.977
+        },
+        {
+          "name": "free_step",
+          "elapsed_seconds": 4.667
+        },
+        {
+          "name": "colored_program",
+          "elapsed_seconds": 9.451
+        },
+        {
+          "name": "joint_program",
+          "elapsed_seconds": 17.024
+        },
+        {
+          "name": "analytic_collision",
+          "elapsed_seconds": 31.774
+        },
+        {
+          "name": "twist_solve",
+          "elapsed_seconds": 2.269
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "These are representative diagnostics, not complete parity qualification.",
+    "Long scene trajectories, exhaustive geometry/LBVH/hubs and complete runtime acceptance are not in the smoke.",
+    "No Ascend vendor compilation or device execution.",
+    "Local macOS timings; Linux CI has not run and may have different timings."
+  ],
+  "initial_selection_trial": {
+    "elapsed_seconds": 277.0,
+    "status": "interrupted",
+    "reason": "Whole operation suites were too expensive; replaced with explicit representative cases without changing full contracts."
+  },
+  "files": {
+    "c/analytic_collision-report.json": "ca0080baf99556cd01fb826ad211f21c1878c1ac844d4546f710bbb81c20b1de",
+    "c/analytic_collision.log": "4f63e4bdab9e96439b926763ff71c7cbb11f8ed0cdca6f100fdd816399b6c70a",
+    "c/colored_program-report.json": "ae7cbd5ffec0e0956b407c20f6ac7674f7d507ddc052fdc5423959865d34f5f6",
+    "c/colored_program.log": "4fbf3fca2883d7df1770daa49890949d7da88a48c385637d43fe82eac6b947d9",
+    "c/free_step-report.json": "0720ecda4b58c76f5adecb2e7d03a83274964a51fffab52e93a0bb6e8edbd9ff",
+    "c/free_step.log": "0bd862f2169bfcb38300a5c0bd2aedfb9bdf6e367cdef11b0559386f0f77055c",
+    "c/joint_program-report.json": "3939eb1ff41857f1dc6f202ca237e0678206f54ab37e81960f18ba2c35112da5",
+    "c/joint_program.log": "a79f2dcb3422b213db300998918379249ed8e0346feaa78d1f719816cd3c1fc3",
+    "c/smoke.json": "9a26ca6249a400240739a3ad7f746cd066cb216876a2881cf5f45ebd00fef67a",
+    "c/twist_solve-report.json": "a45313a7702231fb6024c31b3f011f1b3c4a022946b0d2b5507e2153d839a105",
+    "c/twist_solve.log": "d946a396a04595fd5892bf5e00e69459c43a992637b9fb32b81a1622c2576467",
+    "c/unit-regressions.log": "0c995636361cdd1483fe22f72c1f9df0d77d3457d5856b0b124eb40fe0bf96e3",
+    "metal/analytic_collision-report.json": "d8ef146d8b12d87059c1dab9f3a4740bcf927344fe2e140f0565c81fff88edfa",
+    "metal/analytic_collision.log": "8cfdca0c8330297fdcdea539b40eca6c0515374dba74677b22fa2af48872375b",
+    "metal/colored_program-report.json": "20a0cf5b67733c486b49d1b0fd378bb47279a71f6e23d5bd4af53b55aefec422",
+    "metal/colored_program.log": "95a0204d5140fadca52588d05e65d7c54f48b996d35e5f4d331a2d2d0690fcc5",
+    "metal/free_step-report.json": "930a0040922110c0cb5074f36a42e056fed4747386b8928e64b365aa5996bdd8",
+    "metal/free_step.log": "d63e9168a80418a6c6ea1dcf2027bcc8020c8be95e3acccbcb0093ae2bd9ea63",
+    "metal/joint_program-report.json": "e73d839aec5b0e70830e97c664ecce3a4e2d49636bac76d7ef21f812650fea67",
+    "metal/joint_program.log": "8cc6852b8e04e9e5515a25e74a1480971996a2e576811ea805c8a7a152602a09",
+    "metal/smoke.json": "fbecee51cc9fc2824a8c7c55ef05a91aa9ceb29c8cfa0ee91c0fc2bca595803b",
+    "metal/twist_solve-report.json": "5c87e0a1979291c165d62dd14988422f143d99845df851eaf332fb2ecc8100e0",
+    "metal/twist_solve.log": "2d181aecc76c26426884f5de816fd86d9b6f4c4c47706dabc1f551da00c0f200",
+    "metal/unit-regressions.log": "b9e66d7287609fd76c60cf21a639d09af5f632b235f11bce557911cb2492d232"
+  }
+}
