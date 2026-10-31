@@ -1,0 +1,36 @@
+{
+  "device": "Apple M4 Max",
+  "body_count": 63005,
+  "pair_capacity": 300000,
+  "contact_capacity": 600000,
+  "friction_model": "twist",
+  "substeps": 4,
+  "stages": 706,
+  "initial_buffers": 185,
+  "buffer_bytes": 984619440,
+  "initial_buffer_hashes_equal": true,
+  "final_testbed_shader_sources_equal_to_measured_sources": 77,
+  "final_testbed_frame_layout_case_equal_to_measured": true,
+  "replay_wall_median_ms": [
+    2644.4857500027865,
+    32.38220838829875,
+    34.31656246539205,
+    2645.797249977477
+  ],
+  "viewer_last_step_ms": [
+    28.516458,
+    26.101834
+  ],
+  "viewer_frames_each": 6,
+  "source_commit": "ce0320d",
+  "full_matrix": "not run",
+  "source_reconciliation": "required",
+  "production_reference_contact_gap": "unresolved; not changed by this performance fix",
+  "smoke": {
+    "elapsed_seconds": 246.225,
+    "unit_tests": 68,
+    "representative_physics_cases": 11,
+    "target": "metal",
+    "receipt": "smoke/smoke.json"
+  }
+}

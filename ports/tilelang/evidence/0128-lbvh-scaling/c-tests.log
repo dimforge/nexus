@@ -1,0 +1,8 @@
+test_lbvh_early_exit_preserves_pairs_filters_overflow_and_batches (test_execution_optimizations.ExecutionOptimizations.test_lbvh_early_exit_preserves_pairs_filters_overflow_and_batches) ... ok
+test_automatic_lbvh_program_matches_fresh_rust (test_execution_optimizations.ExecutionOptimizations.test_automatic_lbvh_program_matches_fresh_rust) ... ok
+test_scene_domain_validation_checks_both_documented_partitions (test_execution_optimizations.ExecutionOptimizations.test_scene_domain_validation_checks_both_documented_partitions) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 68.788s
+
+OK

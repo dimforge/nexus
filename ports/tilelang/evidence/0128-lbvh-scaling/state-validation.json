@@ -1,0 +1,53 @@
+{
+  "checks": [
+    {
+      "frame": 0,
+      "exact_physical_and_spatial_hashes": 16,
+      "canonical_links_equal": true,
+      "canonical_active_tile_words_equal": true,
+      "ignored_inactive_twist_arm_words": 0,
+      "pair_count": "908"
+    },
+    {
+      "frame": 1,
+      "exact_physical_and_spatial_hashes": 16,
+      "canonical_links_equal": true,
+      "canonical_active_tile_words_equal": true,
+      "ignored_inactive_twist_arm_words": 95,
+      "pair_count": "908"
+    },
+    {
+      "frame": 2,
+      "exact_physical_and_spatial_hashes": 16,
+      "canonical_links_equal": true,
+      "canonical_active_tile_words_equal": true,
+      "ignored_inactive_twist_arm_words": 178,
+      "pair_count": "908"
+    },
+    {
+      "frame": 3,
+      "exact_physical_and_spatial_hashes": 16,
+      "canonical_links_equal": true,
+      "canonical_active_tile_words_equal": true,
+      "ignored_inactive_twist_arm_words": 275,
+      "pair_count": "908"
+    },
+    {
+      "frame": 4,
+      "exact_physical_and_spatial_hashes": 16,
+      "canonical_links_equal": true,
+      "canonical_active_tile_words_equal": true,
+      "ignored_inactive_twist_arm_words": 362,
+      "pair_count": "908"
+    },
+    {
+      "frame": 5,
+      "exact_physical_and_spatial_hashes": 16,
+      "canonical_links_equal": true,
+      "canonical_active_tile_words_equal": true,
+      "ignored_inactive_twist_arm_words": 403,
+      "pair_count": "908"
+    }
+  ],
+  "policy": "Exact equality after undoing legal atomic slot permutations. Every remaining differing tile word is independently verified to be xyz of a twist arm whose point index is >= that constraint live point count. All live fields, impulses and AoS warmstart caches remain exact; previous-constraint slot references are validated against the preceding frame mapping. No numerical tolerance."
+}

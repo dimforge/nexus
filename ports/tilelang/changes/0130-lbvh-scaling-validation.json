@@ -1,0 +1,24 @@
+{
+  "id": "0130-lbvh-scaling-validation",
+  "features": [
+    "rbd.broadphase.lbvh_pairs3d",
+    "rbd.broadphase.lbvh_program3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "test",
+    "tooling"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Retain bounded Balls profiling, before/after state checks, testbed measurements and final focused execution evidence for 0128 and 0129.",
+  "regressions": [
+    "The 63,005-body twist-friction Balls program drops from about 2645 ms to 32-34 ms in controlled six-frame replay; actual testbed reports 26-29 ms on Apple M4 Max.",
+    "Identical initial buffers and final generated source; exact body state, contacts, pairs and all active canonical warmstart fields across six frames. Legal atomic slot order and inactive twist arms are explicitly checked.",
+    "Final Metal smoke: 68 focused tests and 11 representative cases in 246.2 seconds; focused C regressions pass. See evidence/0128-lbvh-scaling."
+  ],
+  "differences": [
+    "Early-frame performance evidence is not settled-pile throughput or a Rust-GPU speed comparison. Startup loading remains separately slow.",
+    "No full matrix or reconciliation was run. The full baseline remains stale, Ascend remains untested, and the production-reference contact discrepancy remains open."
+  ]
+}

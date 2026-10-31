@@ -1,0 +1,8 @@
+test_lbvh_scene_launches_scale_like_native (test_execution_optimizations.ExecutionOptimizations.test_lbvh_scene_launches_scale_like_native) ... ok
+test_lbvh_early_exit_preserves_pairs_filters_overflow_and_batches (test_execution_optimizations.ExecutionOptimizations.test_lbvh_early_exit_preserves_pairs_filters_overflow_and_batches) ... ok
+test_automatic_lbvh_program_matches_fresh_rust (test_execution_optimizations.ExecutionOptimizations.test_automatic_lbvh_program_matches_fresh_rust) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 62.150s
+
+OK
