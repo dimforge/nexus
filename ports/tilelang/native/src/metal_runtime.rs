@@ -1,5 +1,5 @@
 //! Native execution of exported TileLang MSL with an existing khal device/queue.
-//! Consecutive stages share one command buffer, with explicit GPU buffer barriers.
+//! Consecutive stages share one command buffer, with Metal resource tracking and GPU fences for untracked storage.
 //! CPU completion boundaries remain at capacity checks and frame publication.
 //! No Python, TVM, or repacking is used at execution time.
 use khal::backend::{Backend, Metal};
@@ -358,35 +358,35 @@ impl NativeProgram {
         // Flush staged khal uploads once at this host boundary, never per shader.
         backend.synchronize().map_err(|e| e.to_string())?;
         let command = backend.queue().new_command_buffer();
-        let encoder = command.new_compute_command_encoder();
+        // Metal tracks resource hazards across compute passes. Untracked caller
+        // storage additionally needs explicit GPU fences; retain support for it.
+        let fence = physical
+            .iter()
+            .any(|buffer| buffer.hazard_tracking_mode() == metal::MTLHazardTrackingMode::Untracked)
+            .then(|| backend.device().new_fence());
+        let mut previous_pass = false;
         for index in range {
             let kernel = &self.kernels[index];
-            encoder.set_compute_pipeline_state(&kernel.pipeline);
-            let resources = self.binding_slots[index]
-                .iter()
-                .map(|&physical_slot| {
-                    let buffer = physical[physical_slot];
-                    let resource: &metal::ResourceRef = buffer;
-                    resource
-                })
-                .collect::<Vec<_>>();
-            for (slot, &physical_slot) in self.binding_slots[index].iter().enumerate() {
-                encoder.set_buffer(slot as u64, Some(physical[physical_slot]), 0);
-            }
             for _ in 0..kernel.manifest.iterations {
+                let encoder = command.new_compute_command_encoder();
+                if previous_pass && let Some(fence) = &fence {
+                    encoder.wait_for_fence(fence);
+                }
+                encoder.set_compute_pipeline_state(&kernel.pipeline);
+                for (slot, &physical_slot) in self.binding_slots[index].iter().enumerate() {
+                    encoder.set_buffer(slot as u64, Some(physical[physical_slot]), 0);
+                }
                 encoder.dispatch_thread_groups(
                     MTLSize::new(kernel.manifest.blocks, 1, 1),
                     MTLSize::new(kernel.manifest.threads, 1, 1),
                 );
-                // Cover storage writes between dispatches, including untracked
-                // resources and consecutive iterations of the same kernel. This
-                // orders GPU work without a CPU wait or cross-workgroup barrier.
-                if !resources.is_empty() {
-                    encoder.memory_barrier_with_resources(&resources);
+                if let Some(fence) = &fence {
+                    encoder.update_fence(fence);
                 }
+                encoder.end_encoding();
+                previous_pass = true;
             }
         }
-        encoder.end_encoding();
         command.commit();
         command.wait_until_completed();
         if command.status() != MTLCommandBufferStatus::Completed {
