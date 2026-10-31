@@ -1,0 +1,5 @@
+Fresh serial retry luby_reset
+PASSED luby_reset 28 cases
+Fresh serial retry segment_projection
+PASSED segment_projection 6 cases
+Serial reruns and failure provenance retained.

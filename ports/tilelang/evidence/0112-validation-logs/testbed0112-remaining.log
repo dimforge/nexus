@@ -1,0 +1,20 @@
+Fresh final matrix: 450 operation-target runs, 8 workers for the remaining jobs; no old results reused
+PASSED metal joint_lbvh_scene
+PASSED ascend general_scene
+PASSED c joint_lbvh_scene
+PASSED metal general_scene
+PASSED c general_scene
+PASSED ascend general_lbvh_scene
+PASSED metal general_lbvh_scene
+PASSED c general_lbvh_scene
+PASSED metal analytic_scene
+PASSED metal joint_scene
+PASSED ascend joint_scene
+PASSED ascend analytic_lbvh_scene
+PASSED ascend joint_lbvh_scene
+PASSED c analytic_lbvh_scene
+PASSED c joint_scene
+PASSED c general_restart
+PASSED ascend analytic_scene
+PASSED c general_frame_retry
+PASSED metal analytic_lbvh_scene

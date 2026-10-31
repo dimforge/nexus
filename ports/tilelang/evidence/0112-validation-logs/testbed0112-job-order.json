@@ -1,0 +1,2282 @@
+[
+  {
+    "target": "c",
+    "operation": "runtime_twist_scene",
+    "estimated_seconds": 3859.656538248062
+  },
+  {
+    "target": "c",
+    "operation": "runtime_scene",
+    "estimated_seconds": 3800.012413263321
+  },
+  {
+    "target": "metal",
+    "operation": "runtime_twist_scene",
+    "estimated_seconds": 3765.804820537567
+  },
+  {
+    "target": "metal",
+    "operation": "runtime_scene",
+    "estimated_seconds": 3695.445328474045
+  },
+  {
+    "target": "ascend",
+    "operation": "runtime_scene",
+    "estimated_seconds": 3061.4109830856323
+  },
+  {
+    "target": "ascend",
+    "operation": "runtime_twist_scene",
+    "estimated_seconds": 3045.6933674812317
+  },
+  {
+    "target": "metal",
+    "operation": "general_lbvh_scene",
+    "estimated_seconds": 2748.569413423538
+  },
+  {
+    "target": "c",
+    "operation": "general_lbvh_scene",
+    "estimated_seconds": 2728.1069214344025
+  },
+  {
+    "target": "ascend",
+    "operation": "general_lbvh_scene",
+    "estimated_seconds": 2401.1860144138336
+  },
+  {
+    "target": "metal",
+    "operation": "general_scene",
+    "estimated_seconds": 2362.5494389533997
+  },
+  {
+    "target": "c",
+    "operation": "general_scene",
+    "estimated_seconds": 2316.327992916107
+  },
+  {
+    "target": "c",
+    "operation": "joint_lbvh_scene",
+    "estimated_seconds": 2067.256182193756
+  },
+  {
+    "target": "ascend",
+    "operation": "general_scene",
+    "estimated_seconds": 2047.6339056491852
+  },
+  {
+    "target": "metal",
+    "operation": "joint_lbvh_scene",
+    "estimated_seconds": 2020.793047428131
+  },
+  {
+    "target": "metal",
+    "operation": "analytic_scene",
+    "estimated_seconds": 1959.3671827316284
+  },
+  {
+    "target": "c",
+    "operation": "analytic_lbvh_scene",
+    "estimated_seconds": 1806.7960829734802
+  },
+  {
+    "target": "metal",
+    "operation": "joint_scene",
+    "estimated_seconds": 1793.3940243721008
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_lbvh_scene",
+    "estimated_seconds": 1791.4931197166443
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_scene",
+    "estimated_seconds": 1791.1514294147491
+  },
+  {
+    "target": "ascend",
+    "operation": "analytic_lbvh_scene",
+    "estimated_seconds": 1734.1403081417084
+  },
+  {
+    "target": "c",
+    "operation": "joint_scene",
+    "estimated_seconds": 1649.2725586891174
+  },
+  {
+    "target": "metal",
+    "operation": "analytic_lbvh_scene",
+    "estimated_seconds": 1633.8077898025513
+  },
+  {
+    "target": "c",
+    "operation": "analytic_scene",
+    "estimated_seconds": 1620.9272108078003
+  },
+  {
+    "target": "ascend",
+    "operation": "analytic_scene",
+    "estimated_seconds": 1264.163976430893
+  },
+  {
+    "target": "c",
+    "operation": "general_frame_retry",
+    "estimated_seconds": 1143.0100343227386
+  },
+  {
+    "target": "c",
+    "operation": "general_restart",
+    "estimated_seconds": 918.4550032615662
+  },
+  {
+    "target": "metal",
+    "operation": "general_lbvh_restart",
+    "estimated_seconds": 858.7089009284973
+  },
+  {
+    "target": "metal",
+    "operation": "general_frame_retry",
+    "estimated_seconds": 841.1426284313202
+  },
+  {
+    "target": "c",
+    "operation": "general_lbvh_restart",
+    "estimated_seconds": 794.9511761665344
+  },
+  {
+    "target": "metal",
+    "operation": "general_restart",
+    "estimated_seconds": 777.589236497879
+  },
+  {
+    "target": "c",
+    "operation": "joint_restart",
+    "estimated_seconds": 765.4621410369873
+  },
+  {
+    "target": "ascend",
+    "operation": "general_lbvh_restart",
+    "estimated_seconds": 753.111967086792
+  },
+  {
+    "target": "metal",
+    "operation": "joint_restart",
+    "estimated_seconds": 689.278119802475
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_restart",
+    "estimated_seconds": 668.5580377578735
+  },
+  {
+    "target": "ascend",
+    "operation": "general_restart",
+    "estimated_seconds": 662.8829889297485
+  },
+  {
+    "target": "metal",
+    "operation": "deferred_manifolds",
+    "estimated_seconds": 637.0798363685608
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_program",
+    "estimated_seconds": 585.3821454048157
+  },
+  {
+    "target": "c",
+    "operation": "joint_lbvh_restart",
+    "estimated_seconds": 579.6619498729706
+  },
+  {
+    "target": "ascend",
+    "operation": "general_frame_retry",
+    "estimated_seconds": 526.4913914203644
+  },
+  {
+    "target": "metal",
+    "operation": "joint_lbvh_restart",
+    "estimated_seconds": 487.67705631256104
+  },
+  {
+    "target": "c",
+    "operation": "deferred_manifolds",
+    "estimated_seconds": 466.0259885787964
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_program",
+    "estimated_seconds": 418.26949167251587
+  },
+  {
+    "target": "c",
+    "operation": "analytic_frame_retry",
+    "estimated_seconds": 413.92101979255676
+  },
+  {
+    "target": "metal",
+    "operation": "runtime_twist_restart",
+    "estimated_seconds": 388.15670371055603
+  },
+  {
+    "target": "c",
+    "operation": "pfm_manifold",
+    "estimated_seconds": 382.60562086105347
+  },
+  {
+    "target": "metal",
+    "operation": "pfm_manifold",
+    "estimated_seconds": 380.86991834640503
+  },
+  {
+    "target": "metal",
+    "operation": "broadphase_pairs",
+    "estimated_seconds": 374.79018235206604
+  },
+  {
+    "target": "c",
+    "operation": "runtime_twist_restart",
+    "estimated_seconds": 343.1053237915039
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_lbvh_restart",
+    "estimated_seconds": 335.21212458610535
+  },
+  {
+    "target": "c",
+    "operation": "broadphase_pairs",
+    "estimated_seconds": 322.26721477508545
+  },
+  {
+    "target": "metal",
+    "operation": "deferred_pairs",
+    "estimated_seconds": 313.5062963962555
+  },
+  {
+    "target": "metal",
+    "operation": "analytic_frame_retry",
+    "estimated_seconds": 287.8408923149109
+  },
+  {
+    "target": "metal",
+    "operation": "analytic_collision",
+    "estimated_seconds": 263.6745562553406
+  },
+  {
+    "target": "metal",
+    "operation": "brute_pairs",
+    "estimated_seconds": 262.6807005405426
+  },
+  {
+    "target": "c",
+    "operation": "analytic_collision",
+    "estimated_seconds": 241.06531643867493
+  },
+  {
+    "target": "c",
+    "operation": "joint_frame_retry",
+    "estimated_seconds": 238.39912486076355
+  },
+  {
+    "target": "c",
+    "operation": "brute_pairs",
+    "estimated_seconds": 227.3076629638672
+  },
+  {
+    "target": "ascend",
+    "operation": "analytic_frame_retry",
+    "estimated_seconds": 214.44695329666138
+  },
+  {
+    "target": "c",
+    "operation": "gjk_closest",
+    "estimated_seconds": 207.93137860298157
+  },
+  {
+    "target": "metal",
+    "operation": "gjk_closest",
+    "estimated_seconds": 205.46751928329468
+  },
+  {
+    "target": "c",
+    "operation": "deferred_pairs",
+    "estimated_seconds": 204.35518312454224
+  },
+  {
+    "target": "ascend",
+    "operation": "deferred_pairs",
+    "estimated_seconds": 203.72523617744446
+  },
+  {
+    "target": "metal",
+    "operation": "gjk_epa",
+    "estimated_seconds": 197.79261231422424
+  },
+  {
+    "target": "ascend",
+    "operation": "runtime_twist_restart",
+    "estimated_seconds": 197.7113709449768
+  },
+  {
+    "target": "c",
+    "operation": "bucket_build",
+    "estimated_seconds": 196.64808464050293
+  },
+  {
+    "target": "c",
+    "operation": "gjk_epa",
+    "estimated_seconds": 195.5424337387085
+  },
+  {
+    "target": "ascend",
+    "operation": "deferred_manifolds",
+    "estimated_seconds": 194.93748545646667
+  },
+  {
+    "target": "metal",
+    "operation": "joint_frame_retry",
+    "estimated_seconds": 175.2649791240692
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_leaves",
+    "estimated_seconds": 162.6596622467041
+  },
+  {
+    "target": "ascend",
+    "operation": "pfm_manifold",
+    "estimated_seconds": 161.52459144592285
+  },
+  {
+    "target": "c",
+    "operation": "twist_colored_program",
+    "estimated_seconds": 159.70836901664734
+  },
+  {
+    "target": "c",
+    "operation": "joint_program",
+    "estimated_seconds": 155.02620935440063
+  },
+  {
+    "target": "metal",
+    "operation": "joint_program",
+    "estimated_seconds": 148.66385793685913
+  },
+  {
+    "target": "c",
+    "operation": "luby_step",
+    "estimated_seconds": 146.79376077651978
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_leaves",
+    "estimated_seconds": 144.883691072464
+  },
+  {
+    "target": "c",
+    "operation": "joint_update",
+    "estimated_seconds": 134.2896227836609
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_program",
+    "estimated_seconds": 133.79910731315613
+  },
+  {
+    "target": "metal",
+    "operation": "joint_update",
+    "estimated_seconds": 133.03221082687378
+  },
+  {
+    "target": "metal",
+    "operation": "luby_step",
+    "estimated_seconds": 132.87064242362976
+  },
+  {
+    "target": "c",
+    "operation": "tgs_frame",
+    "estimated_seconds": 130.03413581848145
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_update",
+    "estimated_seconds": 123.10093355178833
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_pairs",
+    "estimated_seconds": 120.21630072593689
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_pairs",
+    "estimated_seconds": 120.10126233100891
+  },
+  {
+    "target": "metal",
+    "operation": "twist_colored_program",
+    "estimated_seconds": 119.81689167022705
+  },
+  {
+    "target": "c",
+    "operation": "twist_prepare",
+    "estimated_seconds": 103.35823035240173
+  },
+  {
+    "target": "metal",
+    "operation": "twist_prepare",
+    "estimated_seconds": 100.61574220657349
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_program",
+    "estimated_seconds": 94.25700998306274
+  },
+  {
+    "target": "c",
+    "operation": "canonical_contacts",
+    "estimated_seconds": 86.74420404434204
+  },
+  {
+    "target": "c",
+    "operation": "colored_program",
+    "estimated_seconds": 86.68411064147949
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_frame_retry",
+    "estimated_seconds": 84.07550096511841
+  },
+  {
+    "target": "c",
+    "operation": "bucket_count",
+    "estimated_seconds": 83.64860606193542
+  },
+  {
+    "target": "c",
+    "operation": "twist_colored_warmstart",
+    "estimated_seconds": 83.03242492675781
+  },
+  {
+    "target": "metal",
+    "operation": "bucket_build",
+    "estimated_seconds": 80.50823473930359
+  },
+  {
+    "target": "c",
+    "operation": "bucket_scatter",
+    "estimated_seconds": 79.85288262367249
+  },
+  {
+    "target": "metal",
+    "operation": "twist_colored_warmstart",
+    "estimated_seconds": 78.79020667076111
+  },
+  {
+    "target": "ascend",
+    "operation": "gjk_epa",
+    "estimated_seconds": 77.021249294281
+  },
+  {
+    "target": "c",
+    "operation": "simplex_project",
+    "estimated_seconds": 76.18722105026245
+  },
+  {
+    "target": "metal",
+    "operation": "simplex_project",
+    "estimated_seconds": 75.55945301055908
+  },
+  {
+    "target": "c",
+    "operation": "tetrahedron_projection",
+    "estimated_seconds": 75.11502075195312
+  },
+  {
+    "target": "metal",
+    "operation": "tetrahedron_projection",
+    "estimated_seconds": 71.5316174030304
+  },
+  {
+    "target": "c",
+    "operation": "radix_pass",
+    "estimated_seconds": 67.39056301116943
+  },
+  {
+    "target": "c",
+    "operation": "radix_sort",
+    "estimated_seconds": 64.517991065979
+  },
+  {
+    "target": "metal",
+    "operation": "tgs_frame",
+    "estimated_seconds": 61.69532012939453
+  },
+  {
+    "target": "c",
+    "operation": "prepare",
+    "estimated_seconds": 61.42969751358032
+  },
+  {
+    "target": "c",
+    "operation": "topo_fix",
+    "estimated_seconds": 58.481687784194946
+  },
+  {
+    "target": "ascend",
+    "operation": "gjk_closest",
+    "estimated_seconds": 58.02098321914673
+  },
+  {
+    "target": "c",
+    "operation": "world_aabbs",
+    "estimated_seconds": 57.45866346359253
+  },
+  {
+    "target": "c",
+    "operation": "twist_colored_solve",
+    "estimated_seconds": 54.80512309074402
+  },
+  {
+    "target": "metal",
+    "operation": "bucket_scatter",
+    "estimated_seconds": 54.62509727478027
+  },
+  {
+    "target": "metal",
+    "operation": "canonical_contacts",
+    "estimated_seconds": 54.363280057907104
+  },
+  {
+    "target": "metal",
+    "operation": "world_aabbs",
+    "estimated_seconds": 53.14242625236511
+  },
+  {
+    "target": "metal",
+    "operation": "colored_program",
+    "estimated_seconds": 52.829270362854004
+  },
+  {
+    "target": "ascend",
+    "operation": "analytic_collision",
+    "estimated_seconds": 50.94344353675842
+  },
+  {
+    "target": "ascend",
+    "operation": "canonical_contacts",
+    "estimated_seconds": 49.04449391365051
+  },
+  {
+    "target": "metal",
+    "operation": "shape_project_world",
+    "estimated_seconds": 48.74159550666809
+  },
+  {
+    "target": "c",
+    "operation": "color_requirements",
+    "estimated_seconds": 48.36594867706299
+  },
+  {
+    "target": "c",
+    "operation": "topo_step",
+    "estimated_seconds": 47.370009660720825
+  },
+  {
+    "target": "metal",
+    "operation": "radix_pass",
+    "estimated_seconds": 46.963053941726685
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_pass",
+    "estimated_seconds": 46.55672550201416
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_sort",
+    "estimated_seconds": 46.492220640182495
+  },
+  {
+    "target": "metal",
+    "operation": "prepare",
+    "estimated_seconds": 46.39498782157898
+  },
+  {
+    "target": "c",
+    "operation": "adjacency_build",
+    "estimated_seconds": 46.33003807067871
+  },
+  {
+    "target": "metal",
+    "operation": "shape_project_world_boundary",
+    "estimated_seconds": 45.98417544364929
+  },
+  {
+    "target": "c",
+    "operation": "colored_solve",
+    "estimated_seconds": 44.23828649520874
+  },
+  {
+    "target": "metal",
+    "operation": "topo_fix",
+    "estimated_seconds": 44.06391406059265
+  },
+  {
+    "target": "metal",
+    "operation": "radix_sort",
+    "estimated_seconds": 43.361305236816406
+  },
+  {
+    "target": "c",
+    "operation": "topo_bounded",
+    "estimated_seconds": 43.1850700378418
+  },
+  {
+    "target": "c",
+    "operation": "analytic_contacts",
+    "estimated_seconds": 42.020020961761475
+  },
+  {
+    "target": "c",
+    "operation": "shape_project_world",
+    "estimated_seconds": 41.37872910499573
+  },
+  {
+    "target": "metal",
+    "operation": "analytic_contacts",
+    "estimated_seconds": 41.136780977249146
+  },
+  {
+    "target": "c",
+    "operation": "shape_project_world_boundary",
+    "estimated_seconds": 40.27411484718323
+  },
+  {
+    "target": "ascend",
+    "operation": "broadphase_pairs",
+    "estimated_seconds": 39.81667375564575
+  },
+  {
+    "target": "c",
+    "operation": "polygonal_contacts",
+    "estimated_seconds": 37.499667167663574
+  },
+  {
+    "target": "c",
+    "operation": "hub_split",
+    "estimated_seconds": 35.83521485328674
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_build",
+    "estimated_seconds": 35.177088260650635
+  },
+  {
+    "target": "c",
+    "operation": "topo_completion",
+    "estimated_seconds": 32.2986319065094
+  },
+  {
+    "target": "c",
+    "operation": "topo_reset",
+    "estimated_seconds": 31.62012553215027
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_colored_program",
+    "estimated_seconds": 30.856367349624634
+  },
+  {
+    "target": "metal",
+    "operation": "polygonal_contacts",
+    "estimated_seconds": 30.79792094230652
+  },
+  {
+    "target": "c",
+    "operation": "twist_solve",
+    "estimated_seconds": 30.24260115623474
+  },
+  {
+    "target": "c",
+    "operation": "brute_pairs_serial",
+    "estimated_seconds": 29.8194842338562
+  },
+  {
+    "target": "c",
+    "operation": "luby_reset",
+    "estimated_seconds": 29.80365228652954
+  },
+  {
+    "target": "c",
+    "operation": "topo_finalize",
+    "estimated_seconds": 29.72456932067871
+  },
+  {
+    "target": "ascend",
+    "operation": "brute_pairs",
+    "estimated_seconds": 29.683048248291016
+  },
+  {
+    "target": "c",
+    "operation": "radix_init_batched",
+    "estimated_seconds": 29.454500913619995
+  },
+  {
+    "target": "c",
+    "operation": "epa_closest",
+    "estimated_seconds": 29.081428050994873
+  },
+  {
+    "target": "metal",
+    "operation": "topo_step",
+    "estimated_seconds": 29.05934476852417
+  },
+  {
+    "target": "c",
+    "operation": "radix_scatter",
+    "estimated_seconds": 28.328919172286987
+  },
+  {
+    "target": "metal",
+    "operation": "hub_split",
+    "estimated_seconds": 28.158044815063477
+  },
+  {
+    "target": "c",
+    "operation": "colored_warmstart",
+    "estimated_seconds": 28.12022066116333
+  },
+  {
+    "target": "c",
+    "operation": "topo_clear",
+    "estimated_seconds": 28.086204528808594
+  },
+  {
+    "target": "metal",
+    "operation": "epa_closest",
+    "estimated_seconds": 27.37794256210327
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_build",
+    "estimated_seconds": 27.012657642364502
+  },
+  {
+    "target": "c",
+    "operation": "radix_scan_add",
+    "estimated_seconds": 26.759661436080933
+  },
+  {
+    "target": "c",
+    "operation": "twist_colored_cached",
+    "estimated_seconds": 26.54373288154602
+  },
+  {
+    "target": "ascend",
+    "operation": "analytic_contacts",
+    "estimated_seconds": 26.207907676696777
+  },
+  {
+    "target": "ascend",
+    "operation": "tgs_frame",
+    "estimated_seconds": 26.0592782497406
+  },
+  {
+    "target": "metal",
+    "operation": "topo_bounded",
+    "estimated_seconds": 26.04274582862854
+  },
+  {
+    "target": "metal",
+    "operation": "adjacency_build",
+    "estimated_seconds": 25.979779720306396
+  },
+  {
+    "target": "ascend",
+    "operation": "epa_closest",
+    "estimated_seconds": 25.734806060791016
+  },
+  {
+    "target": "c",
+    "operation": "radix_reduce",
+    "estimated_seconds": 24.786540746688843
+  },
+  {
+    "target": "c",
+    "operation": "permute_contacts",
+    "estimated_seconds": 24.6865131855011
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_domain",
+    "estimated_seconds": 24.561105489730835
+  },
+  {
+    "target": "c",
+    "operation": "radix_count",
+    "estimated_seconds": 24.516210794448853
+  },
+  {
+    "target": "c",
+    "operation": "contact_keys",
+    "estimated_seconds": 24.514835596084595
+  },
+  {
+    "target": "metal",
+    "operation": "twist_colored_solve",
+    "estimated_seconds": 24.071138858795166
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_prepare",
+    "estimated_seconds": 22.936527013778687
+  },
+  {
+    "target": "metal",
+    "operation": "radix_reduce",
+    "estimated_seconds": 22.918406009674072
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_refit_frontier",
+    "estimated_seconds": 22.76857352256775
+  },
+  {
+    "target": "metal",
+    "operation": "radix_scan_add",
+    "estimated_seconds": 22.69939637184143
+  },
+  {
+    "target": "c",
+    "operation": "solve",
+    "estimated_seconds": 22.63530397415161
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_refit_chunks",
+    "estimated_seconds": 22.514901876449585
+  },
+  {
+    "target": "c",
+    "operation": "prefix_scan",
+    "estimated_seconds": 22.159422636032104
+  },
+  {
+    "target": "metal",
+    "operation": "radix_init_batched",
+    "estimated_seconds": 22.087566614151
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_morton",
+    "estimated_seconds": 21.83465075492859
+  },
+  {
+    "target": "metal",
+    "operation": "colored_warmstart",
+    "estimated_seconds": 21.736528873443604
+  },
+  {
+    "target": "metal",
+    "operation": "shape_project_local_boundary",
+    "estimated_seconds": 21.716845273971558
+  },
+  {
+    "target": "ascend",
+    "operation": "colored_program",
+    "estimated_seconds": 21.244752407073975
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_scan_add",
+    "estimated_seconds": 21.170427799224854
+  },
+  {
+    "target": "c",
+    "operation": "solve_boundary",
+    "estimated_seconds": 21.006712675094604
+  },
+  {
+    "target": "metal",
+    "operation": "contact_keys",
+    "estimated_seconds": 20.853893518447876
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_reduce",
+    "estimated_seconds": 20.749571084976196
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_init_batched",
+    "estimated_seconds": 20.607043504714966
+  },
+  {
+    "target": "metal",
+    "operation": "shape_project_local",
+    "estimated_seconds": 20.507847785949707
+  },
+  {
+    "target": "metal",
+    "operation": "colored_solve",
+    "estimated_seconds": 20.482619047164917
+  },
+  {
+    "target": "metal",
+    "operation": "radix_scatter",
+    "estimated_seconds": 20.456920862197876
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_refit_plan",
+    "estimated_seconds": 20.39027452468872
+  },
+  {
+    "target": "c",
+    "operation": "contact_coefficients",
+    "estimated_seconds": 20.2431378364563
+  },
+  {
+    "target": "ascend",
+    "operation": "topo_step",
+    "estimated_seconds": 20.141749620437622
+  },
+  {
+    "target": "c",
+    "operation": "hub_assign",
+    "estimated_seconds": 19.832690477371216
+  },
+  {
+    "target": "c",
+    "operation": "hub_dispatch",
+    "estimated_seconds": 19.812989473342896
+  },
+  {
+    "target": "c",
+    "operation": "body_coefficients",
+    "estimated_seconds": 19.721432209014893
+  },
+  {
+    "target": "c",
+    "operation": "colored_cached",
+    "estimated_seconds": 19.676687717437744
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_domain_merge",
+    "estimated_seconds": 19.638341188430786
+  },
+  {
+    "target": "c",
+    "operation": "adjacency_count",
+    "estimated_seconds": 19.531375646591187
+  },
+  {
+    "target": "metal",
+    "operation": "bucket_count",
+    "estimated_seconds": 19.438457012176514
+  },
+  {
+    "target": "ascend",
+    "operation": "topo_fix",
+    "estimated_seconds": 19.32101321220398
+  },
+  {
+    "target": "c",
+    "operation": "flat_list_dispatch",
+    "estimated_seconds": 18.954015493392944
+  },
+  {
+    "target": "metal",
+    "operation": "radix_scan",
+    "estimated_seconds": 18.93702507019043
+  },
+  {
+    "target": "ascend",
+    "operation": "topo_bounded",
+    "estimated_seconds": 18.900628805160522
+  },
+  {
+    "target": "metal",
+    "operation": "twist_colored_cached",
+    "estimated_seconds": 18.894540071487427
+  },
+  {
+    "target": "c",
+    "operation": "shape_project_local_boundary",
+    "estimated_seconds": 18.79948878288269
+  },
+  {
+    "target": "ascend",
+    "operation": "simplex_project",
+    "estimated_seconds": 18.787588357925415
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_escapes",
+    "estimated_seconds": 18.68376326560974
+  },
+  {
+    "target": "ascend",
+    "operation": "bucket_build",
+    "estimated_seconds": 18.67413353919983
+  },
+  {
+    "target": "c",
+    "operation": "bucket_reset",
+    "estimated_seconds": 18.584405422210693
+  },
+  {
+    "target": "metal",
+    "operation": "radix_count",
+    "estimated_seconds": 18.494246244430542
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_pairs",
+    "estimated_seconds": 18.38028073310852
+  },
+  {
+    "target": "c",
+    "operation": "adjacency_scatter",
+    "estimated_seconds": 18.343895435333252
+  },
+  {
+    "target": "c",
+    "operation": "contact_persistence",
+    "estimated_seconds": 18.03259301185608
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_scatter",
+    "estimated_seconds": 17.900399684906006
+  },
+  {
+    "target": "c",
+    "operation": "reduce_contacts",
+    "estimated_seconds": 17.88486361503601
+  },
+  {
+    "target": "c",
+    "operation": "mesh_projection",
+    "estimated_seconds": 17.808289051055908
+  },
+  {
+    "target": "metal",
+    "operation": "permute_contacts",
+    "estimated_seconds": 17.7652907371521
+  },
+  {
+    "target": "c",
+    "operation": "shape_project_local",
+    "estimated_seconds": 17.71734857559204
+  },
+  {
+    "target": "c",
+    "operation": "prep_render",
+    "estimated_seconds": 17.616360664367676
+  },
+  {
+    "target": "c",
+    "operation": "radix_dispatch",
+    "estimated_seconds": 17.578125953674316
+  },
+  {
+    "target": "c",
+    "operation": "init_links",
+    "estimated_seconds": 17.511667490005493
+  },
+  {
+    "target": "c",
+    "operation": "lbvh_reset",
+    "estimated_seconds": 17.489583730697632
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_domain",
+    "estimated_seconds": 17.399768829345703
+  },
+  {
+    "target": "metal",
+    "operation": "brute_pairs_serial",
+    "estimated_seconds": 17.374876260757446
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_morton",
+    "estimated_seconds": 17.236438035964966
+  },
+  {
+    "target": "c",
+    "operation": "hub_average",
+    "estimated_seconds": 17.13023328781128
+  },
+  {
+    "target": "c",
+    "operation": "match_links",
+    "estimated_seconds": 17.04748558998108
+  },
+  {
+    "target": "c",
+    "operation": "mesh_pseudo_normal",
+    "estimated_seconds": 16.982489824295044
+  },
+  {
+    "target": "metal",
+    "operation": "radix_dispatch",
+    "estimated_seconds": 16.913086891174316
+  },
+  {
+    "target": "c",
+    "operation": "radix_scan",
+    "estimated_seconds": 16.839014053344727
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_leaves",
+    "estimated_seconds": 16.803714990615845
+  },
+  {
+    "target": "c",
+    "operation": "bucket_dispatch",
+    "estimated_seconds": 16.499599933624268
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_domain_merge",
+    "estimated_seconds": 16.487770795822144
+  },
+  {
+    "target": "metal",
+    "operation": "mesh_projection",
+    "estimated_seconds": 16.373913049697876
+  },
+  {
+    "target": "ascend",
+    "operation": "contact_keys",
+    "estimated_seconds": 16.165350437164307
+  },
+  {
+    "target": "ascend",
+    "operation": "tetrahedron_projection",
+    "estimated_seconds": 16.117085933685303
+  },
+  {
+    "target": "ascend",
+    "operation": "permute_contacts",
+    "estimated_seconds": 16.032092094421387
+  },
+  {
+    "target": "c",
+    "operation": "prefix_add",
+    "estimated_seconds": 15.867016553878784
+  },
+  {
+    "target": "c",
+    "operation": "free_step",
+    "estimated_seconds": 15.752224922180176
+  },
+  {
+    "target": "c",
+    "operation": "twist_scale_impulses",
+    "estimated_seconds": 15.729634761810303
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_count",
+    "estimated_seconds": 15.656953811645508
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_scan",
+    "estimated_seconds": 15.538719177246094
+  },
+  {
+    "target": "c",
+    "operation": "support_face",
+    "estimated_seconds": 15.411329507827759
+  },
+  {
+    "target": "c",
+    "operation": "cleanup",
+    "estimated_seconds": 15.31088662147522
+  },
+  {
+    "target": "c",
+    "operation": "pfm_permuted_keys",
+    "estimated_seconds": 15.307518720626831
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_escapes",
+    "estimated_seconds": 15.296272039413452
+  },
+  {
+    "target": "c",
+    "operation": "pfm_subshape_keys",
+    "estimated_seconds": 15.252766609191895
+  },
+  {
+    "target": "c",
+    "operation": "seed_colors",
+    "estimated_seconds": 15.163702726364136
+  },
+  {
+    "target": "c",
+    "operation": "reset_narrow",
+    "estimated_seconds": 15.091992139816284
+  },
+  {
+    "target": "c",
+    "operation": "hub_scatter",
+    "estimated_seconds": 15.066097021102905
+  },
+  {
+    "target": "metal",
+    "operation": "colored_cached",
+    "estimated_seconds": 14.954716682434082
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_refit_frontier",
+    "estimated_seconds": 14.792593002319336
+  },
+  {
+    "target": "c",
+    "operation": "triangle_projection",
+    "estimated_seconds": 14.73663878440857
+  },
+  {
+    "target": "c",
+    "operation": "twist_warmstart",
+    "estimated_seconds": 14.666703224182129
+  },
+  {
+    "target": "ascend",
+    "operation": "adjacency_build",
+    "estimated_seconds": 14.53953242301941
+  },
+  {
+    "target": "c",
+    "operation": "prefix_sweep",
+    "estimated_seconds": 14.477502584457397
+  },
+  {
+    "target": "metal",
+    "operation": "hub_assign",
+    "estimated_seconds": 14.452863931655884
+  },
+  {
+    "target": "c",
+    "operation": "joint_motor_params",
+    "estimated_seconds": 14.42780590057373
+  },
+  {
+    "target": "c",
+    "operation": "twist_gather_warmstart",
+    "estimated_seconds": 14.417333364486694
+  },
+  {
+    "target": "ascend",
+    "operation": "radix_dispatch",
+    "estimated_seconds": 14.41401982307434
+  },
+  {
+    "target": "metal",
+    "operation": "hub_average",
+    "estimated_seconds": 14.397433519363403
+  },
+  {
+    "target": "c",
+    "operation": "twist_hub_warmstart",
+    "estimated_seconds": 14.370562314987183
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_colored_solve",
+    "estimated_seconds": 14.328193187713623
+  },
+  {
+    "target": "c",
+    "operation": "support_local",
+    "estimated_seconds": 14.237162828445435
+  },
+  {
+    "target": "metal",
+    "operation": "topo_clear",
+    "estimated_seconds": 14.230100631713867
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_refit_chunks",
+    "estimated_seconds": 14.191513299942017
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_build",
+    "estimated_seconds": 14.092887163162231
+  },
+  {
+    "target": "c",
+    "operation": "hub_warmstart",
+    "estimated_seconds": 14.070791959762573
+  },
+  {
+    "target": "c",
+    "operation": "pfm_subshape",
+    "estimated_seconds": 13.976040124893188
+  },
+  {
+    "target": "metal",
+    "operation": "color_requirements",
+    "estimated_seconds": 13.945773124694824
+  },
+  {
+    "target": "c",
+    "operation": "finalize",
+    "estimated_seconds": 13.856390237808228
+  },
+  {
+    "target": "ascend",
+    "operation": "prepare",
+    "estimated_seconds": 13.735766649246216
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_domain",
+    "estimated_seconds": 13.68709921836853
+  },
+  {
+    "target": "c",
+    "operation": "cso_support",
+    "estimated_seconds": 13.674707651138306
+  },
+  {
+    "target": "c",
+    "operation": "joint_init",
+    "estimated_seconds": 13.569459676742554
+  },
+  {
+    "target": "ascend",
+    "operation": "polygonal_contacts",
+    "estimated_seconds": 13.526406288146973
+  },
+  {
+    "target": "c",
+    "operation": "support_world",
+    "estimated_seconds": 13.443483591079712
+  },
+  {
+    "target": "c",
+    "operation": "joint_solve",
+    "estimated_seconds": 13.425793409347534
+  },
+  {
+    "target": "c",
+    "operation": "ray_point",
+    "estimated_seconds": 13.210256814956665
+  },
+  {
+    "target": "metal",
+    "operation": "twist_solve",
+    "estimated_seconds": 13.18590259552002
+  },
+  {
+    "target": "c",
+    "operation": "apply_increments",
+    "estimated_seconds": 13.073477029800415
+  },
+  {
+    "target": "metal",
+    "operation": "adjacency_scatter",
+    "estimated_seconds": 13.071269512176514
+  },
+  {
+    "target": "ascend",
+    "operation": "world_aabbs",
+    "estimated_seconds": 13.061535358428955
+  },
+  {
+    "target": "c",
+    "operation": "pfm_pair_keys",
+    "estimated_seconds": 12.794612407684326
+  },
+  {
+    "target": "c",
+    "operation": "update_mprops",
+    "estimated_seconds": 12.743103742599487
+  },
+  {
+    "target": "metal",
+    "operation": "luby_reset",
+    "estimated_seconds": 12.649844884872437
+  },
+  {
+    "target": "c",
+    "operation": "scale_impulses",
+    "estimated_seconds": 12.6272554397583
+  },
+  {
+    "target": "metal",
+    "operation": "reduce_contacts",
+    "estimated_seconds": 12.595330476760864
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_domain_merge",
+    "estimated_seconds": 12.50894021987915
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_reset",
+    "estimated_seconds": 12.495736598968506
+  },
+  {
+    "target": "metal",
+    "operation": "adjacency_count",
+    "estimated_seconds": 12.468478202819824
+  },
+  {
+    "target": "c",
+    "operation": "joint_orthogonalize",
+    "estimated_seconds": 12.29486083984375
+  },
+  {
+    "target": "c",
+    "operation": "init_increments",
+    "estimated_seconds": 12.126149892807007
+  },
+  {
+    "target": "metal",
+    "operation": "flat_list_dispatch",
+    "estimated_seconds": 12.12338399887085
+  },
+  {
+    "target": "metal",
+    "operation": "topo_finalize",
+    "estimated_seconds": 11.8854820728302
+  },
+  {
+    "target": "metal",
+    "operation": "cso_support",
+    "estimated_seconds": 11.82885479927063
+  },
+  {
+    "target": "c",
+    "operation": "init_bodies",
+    "estimated_seconds": 11.674906015396118
+  },
+  {
+    "target": "metal",
+    "operation": "contact_persistence",
+    "estimated_seconds": 11.663831233978271
+  },
+  {
+    "target": "c",
+    "operation": "warmstart",
+    "estimated_seconds": 11.515490055084229
+  },
+  {
+    "target": "c",
+    "operation": "sync_colliders",
+    "estimated_seconds": 11.443803787231445
+  },
+  {
+    "target": "ascend",
+    "operation": "colored_solve",
+    "estimated_seconds": 11.427134275436401
+  },
+  {
+    "target": "c",
+    "operation": "gather_warmstart",
+    "estimated_seconds": 11.39103102684021
+  },
+  {
+    "target": "metal",
+    "operation": "topo_reset",
+    "estimated_seconds": 11.141504526138306
+  },
+  {
+    "target": "metal",
+    "operation": "bucket_dispatch",
+    "estimated_seconds": 11.065195798873901
+  },
+  {
+    "target": "c",
+    "operation": "twist_scale",
+    "estimated_seconds": 11.06281042098999
+  },
+  {
+    "target": "metal",
+    "operation": "mesh_pseudo_normal",
+    "estimated_seconds": 11.009164094924927
+  },
+  {
+    "target": "metal",
+    "operation": "match_links",
+    "estimated_seconds": 11.007444143295288
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_refit_chunks",
+    "estimated_seconds": 10.956387042999268
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_morton",
+    "estimated_seconds": 10.932498931884766
+  },
+  {
+    "target": "metal",
+    "operation": "lbvh_refit_plan",
+    "estimated_seconds": 10.827474355697632
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_colored_cached",
+    "estimated_seconds": 10.62516450881958
+  },
+  {
+    "target": "metal",
+    "operation": "solve_boundary",
+    "estimated_seconds": 10.565290927886963
+  },
+  {
+    "target": "metal",
+    "operation": "prefix_scan",
+    "estimated_seconds": 10.47920560836792
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_refit_frontier",
+    "estimated_seconds": 10.40263032913208
+  },
+  {
+    "target": "metal",
+    "operation": "pfm_pair_keys",
+    "estimated_seconds": 10.395410537719727
+  },
+  {
+    "target": "ascend",
+    "operation": "mesh_projection",
+    "estimated_seconds": 10.360076904296875
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_escapes",
+    "estimated_seconds": 10.32120680809021
+  },
+  {
+    "target": "ascend",
+    "operation": "luby_step",
+    "estimated_seconds": 10.14324164390564
+  },
+  {
+    "target": "metal",
+    "operation": "topo_completion",
+    "estimated_seconds": 10.091216087341309
+  },
+  {
+    "target": "c",
+    "operation": "twist_effective_mass",
+    "estimated_seconds": 10.031025648117065
+  },
+  {
+    "target": "ascend",
+    "operation": "hub_average",
+    "estimated_seconds": 9.975936889648438
+  },
+  {
+    "target": "metal",
+    "operation": "solve",
+    "estimated_seconds": 9.975377082824707
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_refit_plan",
+    "estimated_seconds": 9.606306552886963
+  },
+  {
+    "target": "ascend",
+    "operation": "flat_list_dispatch",
+    "estimated_seconds": 9.589018106460571
+  },
+  {
+    "target": "metal",
+    "operation": "joint_solve",
+    "estimated_seconds": 9.282361030578613
+  },
+  {
+    "target": "c",
+    "operation": "simplex_init",
+    "estimated_seconds": 9.161896467208862
+  },
+  {
+    "target": "ascend",
+    "operation": "lbvh_reset",
+    "estimated_seconds": 9.09613847732544
+  },
+  {
+    "target": "metal",
+    "operation": "pfm_subshape_keys",
+    "estimated_seconds": 8.735283613204956
+  },
+  {
+    "target": "c",
+    "operation": "simplex_add",
+    "estimated_seconds": 8.718507051467896
+  },
+  {
+    "target": "metal",
+    "operation": "twist_hub_warmstart",
+    "estimated_seconds": 8.547014474868774
+  },
+  {
+    "target": "c",
+    "operation": "integrate",
+    "estimated_seconds": 8.467807531356812
+  },
+  {
+    "target": "ascend",
+    "operation": "reduce_contacts",
+    "estimated_seconds": 8.294234037399292
+  },
+  {
+    "target": "c",
+    "operation": "effective_mass",
+    "estimated_seconds": 8.265712976455688
+  },
+  {
+    "target": "metal",
+    "operation": "prefix_sweep",
+    "estimated_seconds": 8.263166427612305
+  },
+  {
+    "target": "metal",
+    "operation": "joint_init",
+    "estimated_seconds": 8.20281171798706
+  },
+  {
+    "target": "metal",
+    "operation": "twist_scale_impulses",
+    "estimated_seconds": 8.19701099395752
+  },
+  {
+    "target": "metal",
+    "operation": "twist_gather_warmstart",
+    "estimated_seconds": 8.17125391960144
+  },
+  {
+    "target": "metal",
+    "operation": "joint_orthogonalize",
+    "estimated_seconds": 7.949616193771362
+  },
+  {
+    "target": "metal",
+    "operation": "scale_impulses",
+    "estimated_seconds": 7.928557872772217
+  },
+  {
+    "target": "metal",
+    "operation": "pfm_permuted_keys",
+    "estimated_seconds": 7.73096776008606
+  },
+  {
+    "target": "metal",
+    "operation": "gather_warmstart",
+    "estimated_seconds": 7.573471784591675
+  },
+  {
+    "target": "ascend",
+    "operation": "topo_finalize",
+    "estimated_seconds": 7.567758083343506
+  },
+  {
+    "target": "ascend",
+    "operation": "brute_pairs_serial",
+    "estimated_seconds": 7.541171073913574
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_colored_warmstart",
+    "estimated_seconds": 7.447328805923462
+  },
+  {
+    "target": "metal",
+    "operation": "support_local",
+    "estimated_seconds": 7.20721960067749
+  },
+  {
+    "target": "ascend",
+    "operation": "hub_assign",
+    "estimated_seconds": 7.088797330856323
+  },
+  {
+    "target": "metal",
+    "operation": "hub_dispatch",
+    "estimated_seconds": 6.910104036331177
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_solve",
+    "estimated_seconds": 6.813252210617065
+  },
+  {
+    "target": "ascend",
+    "operation": "prefix_scan",
+    "estimated_seconds": 6.612694978713989
+  },
+  {
+    "target": "metal",
+    "operation": "joint_motor_params",
+    "estimated_seconds": 6.491765260696411
+  },
+  {
+    "target": "c",
+    "operation": "stabilize",
+    "estimated_seconds": 6.4641923904418945
+  },
+  {
+    "target": "metal",
+    "operation": "bucket_reset",
+    "estimated_seconds": 6.347498416900635
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_scale_impulses",
+    "estimated_seconds": 6.338778734207153
+  },
+  {
+    "target": "ascend",
+    "operation": "colored_cached",
+    "estimated_seconds": 6.327785968780518
+  },
+  {
+    "target": "metal",
+    "operation": "hub_scatter",
+    "estimated_seconds": 6.3212926387786865
+  },
+  {
+    "target": "metal",
+    "operation": "support_face",
+    "estimated_seconds": 6.233935832977295
+  },
+  {
+    "target": "ascend",
+    "operation": "bucket_dispatch",
+    "estimated_seconds": 6.232489109039307
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_init",
+    "estimated_seconds": 6.137574911117554
+  },
+  {
+    "target": "ascend",
+    "operation": "prefix_sweep",
+    "estimated_seconds": 6.108360290527344
+  },
+  {
+    "target": "c",
+    "operation": "segment_projection",
+    "estimated_seconds": 6.043184280395508
+  },
+  {
+    "target": "metal",
+    "operation": "seed_colors",
+    "estimated_seconds": 6.028850793838501
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_solve",
+    "estimated_seconds": 5.9369964599609375
+  },
+  {
+    "target": "metal",
+    "operation": "support_world",
+    "estimated_seconds": 5.880970239639282
+  },
+  {
+    "target": "ascend",
+    "operation": "scale_impulses",
+    "estimated_seconds": 5.84340763092041
+  },
+  {
+    "target": "ascend",
+    "operation": "pfm_pair_keys",
+    "estimated_seconds": 5.701444864273071
+  },
+  {
+    "target": "ascend",
+    "operation": "pfm_subshape_keys",
+    "estimated_seconds": 5.641319513320923
+  },
+  {
+    "target": "ascend",
+    "operation": "solve",
+    "estimated_seconds": 5.530193328857422
+  },
+  {
+    "target": "metal",
+    "operation": "reset_narrow",
+    "estimated_seconds": 5.512088060379028
+  },
+  {
+    "target": "metal",
+    "operation": "init_links",
+    "estimated_seconds": 5.37395453453064
+  },
+  {
+    "target": "metal",
+    "operation": "simplex_add",
+    "estimated_seconds": 5.29789662361145
+  },
+  {
+    "target": "ascend",
+    "operation": "pfm_permuted_keys",
+    "estimated_seconds": 5.29386830329895
+  },
+  {
+    "target": "ascend",
+    "operation": "bucket_scatter",
+    "estimated_seconds": 5.274144411087036
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_orthogonalize",
+    "estimated_seconds": 5.221684217453003
+  },
+  {
+    "target": "metal",
+    "operation": "prefix_add",
+    "estimated_seconds": 5.2202308177948
+  },
+  {
+    "target": "ascend",
+    "operation": "topo_reset",
+    "estimated_seconds": 5.11061954498291
+  },
+  {
+    "target": "ascend",
+    "operation": "bucket_count",
+    "estimated_seconds": 5.089090824127197
+  },
+  {
+    "target": "metal",
+    "operation": "hub_warmstart",
+    "estimated_seconds": 5.009277820587158
+  },
+  {
+    "target": "metal",
+    "operation": "free_step",
+    "estimated_seconds": 4.932854413986206
+  },
+  {
+    "target": "ascend",
+    "operation": "solve_boundary",
+    "estimated_seconds": 4.847599029541016
+  },
+  {
+    "target": "ascend",
+    "operation": "support_world",
+    "estimated_seconds": 4.786001443862915
+  },
+  {
+    "target": "ascend",
+    "operation": "colored_warmstart",
+    "estimated_seconds": 4.7091803550720215
+  },
+  {
+    "target": "metal",
+    "operation": "prep_render",
+    "estimated_seconds": 4.7071356773376465
+  },
+  {
+    "target": "metal",
+    "operation": "pfm_subshape",
+    "estimated_seconds": 4.673547983169556
+  },
+  {
+    "target": "metal",
+    "operation": "triangle_projection",
+    "estimated_seconds": 4.671995639801025
+  },
+  {
+    "target": "ascend",
+    "operation": "shape_project_world_boundary",
+    "estimated_seconds": 4.668825626373291
+  },
+  {
+    "target": "ascend",
+    "operation": "luby_reset",
+    "estimated_seconds": 4.6487038135528564
+  },
+  {
+    "target": "ascend",
+    "operation": "adjacency_scatter",
+    "estimated_seconds": 4.471778392791748
+  },
+  {
+    "target": "metal",
+    "operation": "warmstart",
+    "estimated_seconds": 4.321448087692261
+  },
+  {
+    "target": "metal",
+    "operation": "twist_scale",
+    "estimated_seconds": 4.288465261459351
+  },
+  {
+    "target": "metal",
+    "operation": "update_mprops",
+    "estimated_seconds": 4.261326313018799
+  },
+  {
+    "target": "ascend",
+    "operation": "triangle_projection",
+    "estimated_seconds": 4.244755268096924
+  },
+  {
+    "target": "ascend",
+    "operation": "topo_clear",
+    "estimated_seconds": 4.140104055404663
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_hub_warmstart",
+    "estimated_seconds": 4.131279945373535
+  },
+  {
+    "target": "ascend",
+    "operation": "match_links",
+    "estimated_seconds": 4.100966215133667
+  },
+  {
+    "target": "metal",
+    "operation": "contact_plan",
+    "estimated_seconds": 4.088165044784546
+  },
+  {
+    "target": "metal",
+    "operation": "finalize",
+    "estimated_seconds": 4.0855326652526855
+  },
+  {
+    "target": "metal",
+    "operation": "cleanup",
+    "estimated_seconds": 4.0847086906433105
+  },
+  {
+    "target": "metal",
+    "operation": "init_bodies",
+    "estimated_seconds": 4.045651197433472
+  },
+  {
+    "target": "ascend",
+    "operation": "contact_persistence",
+    "estimated_seconds": 4.020108938217163
+  },
+  {
+    "target": "ascend",
+    "operation": "adjacency_count",
+    "estimated_seconds": 4.005780935287476
+  },
+  {
+    "target": "metal",
+    "operation": "ray_point",
+    "estimated_seconds": 3.9511570930480957
+  },
+  {
+    "target": "metal",
+    "operation": "body_coefficients",
+    "estimated_seconds": 3.821411609649658
+  },
+  {
+    "target": "metal",
+    "operation": "effective_mass",
+    "estimated_seconds": 3.818976640701294
+  },
+  {
+    "target": "metal",
+    "operation": "twist_effective_mass",
+    "estimated_seconds": 3.7567784786224365
+  },
+  {
+    "target": "ascend",
+    "operation": "topo_completion",
+    "estimated_seconds": 3.6363418102264404
+  },
+  {
+    "target": "metal",
+    "operation": "twist_warmstart",
+    "estimated_seconds": 3.5637574195861816
+  },
+  {
+    "target": "ascend",
+    "operation": "shape_project_world",
+    "estimated_seconds": 3.529968500137329
+  },
+  {
+    "target": "ascend",
+    "operation": "support_local",
+    "estimated_seconds": 3.5195858478546143
+  },
+  {
+    "target": "ascend",
+    "operation": "shape_project_local",
+    "estimated_seconds": 3.5029687881469727
+  },
+  {
+    "target": "metal",
+    "operation": "stabilize",
+    "estimated_seconds": 3.4724996089935303
+  },
+  {
+    "target": "ascend",
+    "operation": "shape_project_local_boundary",
+    "estimated_seconds": 3.42984938621521
+  },
+  {
+    "target": "ascend",
+    "operation": "cso_support",
+    "estimated_seconds": 3.4296822547912598
+  },
+  {
+    "target": "ascend",
+    "operation": "pfm_subshape",
+    "estimated_seconds": 3.410088062286377
+  },
+  {
+    "target": "ascend",
+    "operation": "prefix_add",
+    "estimated_seconds": 3.403738260269165
+  },
+  {
+    "target": "metal",
+    "operation": "integrate",
+    "estimated_seconds": 3.319711685180664
+  },
+  {
+    "target": "ascend",
+    "operation": "gather_warmstart",
+    "estimated_seconds": 3.2995994091033936
+  },
+  {
+    "target": "ascend",
+    "operation": "joint_motor_params",
+    "estimated_seconds": 3.2991623878479004
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_gather_warmstart",
+    "estimated_seconds": 3.2486612796783447
+  },
+  {
+    "target": "ascend",
+    "operation": "hub_split",
+    "estimated_seconds": 3.2407712936401367
+  },
+  {
+    "target": "metal",
+    "operation": "init_increments",
+    "estimated_seconds": 3.1913461685180664
+  },
+  {
+    "target": "ascend",
+    "operation": "hub_warmstart",
+    "estimated_seconds": 3.1101129055023193
+  },
+  {
+    "target": "ascend",
+    "operation": "hub_scatter",
+    "estimated_seconds": 2.93892502784729
+  },
+  {
+    "target": "metal",
+    "operation": "contact_coefficients",
+    "estimated_seconds": 2.9266843795776367
+  },
+  {
+    "target": "metal",
+    "operation": "segment_projection",
+    "estimated_seconds": 2.914780378341675
+  },
+  {
+    "target": "metal",
+    "operation": "simplex_init",
+    "estimated_seconds": 2.906670331954956
+  },
+  {
+    "target": "metal",
+    "operation": "apply_increments",
+    "estimated_seconds": 2.814434766769409
+  },
+  {
+    "target": "metal",
+    "operation": "sync_colliders",
+    "estimated_seconds": 2.7286078929901123
+  },
+  {
+    "target": "ascend",
+    "operation": "warmstart",
+    "estimated_seconds": 2.5531630516052246
+  },
+  {
+    "target": "ascend",
+    "operation": "integrate",
+    "estimated_seconds": 2.5307693481445312
+  },
+  {
+    "target": "ascend",
+    "operation": "support_face",
+    "estimated_seconds": 2.4858603477478027
+  },
+  {
+    "target": "ascend",
+    "operation": "mesh_pseudo_normal",
+    "estimated_seconds": 2.4800353050231934
+  },
+  {
+    "target": "ascend",
+    "operation": "color_requirements",
+    "estimated_seconds": 2.4484775066375732
+  },
+  {
+    "target": "ascend",
+    "operation": "effective_mass",
+    "estimated_seconds": 2.134097099304199
+  },
+  {
+    "target": "ascend",
+    "operation": "free_step",
+    "estimated_seconds": 2.131150245666504
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_effective_mass",
+    "estimated_seconds": 2.1139028072357178
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_warmstart",
+    "estimated_seconds": 2.047330617904663
+  },
+  {
+    "target": "ascend",
+    "operation": "ray_point",
+    "estimated_seconds": 2.0326783657073975
+  },
+  {
+    "target": "ascend",
+    "operation": "hub_dispatch",
+    "estimated_seconds": 2.0208232402801514
+  },
+  {
+    "target": "c",
+    "operation": "contact_plan",
+    "estimated_seconds": 1.9544036388397217
+  },
+  {
+    "target": "ascend",
+    "operation": "stabilize",
+    "estimated_seconds": 1.9037373065948486
+  },
+  {
+    "target": "ascend",
+    "operation": "seed_colors",
+    "estimated_seconds": 1.7088677883148193
+  },
+  {
+    "target": "ascend",
+    "operation": "init_links",
+    "estimated_seconds": 1.7074191570281982
+  },
+  {
+    "target": "ascend",
+    "operation": "simplex_add",
+    "estimated_seconds": 1.6151227951049805
+  },
+  {
+    "target": "ascend",
+    "operation": "update_mprops",
+    "estimated_seconds": 1.4939708709716797
+  },
+  {
+    "target": "ascend",
+    "operation": "cleanup",
+    "estimated_seconds": 1.4450597763061523
+  },
+  {
+    "target": "ascend",
+    "operation": "bucket_reset",
+    "estimated_seconds": 1.4026999473571777
+  },
+  {
+    "target": "ascend",
+    "operation": "prep_render",
+    "estimated_seconds": 1.3901965618133545
+  },
+  {
+    "target": "ascend",
+    "operation": "twist_scale",
+    "estimated_seconds": 1.3620378971099854
+  },
+  {
+    "target": "ascend",
+    "operation": "sync_colliders",
+    "estimated_seconds": 1.3514723777770996
+  },
+  {
+    "target": "ascend",
+    "operation": "apply_increments",
+    "estimated_seconds": 1.336850881576538
+  },
+  {
+    "target": "ascend",
+    "operation": "init_increments",
+    "estimated_seconds": 1.3038101196289062
+  },
+  {
+    "target": "ascend",
+    "operation": "body_coefficients",
+    "estimated_seconds": 1.2850420475006104
+  },
+  {
+    "target": "ascend",
+    "operation": "init_bodies",
+    "estimated_seconds": 1.2684299945831299
+  },
+  {
+    "target": "ascend",
+    "operation": "finalize",
+    "estimated_seconds": 1.1751911640167236
+  },
+  {
+    "target": "ascend",
+    "operation": "simplex_init",
+    "estimated_seconds": 1.0931687355041504
+  },
+  {
+    "target": "ascend",
+    "operation": "segment_projection",
+    "estimated_seconds": 1.0648925304412842
+  },
+  {
+    "target": "ascend",
+    "operation": "contact_plan",
+    "estimated_seconds": 0.949263334274292
+  },
+  {
+    "target": "ascend",
+    "operation": "contact_coefficients",
+    "estimated_seconds": 0.94431471824646
+  },
+  {
+    "target": "ascend",
+    "operation": "reset_narrow",
+    "estimated_seconds": 0.7275269031524658
+  }
+]

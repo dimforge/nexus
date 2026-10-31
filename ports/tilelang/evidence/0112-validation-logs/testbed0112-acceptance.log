@@ -1,0 +1,64 @@
+0/456 reports passed
+2/456 reports passed
+3/456 reports passed
+5/456 reports passed
+7/456 reports passed
+9/456 reports passed
+11/456 reports passed
+Six original runtime jobs passed; retired the stopped scheduler (no active child work remains).
+12/456 reports passed
+13/456 reports passed
+14/456 reports passed
+15/456 reports passed
+16/456 reports passed
+17/456 reports passed
+18/456 reports passed
+19/456 reports passed
+20/456 reports passed
+21/456 reports passed
+22/456 reports passed
+23/456 reports passed
+24/456 reports passed
+25/456 reports passed
+26/456 reports passed
+27/456 reports passed
+28/456 reports passed
+30/456 reports passed
+36/456 reports passed
+37/456 reports passed
+39/456 reports passed
+40/456 reports passed
+42/456 reports passed
+46/456 reports passed
+50/456 reports passed
+51/456 reports passed
+52/456 reports passed
+62/456 reports passed
+63/456 reports passed
+64/456 reports passed
+71/456 reports passed
+75/456 reports passed
+76/456 reports passed
+86/456 reports passed
+88/456 reports passed
+99/456 reports passed
+100/456 reports passed
+112/456 reports passed
+124/456 reports passed
+136/456 reports passed
+146/456 reports passed
+160/456 reports passed
+181/456 reports passed
+199/456 reports passed
+220/456 reports passed
+243/456 reports passed
+273/456 reports passed
+Failed reports: [('luby_reset', 'metal', 'failed')]
+Six original runtime jobs passed; retired the stopped scheduler (no active child work remains).
+456/456 reports passed
+c 1728 cases; artifact receipts verified
+metal 1728 cases; artifact receipts verified
+ascend 1728 cases; artifact receipts verified
+Wrote /Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/evidence/0112-testbed-matrix-checkpoint.json
+Full current-fixture Python suite passed
+Current C/Metal execution, Ascend source lowering, regressions and parity check passed
