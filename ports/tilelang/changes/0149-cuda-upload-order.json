@@ -1,0 +1,9 @@
+{
+  "id": "0149-cuda-upload-order",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["bugfix", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Wait for CUDA pageable-host upload completion before publishing buffers to the nonblocking compute stream.",
+  "regressions": ["A delayed-DMA driver shim reproduced a pending upload before the fix. Thirteen device ABI/compiler/frame/replay tests pass afterward in 7.219 seconds. Both complete 416-stage source bundles were refreshed against the new source in 25.276 seconds.", "The prior Metal smoke remains recorded at its exact pre-fix source snapshot; this CUDA-only transfer fix does not alter Metal kernels. No repeat or full matrix was run."],
+  "differences": ["NVIDIA documents that pageable H2D may return after staging but before DMA completes: https://docs.nvidia.com/cuda/cuda-driver-api/api-sync-behavior.html . The executor now waits for the default-stream transfer after H2D; compute launches remain asynchronous on their ordered stream. No extra per-kernel wait or physics change. Real CUDA execution remains unvalidated."]
+}

@@ -17,6 +17,8 @@ SHIM = r"""
 #include <stdlib.h>
 #include <string.h>
 static int live=0, fault=0, launches=0, shared=0;
+static void* pending_dst=0; static void* pending_data=0; static size_t pending_size=0;
+int test_pending(void){return pending_data!=0;}
 int test_live(void){return live;} int test_launches(void){return launches;}
 int test_shared(void){return shared;} void test_fault(int v){fault=v;}
 int cuInit(unsigned x){return 0;}
@@ -29,11 +31,21 @@ int cuDevicePrimaryCtxRetain(void** p,int d){*p=(void*)1;return 0;}
 int cuDevicePrimaryCtxRelease_v2(int d){return 0;}
 int cuCtxSetCurrent(void* c){return 0;}
 int cuStreamCreate(void** s,unsigned f){*s=(void*)2;return 0;}
-int cuStreamSynchronize(void* s){return fault;}
+int cuStreamSynchronize(void* s){
+ if(!s && pending_data){memcpy(pending_dst,pending_data,pending_size);free(pending_data);pending_dst=0;pending_data=0;}
+ return fault;
+}
 int cuStreamDestroy_v2(void* s){return 0;}
 int cuMemAlloc_v2(uint64_t* p,size_t n){*p=(uintptr_t)malloc(n);live++;return 0;}
-int cuMemFree_v2(uint64_t p){free((void*)(uintptr_t)p);live--;return 0;}
-int cuMemcpyHtoD_v2(uint64_t d,void* s,size_t n){memcpy((void*)(uintptr_t)d,s,n);return 0;}
+int cuMemFree_v2(uint64_t p){
+ if(pending_dst==(void*)(uintptr_t)p){free(pending_data);pending_data=0;pending_dst=0;}
+ free((void*)(uintptr_t)p);live--;return 0;
+}
+int cuMemcpyHtoD_v2(uint64_t d,void* s,size_t n){
+ if(pending_data)return 778;
+ pending_dst=(void*)(uintptr_t)d;pending_data=malloc(n);pending_size=n;
+ memcpy(pending_data,s,n);return 0;
+}
 int cuMemcpyDtoH_v2(void* d,uint64_t s,size_t n){memcpy(d,(void*)(uintptr_t)s,n);return 0;}
 int cuMemcpyDtoDAsync_v2(uint64_t d,uint64_t s,size_t n,void* st){memcpy((void*)(uintptr_t)d,(void*)(uintptr_t)s,n);return 0;}
 int cuModuleLoadData(void** m,void* d){*m=(void*)3;return 0;}
@@ -128,6 +140,18 @@ class DeviceAbi(unittest.TestCase):
                 device.close()
                 device.close()
                 self.assertEqual(self.lib.test_live(), 0)
+
+    def test_pageable_upload_completes_before_nonblocking_stream_use(self):
+        device = CudaDevice(library=str(self.path))
+        try:
+            allocation = device.upload(np.array([37, 29], np.uint32))
+            self.assertEqual(self.lib.test_pending(), 0)
+            np.testing.assert_array_equal(device.read(allocation, 0, 2), [37, 29])
+            device.write(allocation, 1, np.array([41], np.uint32))
+            self.assertEqual(self.lib.test_pending(), 0)
+            np.testing.assert_array_equal(device.read(allocation, 0, 2), [37, 41])
+        finally:
+            device.close()
 
     def test_async_failure_surfaces_and_close_still_releases(self):
         for kind in (CudaDevice, AscendDevice):

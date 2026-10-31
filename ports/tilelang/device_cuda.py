@@ -205,6 +205,10 @@ class CudaDevice:
         self.synchronize()
         if size:
             self.check("cuMemcpyHtoD_v2", pointer, words.ctypes.data, size)
+            # Pageable H2D can return after host staging, before DMA completes.
+            # Our nonblocking compute stream does not wait for the default stream.
+            # Publish the upload only after its legacy-default-stream copy finishes.
+            self.check("cuStreamSynchronize", None)
 
     def copy(self, destination, dst_start, source, src_start, count):
         self._owned(destination)

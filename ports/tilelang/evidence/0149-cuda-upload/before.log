@@ -1,0 +1,15 @@
+test_pageable_upload_completes_before_nonblocking_stream_use (test_device_abi.DeviceAbi.test_pageable_upload_completes_before_nonblocking_stream_use) ... FAIL
+
+======================================================================
+FAIL: test_pageable_upload_completes_before_nonblocking_stream_use (test_device_abi.DeviceAbi.test_pageable_upload_completes_before_nonblocking_stream_use)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/test_device_abi.py", line 148, in test_pageable_upload_completes_before_nonblocking_stream_use
+    self.assertEqual(self.lib.test_pending(), 0)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0
+
+----------------------------------------------------------------------
+Ran 1 test in 0.323s
+
+FAILED (failures=1)
