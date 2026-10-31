@@ -1,0 +1,12 @@
+test_capacity_return_extend_step_and_explicit_read (test_runtime_service.RuntimeServiceTests.test_capacity_return_extend_step_and_explicit_read) ... /private/tmp/nexus-tilelang-probe-20261029/lib/python3.13/site-packages/tilelang/language/eager/builder.py:1171: DeprecationWarning: Failing to pass a value to the 'type_params' parameter of 'typing._eval_type' is deprecated, as it leads to incorrect behaviour when calling typing._eval_type on a stringified annotation that references a PEP 695 type parameter. It will be disallowed in Python 3.15.
+  hints[name] = _eval_type(value, globalns=globalns, localns=localns)
+ok
+test_checkpoint_restore_and_reset_protocol (test_runtime_service.RuntimeServiceTests.test_checkpoint_restore_and_reset_protocol) ... ok
+test_library_inventory_requires_known_sources_and_verified_payloads (test_runtime_service.RuntimeServiceTests.test_library_inventory_requires_known_sources_and_verified_payloads) ... ok
+test_modified_or_missing_artifact_inventory_rejects_load (test_runtime_service.RuntimeServiceTests.test_modified_or_missing_artifact_inventory_rejects_load) ... ok
+test_write_protocol_checks_words_and_preserves_updates (test_runtime_service.RuntimeServiceTests.test_write_protocol_checks_words_and_preserves_updates) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 3.103s
+
+OK

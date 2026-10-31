@@ -1,0 +1,18 @@
+test_checkpoint_rejections_do_not_change_live_state (test_frame_cpu.FrameCpuTests.test_checkpoint_rejections_do_not_change_live_state) ... /private/tmp/nexus-tilelang-probe-20261029/lib/python3.13/site-packages/tilelang/language/eager/builder.py:1171: DeprecationWarning: Failing to pass a value to the 'type_params' parameter of 'typing._eval_type' is deprecated, as it leads to incorrect behaviour when calling typing._eval_type on a stringified annotation that references a PEP 695 type parameter. It will be disallowed in Python 3.15.
+  hints[name] = _eval_type(value, globalns=globalns, localns=localns)
+ok
+test_checkpoint_restore_and_reset_preserve_continuation (test_frame_cpu.FrameCpuTests.test_checkpoint_restore_and_reset_preserve_continuation) ... ok
+test_exhaustion_does_not_advance (test_frame_cpu.FrameCpuTests.test_exhaustion_does_not_advance) ... ok
+test_failed_growth_compilation_keeps_state (test_frame_cpu.FrameCpuTests.test_failed_growth_compilation_keeps_state) ... ok
+test_growth_after_prior_frame_preserves_state_and_limits (test_frame_cpu.FrameCpuTests.test_growth_after_prior_frame_preserves_state_and_limits) ... ok
+test_invalid_variant_cannot_shrink_or_change_meaning (test_frame_cpu.FrameCpuTests.test_invalid_variant_cannot_shrink_or_change_meaning) ... ok
+test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace (test_frame_cpu.FrameCpuTests.test_new_capacity_can_be_compiled_after_exhaustion_without_a_trace) ... ok
+test_partial_commit_failure_poisoned (test_frame_cpu.FrameCpuTests.test_partial_commit_failure_poisoned) ... ok
+test_rejected_extension_does_not_mutate_the_session (test_frame_cpu.FrameCpuTests.test_rejected_extension_does_not_mutate_the_session) ... ok
+test_same_stage_limits_retry_before_commit (test_frame_cpu.FrameCpuTests.test_same_stage_limits_retry_before_commit) ... ok
+test_updates_migrate_and_rejections_preserve_guards (test_frame_cpu.FrameCpuTests.test_updates_migrate_and_rejections_preserve_guards) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 9.380s
+
+OK

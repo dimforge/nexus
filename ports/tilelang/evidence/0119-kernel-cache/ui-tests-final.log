@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests ../../src_viewer/lib.rs (target/debug/deps/nexus_viewer3d-3a857ac10f824079)
+
+running 1 test
+test viewer::tilelang_viewer_tests::backend_transition_finishes_the_pending_ui_frame ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.35s
+

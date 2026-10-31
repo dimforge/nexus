@@ -1,0 +1,15 @@
+test_missing_metal_toolchain_keeps_runtime_compilation_fallback (test_kernel_cache.CompilerSelectionTests.test_missing_metal_toolchain_keeps_runtime_compilation_fallback) ... ok
+test_native_compiler_identity_includes_sdk_selection (test_kernel_cache.CompilerSelectionTests.test_native_compiler_identity_includes_sdk_selection) ... ok
+test_reference_build_only_selects_its_requested_binary (test_kernel_cache.CompilerSelectionTests.test_reference_build_only_selects_its_requested_binary) ... ok
+test_cached_c_library_executes_with_fresh_state_and_changed_source (test_kernel_cache.KernelCacheTests.test_cached_c_library_executes_with_fresh_state_and_changed_source) ... /private/tmp/nexus-tilelang-probe-20261029/lib/python3.13/site-packages/tilelang/language/eager/builder.py:1171: DeprecationWarning: Failing to pass a value to the 'type_params' parameter of 'typing._eval_type' is deprecated, as it leads to incorrect behaviour when calling typing._eval_type on a stringified annotation that references a PEP 695 type parameter. It will be disallowed in Python 3.15.
+  hints[name] = _eval_type(value, globalns=globalns, localns=localns)
+ok
+test_identity_key_corruption_and_incomplete_entries (test_kernel_cache.KernelCacheTests.test_identity_key_corruption_and_incomplete_entries) ... ok
+test_lowering_survives_process_exit_and_keys_full_ir_target_and_compiler (test_kernel_cache.KernelCacheTests.test_lowering_survives_process_exit_and_keys_full_ir_target_and_compiler) ... ok
+test_parallel_publication_is_complete (test_kernel_cache.KernelCacheTests.test_parallel_publication_is_complete) ... ok
+test_repeated_stages_load_identical_libraries_only_once (test_kernel_cache.KernelCacheTests.test_repeated_stages_load_identical_libraries_only_once) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 3.667s
+
+OK

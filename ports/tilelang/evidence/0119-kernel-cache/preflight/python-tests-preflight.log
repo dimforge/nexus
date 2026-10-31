@@ -1,0 +1,80 @@
+.....................................................................................................................................................................................................................................................................................................................................................................................................................................................................................s...............................................................................................................................FFFFFFF.........................................................................................................................
+======================================================================
+FAIL: test_all_real_variants_and_metal_outputs_round_trip (test_resident_handoff.ResidentHandoffTests.test_all_real_variants_and_metal_outputs_round_trip)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/recorded_handoff.py", line 53, in setUp
+    self.assertEqual(report["inputs"], self.manifest["inputs"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'implementation': {'.github/workflows/tile[79931 chars]e1'}} != {'reference': {'Cargo.toml': '50d816ce48c77[80146 chars]3c'}}
+Diff is 97495 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_corrupted_body_state_is_rejected (test_resident_handoff.ResidentHandoffTests.test_corrupted_body_state_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/recorded_handoff.py", line 53, in setUp
+    self.assertEqual(report["inputs"], self.manifest["inputs"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'implementation': {'.github/workflows/tile[79931 chars]e1'}} != {'reference': {'Cargo.toml': '50d816ce48c77[80146 chars]3c'}}
+Diff is 97495 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_missing_and_wrong_growth_statistics_fail (test_resident_handoff.ResidentHandoffTests.test_missing_and_wrong_growth_statistics_fail)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/recorded_handoff.py", line 53, in setUp
+    self.assertEqual(report["inputs"], self.manifest["inputs"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'implementation': {'.github/workflows/tile[79931 chars]e1'}} != {'reference': {'Cargo.toml': '50d816ce48c77[80146 chars]3c'}}
+Diff is 97495 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_missing_variant_artifact_and_hash_inventory_fail (test_resident_handoff.ResidentHandoffTests.test_missing_variant_artifact_and_hash_inventory_fail)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/recorded_handoff.py", line 53, in setUp
+    self.assertEqual(report["inputs"], self.manifest["inputs"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'implementation': {'.github/workflows/tile[79931 chars]e1'}} != {'reference': {'Cargo.toml': '50d816ce48c77[80146 chars]3c'}}
+Diff is 97495 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_all_native_scenes_round_trip (test_runtime_handoff.RuntimeHandoffTests.test_all_native_scenes_round_trip)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/recorded_handoff.py", line 53, in setUp
+    self.assertEqual(report["inputs"], self.manifest["inputs"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'implementation': {'.github/workflows/tile[79931 chars]e1'}} != {'reference': {'Cargo.toml': '50d816ce48c77[80146 chars]3c'}}
+Diff is 97495 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_corrupted_state_and_readonly_parent_fail (test_runtime_handoff.RuntimeHandoffTests.test_corrupted_state_and_readonly_parent_fail)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/recorded_handoff.py", line 53, in setUp
+    self.assertEqual(report["inputs"], self.manifest["inputs"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'implementation': {'.github/workflows/tile[79931 chars]e1'}} != {'reference': {'Cargo.toml': '50d816ce48c77[80146 chars]3c'}}
+Diff is 97495 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_missing_kernel_and_upload_hash_are_rejected (test_runtime_handoff.RuntimeHandoffTests.test_missing_kernel_and_upload_hash_are_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/ports/tilelang/tests/recorded_handoff.py", line 53, in setUp
+    self.assertEqual(report["inputs"], self.manifest["inputs"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'implementation': {'.github/workflows/tile[79931 chars]e1'}} != {'reference': {'Cargo.toml': '50d816ce48c77[80146 chars]3c'}}
+Diff is 97495 characters long. Set self.maxDiff to None to see it.
+
+----------------------------------------------------------------------
+Ran 725 tests in 134.119s
+
+FAILED (failures=7, skipped=1)
+Source reconciliation: current
+Known gap: numeric-boundary: Unresolved boundary
+solve / c: executed
+solve / metal: unvalidated
+solve / ascend: unvalidated

@@ -787,6 +787,9 @@ fn tilelang_status(ui: &mut egui::Ui, state: &mut UiState) {
             "Cache: {} lowerings + {} libraries reused; {} lowerings + {} libraries built",
             cache.lowering_hits, cache.binary_hits, cache.lowering_misses, cache.binary_misses
         ));
+        if cache.binary_hits + cache.binary_misses == 0 {
+            ui.label("Native source compilation used; offline library caching is unavailable.");
+        }
     }
     if t.reconstructions > 0 {
         ui.label("Scene rebuild: comparison restarted from the native upload.");

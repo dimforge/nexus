@@ -1,0 +1,22 @@
+   Compiling nexus_viewer3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.81s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests ../../src_viewer/lib.rs (target/debug/deps/nexus_viewer3d-3a857ac10f824079)
+
+running 2 tests
+test tilelang::tests::c_kernel_cache_and_restart has been running for over 60 seconds
+test tilelang::tests::metal_kernel_cache_and_restart has been running for over 60 seconds
+TileLangMetal cold: 110.583s Some(CacheStats { lowering_hits: 0, lowering_misses: 77, binary_hits: 0, binary_misses: 73, invalid_entries: 0 })
+TileLangMetal restart: 0.003s
+TileLangMetal switched height 3: 10.124s Some(CacheStats { lowering_hits: 77, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+TileLangMetal switched height 2: 10.650s Some(CacheStats { lowering_hits: 77, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+TileLangC cold: 146.366s Some(CacheStats { lowering_hits: 0, lowering_misses: 77, binary_hits: 0, binary_misses: 73, invalid_entries: 0 })
+TileLangC restart: 0.000s
+TileLangC switched height 3: 18.417s Some(CacheStats { lowering_hits: 77, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+TileLangC switched height 2: 18.329s Some(CacheStats { lowering_hits: 77, lowering_misses: 0, binary_hits: 73, binary_misses: 0, invalid_entries: 0 })
+test tilelang::tests::metal_kernel_cache_and_restart ... ok
+test tilelang::tests::c_kernel_cache_and_restart ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 317.47s
+
