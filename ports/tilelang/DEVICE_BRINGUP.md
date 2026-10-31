@@ -21,9 +21,7 @@ Build the compiler once, in a separate environment:
 
 ```sh
 python3 ports/tilelang/compiler.py /tmp/nexus-device-compiler --cuda-codegen-only
-python3.13 -m venv /tmp/nexus-device-python
-/tmp/nexus-device-python/bin/python -m pip install -r ports/tilelang/requirements.txt
-/tmp/nexus-device-python/bin/python -m pip install --force-reinstall --no-deps /tmp/nexus-device-compiler/wheels/tilelang-*.whl
+/tmp/nexus-device-compiler/build-env/bin/python -m pip install --force-reinstall --no-deps /tmp/nexus-device-compiler/wheels/tilelang-*.whl
 ```
 
 The recorded CMake patch builds CUDA source-generation passes without linking
@@ -31,7 +29,14 @@ CUDA runtime/stub libraries. Ascend source generation uses compiler stubs. Neith
 provides execution emulation. Preserve `compiler-receipt.json`, its wheel hash and
 the local patch hash. The same source-only compiler can run the separate ctypes
 execution adapters on a target host with real drivers and toolkits installed.
-The source-build helper's Linux build still needs verification there.
+The helper needs Git, a C/C++ compiler and Python with venv/development headers;
+it installs pinned CMake, Ninja and Linux patchelf in its own build environment.
+Use that environment's interpreter for the commands below. A clean Linux ARM64
+build passed on Ubuntu 22.04 / Python 3.12.16. Its installed wheel regenerated the
+same 416-stage CUDA and Ascend scenes with byte-for-byte identical source and
+identical frame manifests, then passed 13 focused host tests. This checks Linux
+packaging and lowering, not x86 builds or device execution. The receipt, wheel hash
+and reproduction script are in evidence/0153-linux-compiler.
 
 Prepare one complete mesh/contact/joint scene (no reference physics execution):
 

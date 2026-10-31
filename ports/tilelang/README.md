@@ -226,10 +226,12 @@ python3 ports/tilelang/compiler.py /tmp/nexus-ascend-compiler
 /path/to/ascend-compiler/python ports/tilelang/matrix.py --full --target ascend --compile-only
 ```
 
-The source-build configuration has been exercised locally. The complete helper's
-clean Linux build remains unverified. Keep its environment separate from portable
-C/Metal, retain exact compiler-library fingerprints, and never treat distinct
-compiler builds as interchangeable evidence. Here `--compile-only` means source
+The source-build helper has been exercised on macOS and clean Linux ARM64
+(Ubuntu 22.04 / Python 3.12.16). It installs pinned build tools in its own environment.
+The Linux wheel regenerated identical CUDA/Ascend sources and frame manifests for
+one complete prepared scene; see DEVICE_BRINGUP.md. Keep its environment separate
+from portable C/Metal, retain exact compiler-library fingerprints, and never treat
+distinct compiler builds as interchangeable execution evidence. Here `--compile-only` means source
 lowering, not vendor device-binary compilation.
 
 [HANDOFF.md](HANDOFF.md) documents immutable packaging, ordered and resident-frame

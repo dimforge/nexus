@@ -50,6 +50,7 @@ def receipt(source, wheels, lock, cuda_codegen_only=False):
         "submodules": verify_source(source, lock),
         "platform": platform.platform(),
         "python": platform.python_version(),
+        "build_packages": lock["build_packages"],
         "environment": {
             **lock["environment"],
             "USE_METAL": "ON" if sys.platform == "darwin" else "OFF",
@@ -145,6 +146,7 @@ def main():
             **lock["environment"],
             "USE_METAL": "ON" if sys.platform == "darwin" else "OFF",
             "CMAKE_BUILD_PARALLEL_LEVEL": str(args.jobs),
+            "PATH": str(build_env / "bin") + os.pathsep + os.environ.get("PATH", ""),
             "TILELANG_CUDA_CODEGEN_ONLY": "ON" if args.cuda_codegen_only else "OFF",
         }
         # CMake arguments override cached backend settings in an existing build.

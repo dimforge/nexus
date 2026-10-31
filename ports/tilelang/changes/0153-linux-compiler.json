@@ -1,0 +1,21 @@
+{
+  "id": "0153-linux-compiler",
+  "features": [
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "bugfix",
+    "tooling",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Make clean Linux compiler builds self-contained with pinned CMake/Ninja/patchelf and the build venv PATH, then validate the installed Linux ARM64 wheel.",
+  "regressions": [
+    "The unmodified helper failed with CMakeNotFoundError in the CANN 9.2.1 Ubuntu 22.04 image. After installing the recorded build prerequisites, the clean pinned-source build and wheel installation passed on Python 3.12.16.",
+    "Fresh Linux lowering produced identical kernel sources and complete frame manifests for both 416-stage prepared CUDA/Ascend schedules (92 unique sources each), in 67.125 and 40.095 seconds. Thirteen focused host ABI/compiler/frame/replay tests passed on the installed wheel in 1.559 seconds."
+  ],
+  "differences": [
+    "No shaders, physics, numerical tolerances or Rust reference behavior changed. The cross-host probe reuses verified native initial buffers; it does not execute the reference or device physics. Linux x86, native Windows and actual accelerators remain unqualified. Full matrix and reconciliation remain unrequested."
+  ]
+}

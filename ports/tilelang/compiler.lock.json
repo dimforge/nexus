@@ -9,7 +9,10 @@
   "build_packages": [
     "scikit-build-core==1.1.1",
     "cython==3.3.0",
-    "z3-solver==4.15.4.0"
+    "z3-solver==4.15.4.0",
+    "cmake==3.31.6",
+    "ninja==1.13.2",
+    "patchelf==0.17.2.4; sys_platform == 'linux'"
   ],
   "environment": {
     "USE_ASCEND": "ON",
@@ -17,5 +20,5 @@
     "USE_ROCM": "OFF",
     "TILELANG_USE_ASCEND_STUBS": "ON"
   },
-  "target_profile": "Ascend 950 SIMT; provisional, no vendor toolkit or device validation"
+  "target_profile": "Ascend 950 SIMT (dav-3510); runtime compatibility requires device qualification"
 }

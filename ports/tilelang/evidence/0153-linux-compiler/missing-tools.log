@@ -1,0 +1,212 @@
+Collecting scikit-build-core==1.1.1
+  Downloading scikit_build_core-1.1.1-py3-none-any.whl.metadata (19 kB)
+Collecting cython==3.3.0
+  Downloading cython-3.3.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (28 kB)
+Collecting z3-solver==4.15.4.0
+  Downloading z3_solver-4.15.4.0-py3-none-manylinux_2_34_aarch64.whl.metadata (602 bytes)
+Collecting packaging>=23.2 (from scikit-build-core==1.1.1)
+  Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pathspec>=0.12.0 (from scikit-build-core==1.1.1)
+  Downloading pathspec-1.1.1-py3-none-any.whl.metadata (14 kB)
+Downloading scikit_build_core-1.1.1-py3-none-any.whl (293 kB)
+Downloading cython-3.3.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (3.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 65.0 MB/s eta 0:00:00
+Downloading z3_solver-4.15.4.0-py3-none-manylinux_2_34_aarch64.whl (27.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 27.2/27.2 MB 57.3 MB/s eta 0:00:00
+Downloading packaging-26.3-py3-none-any.whl (129 kB)
+Downloading pathspec-1.1.1-py3-none-any.whl (57 kB)
+Installing collected packages: z3-solver, pathspec, packaging, cython, scikit-build-core
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+ms-service-profiler 26.0.0 requires loguru, which is not installed.
+ms-service-profiler 26.0.0 requires matplotlib, which is not installed.
+ms-service-profiler 26.0.0 requires msguard, which is not installed.
+ms-service-profiler 26.0.0 requires numpy, which is not installed.
+ms-service-profiler 26.0.0 requires opentelemetry-exporter-otlp-proto-grpc<2.0.0,>=1.33.1, which is not installed.
+ms-service-profiler 26.0.0 requires opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.33.1, which is not installed.
+ms-service-profiler 26.0.0 requires pandas>=2.2, which is not installed.
+ms-service-profiler 26.0.0 requires psutil, which is not installed.
+ms-service-profiler 26.0.0 requires pydantic, which is not installed.
+ms-service-profiler 26.0.0 requires pyyaml, which is not installed.
+ms-service-profiler 26.0.0 requires scipy, which is not installed.
+Successfully installed cython-3.3.0 packaging-26.3 pathspec-1.1.1 scikit-build-core-1.1.1 z3-solver-4.15.4.0
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.2
+[notice] To update, run: /private/tmp/nexus-linux-compiler-0153/build-env/bin/python -m pip install --upgrade pip
+Looking in indexes: https://download.pytorch.org/whl/cpu
+Collecting torch==2.9.1
+  Downloading https://download-r2.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl.metadata (29 kB)
+Collecting filelock (from torch==2.9.1)
+  Downloading filelock-4.2.4-py3-none-any.whl.metadata (2.0 kB)
+Collecting typing-extensions>=4.10.0 (from torch==2.9.1)
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting setuptools (from torch==2.9.1)
+  Downloading https://download.pytorch.org/whl/setuptools-78.1.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting sympy>=1.13.3 (from torch==2.9.1)
+  Downloading sympy-1.14.0-py3-none-any.whl.metadata (12 kB)
+Collecting networkx>=2.5.1 (from torch==2.9.1)
+  Downloading networkx-3.7-py3-none-any.whl.metadata (6.7 kB)
+Collecting jinja2 (from torch==2.9.1)
+  Downloading https://download.pytorch.org/whl/jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+Collecting fsspec>=0.8.5 (from torch==2.9.1)
+  Downloading fsspec-2026.9.0-py3-none-any.whl.metadata (10 kB)
+Collecting mpmath<1.4,>=1.1.0 (from sympy>=1.13.3->torch==2.9.1)
+  Downloading mpmath-1.3.0-py3-none-any.whl.metadata (8.6 kB)
+Collecting MarkupSafe>=2.0 (from jinja2->torch==2.9.1)
+  Downloading https://download.pytorch.org/whl/markupsafe-3.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (2.7 kB)
+Downloading https://download-r2.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl (104.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 104.1/104.1 MB 84.3 MB/s eta 0:00:00
+Downloading fsspec-2026.9.0-py3-none-any.whl (221 kB)
+Downloading networkx-3.7-py3-none-any.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 68.1 MB/s eta 0:00:00
+Downloading sympy-1.14.0-py3-none-any.whl (6.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 117.0 MB/s eta 0:00:00
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Downloading filelock-4.2.4-py3-none-any.whl (162 kB)
+Downloading https://download.pytorch.org/whl/jinja2-3.1.6-py3-none-any.whl (134 kB)
+Downloading https://download.pytorch.org/whl/setuptools-78.1.0-py3-none-any.whl (1.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 49.5 MB/s eta 0:00:00
+Downloading https://download.pytorch.org/whl/markupsafe-3.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (24 kB)
+Downloading mpmath-1.3.0-py3-none-any.whl (536 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 536.2/536.2 kB 67.6 MB/s eta 0:00:00
+Installing collected packages: mpmath, typing-extensions, sympy, setuptools, networkx, MarkupSafe, fsspec, filelock, jinja2, torch
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+superkernel 0.1.0 requires attrs>=23.0.00, which is not installed.
+superkernel 0.1.0 requires decorator>=5.1.0, which is not installed.
+superkernel 0.1.0 requires numpy>=1.21.6, which is not installed.
+superkernel 0.1.0 requires psutil>=5.9, which is not installed.
+superkernel 0.1.0 requires scipy>=1.7.3, which is not installed.
+cann-ops-nn 1.0.1 requires ninja, which is not installed.
+cann-ops-nn 1.0.1 requires torch-npu, which is not installed.
+dataflow 0.0.1 requires numpy>=1.7.0, which is not installed.
+cann-ops-transformer 1.0.0 requires torch-npu, which is not installed.
+Successfully installed MarkupSafe-3.0.3 filelock-4.2.4 fsspec-2026.9.0 jinja2-3.1.6 mpmath-1.3.0 networkx-3.7 setuptools-78.1.0 sympy-1.14.0 torch-2.9.1+cpu typing-extensions-4.16.0
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.2
+[notice] To update, run: /private/tmp/nexus-linux-compiler-0153/build-env/bin/python -m pip install --upgrade pip
+Collecting tilelang==0.1.15 (from -r /nexus-port/requirements.txt (line 2))
+  Downloading tilelang-0.1.15-cp39-abi3-manylinux_2_34_aarch64.whl.metadata (27 kB)
+Collecting apache-tvm-ffi==0.1.12 (from -r /nexus-port/requirements.txt (line 3))
+  Downloading apache_tvm_ffi-0.1.12-cp312-abi3-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (6.2 kB)
+Collecting numpy==2.2.6 (from -r /nexus-port/requirements.txt (line 4))
+  Downloading numpy-2.2.6-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (63 kB)
+Requirement already satisfied: torch==2.9.1 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from -r /nexus-port/requirements.txt (line 5)) (2.9.1+cpu)
+Requirement already satisfied: z3-solver==4.15.4.0 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from -r /nexus-port/requirements.txt (line 6)) (4.15.4.0)
+Collecting torch-c-dlpack-ext (from tilelang==0.1.15->-r /nexus-port/requirements.txt (line 2))
+  Downloading torch_c_dlpack_ext-0.1.5-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (14 kB)
+Collecting cloudpickle (from tilelang==0.1.15->-r /nexus-port/requirements.txt (line 2))
+  Downloading cloudpickle-3.1.2-py3-none-any.whl.metadata (7.1 kB)
+Collecting ml-dtypes (from tilelang==0.1.15->-r /nexus-port/requirements.txt (line 2))
+  Downloading ml_dtypes-0.6.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl.metadata (8.8 kB)
+Collecting psutil (from tilelang==0.1.15->-r /nexus-port/requirements.txt (line 2))
+  Downloading psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (22 kB)
+Collecting tqdm>=4.62.3 (from tilelang==0.1.15->-r /nexus-port/requirements.txt (line 2))
+  Downloading tqdm-4.70.1-py3-none-any.whl.metadata (57 kB)
+Requirement already satisfied: typing-extensions>=4.10.0 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from tilelang==0.1.15->-r /nexus-port/requirements.txt (line 2)) (4.16.0)
+Requirement already satisfied: filelock in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (4.2.4)
+Requirement already satisfied: setuptools in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (78.1.0)
+Requirement already satisfied: sympy>=1.13.3 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (1.14.0)
+Requirement already satisfied: networkx>=2.5.1 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (3.7)
+Requirement already satisfied: jinja2 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (3.1.6)
+Requirement already satisfied: fsspec>=0.8.5 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (2026.9.0)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from sympy>=1.13.3->torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in /private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages (from jinja2->torch==2.9.1->-r /nexus-port/requirements.txt (line 5)) (3.0.3)
+Downloading tilelang-0.1.15-cp39-abi3-manylinux_2_34_aarch64.whl (44.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 44.8/44.8 MB 85.8 MB/s eta 0:00:00
+Downloading apache_tvm_ffi-0.1.12-cp312-abi3-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (2.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.5/2.5 MB 116.4 MB/s eta 0:00:00
+Downloading numpy-2.2.6-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (14.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14.0/14.0 MB 113.2 MB/s eta 0:00:00
+Downloading tqdm-4.70.1-py3-none-any.whl (80 kB)
+Downloading cloudpickle-3.1.2-py3-none-any.whl (22 kB)
+Downloading ml_dtypes-0.6.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl (360 kB)
+Downloading psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (156 kB)
+Downloading torch_c_dlpack_ext-0.1.5-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (443 kB)
+Installing collected packages: tqdm, psutil, numpy, cloudpickle, apache-tvm-ffi, ml-dtypes, torch-c-dlpack-ext, tilelang
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+te 0.4.0 requires attrs, which is not installed.
+te 0.4.0 requires decorator, which is not installed.
+te 0.4.0 requires scipy, which is not installed.
+schedule-search 0.0.1 requires absl-py, which is not installed.
+schedule-search 0.0.1 requires decorator, which is not installed.
+superkernel 0.1.0 requires attrs>=23.0.00, which is not installed.
+superkernel 0.1.0 requires decorator>=5.1.0, which is not installed.
+superkernel 0.1.0 requires scipy>=1.7.3, which is not installed.
+auto-tune 0.1.0 requires decorator, which is not installed.
+cannsim 0.1.0 requires plotly, which is not installed.
+ms-service-profiler 26.0.0 requires loguru, which is not installed.
+ms-service-profiler 26.0.0 requires matplotlib, which is not installed.
+ms-service-profiler 26.0.0 requires msguard, which is not installed.
+ms-service-profiler 26.0.0 requires opentelemetry-exporter-otlp-proto-grpc<2.0.0,>=1.33.1, which is not installed.
+ms-service-profiler 26.0.0 requires opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.33.1, which is not installed.
+ms-service-profiler 26.0.0 requires pandas>=2.2, which is not installed.
+ms-service-profiler 26.0.0 requires pydantic, which is not installed.
+ms-service-profiler 26.0.0 requires pyyaml, which is not installed.
+ms-service-profiler 26.0.0 requires scipy, which is not installed.
+opc-tool 0.1.0 requires attrs, which is not installed.
+opc-tool 0.1.0 requires decorator, which is not installed.
+asc-opc-tool 0.1.0 requires attrs, which is not installed.
+asc-opc-tool 0.1.0 requires decorator, which is not installed.
+msboost 26.2.0 requires colorlog, which is not installed.
+msboost 26.2.0 requires pydantic<3,>=2, which is not installed.
+msboost 26.2.0 requires PyYAML, which is not installed.
+asc-op-compile-base 0.1.0 requires attrs, which is not installed.
+asc-op-compile-base 0.1.0 requires decorator, which is not installed.
+mindstudio-kl 26.2.0 requires numpy<=1.26.4, but you have numpy 2.2.6 which is incompatible.
+Successfully installed apache-tvm-ffi-0.1.12 cloudpickle-3.1.2 ml-dtypes-0.6.0 numpy-2.2.6 psutil-7.2.2 tilelang-0.1.15 torch-c-dlpack-ext-0.1.5 tqdm-4.70.1
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.2
+[notice] To update, run: /private/tmp/nexus-linux-compiler-0153/build-env/bin/python -m pip install --upgrade pip
+Processing /private/tmp/nexus-linux-compiler-0153/source
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'error'
+  error: subprocess-exited-with-error
+  
+  × Preparing metadata (pyproject.toml) did not run successfully.
+  │ exit code: 1
+  ╰─> [23 lines of output]
+      WARNING: tool.scikit-build.metadata is deprecated; use the standard top-level [[tool.dynamic-metadata]] instead
+      2026-10-31 16:26:10,253 - scikit_build_core - WARNING - ninja should not be in build-system.requires - scikit-build-core will inject it as needed
+      Traceback (most recent call last):
+        File "/private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 389, in <module>
+          main()
+        File "/private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 373, in main
+          json_out["return_val"] = hook(**hook_input["kwargs"])
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 175, in prepare_metadata_for_build_wheel
+          return hook(metadata_directory, config_settings)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages/scikit_build_core/build/__init__.py", line 102, in prepare_metadata_for_build_wheel
+          return _build_wheel_impl(
+                 ^^^^^^^^^^^^^^^^^^
+        File "/private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages/scikit_build_core/build/wheel.py", line 267, in _build_wheel_impl
+          return _build_wheel_impl_impl(
+                 ^^^^^^^^^^^^^^^^^^^^^^^
+        File "/private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages/scikit_build_core/build/wheel.py", line 341, in _build_wheel_impl_impl
+          cmake = CMake.default_search(version=settings.cmake.version, env=os.environ)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/private/tmp/nexus-linux-compiler-0153/build-env/lib/python3.12/site-packages/scikit_build_core/cmake.py", line 99, in default_search
+          raise CMakeNotFoundError(msg)
+      scikit_build_core.errors.CMakeNotFoundError: Could not find CMake with version >=3.26.1
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.2
+[notice] To update, run: /private/tmp/nexus-linux-compiler-0153/build-env/bin/python -m pip install --upgrade pip
+error: metadata-generation-failed
+
+× Encountered error while generating package metadata.
+╰─> See above for output.
+
+note: This is an issue with the package mentioned above, not pip.
+hint: See above for details.
+Traceback (most recent call last):
+  File "/nexus-port/compiler.py", line 186, in <module>
+    main()
+  File "/nexus-port/compiler.py", line 161, in main
+    run(
+  File "/nexus-port/compiler.py", line 22, in run
+    subprocess.run([str(x) for x in args], check=True, **kwargs)
+  File "/usr/local/python3.12.16/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/private/tmp/nexus-linux-compiler-0153/build-env/bin/python', '-m', 'pip', 'wheel', '--no-deps', '--no-build-isolation', '--wheel-dir', '/private/tmp/nexus-linux-compiler-0153/wheels', '/private/tmp/nexus-linux-compiler-0153/source']' returned non-zero exit status 1.
