@@ -1,0 +1,14 @@
+[
+  {
+    "target": "cuda",
+    "returncode": 1,
+    "expected_failure": "CUDA driver unavailable",
+    "device_execution": "not_run"
+  },
+  {
+    "target": "ascend",
+    "returncode": 1,
+    "expected_failure": "AscendCL unavailable",
+    "device_execution": "not_run"
+  }
+]

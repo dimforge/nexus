@@ -78,8 +78,9 @@ The integration remains experimental. Cold-start uploads do not preserve existin
 contact caches. Topo coloring, Coulomb and simplified twist friction, ordinary joints and LBVH
 form the current composed path, including native hub splitting. Metal small scenes use fused solve/warmstart; other fused/tail variants use ordered colors;
 see the dispatch substitution below.
-No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
-prepares source only for a future CANN execution adapter.
+CUDA and Ascend execution adapters are implemented but not hardware-qualified.
+See [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md) for compiler/driver setup, bounded
+testing, supported profiles and evidence limits.
 
 Run the explicit integration tests with current native fixtures:
 
@@ -274,15 +275,18 @@ The six link/adjacency/color/tile caches exchange owners instead of copying thei
 capacity. Checkpoints, growth, reset and reads resolve logical buffer names after
 the exchange. Contact states retain their two-generation allocation ABI and copy
 only live rows. A failed capacity check never exchanges owners. Schema 1 remains
-supported. Other target schedules currently retain static launch/copy behavior.
+supported. CUDA/Ascend runtime scenes share these swaps and live state copies;
+C retains the static schedule.
 
 Native indirect launch is not an Ascend requirement. The fallback design follows
 `khal-derive/src/spirv_bindgen/cuda.rs::virtual_workgroup_loop`: launch a bounded
 physical grid, read the virtual grid from device memory, iterate virtual groups
 by the physical grid stride, and place a uniform workgroup barrier between
 iterations. This preserves workgroup-local synchronization without CPU readback.
-The TileLang CUDA/Ascend wrapper for this fallback still needs implementation and
-device qualification; the Metal tests do not establish those targets' behavior.
+`virtual_dispatch.py` implements this transformation in original IR for CUDA/Ascend,
+with at most 256 physical groups. Metal execution tests cover virtual waves, shared
+scratch reuse, zero work and tails. CUDA/Ascend source checks cover the ABI; their
+actual compiler and device synchronization still require hardware qualification.
 
 Frame schema 2 also permits commit-stage conditions based on an already completed
 capacity gate. Metal omits colors above the highest color returned by the existing

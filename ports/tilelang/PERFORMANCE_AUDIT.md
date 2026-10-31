@@ -58,12 +58,14 @@ warmstart search and coloring neighbor/conflict exits. Their evidence remains in
 ## Portability and maintenance
 
 Metal runtime specialization opts into native indirect grids and cache swaps.
-Other targets retain their existing static schedule. Native indirect launch is
-not required for the future Ascend backend: khal's CUDA virtual-workgroup loop
-provides the intended fallback, with a bounded physical grid, device-read virtual
-grid, grid-striding and uniform workgroup barriers. That TileLang fallback is
-**not implemented or qualified yet**. No CPU dispatch-size readback was added to
-Metal. See `NATIVE_RUNTIME.md` for the frame schema and ownership contracts.
+CUDA/Ascend runtime scenes now use device-resident virtual grids and the same
+swaps/live copies (0146), pending hardware qualification. C keeps its static
+schedule. Native indirect launch is
+not required for Ascend: the TileLang IR transformation follows khal's CUDA
+virtual-workgroup loop, with a bounded physical grid, device-read virtual grid,
+grid-striding and uniform workgroup barriers. It is implemented and tested on
+Metal, but CUDA/Ascend synchronization remains unqualified. No CPU dispatch-size
+readback was added. See `NATIVE_RUNTIME.md` for the frame schema and ownership contracts.
 
 Stable feature IDs and separate change records classify scheduling changes,
 qualification fixes and ABI extensions. Physics arithmetic, reference code,
@@ -113,3 +115,5 @@ comparison tolerances and solver settings were not changed to obtain the gains.
 Routine validation remains `python ports/tilelang/smoke.py --target metal` with
 its unchanged 290-second budget. The focused eight-frame integration and geometry
 regressions are explicit targeted tests, not additions to each routine smoke.
+
+CUDA/Ascend bring-up and evidence limits are documented in [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md).

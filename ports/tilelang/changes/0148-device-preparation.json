@@ -1,0 +1,9 @@
+{
+  "id": "0148-device-preparation",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["tooling", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Provide bounded hardware bring-up preparation and CUDA/Ascend smoke commands, document supported profiles and preserve locally verified evidence without full reconciliation.",
+  "regressions": ["The complete mesh/contact/joint scene lowers for CUDA and Ascend: 416 stages, 200 virtual grids and six cache swaps on each. Every generated Ascend wrapper and launch manifest validates. Warm source preparation took 24.622 seconds; this is not vendor compilation or execution.", "Routine Metal smoke passed all 74 tooling/runtime regressions and 11 fresh Rust comparisons in 229.3 seconds within the unchanged 290-second budget. Full matrix and reconciliation were not run."],
+  "differences": ["GPU smoke labels C host unit tests separately from actual selected-device physics execution. CUDA and Ascend vendor compilers/devices remain unavailable locally. No hardware, release qualification or performance claim. Full evidence remains stale and existing contact-reference gap 0127 remains unresolved."]
+}

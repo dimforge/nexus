@@ -24,7 +24,8 @@ Implemented and connected:
 - Fixture scenes through 120 frames and identical-state restart diagnostics.
   Native cold-start uploads preserve separate body/collider index spaces, multiple
   colliders, parentless geometry, native mass/materials and interleaved batches.
-- Rust-owned C/Metal runtime with source-bound specialization, resident storage,
+- Rust-owned C/Metal runtime (plus hardware-unqualified CUDA/Ascend adapters;
+  see DEVICE_BRINGUP.md) with source-bound specialization, resident storage,
   capacity gates and lazy recompilation/migration before solver commit, unbounded
   stepping without trajectory allocation, and explicit typed readback.
 - Native-sized hierarchical scans and an explicit contact-reduction option. Native

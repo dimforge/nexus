@@ -1,0 +1,35 @@
+test_export_requires_matching_compiled_schedule_and_real_gates (test_frame_manifest.FrameManifestTests.test_export_requires_matching_compiled_schedule_and_real_gates) ... ok
+test_gate_after_commit_or_outside_counter_is_rejected (test_frame_manifest.FrameManifestTests.test_gate_after_commit_or_outside_counter_is_rejected) ... ok
+test_native_regions_exclude_variable_capacity_guards (test_frame_manifest.FrameManifestTests.test_native_regions_exclude_variable_capacity_guards) ... ok
+test_outer_iterations_and_trace_limit_cannot_advance_extra_frames (test_frame_manifest.FrameManifestTests.test_outer_iterations_and_trace_limit_cannot_advance_extra_frames) ... ok
+test_persistent_ranges_reject_overlap_and_truncation (test_frame_manifest.FrameManifestTests.test_persistent_ranges_reject_overlap_and_truncation) ... ok
+test_unbounded_control_requires_an_explicit_limit_and_no_trace (test_frame_manifest.FrameManifestTests.test_unbounded_control_requires_an_explicit_limit_and_no_trace) ... ok
+test_valid_control_abi (test_frame_manifest.FrameManifestTests.test_valid_control_abi) ... ok
+test_virtual_grid_adds_only_the_verified_dispatch_binding (test_frame_manifest.FrameManifestTests.test_virtual_grid_adds_only_the_verified_dispatch_binding) ... ok
+test_budget_cannot_be_increased_past_five_minutes (test_smoke.SmokeTests.test_budget_cannot_be_increased_past_five_minutes) ... ok
+test_device_preflight_precedes_host_units_and_never_claims_gpu_unit_tests (test_smoke.SmokeTests.test_device_preflight_precedes_host_units_and_never_claims_gpu_unit_tests) ... Smoke output: /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmp6mntf939/cuda-ojxrhg58
+Smoke: device-preflight (0.0s elapsed)
+Smoke failed: 0.0s; /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmp6mntf939/cuda-ojxrhg58/smoke.json
+no device
+ok
+test_failed_command_and_expired_deadline_are_not_success (test_smoke.SmokeTests.test_failed_command_and_expired_deadline_are_not_success) ... ok
+test_failure_has_unique_receipt_and_does_not_continue (test_smoke.SmokeTests.test_failure_has_unique_receipt_and_does_not_continue) ... Smoke output: /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmp3ufz0_g5/c-2hexdr4d
+Smoke: unit-regressions (0.0s elapsed)
+Smoke timeout: 0.0s; /var/folders/90/mq2t5kt51g915cflsq2w0yx40000gn/T/tmp3ufz0_g5/c-2hexdr4d/smoke.json
+deadline
+ok
+test_fixed_representative_contracts_and_missing_operation (test_smoke.SmokeTests.test_fixed_representative_contracts_and_missing_operation) ... ok
+test_full_matrix_requires_explicit_opt_in (test_smoke.SmokeTests.test_full_matrix_requires_explicit_opt_in) ... ok
+test_incomplete_stale_or_source_only_report_rejected (test_smoke.SmokeTests.test_incomplete_stale_or_source_only_report_rejected) ... ok
+test_selection_rejects_typos_and_duplicates (test_smoke.SmokeTests.test_selection_rejects_typos_and_duplicates) ... ok
+test_timeout_kills_owned_descendants (test_smoke.SmokeTests.test_timeout_kills_owned_descendants) ... ok
+test_device_execution_is_distinct_from_lowering_evidence (test_matrix.MatrixTests.test_device_execution_is_distinct_from_lowering_evidence) ... ok
+test_every_registered_operation_exactly_once (test_matrix.MatrixTests.test_every_registered_operation_exactly_once) ... ok
+test_every_routed_command_uses_its_registered_runner (test_matrix.MatrixTests.test_every_routed_command_uses_its_registered_runner) ... ok
+test_invalid_shards_fail (test_matrix.MatrixTests.test_invalid_shards_fail) ... ok
+test_missing_specialized_runner_and_duplicate_fail (test_matrix.MatrixTests.test_missing_specialized_runner_and_duplicate_fail) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 1.574s
+
+OK

@@ -1,15 +1,16 @@
 # TileLang 3D rigid-body port
 
 This experimental port connects the 3D rigid-body solver to a Rust-owned runtime
-that executes generated TileLang kernels on C or Metal. It includes Coulomb and
+that executes generated TileLang kernels on C or Metal, with CUDA/Ascend adapters
+prepared for initial hardware testing. It includes Coulomb and
 simplified twist friction, ordinary joints, analytic and general collision,
 convex/mesh/polyline geometry, LBVH traversal, contact recycling, hub splitting,
 coloring, scene reconstruction, live controls and continuation checkpoints.
 [COMPLETION.md](COMPLETION.md) defines the agreed scope and final acceptance gates;
 current qualification comes from `parity.py report`, not historical milestone notes.
 
-The offline Ascend path generates kernels, binding manifests and source-bound
-fixtures for a future CANN execution adapter. Ascend vendor compilation, device
+The CUDA/Ascend path generates kernels, binding manifests and source-bound
+fixtures and includes vendor compiler/driver adapters. See [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md). Ascend vendor compilation, device
 execution, synchronization and performance remain unvalidated. Articulated
 multibodies, MPM and 2D are explicitly deferred. CUDA execution and native Windows
 replay are also unvalidated. Available C and Metal execution is not NPU emulation.
@@ -18,7 +19,7 @@ replay are also unvalidated. Available C and Metal execution is not NPU emulatio
 
 See [NATIVE_RUNTIME.md](NATIVE_RUNTIME.md) for `TileLangSimulation`, compiler setup,
 backend selection and integration tests. Enable the `runtime` feature of
-`ports/tilelang/native`; choose `TileLangBackend::C` or `TileLangBackend::Metal`.
+`ports/tilelang/native`; choose `TileLangBackend::C`, `Metal`, `Cuda` or `Ascend`.
 The API accepts a typed `RbdState::read_scene_upload` archive and owns subsequent
 frame execution. It is a separate public simulation API, rather than an enum
 variant inside the existing `RbdPipeline`.
@@ -102,7 +103,8 @@ only shorten the limit. Each invocation gets a fresh directory under
 
 The smoke covers integration, both contact friction models, colored dispatch,
 ordinary joints and analytic collision. It does **not** qualify long scene
-trajectories, exhaustive geometry/LBVH/hubs, the complete public runtime, or Ascend.
+trajectories, exhaustive geometry/LBVH/hubs, the complete public runtime, or other devices. CUDA/Ascend execution requires
+the corresponding hardware and toolkit; see DEVICE_BRINGUP.md.
 For a change in an omitted area, run a focused regression for that area as well.
 A passing smoke never updates the full baseline or makes stale evidence current.
 
@@ -232,6 +234,6 @@ lowering, not vendor device-binary compilation.
 ABIs, target setup, returned outputs and offline comparison. Prepare and reconcile
 all current reports, commit locally, build the bundle and verify it before delivery.
 The eventual Huawei session must establish the actual toolkit/driver/device,
-implement and review the CANN launcher, compile all sources, replay kernels and
+review and validate the prepared CANN launcher, compile all sources, replay kernels and
 resident scenes, and qualify synchronization and performance. Until then those
 evidence levels remain unvalidated, without blocking the agreed offline port work.

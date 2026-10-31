@@ -60,7 +60,7 @@
       "reference": "src_rbd/dynamics/solver.rs",
       "implementation": "ports/tilelang/scene_kernels.py",
       "description": "Use live-count/per-color indirect grids instead of capacity-wide launches.",
-      "qualification_scope": "Native Metal runtime; other targets retain static scheduling. State halves copy live rows."
+      "qualification_scope": "Executed on Metal; CUDA/Ascend runtime schedules now share virtual grids, swaps and live copies (0146), with source/host tests only until hardware qualification."
     },
     {
       "id": "persistence-copies",
@@ -69,7 +69,7 @@
       "reference": "src_rbd/pipeline/rbd_step.rs",
       "implementation": "ports/tilelang/scene_kernels.py",
       "description": "Swap six cache owners after successful frame commit; copy only live rows between state halves.",
-      "qualification_scope": "Native Metal runtime; other targets retain static scheduling. State halves copy live rows."
+      "qualification_scope": "Executed on Metal; CUDA/Ascend runtime schedules now share virtual grids, swaps and live copies (0146), with source/host tests only until hardware qualification."
     },
     {
       "id": "serial-color-feedback",

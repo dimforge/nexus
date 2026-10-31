@@ -114,12 +114,13 @@ def run_smoke(target, output, budget):
         "status": "running",
         "target": target,
         "budget_seconds": budget,
+        "unit_backend": "c" if target in ("cuda", "ascend") else target,
         "full_matrix": "not_run; explicit user request required",
         "steps": [],
         "omissions": [
             "long scene trajectories and production-runtime acceptance",
             "exhaustive geometry, LBVH, hubs and scheduling coverage",
-            "Ascend compilation and device execution",
+            "execution on targets other than the selected backend",
         ],
     }
     path = directory / "smoke.json"
@@ -151,6 +152,22 @@ def run_smoke(target, output, budget):
                 for row in rows
             ],
         ]
+        if target in ("cuda", "ascend"):
+            steps.insert(
+                0,
+                (
+                    "device-preflight",
+                    [
+                        sys.executable,
+                        str(HERE / "device_replay.py"),
+                        "--target",
+                        target,
+                        "--probe",
+                    ],
+                    ROOT,
+                    None,
+                ),
+            )
         for name, command, cwd, row in steps:
             step = {
                 "name": name,
@@ -164,8 +181,13 @@ def run_smoke(target, output, budget):
             print(f"Smoke: {name} ({before - started:.1f}s elapsed)", flush=True)
             try:
                 run_command(
-                    command, cwd, directory / step["log"], deadline,
-                    env=dict(os.environ, NEXUS_TILELANG_TEST_TARGET=target),
+                    command,
+                    cwd,
+                    directory / step["log"],
+                    deadline,
+                    env=dict(
+                        os.environ, NEXUS_TILELANG_TEST_TARGET=receipt["unit_backend"]
+                    ),
                 )
                 if row is not None:
                     step["cases"] = validate_report(
@@ -210,7 +232,9 @@ def budget_seconds(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=("c", "metal"), default="c")
+    parser.add_argument(
+        "--target", choices=("c", "metal", "cuda", "ascend"), default="c"
+    )
     parser.add_argument("--output", type=Path, default=HERE / "results-smoke")
     parser.add_argument("--budget-seconds", type=budget_seconds, default=MAX_SECONDS)
     parser.add_argument("--list", action="store_true")
@@ -229,7 +253,7 @@ def main():
         )
         return 0
     if os.name != "posix":
-        parser.error("The existing C/Metal runners and process cleanup require POSIX")
+        parser.error("The fixture runners and process cleanup require POSIX")
     return run_smoke(args.target, args.output.resolve(), args.budget_seconds)
 
 

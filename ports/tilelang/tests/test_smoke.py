@@ -111,6 +111,22 @@ class SmokeTests(unittest.TestCase):
             self.assertEqual(receipt["suite"], "representative_smoke")
             self.assertEqual(list(Path(folder).rglob("report.json")), [])
 
+    def test_device_preflight_precedes_host_units_and_never_claims_gpu_unit_tests(self):
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch.object(smoke, "evidence_inputs", return_value={}),
+            patch.object(
+                smoke, "run_command", side_effect=RuntimeError("no device")
+            ) as run,
+        ):
+            self.assertEqual(smoke.run_smoke("cuda", Path(folder), 2), 1)
+            self.assertEqual(run.call_count, 1)
+            receipt = json.loads(next(Path(folder).rglob("smoke.json")).read_text())
+            self.assertEqual(receipt["unit_backend"], "c")
+            self.assertEqual(receipt["target"], "cuda")
+            self.assertEqual(receipt["steps"][0]["name"], "device-preflight")
+            self.assertIn("--probe", run.call_args.args[0])
+
     def test_selection_rejects_typos_and_duplicates(self):
         from stage_replay import select_cases
 

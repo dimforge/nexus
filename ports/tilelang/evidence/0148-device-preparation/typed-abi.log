@@ -1,0 +1,9 @@
+test_ascend_wrapper_argument_order_and_unrecognized_abi (test_device_abi.DeviceAbi.test_ascend_wrapper_argument_order_and_unrecognized_abi) ... ok
+test_async_failure_surfaces_and_close_still_releases (test_device_abi.DeviceAbi.test_async_failure_surfaces_and_close_still_releases) ... ok
+test_cuda_and_ascend_pointer_abi_offsets_and_cleanup (test_device_abi.DeviceAbi.test_cuda_and_ascend_pointer_abi_offsets_and_cleanup) ... ok
+test_strict_flags_cache_reuse_corruption_and_failed_build_logs (test_device_compiler.DeviceCompilerTests.test_strict_flags_cache_reuse_corruption_and_failed_build_logs) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.743s
+
+OK

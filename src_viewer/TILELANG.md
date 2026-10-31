@@ -1,10 +1,10 @@
 # TileLang in the Nexus testbed
 
-The optional `tilelang` feature adds generated C and (with `metal`) Metal solvers
+The optional `tilelang` feature adds generated C, CUDA, Ascend and (with `metal`) Metal solvers
 in the existing 3D testbed. Ordinary rigid bodies, collision shapes and impulse
 joints use the native Nexus scene conversion and the TileLang runtime. MPM and
-articulated multibodies report an error and pause. There is no Ascend testbed
-backend yet.
+articulated multibodies report an error and pause. CUDA/Ascend selections are prepared for initial device testing; vendor compilation
+and execution remain unqualified. See [device setup](../ports/tilelang/DEVICE_BRINGUP.md).
 
 This is a source-checkout feature. The existing release-packaging script omits
 `tilelang` from the published viewer manifest until the standalone runtime is
@@ -46,13 +46,13 @@ For a direct Cargo invocation, set `NEXUS_TILELANG_PYTHON` to the absolute pinne
 interpreter path and build/run with `RUSTUP_TOOLCHAIN=1.98.1`, `RUSTC_BOOTSTRAP=1`,
 and `CARGO_ENCODED_RUSTFLAGS=-Zmutable-noalias=no`. Enable `tilelang` or
 `tilelang,metal` on `nexus_examples_3d`. The executable options are
-`--example tileLangComparison --tilelang c|metal --compare --run`.
+`--example tileLangComparison --tilelang c|metal|cuda|ascend --compare --run`.
 `--reference-view` starts with the Rust poses displayed and also enables comparison.
 `--list` prints the case-sensitive scene names accepted by `--example`.
 
 ## Compare visually
 
-In **Settings → Physics Backend**, select TileLang C, TileLang Metal, Rust CPU,
+In **Settings → Physics Backend**, select TileLang C, Metal, CUDA, Ascend, Rust CPU,
 or another compiled Rust backend. Changing backend restarts the current scene
 with the current settings. Enable **Compare with Rust CPU** to run both solvers
 from the same initial native input; this also restarts the scene.
@@ -85,7 +85,8 @@ creates fresh scene state and reuses compatible compiled kernels from
 `target/tilelang-kernel-cache`. Only the most recent loaded runtime is retained.
 A changed topology or solver configuration uses a fresh runtime; compatible kernels
 can still hit the disk cache. Changed initial poses or velocities are never taken
-from a prior example. Switching C/Metal uses distinct target entries.
+from a prior example. Switching targets uses distinct cache entries. CUDA/Ascend binary caches share
+the configured kernel cache (or `NEXUS_TILELANG_DEVICE_CACHE`).
 
 The panel and terminal report preparation time, loaded-runtime reuse, and numbers
 of lowerings/libraries reused or built. A warm launch still imports Python, checks
