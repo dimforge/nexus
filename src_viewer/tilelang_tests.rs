@@ -168,7 +168,7 @@ fn metal_live_adapter() {
 }
 
 async fn exercise_cache(backend_type: BackendType) {
-    let (mut state, _) = scene();
+    let (mut state, body) = scene();
     let mut opts = super::options(backend_type, 32).unwrap();
     opts.kernel_cache = Some(opts.workspace.with_extension("kernel-cache"));
     let cache = opts.kernel_cache.clone();
@@ -311,6 +311,30 @@ async fn exercise_cache(backend_type: BackendType) {
         bytemuck::cast_slice::<Pose, u8>(&plain_driver.poses),
         expected
     );
+    // Exercise collision preparation, contact matching, warmstarts and solving
+    // through both native-library paths, including reset after nonempty contacts.
+    let slot = state.rigid_body_gpu_index(0, body).unwrap() as usize;
+    for simulation in [&mut driver.simulation, &mut plain_driver.simulation] {
+        simulation.reset().unwrap();
+        simulation
+            .set_body_poses(slot, &[Pose::from_translation(Vec3::new(0.0, 0.49, 0.0))])
+            .unwrap();
+    }
+    for _ in 0..8 {
+        driver.simulation.step().unwrap();
+        plain_driver.simulation.step().unwrap();
+        assert_eq!(
+            bytemuck::cast_slice::<Pose, u8>(&driver.simulation.body_poses().unwrap()),
+            bytemuck::cast_slice::<Pose, u8>(&plain_driver.simulation.body_poses().unwrap())
+        );
+        assert_eq!(
+            bytemuck::cast_slice::<Velocity, u8>(&driver.simulation.velocities().unwrap()),
+            bytemuck::cast_slice::<Velocity, u8>(&plain_driver.simulation.velocities().unwrap())
+        );
+    }
+    assert!(driver.simulation.read_words("OldCounts").unwrap()[0] > 0);
+    driver.simulation.reset().unwrap();
+    assert_eq!(driver.simulation.read_words("OldCounts").unwrap()[0], 0);
 }
 
 #[test]

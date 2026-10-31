@@ -118,6 +118,37 @@ CompilationSession(persistent_cache=cache).lower(make_kernel({"rows":2,"storage"
                 )
                 self.assertEqual(lower.call_count, 3)
 
+    def test_repeated_stages_load_identical_libraries_only_once(self):
+        import copy
+        import frame_cpu
+        from test_frame_cpu import variant
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            v = variant(8)
+            stage = copy.deepcopy(v["manifest"]["program"]["stages"][-1])
+            stage.update(name="again", source="again.c")
+            v["manifest"]["program"]["stages"].append(stage)
+            v["sources"]["again.c"] = v["sources"]["commit.c"]
+            payload = KernelCache(root / "cache", compiler_identity={}).c_library(
+                v["sources"]["commit.c"], stage["bindings"]
+            )
+            v["libraries"] = {}
+            for name in ("commit.c", "again.c"):
+                path = root / (name + ".native")
+                path.write_bytes(payload)
+                v["libraries"][name] = path
+            with patch.object(
+                frame_cpu, "load_c_library", wraps=frame_cpu.load_c_library
+            ) as load:
+                session = frame_cpu.CpuFrameSession([v], root)
+                session.step()
+                self.assertEqual(session.storage["State"][0], 44)
+                session.reset()
+                session.step()
+                self.assertEqual(session.storage["State"][0], 44)
+                self.assertEqual(load.call_count, 1)
+
     def test_cached_c_library_executes_with_fresh_state_and_changed_source(self):
         import numpy as np
         import replay

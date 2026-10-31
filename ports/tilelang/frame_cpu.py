@@ -26,6 +26,7 @@ class CpuFrameSession:
         self.variants = variants
         self.compiler = CompilationSession()
         self.loaded_programs = {}
+        self.loaded_libraries = {}
         self.current = 0
         self.steps = 0
         self.poisoned = False
@@ -129,18 +130,29 @@ class CpuFrameSession:
         if index in self.loaded_programs:
             return self.loaded_programs[index]
         v = self.variants[index]
-        result = [
-            load_c_library(
-                v["libraries"][s["source"]],
-                s["bindings"],
-                {"runtime": "cached native TileLang C++"},
-            )
-            if s["source"] in v.get("libraries", {})
-            else self.compiler.compile_c(
-                v["sources"][s["source"]], s["bindings"], self.directory
-            )
-            for s in v["manifest"]["program"]["stages"]
-        ]
+        result = []
+        for stage in v["manifest"]["program"]["stages"]:
+            source, bindings = stage["source"], stage["bindings"]
+            library = v.get("libraries", {}).get(source)
+            if library is None:
+                compiled = self.compiler.compile_c(
+                    v["sources"][source], bindings, self.directory
+                )
+            else:
+                # The same kernel appears in many solver passes. Loading copied
+                # library files separately repeats loader/signature work. Exact
+                # bytes and ABI equality let all those passes share one handle.
+                key = (
+                    Path(library).read_bytes(),
+                    bindings["entry"],
+                    tuple(bindings["buffers"]),
+                )
+                if key not in self.loaded_libraries:
+                    self.loaded_libraries[key] = load_c_library(
+                        library, bindings, {"runtime": "cached native TileLang C++"}
+                    )
+                compiled = self.loaded_libraries[key]
+            result.append(compiled)
 
         self.loaded_programs[index] = result
         return result
