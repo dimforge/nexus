@@ -87,6 +87,17 @@ def changes(previous, current):
 
 
 def evidence_state(root, report, inputs):
+    return _evidence_state(root, report, inputs)
+
+
+def smoke_evidence_state(root, report, inputs, selected_cases):
+    """Validate an explicit subset without making it full qualification evidence."""
+    if not selected_cases:
+        return "incomplete"
+    return _evidence_state(root, report, inputs, selected_cases)
+
+
+def _evidence_state(root, report, inputs, selected_cases=None):
     if report.get("schema") != 1 or report.get("feature") not in {
         f["id"] for f in manifest(root)["features"]
     }:
@@ -97,12 +108,21 @@ def evidence_state(root, report, inputs):
         or any(c.get("status") != "passed" for c in report["cases"])
     ):
         return "failed"
-    if report.get("suite") != "portable":
+    suite = "portable" if selected_cases is None else "representative_smoke"
+    if report.get("suite") != suite:
         return "diagnostic_only"
     feature = next(
         f for f in manifest(root)["features"] if f["id"] == report["feature"]
     )
     required_cases = feature_contract(root, feature)["required_cases"]
+    if selected_cases is not None:
+        if (
+            len(set(selected_cases)) != len(selected_cases)
+            or not set(selected_cases).issubset(required_cases)
+            or report.get("selected_cases") != list(selected_cases)
+        ):
+            return "incomplete"
+        required_cases = selected_cases
     names = [c.get("name") for c in report["cases"]]
     if len(names) != len(set(names)) or set(names) != set(required_cases):
         return "incomplete"

@@ -16,3 +16,10 @@ features and known numerical gaps visible in the contract and generated report.
 Keep TileLang shader paths under `ports/tilelang/shaders` as close to 1-to-1
 with `src_rbd_shaders` as practical, preserving corresponding Rust symbol names.
 Keep replay/build/evidence tooling outside the mirrored shader tree.
+
+Routine TileLang validation uses `python ports/tilelang/smoke.py` (one backend,
+under five minutes). Never run the full parity matrix, exhaustive Python suite,
+or full reconciliation unless the user explicitly requests that run. A request
+to continue the port or validate a change is not such a request. Use focused
+regressions for changed behavior, and report the full baseline as stale when it
+is stale. See `ports/tilelang/AGENTS.md` for the opt-in qualification workflow.

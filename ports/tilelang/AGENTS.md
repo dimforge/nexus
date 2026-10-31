@@ -22,21 +22,33 @@
 5. Classify the change under `changes/` as port, feature, bugfix, refactor,
    optimization, numerical, abi, tooling, or test. Explain semantic effects,
    regressions, and intentional differences. Use a new record for a new change.
-6. Run the stdlib parity tests, Rust fmt/clippy, and `replay.py --target c`.
-   The runner rebuilds the current Rust oracle; do not substitute cached golden
-   output. Run `test_replay.py` against the generated fixtures. Run Metal when
-   available. Use `--compile-only` for source-lowering checks of other targets;
-   those results are not execution or vendor-toolkit compilation evidence.
-7. Reconcile using the new change record and current execution reports. Merely
-   editing hashes, loosening tolerances, or deleting a failing case is not a fix.
-   `contract.json` is hashed; adding/removing cases and changing tolerances must
-   have an explicit explanation. Keep every zero-distance stress case required in
-   `solve_boundary`; follow `BOUNDARY_NUMERICS.md` for its scoped branch policy.
-8. Finish with `parity.py check`. Missing hardware results remain unvalidated;
-   old results remain stale after relevant changes. The default check accepts
-   the documented experimental pilot. `--release` also rejects blocking gaps.
-   Report actual scope and limitations, including current full-matrix status and
-   unavailable Ascend execution.
+6. Routine validation is `python ports/tilelang/smoke.py` (C by default), with
+   a shared 290-second execution budget. Use `--target metal` when the change is
+   Metal-specific; choose one backend per routine pass. It executes 11 explicit
+   representative cases against freshly exported Rust outputs and focused
+   cache/runtime/tooling regressions. The budget includes rebuilds, export and
+   compilation; prepare the toolchain/dependencies once as described in README.
+   Add focused regressions for changed behavior. Run Rust fmt/clippy for Rust edits.
+7. The user explicitly requires the full matrix to run ONLY on their request.
+   Do not run `matrix.py --full`, the exhaustive Python suite, expensive ignored
+   runtime tests, or full reconciliation automatically after edits, for completion,
+   or because a stale baseline is reported. Do not invoke every runner separately
+   to bypass this restriction. CI full qualification is manual-only as well.
+8. Report the smoke scope and actual elapsed time. A passing smoke is partial
+   validation, never complete parity. Keep `parity.py report` honest: old evidence
+   stays stale, and the baseline remains unchanged until a requested full run.
+   A timeout is a failed/incomplete smoke, never success or permission to increase
+   the budget, omit cases, or start the full matrix. Diagnose with focused tests.
+
+When the user explicitly requests full qualification, use `matrix.py --full` for
+requested targets, the exhaustive regressions, then reconcile with the new change
+record and finish with `parity.py check`. Reconciliation still requires complete
+current execution reports. Merely editing hashes, loosening tolerances, or deleting
+a failing case is not a fix. `contract.json` is hashed; case/tolerance changes need
+an explicit explanation. Keep every zero-distance stress case in `solve_boundary`
+and follow BOUNDARY_NUMERICS.md. Missing hardware remains unvalidated;
+`--release` rejects blocking gaps. Source lowering is not vendor compilation or
+execution evidence. The quick suite never relaxes these qualification gates.
 
 `reference/Cargo.lock` and compiler requirements are tracked deliberately. A
 compiler/runtime upgrade is a change requiring revalidation. Reports identify the

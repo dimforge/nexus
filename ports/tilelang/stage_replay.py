@@ -33,11 +33,29 @@ def parse_args(operations, default):
         "--target", choices=["c", "metal", "ascend", "cuda"], default="c"
     )
     parser.add_argument("--compile-only", action="store_true")
+    parser.add_argument(
+        "--case",
+        action="append",
+        dest="selected_cases",
+        help="Run this case only (repeatable); reports are diagnostic smoke evidence",
+    )
     parser.add_argument("--output", type=Path, default=HERE / "results")
     args = parser.parse_args()
     if args.target in ("ascend", "cuda") and not args.compile_only:
         parser.error("CUDA/Ascend execution is unavailable; use --compile-only")
     return args
+
+
+def select_cases(cases, requested):
+    if requested is None:
+        return cases
+    by_name = {case["name"]: case for case in cases}
+    if not requested or len(set(requested)) != len(requested):
+        raise ValueError("Smoke selection must be nonempty and unique")
+    missing = set(requested) - by_name.keys()
+    if missing:
+        raise ValueError(f"Unknown smoke cases: {sorted(missing)}")
+    return [by_name[name] for name in requested]
 
 
 def run_stage(
@@ -75,10 +93,14 @@ def run_stage(
     fixtures = output / f"fixtures/{args.operation}"
     suite = json.loads((fixtures / "suite.json").read_text())
     contract = json.loads((HERE / f"contracts/{args.operation}.json").read_text())
+    selected = getattr(args, "selected_cases", None)
+    cases = select_cases(suite["cases"], selected)
+    if selected is not None:
+        report["selected_cases"] = selected
     report.update(
         feature=contract["feature"],
         inputs=inputs,
-        suite="portable",
+        suite="portable" if selected is None else "representative_smoke",
         level="source_lowered" if args.compile_only else "executed",
         reference_commit=run(["git", "-C", ROOT, "rev-parse", "HEAD"]),
         layout_sha256=hashlib.sha256(
@@ -112,7 +134,7 @@ def run_stage(
         runner = (
             build_native() if args.target == "metal" and not args.compile_only else None
         )
-        for case in suite["cases"]:
+        for case in cases:
             active_case = case["name"]
             directory = fixtures / case["name"]
             before = {

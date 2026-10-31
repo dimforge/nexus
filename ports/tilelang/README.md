@@ -57,7 +57,7 @@ those capabilities. Watching a Rust file does not imply coverage of all its
 features. Keep paired Rust bug fixes, port changes, new features, numerical policies
 and intentional differences distinguishable in classified `changes/` records.
 
-## Run the complete local matrix
+## Routine checks: under five minutes
 
 Use Python 3.13, a C++17 compiler and the pinned requirements. The portable compiler
 is TileLang 0.1.15. Rust fixture export uses 1.98.1 through `cpu_oracle.py`; the
@@ -66,8 +66,56 @@ standalone Metal replay adapter has its own pinned toolchain. Run from the root:
 ```sh
 python3 -m venv ports/tilelang/.venv
 ports/tilelang/.venv/bin/python -m pip install -r ports/tilelang/requirements.txt
-ports/tilelang/.venv/bin/python ports/tilelang/matrix.py --target c
-ports/tilelang/.venv/bin/python ports/tilelang/matrix.py --target metal
+# One-time dependency/oracle build (not part of the timed test pass):
+python3 ports/tilelang/cpu_oracle.py build --locked \
+  --bin bodies --bin colored --bin joints --bin collision --bin twist
+# Routine test pass; use --target metal instead for Metal-specific changes:
+ports/tilelang/.venv/bin/python ports/tilelang/smoke.py
+```
+
+The default smoke executes **11 representative Rust/TileLang comparisons** on one
+backend, plus small cache, frame-control, runtime-service and runner regressions:
+
+| Area | Selected cases |
+| --- | --- |
+| `free_step` | Empty dispatch, 65 bodies with a workgroup tail, three batches |
+| `colored_program` | Multiple batches/colors and shared static bodies |
+| `joint_program` | 12 joints across three batches |
+| `analytic_collision` | Mixed shapes, rotated boxes, collision filters |
+| `twist_solve` | Bias/friction response and a 65-row workgroup tail |
+
+`smoke.py --list` prints exact case IDs. The selection uses the existing fixture
+exporters and comparisons, preserving contract float tolerances, exact
+IDs/counters and guard checks. Rust expected outputs are exported fresh with
+mutable-reference noalias disabled. Shader lowering and target compilation run
+fresh; it does not reuse old physics outputs. Selected-case reports are marked
+`representative_smoke` and are rejected by full parity reconciliation, even if a
+selected operation happens to contain every case.
+
+A single 290-second wall-clock budget covers all steps, including incremental
+builds, fixture export, compilation and tests. Timeout fails the run and kills its
+owned subprocess groups. Setup/downloads and the initial Rust dependency build
+are separate; unusually slow machines can still time out. `--budget-seconds` can
+only shorten the limit. Each invocation gets a fresh directory under
+`results-smoke/`, with step logs, operation reports and `smoke.json` timings.
+`--list` shows the fixed selection without running anything.
+
+The smoke covers integration, both contact friction models, colored dispatch,
+ordinary joints and analytic collision. It does **not** qualify long scene
+trajectories, exhaustive geometry/LBVH/hubs, the complete public runtime, or Ascend.
+For a change in an omitted area, run a focused regression for that area as well.
+A passing smoke never updates the full baseline or makes stale evidence current.
+
+## Full qualification: explicit request only
+
+Run the complete matrix, exhaustive Python regressions and full reconciliation
+**only when the user explicitly requests them**. Do not run them automatically
+while porting, fixing bugs, or finishing a task. The entry point requires `--full`:
+
+```sh
+# Only after an explicit request for the full run:
+ports/tilelang/.venv/bin/python ports/tilelang/matrix.py --full --target c
+ports/tilelang/.venv/bin/python ports/tilelang/matrix.py --full --target metal
 ports/tilelang/.venv/bin/python -m unittest discover -s ports/tilelang/tests -v
 ```
 
@@ -136,7 +184,9 @@ python3 ports/tilelang/inventory.py
 The conservative impact envelope covers Rust helpers/layouts, new and removed
 files, Python shaders, runtime/controller code, contracts, tests, compiler pins and
 maintenance documentation. Changing any watched input invalidates evidence. Add a
-new classified change record, regenerate the full matrix and regressions, then:
+new classified change record and run the smoke plus relevant focused regressions.
+Keep the full evidence stale until the user requests a full run. After that
+requested matrix and exhaustive regressions pass, reconcile:
 
 ```sh
 python3 ports/tilelang/parity.py reconcile \
@@ -152,9 +202,10 @@ it. A result certifies its recorded source, fixtures, toolchain and device only.
 `--release` rejects unresolved blocking gaps. `--require ascend` requires actual
 Ascend execution and cannot be satisfied by source lowering.
 
-The Linux workflow `.github/workflows/tilelang.yml` runs source/oracle checks,
-exhaustive C replay shards, corruption/return-protocol regressions and the public
-CPU runtime. Remote CI has not run while this branch remains local. No workflow
+The Linux workflow `.github/workflows/tilelang.yml` runs the bounded C smoke on
+push/PR, after dependency setup. Source/oracle checks, exhaustive replay shards,
+corruption/return-protocol regressions and the public CPU runtime run only through
+manual `workflow_dispatch` with `full_matrix` enabled. Remote CI has not run while this branch remains local. No workflow
 or local completion step authorizes a Git push.
 
 ## Prepare the Ascend handoff
@@ -167,7 +218,8 @@ macOS wheel alone lacks that backend. The stubs do not emulate hardware.
 
 ```sh
 python3 ports/tilelang/compiler.py /tmp/nexus-ascend-compiler
-/path/to/ascend-compiler/python ports/tilelang/matrix.py --target ascend --compile-only
+# Only when explicitly requested:
+/path/to/ascend-compiler/python ports/tilelang/matrix.py --full --target ascend --compile-only
 ```
 
 The source-build configuration has been exercised locally. The complete helper's

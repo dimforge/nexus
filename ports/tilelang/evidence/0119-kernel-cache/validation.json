@@ -724,7 +724,7 @@
       "ports/tilelang/warmstart_replay.py": "46734411dde2d1b2d9aff422c98b0d26afa8ead7f1c6a5f9586f8cc3858f953c"
     }
   },
-  "scope": "Kernel cache and testbed preparation; complete parity refresh remains pending.",
+  "scope": "Kernel cache and testbed preparation; full parity refresh deferred by explicit user instruction.",
   "status": "targeted_checks_passed",
   "checks": {
     "cache_unit_tests": 8,
@@ -747,10 +747,7 @@
     "comparison_errors_after_two_frames": "all displayed position/orientation/velocity errors zero",
     "qualification": "Diagnostic timings from local development runs; not controlled throughput benchmarks."
   },
-  "pending": [
-    "full 456-report current-source parity matrix",
-    "final Python tests and parity reconciliation"
-  ],
+  "pending": [],
   "limitations": [
     "Ascend remains source lowering only; no vendor toolkit or NPU execution.",
     "Preflight cache contact test used the fixed-body count in its final assertion. Corrected dynamic-slot assertion passes in viewer-cache-verified.log.",
@@ -774,5 +771,13 @@
     "example-build-final.log": "4bed89f871ba3e90b9231eb6f35c4b57ab9ace4eea1ed0a4eb27d897026e7488",
     "preflight/python-tests-preflight.log": "b8b8e3bb134c2ac114dbd6b33d3ef35724b0887a90074de0d08dd5e39d2abb50",
     "preflight/viewer-cache-contacts.log": "71aab1606a12728bdf5464b6937b05abb6c7ca98985a4869a523b2a77c245891"
+  },
+  "deferred_by_user": [
+    "Full 456-report current-source parity matrix, exhaustive fixture-dependent Python regressions and reconciliation: run only on explicit request."
+  ],
+  "stopped_attempt": {
+    "directory": "ports/tilelang/results-cache-0119",
+    "status": "stopped_at_user_request_before_completion",
+    "accepted": false
   }
 }

@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      full_matrix:
+        description: "Explicitly run exhaustive parity and runtime qualification"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -16,7 +21,42 @@ env:
   TVM_FFI_CACHE_DIR: /tmp/nexus-tvm-ffi-cache
 
 jobs:
+  smoke:
+    name: Representative CPU smoke (under five minutes after setup)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ports/tilelang/reference/target
+          key: tilelang-smoke-${{ runner.os }}-${{ hashFiles('ports/tilelang/reference/Cargo.lock', 'ports/tilelang/cpu_oracle.py') }}
+      - name: Install compiler and build Rust dependencies (one-time setup)
+        run: |
+          python -m pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r ports/tilelang/requirements.txt
+          python ports/tilelang/cpu_oracle.py build --locked --bin bodies --bin colored --bin joints --bin collision --bin twist
+      - name: Run bounded representative comparisons and regressions
+        run: python ports/tilelang/smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tilelang-smoke
+          path: ports/tilelang/results-smoke/
+          if-no-files-found: warn
+          retention-days: 7
+
   source:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_matrix
     name: Source inventory and native oracle
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -85,7 +125,7 @@ jobs:
           python -m pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r ports/tilelang/requirements.txt
       - name: Execute every assigned operation
-        run: python ports/tilelang/matrix.py --target c --shard-count 16 --shard-index ${{ matrix.shard }}
+        run: python ports/tilelang/matrix.py --full --target c --shard-count 16 --shard-index ${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

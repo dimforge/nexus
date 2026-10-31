@@ -90,6 +90,25 @@ class ParityTests(unittest.TestCase):
         }
         parity.write_json(self.evidence, self.report)
 
+    def test_smoke_selection_never_satisfies_full_qualification(self):
+        self.report.update(suite="representative_smoke", selected_cases=["case"])
+        inputs = parity.evidence_inputs(self.root)
+        self.assertEqual(
+            parity.smoke_evidence_state(self.root, self.report, inputs, ["case"]),
+            "executed",
+        )
+        self.assertEqual(
+            parity.evidence_state(self.root, self.report, inputs), "diagnostic_only"
+        )
+        for selection in ([], ["typo"], ["case", "case"]):
+            self.assertNotEqual(
+                parity.smoke_evidence_state(self.root, self.report, inputs, selection),
+                "executed",
+            )
+        parity.write_json(self.evidence, self.report)
+        with self.assertRaises(ValueError):
+            self.accept()
+
     def accept(self):
         with patch.object(parity.subprocess, "run"):
             return parity.reconcile(self.root, self.change, [self.evidence])

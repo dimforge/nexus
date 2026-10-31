@@ -96,7 +96,16 @@ def main():
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--list", action="store_true")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Explicitly requested exhaustive run (routine work uses smoke.py)",
+    )
     args = parser.parse_args()
+    if not args.list and not args.full:
+        parser.error(
+            "Full matrix is opt-in: use smoke.py for routine checks; pass --full only when the user explicitly requests exhaustive parity"
+        )
     groups = partitions(features(), args.shard_count)
     if not 0 <= args.shard_index < args.shard_count:
         parser.error("Shard index must be in [0, shard count)")
