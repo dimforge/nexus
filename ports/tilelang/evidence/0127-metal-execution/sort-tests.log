@@ -1,0 +1,7 @@
+test_bounded_sort_matches_rust_order_and_exact_workspace (test_execution_optimizations.ExecutionOptimizations.test_bounded_sort_matches_rust_order_and_exact_workspace) ... ok
+test_sort_digit_boundaries_reserve_inert_sentinel (test_execution_optimizations.ExecutionOptimizations.test_sort_digit_boundaries_reserve_inert_sentinel) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 16.623s
+
+OK

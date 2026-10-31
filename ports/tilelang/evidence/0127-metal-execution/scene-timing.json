@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/private/tmp/nexus-tilelang-probe-20261029/bin/python",
+    "ports/tilelang/runtime_replay.py",
+    "--target",
+    "metal",
+    "--case",
+    "multi-collider-joint-f8",
+    "--output",
+    "/private/tmp/nexus-tilelang-execution-probe-20261031/scene"
+  ],
+  "seconds": 154.04523849999532,
+  "code": -15
+}

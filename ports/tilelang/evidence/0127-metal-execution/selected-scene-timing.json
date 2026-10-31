@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/private/tmp/nexus-tilelang-probe-20261029/bin/python",
+    "/private/tmp/nexus-tilelang-execution-probe-20261031/selected_scene.py"
+  ],
+  "seconds": 154.60493466607295,
+  "code": 0
+}

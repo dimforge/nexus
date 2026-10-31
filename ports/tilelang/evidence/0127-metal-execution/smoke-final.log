@@ -1,0 +1,8 @@
+Smoke output: /private/tmp/nexus-tilelang-execution-probe-20261031/smoke-final/metal-nw8rcvt8
+Smoke: unit-regressions (0.1s elapsed)
+Smoke: free_step (97.1s elapsed)
+Smoke: colored_program (99.5s elapsed)
+Smoke: joint_program (110.8s elapsed)
+Smoke: analytic_collision (128.7s elapsed)
+Smoke: twist_solve (160.8s elapsed)
+Smoke passed: 163.2s; /private/tmp/nexus-tilelang-execution-probe-20261031/smoke-final/metal-nw8rcvt8/smoke.json

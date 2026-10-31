@@ -1,0 +1,106 @@
+{
+  "initial_buffers": 161,
+  "initial_buffers_identical": true,
+  "frames": [
+    {
+      "frame": 1,
+      "before_sha256": "967e5acfc6e87357b20e9160e26fc8f6953622464ed13e358ff659512eae81a2",
+      "after_sha256": "967e5acfc6e87357b20e9160e26fc8f6953622464ed13e358ff659512eae81a2",
+      "bitwise_equal": true,
+      "active_manifolds": 0
+    },
+    {
+      "frame": 2,
+      "before_sha256": "1383eca8b0efb100b6646ff815e32315deceb117d82d85b9b0abe022f252725e",
+      "after_sha256": "1383eca8b0efb100b6646ff815e32315deceb117d82d85b9b0abe022f252725e",
+      "bitwise_equal": true,
+      "active_manifolds": 0
+    },
+    {
+      "frame": 3,
+      "before_sha256": "1e298b9d4c86ca7388da8830fcbcfb9b30e51cd8a4603556dff9e156bd9dc304",
+      "after_sha256": "1e298b9d4c86ca7388da8830fcbcfb9b30e51cd8a4603556dff9e156bd9dc304",
+      "bitwise_equal": true,
+      "active_manifolds": 0
+    },
+    {
+      "frame": 4,
+      "before_sha256": "52ca4c38a597f1e2759fc3bc51407b868ea38ddf66e5ac221a5b4e83a3557ce9",
+      "after_sha256": "52ca4c38a597f1e2759fc3bc51407b868ea38ddf66e5ac221a5b4e83a3557ce9",
+      "bitwise_equal": true,
+      "active_manifolds": 0
+    },
+    {
+      "frame": 5,
+      "before_sha256": "af0ebde1052c472db88707354a55da833ece90c24dbad9a44f81b0a9e57520cd",
+      "after_sha256": "af0ebde1052c472db88707354a55da833ece90c24dbad9a44f81b0a9e57520cd",
+      "bitwise_equal": true,
+      "active_manifolds": 3
+    },
+    {
+      "frame": 6,
+      "before_sha256": "600fcb16376fddce68700b0534f42d2b62ef138c55146a70b147a88a54fdd116",
+      "after_sha256": "600fcb16376fddce68700b0534f42d2b62ef138c55146a70b147a88a54fdd116",
+      "bitwise_equal": true,
+      "active_manifolds": 3
+    },
+    {
+      "frame": 7,
+      "before_sha256": "2bd4ef793da9c66a808ee75896fe176ec8b6d6d01804f43bae12ed7c0dfe6799",
+      "after_sha256": "2bd4ef793da9c66a808ee75896fe176ec8b6d6d01804f43bae12ed7c0dfe6799",
+      "bitwise_equal": true,
+      "active_manifolds": 3
+    },
+    {
+      "frame": 8,
+      "before_sha256": "6d472feb17ad17003edd3dc9e52bf88cacd7b2e72fb83959f71f9e5b602da4de",
+      "after_sha256": "6d472feb17ad17003edd3dc9e52bf88cacd7b2e72fb83959f71f9e5b602da4de",
+      "bitwise_equal": true,
+      "active_manifolds": 3
+    },
+    {
+      "frame": 9,
+      "before_sha256": "31f96323a5bad6092b8f84cf2ecead1933d71ab02e98f54b617a2e9a8ac116c7",
+      "after_sha256": "31f96323a5bad6092b8f84cf2ecead1933d71ab02e98f54b617a2e9a8ac116c7",
+      "bitwise_equal": true,
+      "active_manifolds": 6
+    },
+    {
+      "frame": 10,
+      "before_sha256": "e9180654c57cb9f2e19ab8bbf314490847f648142f2e449dd4bcae1a079a6d2d",
+      "after_sha256": "e9180654c57cb9f2e19ab8bbf314490847f648142f2e449dd4bcae1a079a6d2d",
+      "bitwise_equal": true,
+      "active_manifolds": 7
+    },
+    {
+      "frame": 11,
+      "before_sha256": "3ba835c269cb9c0ddd91134ed31698cef91a0def8657bfadffdd0d871be64be4",
+      "after_sha256": "3ba835c269cb9c0ddd91134ed31698cef91a0def8657bfadffdd0d871be64be4",
+      "bitwise_equal": true,
+      "active_manifolds": 10
+    },
+    {
+      "frame": 12,
+      "before_sha256": "5fb1b00752ebda08e0f15ff05c3284a0ba682ed5d6ae14f5a6952834f190b55d",
+      "after_sha256": "5fb1b00752ebda08e0f15ff05c3284a0ba682ed5d6ae14f5a6952834f190b55d",
+      "bitwise_equal": true,
+      "active_manifolds": 10
+    }
+  ],
+  "compared_buffer_snapshots": 1932,
+  "all_frame_buffers_bitwise_equal": true,
+  "source_manifests": {
+    "before": {
+      "frame.json": "d51bccdcf4475576db6a64ac774b04ade34f32e152dfeee918bc2ec5b4e5456c",
+      "layout.json": "ed47bbd5b43049bab59a1d29bbb71b6a1f9ab6553a4981f52f5a98a386c4f7fb",
+      "case.json": "bed6416f17d1a41d36b53c0481be45efe0b7a796a0b42353277e5b3e13f97710",
+      "specialization.json": "a781a5ebc127c04764166129f9142b606c38dfd577c0cf67f7be99af8ea2936c"
+    },
+    "after": {
+      "frame.json": "2042ce28feded3034c3dad8f0ac82f63cc88feeb790dad95300dd9ce2e26a139",
+      "layout.json": "ed47bbd5b43049bab59a1d29bbb71b6a1f9ab6553a4981f52f5a98a386c4f7fb",
+      "case.json": "bed6416f17d1a41d36b53c0481be45efe0b7a796a0b42353277e5b3e13f97710",
+      "specialization.json": "4a3af258b94ec409269d02f5dd0ed0e0bf11d431b6b44299c8217e883b3dabc1"
+    }
+  }
+}

@@ -313,6 +313,11 @@
       "id": "native-runtime-public-integration",
       "blocks_release": false,
       "description": "Implemented by the public Rust TileLangSimulation API: adaptive capacity/coloring, live controls, checkpoints, solver/model changes and scene reconstruction. Native runtime tests and checkpoints 0085-0088, 0096 and 0103 cover these paths; current-source full runtime acceptance remains mandatory under COMPLETION.md. This operation alone does not qualify the public API or Ascend execution."
+    },
+    {
+      "id": "testbed-contact-reference-divergence",
+      "blocks_release": true,
+      "description": "Open finding from change 0127: the 19-body TileLang comparison example after 12 frames reports maximum position difference 0.025307816 m and linear-velocity difference 2.000419 m/s against the independently stepping Rust CPU reference (mutable noalias disabled). Optimized and previous TileLang Metal schedules produce bitwise-identical buffers in the corresponding controlled 12-frame replay, so performance preservation is established but full production parity is not. Diagnose the first divergent frame/state before closing this gap; do not widen tolerances. See evidence/0127-metal-execution/README.md."
     }
   ]
 }
