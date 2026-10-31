@@ -1,0 +1,16 @@
+   Compiling nexus_viewer3d v0.7.0 (/Users/sebcrozet/work/worktrees/nexus/tilelang-parity/crates/nexus_viewer3d)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.89s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests ../../src_viewer/lib.rs (target/debug/deps/nexus_viewer3d-3a857ac10f824079)
+
+running 4 tests
+test tilelang::tests::comparison_checks_rotation_sign_and_nonfinite_state ... ok
+test tilelang::tests::c_live_adapter has been running for over 60 seconds
+test tilelang::tests::metal_live_adapter has been running for over 60 seconds
+test tilelang::tests::metal_live_adapter ... ok
+test tilelang::tests::unrelated_backend_is_rejected ... ok
+test tilelang::tests::c_live_adapter ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 176.05s
+

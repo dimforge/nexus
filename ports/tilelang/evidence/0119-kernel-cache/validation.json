@@ -734,7 +734,8 @@
     "c_metal_cache_and_contact_tests": 2,
     "viewer_ui_transition_tests": 1,
     "runtime_specializations_audited": 10,
-    "runtime_artifacts_verified": 8614
+    "runtime_artifacts_verified": 8614,
+    "viewer_live_and_unit_tests": 4
   },
   "measurements": {
     "fixture": "19-body TileLang comparison demo, Metal, two simulation frames",
@@ -747,7 +748,6 @@
     "qualification": "Diagnostic timings from local development runs; not controlled throughput benchmarks."
   },
   "pending": [
-    "live-control integration rerun",
     "full 456-report current-source parity matrix",
     "final Python tests and parity reconciliation"
   ],
@@ -758,11 +758,12 @@
   ],
   "files": {
     "testbed-warm.log": "6112c42b666ebd5869b40ca30b0609f4e649ec8a214b7328f962f88add28cbb2",
-    "ui-tests-final.log": "1739fe99d8ba5017363f1c36fa566cde134f873161503d3429470dc19af692a0",
+    "ui-tests-final.log": "1266ca0e51c71aee408470c9156cb8793e93f01ca92d11ba64d8b93ea8484a2f",
     "cache-tests-final.log": "7ba653d853dd7236612af8215061eacfbd0a851e0f8a0241ef51fe1b68830251",
     "service-tests.log": "5303c264e11521849f36f56e7ee9d7c43359f5ee60ca1d8ba706e376262ee63c",
     "native-tests-final.log": "368936ee8acbf3b818324851dcaac9710f1def88ad5701ff217e10224c4612fe",
-    "viewer-clippy-final.log": "4c01f150eff39ebd0d0eeceb7318c441b20b95214b29c7f1946d51cbcb013365",
+    "viewer-clippy-final.log": "5a237c2f995b26784797ea0e8cda7b4b6302520b2c50f7eeb2ef3731ab966ed0",
+    "viewer-live-final.log": "e549d03154f937ccdfcf0c4fc786cdaf04819c819248b8c2a54aa54a0e2e37a4",
     "viewer-cache-verified.log": "074b06d699738310fd7b46a984fe015cb0dcc6e9cda7ea3d98d1129e8e925340",
     "testbed-cold.log": "4c3017dfd8b8f34d60bca3f650979f95fd5fd8603151bec8d32a1eca1388bba7",
     "cache-artifact-audit.json": "b7676775ec180c2584d2455247a6cfed9d4386b6b9d1f65e06ec10211cb008d4",
