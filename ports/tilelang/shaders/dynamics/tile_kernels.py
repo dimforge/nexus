@@ -2,7 +2,7 @@
 
 Direct solve/warmstart adapters still supply one disjoint color. Cache scaling,
 ordered body gathering and split-slot warmstart use runtime native graph buffers;
-production color schedules and complete frame stepping remain separate work.
+Metal small-scene fused colors share the ordinary per-constraint arithmetic.
 """
 
 import tilelang.language as T
@@ -381,6 +381,43 @@ def _colored_constraint_body(layout, case, operation):
     groups = case["groups"]
 
     @T.macro
+    def constraint(Tiles, Velocities, Poses, Params, Mode, index):
+        if operation == "colored_warmstart":
+            warmstart(Tiles, Velocities, Poses, Params, index)
+        elif operation == "colored_cached":
+            unbiased(Tiles, Velocities, Poses, Params, index)
+            cache(Tiles, index)
+        else:
+            if Mode[0] == T.uint32(0):
+                unbiased(Tiles, Velocities, Poses, Params, index)
+            elif Mode[0] == T.uint32(1):
+                biased(Tiles, Velocities, Poses, Params, index)
+            else:
+                both(Tiles, Velocities, Poses, Params, index)
+
+    if case.get("fused_colors", False):
+
+        @T.macro
+        def fused(Tiles, Velocities, Poses, RbdParams, Buckets, BatchIds, Color, Mode, gid):
+            Params = T.alloc_local((6,), "float32")
+            coefficients(RbdParams, Params)
+            nb = T.Cast("int32", BatchIds[batch["num_batches"]])
+            batch_id = gid // 64
+            lane = gid % 64
+            for color in T.serial(1, T.Cast("int32", Color[0]) + 1):
+                start = T.Cast("int32", Buckets[color * nb + batch_id - 1])
+                end = T.Cast("int32", Buckets[color * nb + batch_id])
+                for chunk in T.serial(T.ceildiv(end - start, 64)):
+                    index = start + lane + chunk * 64
+                    if index < end:
+                        constraint(Tiles, Velocities, Poses, Params, Mode, index)
+                # Uniform even for empty colors. Metal's ordinary shared-memory
+                # barrier is insufficient: the next color reads device velocities.
+                T.evaluate(T.call_extern("int32", "nexus_color_barrier"))
+
+        return fused
+
+    @T.macro
     def one(Tiles, Velocities, Poses, RbdParams, Buckets, BatchIds, Color, Mode, gid):
         Params = T.alloc_local((6,), "float32")
         coefficients(RbdParams, Params)
@@ -388,24 +425,28 @@ def _colored_constraint_body(layout, case, operation):
         color = T.Cast("int32", Color[0])
         start = T.Cast("int32", Buckets[color * nb - 1])
         end = T.Cast("int32", Buckets[(color + 1) * nb - 1])
-        index = T.alloc_local((1,), "int32")
         for chunk in T.serial(T.ceildiv(end - start, groups * 64)):
-            index[0] = start + gid + chunk * groups * 64
-            if index[0] < end:
-                if operation == "colored_warmstart":
-                    warmstart(Tiles, Velocities, Poses, Params, index[0])
-                elif operation == "colored_cached":
-                    unbiased(Tiles, Velocities, Poses, Params, index[0])
-                    cache(Tiles, index[0])
-                else:
-                    if Mode[0] == T.uint32(0):
-                        unbiased(Tiles, Velocities, Poses, Params, index[0])
-                    elif Mode[0] == T.uint32(1):
-                        biased(Tiles, Velocities, Poses, Params, index[0])
-                    else:
-                        both(Tiles, Velocities, Poses, Params, index[0])
+            index = start + gid + chunk * groups * 64
+            if index < end:
+                constraint(Tiles, Velocities, Poses, Params, Mode, index)
 
     return one
+
+
+def gpu_solve_constraints_fused(layout, case, target):
+    """Native all-color solve: one workgroup per independent batch, Metal only."""
+    validate_layout(layout)
+    from colored_kernels import make_kernel
+
+    return make_kernel(layout, dict(case, fused_colors=True), target, "colored_solve")
+
+
+def gpu_warmstart_constraints_fused(layout, case, target):
+    """Native all-color warmstart with device-memory ordering between colors."""
+    validate_layout(layout)
+    from colored_kernels import make_kernel
+
+    return make_kernel(layout, dict(case, fused_colors=True), target, "colored_warmstart")
 
 
 def _transfer_twist_contact_impulses(layout):

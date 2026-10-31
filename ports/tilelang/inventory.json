@@ -793,9 +793,11 @@
         "gpu_scale_constraint_impulses",
         "gpu_gather_warmstart_velocities",
         "gpu_hub_warmstart_constraints",
-        "gpu_solve_constraints_unbiased_cached"
+        "gpu_solve_constraints_unbiased_cached",
+        "gpu_solve_constraints_fused",
+        "gpu_warmstart_constraints_fused"
       ],
-      "remaining": "All active rigid contact stages are represented. Native fused/tail solve and fused warmstart are substituted by ascending separate-color launches; their dependency equivalence has a native differential regression. Public frame stepping uses scatter warmstart; cached gather and hub variants have independent contracts. Ascend synchronization remains untested."
+      "remaining": "Metal small scenes use native-equivalent fused solve/warmstart with per-batch device barriers. Other targets, large scenes, cached fused and tail variants retain ordered color launches. Ascend synchronization remains unqualified."
     },
     {
       "reference": "src_rbd_shaders/dynamics/twist_friction.rs",

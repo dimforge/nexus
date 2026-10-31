@@ -76,7 +76,7 @@ then rejects further stepping.
 
 The integration remains experimental. Cold-start uploads do not preserve existing
 contact caches. Topo coloring, Coulomb and simplified twist friction, ordinary joints and LBVH
-form the current composed path, including native hub splitting. Native fused/tail dispatches use separate ordered colors in this backend;
+form the current composed path, including native hub splitting. Metal small scenes use fused solve/warmstart; other fused/tail variants use ordered colors;
 see the dispatch substitution below.
 No Ascend execution backend is claimed. `runtime_compile.py --target ascend`
 prepares source only for a future CANN execution adapter.
@@ -200,8 +200,17 @@ multiple colliders, mesh reduction, split hubs and large batch storage.
 
 ## Portable dispatch substitution
 
-The runtime dispatches colors in ascending order, with a device execution boundary
-between colors. Native fused kernels and the tail beginning at color 24 execute
+The runtime dispatches colors in ascending order. Metal scenes with allocated
+contact capacity at most 512 times the batch count use mirrored
+`gpu_solve_constraints_fused` and `gpu_warmstart_constraints_fused`: one 64-lane
+workgroup per batch, with a `mem_device` workgroup barrier between colors.
+Per-contact arithmetic, bias modes and read-only static velocities use the same
+helpers as separate launches. This heuristic limits serialized work; it differs
+from Rust's latest pair-count estimate because these manifests know capacities.
+Larger scenes and other targets retain wider, separate color dispatches. Cached
+fused and tail variants are still substituted by separate colors.
+
+Native fused kernels and the tail beginning at color 24 execute
 the same per-contact arithmetic and ascending order within one workgroup, using
 barriers between colors. For a valid coloring, contacts within one color have
 disjoint writable velocity slots; static slots are read-only. Different batches
@@ -242,3 +251,12 @@ compiler/export/runtime setup phases; `specialization.json` also retains per-ker
 lowering times. A program-cache hit always receives fresh native scene buffers.
 
 Metal execution batches each consecutive range between capacity gates in one command buffer with ordered compute passes. Metal resource tracking preserves dependencies between dispatches; explicit GPU fences cover untracked resources, including repeated kernel iterations. The host waits at gate/readback boundaries; it does not submit or wait per shader. Native allocation sizes and devices still validate before execution, while immutable manifest and binding checks are retained from construction.
+
+
+Contact canonicalization preserves subshape, collider B, collider A ordering.
+Subshape keys remain full-width. Collider keys use the known scene collider-count
+bound, rounded up to an even number of radix digits, reserving the all-ones key
+for inactive contacts. This removes high zero-byte passes while leaving the final
+permutation in the same buffer. Standalone fixtures without that bound keep the
+full-width workspace contract. Optimized scratch is checked independently; output
+contacts and stable permutations must match fresh Rust results exactly.

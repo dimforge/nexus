@@ -13,8 +13,9 @@
    slots only when both inverse mass and inverse inertia are zero; any read/write
    alias remains invalid. Cached gather writes one ordinary body per invocation;
    hub warmstart writes one split slot per invocation. Preparation only reads body
-   inputs, so shared indices are allowed there. Native fused/tail dispatches are represented by ordered color launches; see
-   NATIVE_RUNTIME.md and the native schedule-variants differential regression.
+   inputs, so shared indices are allowed there. Metal small scenes use fused solve/warmstart with per-batch device-memory
+   barriers; other targets, large scenes, cached fused and tail variants use
+   ordered color launches. See NATIVE_RUNTIME.md and schedule-variants tests.
    Ascend barriers and runtime synchronization still require device qualification.
 4. Add a regression for every bug fix. A bug discovered in Rust should be fixed
    there with the same regression, or recorded as an explicit unresolved

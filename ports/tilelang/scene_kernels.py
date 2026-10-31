@@ -320,6 +320,8 @@ def make_program(l, c, target):
         joint("joint_init")
     body("init_increments")
 
+    fused_colors = colored_kernels.fuse_scene_colors(c, target)
+
     def color(kind, col, mode):
         cm = identity(colored_kernels.BUFFERS)
         cm.update(
@@ -330,9 +332,15 @@ def make_program(l, c, target):
         )
         if kind not in cache:
             cache[kind] = colored_kernels.make_kernel(
-                l, local(cm, count=cap, groups=groups), target, kind
+                l, local(cm, count=cap, groups=groups, batches=nb, fused_colors=fused_colors),
+                target, kind
             )
-        add(kind, cache[kind], cm, groups)
+        add(kind, cache[kind], cm, nb if fused_colors else groups)
+
+    def colors(kind, mode):
+        selected = [c["color_stride"] - 2] if fused_colors else range(1, c["color_stride"] - 1)
+        for col in selected:
+            color(kind, col, mode)
 
     for _ in range(c["substeps"]):
         body("apply_increments")
@@ -375,16 +383,14 @@ def make_program(l, c, target):
                 cache["scale_impulses"] = warmstart_kernels.make_kernel(l, case, target)
             add("scale_impulses", cache["scale_impulses"], mapping, groups)
         hub("hub_scatter")
-        for col in range(1, c["color_stride"] - 1):
-            color("colored_warmstart", col, "Mode")
+        colors("colored_warmstart", "Mode")
         hub("hub_average")
         for _ in range(max(c["pgs"], 1)):
             if has_joints:
                 for col in range(c["joint_color_count"]):
                     joint("joint_solve", col, 1)
             hub("hub_scatter")
-            for col in range(1, c["color_stride"] - 1):
-                color("colored_solve", col, "Mode")
+            colors("colored_solve", "Mode")
             hub("hub_average")
         if "integrate" not in cache:
             cache["integrate"] = gpu_integrate_linearized(
@@ -405,8 +411,7 @@ def make_program(l, c, target):
             for col in range(c["joint_color_count"]):
                 joint("joint_solve", col, 0)
         hub("hub_scatter")
-        for col in range(1, c["color_stride"] - 1):
-            color("colored_solve", col, "Color0")
+        colors("colored_solve", "Color0")
         hub("hub_average")
     body("finalize")
     if "Trajectory" in sizes:

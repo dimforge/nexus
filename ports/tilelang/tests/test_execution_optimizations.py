@@ -14,6 +14,8 @@ from ordered import CompilationSession, execute_c_program, lower_program
 from replay import HERE, build_native, run
 import canonical_kernels
 import canonical_replay as canonical
+import colored_kernels
+import colored_replay as colored
 
 
 class ExecutionOptimizations(unittest.TestCase):
@@ -26,7 +28,6 @@ class ExecutionOptimizations(unittest.TestCase):
         cls.session = CompilationSession()
         cls.runner = build_native() if cls.target == "metal" else None
         cls.exports = {}
-        cls.sequence = 0
 
     def fixture(self, oracle, operation, name):
         if oracle not in self.exports:
@@ -47,9 +48,7 @@ class ExecutionOptimizations(unittest.TestCase):
         return layout, case, before, expected, contract
 
     def execute(self, plans, before, iterations=1):
-        self.sequence += 1
-        directory = self.root / f"execution-{self.sequence}"
-        directory.mkdir()
+        directory = Path(tempfile.mkdtemp(prefix="execution-", dir=self.root))
         sources, program = lower_program(plans, before, self.target,
                                          iterations=iterations, session=self.session)
         actual = {n: a.copy() for n, a in before.items()}
@@ -98,3 +97,51 @@ class ExecutionOptimizations(unittest.TestCase):
         for invalid in (-1, 2**32, True, 3.5):
             with self.assertRaises(ValueError):
                 canonical_kernels.radix_digits(1, invalid)
+
+    def test_fused_colors_match_fresh_rust_and_separate_metal(self):
+        if self.target != "metal":
+            self.skipTest("Fused device barriers are Metal-specific")
+        for oracle, op, name in (
+            ("colored", "colored_program", "w33-b3-m1-s21"),
+            ("colored", "colored_program", "w65-b2-m2-s22"),
+            ("colored", "colored_program", "w32-b2-m0-s20"),
+            ("colored", "colored_program", "w129-b1-m2-s42-shared-static"),
+            ("twist-colored", "twist_colored_program", "w33-b3-m1-s21"),
+            ("twist-colored", "twist_colored_program", "w65-b1-m2-s42-shared-static"),
+        ):
+            with self.subTest(operation=op, case=name):
+                l, c, b, e, k = self.fixture(oracle, op, name)
+                colored.validate_case(l, c, b)
+                original = colored_kernels.make_program(l, c, self.target)
+                optimized = colored_kernels.make_program(l, dict(c, fused_colors=True), self.target)
+                self.assertEqual(len(original), 15)
+                self.assertEqual(len(optimized), 7)
+                a, sources = self.execute(optimized, b, c["iterations"])
+                self.assertTrue(any("mem_flags::mem_device" in s for s in sources.values()))
+                colored.check_outputs(l, c, b, a, e, k)
+                separate, _ = self.execute(original, b, c["iterations"])
+                for field in b:
+                    np.testing.assert_array_equal(a[field], separate[field], err_msg=field)
+                if name == "w33-b3-m1-s21" and oracle == "colored":
+                    # Insert an empty color before the same three occupied colors.
+                    # Their ascending arithmetic and fresh Rust state stay unchanged.
+                    empty = {n: a.copy() for n, a in b.items()}
+                    empty["Buckets"] = np.concatenate((np.zeros(c["batches"], np.uint32), b["Buckets"]))
+                    for color in range(1, 4):
+                        empty[f"Color{color}"][0] += 1
+                    empty["BatchIds"][l["batch"]["solver_color_buckets_stride"]] += 1
+                    ec = dict(c, fused_colors=True,
+                              buffer_words={n: len(a) for n, a in empty.items()})
+                    ea, _ = self.execute(colored_kernels.make_program(l, ec, self.target), empty, c["iterations"])
+                    for field in b:
+                        want = empty[field] if field in ("Buckets", "BatchIds", "Color1", "Color2", "Color3") else separate[field]
+                        np.testing.assert_array_equal(ea[field], want, err_msg=field)
+
+    def test_fusion_policy_retains_wide_dispatches_for_large_capacity(self):
+        for batches in (1, 3, 64):
+            case = dict(batches=batches, contact_capacity=512*batches)
+            self.assertTrue(colored_kernels.fuse_scene_colors(case, "metal"))
+            for target in ("c", "ascend", "cuda"):
+                self.assertFalse(colored_kernels.fuse_scene_colors(case, target))
+            case["contact_capacity"] += 1
+            self.assertFalse(colored_kernels.fuse_scene_colors(case, "metal"))

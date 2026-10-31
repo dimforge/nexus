@@ -1,0 +1,34 @@
+{
+  "id": "0126-metal-fused-colors",
+  "features": [
+    "rbd.contact.coulomb.colored_solve3d",
+    "rbd.contact.coulomb.colored_warmstart3d",
+    "rbd.contact.coulomb.colored_cached3d",
+    "rbd.contact.coulomb.colored_program3d",
+    "rbd.pipeline.analytic_scene3d",
+    "rbd.pipeline.joint_scene3d",
+    "rbd.pipeline.general_scene3d",
+    "rbd.pipeline.runtime_scene3d",
+    "rbd.contact.twist.colored_solve3d",
+    "rbd.contact.twist.colored_warmstart3d",
+    "rbd.contact.twist.colored_cached3d",
+    "rbd.contact.twist.colored_program3d",
+    "rbd.pipeline.runtime_twist_scene3d"
+  ],
+  "kinds": [
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Mirror native fused solve and warmstart for small Metal scenes, sharing per-constraint arithmetic with wide color launches.",
+  "regressions": [
+    "Fresh Rust Coulomb and twist fixtures cover bias modes, multiple independent batches, shared static negative-zero velocities, partial workgroups and ranges exceeding 64 lanes.",
+    "Fused and separate Metal schedules compare every word exactly, including an inserted empty color.",
+    "Large contact capacities and non-Metal targets retain ordered wide dispatches."
+  ],
+  "differences": [
+    "A 512-contact average allocation heuristic selects Metal fusion; native Rust can use its latest pair-count estimate. This is a performance heuristic, not a correctness bound.",
+    "One workgroup per independent batch, ascending colors and explicit device-memory barriers preserve dependencies. Cached fused and tail variants remain substituted by separate launches. No physics formula, tolerance or Rust reference change.",
+    "Full matrix and Ascend device qualification remain deferred; baseline is not reconciled."
+  ]
+}
