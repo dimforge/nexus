@@ -204,7 +204,10 @@ def compute_silhouette(
     stack[0, 0] = id
     stack[0, 1] = opposite
     Success[0] = True
-    for iteration in T.serial(32):
+    iteration = T.alloc_local((1,), "int32")
+    iteration[0] = 0
+    while (iteration[0] < 32) & (length[0] > 0) & Success[0]:
+        iteration[0] = iteration[0] + 1
         if (length[0] > 0) & Success[0]:
             length[0] = length[0] - 1
             face = stack[length[0], 0]
@@ -473,7 +476,10 @@ def closest_points(l):
                 done[0] = 2
             else:
                 heap_peek(hids, hdist, counts, best, peek_dist)
-        for iteration in T.serial(100):
+        iteration = T.alloc_local((1,), "int32")
+        iteration[0] = 0
+        while (iteration[0] < 100) & (done[0] == 0):
+            iteration[0] = iteration[0] + 1
             if done[0] == 0:
                 if counts[3] == 0:
                     face_closest_points(

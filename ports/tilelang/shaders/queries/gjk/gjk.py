@@ -133,7 +133,10 @@ def closest_points(l):
         else:
             for d in T.serial(3):
                 old_dir[d] = -point[d] / initial_length
-        for iteration in T.serial(100):
+        iteration = T.alloc_local((1,), "int32")
+        iteration[0] = 0
+        while (iteration[0] < 100) & active[0]:
+            iteration[0] = iteration[0] + 1
             if active[0]:
                 old_bound = bound[0]
                 length = T.sqrt(dot(point, point))

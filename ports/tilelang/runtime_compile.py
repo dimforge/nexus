@@ -124,6 +124,9 @@ def specialize(
             [layout["shape_types"]["trimesh"], layout["shape_types"]["polyline"]],
         ).any()
     )
+    initial["BatchIds"][layout["batch"]["contact_sort_collider_shift"]] = max(
+        1, case["collider_count"].bit_length()
+    )
     validate_case(layout, case, initial)
     before = perf_counter()
     cache = None

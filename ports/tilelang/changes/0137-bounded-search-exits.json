@@ -1,0 +1,23 @@
+{
+  "id": "0137-bounded-search-exits",
+  "features": [
+    "rbd.broadphase.lbvh_build3d",
+    "rbd.broadphase.lbvh_escapes3d",
+    "rbd.query.gjk_closest3d",
+    "rbd.query.epa_closest3d",
+    "rbd.query.gjk_epa3d"
+  ],
+  "kinds": [
+    "optimization",
+    "test"
+  ],
+  "disposition": "behavior_unchanged",
+  "summary": "Stop inactive iterations in bounded GJK/EPA search, EPA silhouette traversal, and LBVH range/escape search while retaining native limits.",
+  "regressions": [
+    "Focused fresh-Rust GJK/EPA and LBVH build/escape fixtures plus loop-predicate assertions."
+  ],
+  "differences": [
+    "The split-position search still rounds t up as Rust does; cooperative refit loops still require all lanes at storage barriers and remain unchanged.",
+    "No tolerance, Rust physics or baseline changes; Metal evidence does not qualify Ascend/CUDA."
+  ]
+}

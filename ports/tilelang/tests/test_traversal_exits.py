@@ -89,6 +89,16 @@ class TraversalExits(unittest.TestCase):
         # Output parity alone cannot catch executing the inactive tail. Require
         # loop termination predicates, in addition to the execution checks above.
         checks = {
+            "queries/gjk/gjk.py": {
+                "closest_points": ("iteration[0] < 100", "active[0]")
+            },
+            "queries/gjk/epa3.py": {
+                "closest_points": ("iteration[0] < 100", "done[0] == 0")
+            },
+            "broad_phase/lbvh.py": {
+                "gpu_lbvh_build": ("searching[0]", "t[0] >= 1"),
+                "gpu_lbvh_escapes": ("escape_steps[0] < 64", "active[0]"),
+            },
             "broad_phase/narrow_phase.py": {
                 "composite_convex": (
                     "visited[0] < node_count",
@@ -123,3 +133,37 @@ class TraversalExits(unittest.TestCase):
                 for predicate in predicates:
                     with self.subTest(symbol=symbol, predicate=predicate):
                         self.assertIn(predicate, conditions)
+
+    def test_bounded_gjk_epa_exits(self):
+        import support_kernels
+        import support_validation
+        import epa_kernels
+        import epa_validation
+
+        for op, kernels, validation in (
+            ("gjk_closest", support_kernels, support_validation),
+            ("epa_closest", epa_kernels, epa_validation),
+            ("gjk_epa", epa_kernels, epa_validation),
+        ):
+            with self.subTest(operation=op):
+                self.checked("geometry", op, "n65", kernels, validation)
+
+    def test_bounded_lbvh_build_escape_exits(self):
+        import lbvh_kernels as kernels
+        import lbvh_validation as validation
+
+        for op in ("lbvh_build", "lbvh_escapes"):
+            for name in ("n129-b1-g1-duplicates", "n257-b2-g3-mixed"):
+                l, c, b, e, k = self.fixture("lbvh", op, name)
+                blocks, threads, _ = kernels.dimensions(c)
+                plans = [
+                    dict(
+                        name=op,
+                        kernel=kernels.make_kernel(l, c, self.target),
+                        blocks=blocks,
+                        threads=threads,
+                        buffer_map={n: n for n in kernels.BUFFERS},
+                    )
+                ]
+                a, _ = self.execute(plans, b)
+                validation.check_outputs(l, c, b, a, e, k)

@@ -239,7 +239,10 @@ def gpu_lbvh_build(l, groups):
                 delta = p[0]
                 lmax[0] = 2
                 searching[0] = True
-                for _ in T.serial(32):
+                search_steps = T.alloc_local((1,), "int32")
+                search_steps[0] = 0
+                while (search_steps[0] < 32) & searching[0]:
+                    search_steps[0] = search_steps[0] + 1
                     if searching[0]:
                         prefix(Keys, base, current, i, i + lmax[0] * d[0], n, p)
                         if p[0] > delta:
@@ -248,7 +251,10 @@ def gpu_lbvh_build(l, groups):
                             searching[0] = False
                 length[0] = 0
                 t[0] = lmax[0] // 2
-                for _ in T.serial(32):
+                range_steps = T.alloc_local((1,), "int32")
+                range_steps[0] = 0
+                while (range_steps[0] < 32) & (t[0] >= 1):
+                    range_steps[0] = range_steps[0] + 1
                     if t[0] >= 1:
                         prefix(
                             Keys, base, current, i, i + (length[0] + t[0]) * d[0], n, p
@@ -300,7 +306,10 @@ def gpu_lbvh_escapes(l, groups):
                 escape[0] = T.uint32(0xFFFFFFFF)
                 node[0] = i
                 active[0] = True
-                for _ in T.serial(64):
+                escape_steps = T.alloc_local((1,), "int32")
+                escape_steps[0] = 0
+                while (escape_steps[0] < 64) & active[0]:
+                    escape_steps[0] = escape_steps[0] + 1
                     if active[0]:
                         if node[0] == 0:
                             active[0] = False
