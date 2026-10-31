@@ -1,0 +1,2572 @@
+{
+  "schema": 1,
+  "suite": "cuda_vendor_compile",
+  "status": "passed",
+  "image": "nvidia/cuda:13.0.2-devel-ubuntu24.04@sha256:5dc1bca23d05bd37b011be68ec470c03b403a5da07ec3a86e41af9470e9d0cc6",
+  "device_execution": "not_run",
+  "full_matrix": "not_run",
+  "kernels": [
+    {
+      "stages": [
+        "reset_pair_count_0"
+      ],
+      "source_sha256": "7b5dcac1920a5ab958e55fb4a37145dea18dde4ec6cd32cc70e1e45e1a96a70b",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/0628630f05bd6b659f168b6513f0f083fb3f9744a6e7808d15bfb4e595564dc3/kernel.ptx",
+      "ptx_sha256": "ce7d42422d52748e4b03a63e1e70ca6799b8beaddecfab976996174eeebf5c77",
+      "cubin": "cache/0628630f05bd6b659f168b6513f0f083fb3f9744a6e7808d15bfb4e595564dc3/kernel.cubin",
+      "cubin_sha256": "4de552c95a3d6cb441ed528db649058e45b37d4c6667c09413d447bf08e2b600",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/0628630f05bd6b659f168b6513f0f083fb3f9744a6e7808d15bfb4e595564dc3/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/0628630f05bd6b659f168b6513f0f083fb3f9744a6e7808d15bfb4e595564dc3/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 6 registers, used 0 barriers, 360 bytes cmem[0]\nptxas info    : Compile time = 0.675 ms\n"
+    },
+    {
+      "stages": [
+        "body_coefficients_1"
+      ],
+      "source_sha256": "3b685b677bab317b7ff65132c80e7350d060f06537b8218a8a9e3c660d4a3cbb",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/fdf3b479b55b1edb4ff891703cef966ecd66d35fb1b27b06666946d83473e367/kernel.ptx",
+      "ptx_sha256": "c2aa88de3907db13d61eaedd07ba641699296019c96741fc8b7529f24c088021",
+      "cubin": "cache/fdf3b479b55b1edb4ff891703cef966ecd66d35fb1b27b06666946d83473e367/kernel.cubin",
+      "cubin_sha256": "339b20fbeb7d8df20131e2481ee9f41e6dffe539e78f5fa3574cc8e673e5f528",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fdf3b479b55b1edb4ff891703cef966ecd66d35fb1b27b06666946d83473e367/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fdf3b479b55b1edb4ff891703cef966ecd66d35fb1b27b06666946d83473e367/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 17 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 4.494 ms\n"
+    },
+    {
+      "stages": [
+        "update_mprops_2"
+      ],
+      "source_sha256": "40919d760f7ae0e52b2751cf659add3b34e18098656ae7dab74e75413f01e06e",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/7ede653eb2bc79fca4fd59c2e9315f6c478d18f2d4175de6e36b6ceef3613447/kernel.ptx",
+      "ptx_sha256": "9a272f4e75f7ee66d7f26810fdfe5d1d6b0a534d07942becf766473da93c35dd",
+      "cubin": "cache/7ede653eb2bc79fca4fd59c2e9315f6c478d18f2d4175de6e36b6ceef3613447/kernel.cubin",
+      "cubin_sha256": "7f78dde8773682519419358ca46f5b909aa92f73a40cc957414e1750139981da",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/7ede653eb2bc79fca4fd59c2e9315f6c478d18f2d4175de6e36b6ceef3613447/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/7ede653eb2bc79fca4fd59c2e9315f6c478d18f2d4175de6e36b6ceef3613447/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 40 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 4.781 ms\n"
+    },
+    {
+      "stages": [
+        "cleanup_3"
+      ],
+      "source_sha256": "ce0e986d657beba13dac4dbe83545b32c41469975ad39aaf43a87a6c44405bcd",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/3deccefaee857bc28e153c199aef09733c30d3069609834191e3b88d91eabd6c/kernel.ptx",
+      "ptx_sha256": "fb4ebf514f7a638c0b1603d219be16a62b6a32054f14db96c93c157a466f948f",
+      "cubin": "cache/3deccefaee857bc28e153c199aef09733c30d3069609834191e3b88d91eabd6c/kernel.cubin",
+      "cubin_sha256": "e18a8f25b10bba5a8ca24785227cea2010b05767e9a9acd33fc9d9b081c0d07d",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3deccefaee857bc28e153c199aef09733c30d3069609834191e3b88d91eabd6c/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3deccefaee857bc28e153c199aef09733c30d3069609834191e3b88d91eabd6c/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 26 registers, used 0 barriers, 400 bytes cmem[0]\nptxas info    : Compile time = 1.319 ms\n"
+    },
+    {
+      "stages": [
+        "init_bodies_4"
+      ],
+      "source_sha256": "89088dc34ff81da797a4493d6438cc7b9647e104e49a4dd885465d1863740ca6",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/3549104fc013b6c9d926d8716bbf961c15f2b90244d32661dd247716be015f36/kernel.ptx",
+      "ptx_sha256": "795faf1f01e8b6bdc7a16ed6f98dbb2b17c954f71c7b867d849ad5141576ee1c",
+      "cubin": "cache/3549104fc013b6c9d926d8716bbf961c15f2b90244d32661dd247716be015f36/kernel.cubin",
+      "cubin_sha256": "0ddc5dd370feec693c82e432d812dd146065e853baf82bb65386a8ac1a228521",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3549104fc013b6c9d926d8716bbf961c15f2b90244d32661dd247716be015f36/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3549104fc013b6c9d926d8716bbf961c15f2b90244d32661dd247716be015f36/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 24 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.169 ms\n"
+    },
+    {
+      "stages": [
+        "collider_poses_5"
+      ],
+      "source_sha256": "8d0ce0d847886eece0507b60b83553ec2d7b5990daca0427187ec3477def8806",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/d321a873f8df9b27918cd510a41dbbef74bc1d0b4e875301cbe2e50df331ec87/kernel.ptx",
+      "ptx_sha256": "56e6cd991b2becafbe683b24d6e995932d038a8dd7fe7f62f1a0e76ae1bc0817",
+      "cubin": "cache/d321a873f8df9b27918cd510a41dbbef74bc1d0b4e875301cbe2e50df331ec87/kernel.cubin",
+      "cubin_sha256": "14d806c04eab2e7c7a5a9337966beca841da89b4292dcc9fc76624817282d3a4",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d321a873f8df9b27918cd510a41dbbef74bc1d0b4e875301cbe2e50df331ec87/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d321a873f8df9b27918cd510a41dbbef74bc1d0b4e875301cbe2e50df331ec87/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 0 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 1.957 ms\n"
+    },
+    {
+      "stages": [
+        "collision_6"
+      ],
+      "source_sha256": "9188339f3eb953a0c8b011437221175ffaf642e7dc5b160971aa1c8580ac288e",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/0084d72c96f4d3e839cd6a42491aa5cee4e85cf9c87d0329652d61ba6d799a45/kernel.ptx",
+      "ptx_sha256": "4d8c4bb4f58d52b39922a6e3bb0779a2fafbe04dd9071af020314acfcfe7b876",
+      "cubin": "cache/0084d72c96f4d3e839cd6a42491aa5cee4e85cf9c87d0329652d61ba6d799a45/kernel.cubin",
+      "cubin_sha256": "342a7ba405d98c26442d102235349a45e47a2bbd1f7433538cec167f62093301",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/0084d72c96f4d3e839cd6a42491aa5cee4e85cf9c87d0329652d61ba6d799a45/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/0084d72c96f4d3e839cd6a42491aa5cee4e85cf9c87d0329652d61ba6d799a45/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 6 registers, used 0 barriers, 360 bytes cmem[0]\nptxas info    : Compile time = 0.618 ms\n"
+    },
+    {
+      "stages": [
+        "collision_7"
+      ],
+      "source_sha256": "5e96964eb132afc4dd4084cf3c72b0726fc9ef4da54c399254a5cd839bb63f75",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/452346045508ee263c6387e3e9b10528164db2f10a4c9f8bf51a79d1b103a767/kernel.ptx",
+      "ptx_sha256": "68012bb5f71d173fbee9e362cb645a6ca77bba6a1e05ec19b4b4f2ef2a6594c6",
+      "cubin": "cache/452346045508ee263c6387e3e9b10528164db2f10a4c9f8bf51a79d1b103a767/kernel.cubin",
+      "cubin_sha256": "b8dac05d6916e6f2c27870a76fbf55277477082e90cf368898007969cd0efc7e",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/452346045508ee263c6387e3e9b10528164db2f10a4c9f8bf51a79d1b103a767/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/452346045508ee263c6387e3e9b10528164db2f10a4c9f8bf51a79d1b103a767/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    64 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 40 registers, used 0 barriers, 64 bytes cumulative stack size, 392 bytes cmem[0]\nptxas info    : Compile time = 56.326 ms\n"
+    },
+    {
+      "stages": [
+        "collision_8"
+      ],
+      "source_sha256": "e052f5b1880043fa4996a30fa49d19f012f74a8edb939487e312abbbe018cfd0",
+      "shared_memory_bytes": 3072,
+      "status": "passed",
+      "ptx": "cache/1b9515c3abee10d98389326106aaf1d21515ab3c03b5049342bfcee9cfb2d665/kernel.ptx",
+      "ptx_sha256": "bb4e44df519a886953a92fb6ac4dc912a52bf91284eb9ed803b10f4ae2ee501c",
+      "cubin": "cache/1b9515c3abee10d98389326106aaf1d21515ab3c03b5049342bfcee9cfb2d665/kernel.cubin",
+      "cubin_sha256": "37488f44ec122340b1588b91f18e28e9477a0ea57fe5fa6fff8c5d990b2c6db0",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/1b9515c3abee10d98389326106aaf1d21515ab3c03b5049342bfcee9cfb2d665/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/1b9515c3abee10d98389326106aaf1d21515ab3c03b5049342bfcee9cfb2d665/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 24 registers, used 1 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 8.943 ms\n"
+    },
+    {
+      "stages": [
+        "collision_9"
+      ],
+      "source_sha256": "10eb90cfe2f28326cba7acae8b142ee912835af6be39e4f632da27f6a430d037",
+      "shared_memory_bytes": 3072,
+      "status": "passed",
+      "ptx": "cache/94d0820bc544eb5def30d1795ec74166333e061acf9e579d6692dda491da6385/kernel.ptx",
+      "ptx_sha256": "d5e23dac8422f2e5f4faafac2ed7a1b48e6e46278539934a76611e28fce9e1d2",
+      "cubin": "cache/94d0820bc544eb5def30d1795ec74166333e061acf9e579d6692dda491da6385/kernel.cubin",
+      "cubin_sha256": "4989b2c235c756fc802e85d19b3577be9382504ab7895a86048c5e7a1e1d6426",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/94d0820bc544eb5def30d1795ec74166333e061acf9e579d6692dda491da6385/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/94d0820bc544eb5def30d1795ec74166333e061acf9e579d6692dda491da6385/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 19 registers, used 1 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 8.378 ms\n"
+    },
+    {
+      "stages": [
+        "collision_10"
+      ],
+      "source_sha256": "b505e9f902005a821213baf1ffd13887847939df5b3eda179803a0bc1755609e",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/cdf6eca97855371ed5fc86f919b163336c83280cea6d9d776ca77cab543e2794/kernel.ptx",
+      "ptx_sha256": "37613ec0fd85ce880bdf1b6caf5ee6eb3fd32ca1ed435275cb093d0c207ce9da",
+      "cubin": "cache/cdf6eca97855371ed5fc86f919b163336c83280cea6d9d776ca77cab543e2794/kernel.cubin",
+      "cubin_sha256": "e063726e8ffd787bab6225095791a4556a115fd3dcaf99b2fdde3fc22b20745d",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/cdf6eca97855371ed5fc86f919b163336c83280cea6d9d776ca77cab543e2794/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/cdf6eca97855371ed5fc86f919b163336c83280cea6d9d776ca77cab543e2794/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 0 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 5.077 ms\n"
+    },
+    {
+      "stages": [
+        "collision_11"
+      ],
+      "source_sha256": "c21df9a1905e8134a4a6e0930861b2812297680a390696eb89640d0090e719b8",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/2408482d1d5d229ed29def8db1da9e913d840afd7c44139e73ad2e69e44089be/kernel.ptx",
+      "ptx_sha256": "54b3220fedde3453e98ecd8b0a0770f0914cf04ef1644cd818e9be89a2e47ce7",
+      "cubin": "cache/2408482d1d5d229ed29def8db1da9e913d840afd7c44139e73ad2e69e44089be/kernel.cubin",
+      "cubin_sha256": "f51d85424faaea7c56100b6b9f969c94cee38c4afcf9f5ec8d0f96a85f1a12f0",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/2408482d1d5d229ed29def8db1da9e913d840afd7c44139e73ad2e69e44089be/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/2408482d1d5d229ed29def8db1da9e913d840afd7c44139e73ad2e69e44089be/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 16 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 0.806 ms\n"
+    },
+    {
+      "stages": [
+        "collision_12",
+        "collision_17",
+        "collision_22",
+        "collision_27",
+        "collision_32",
+        "collision_37",
+        "collision_42",
+        "collision_47"
+      ],
+      "source_sha256": "5ba8a6171025efa7958ba81cd89ba9e0505e20aec95c08fb00c0bcba66bb3f11",
+      "shared_memory_bytes": 64,
+      "status": "passed",
+      "ptx": "cache/6b7e3e243fd00b9fa028dd24e919cd192813f6044a84c7c40afb391eaa2624f2/kernel.ptx",
+      "ptx_sha256": "8d2c7c18375130b2672cd8fbd3f1d5081db5348f68a97000486e45f7f7719b55",
+      "cubin": "cache/6b7e3e243fd00b9fa028dd24e919cd192813f6044a84c7c40afb391eaa2624f2/kernel.cubin",
+      "cubin_sha256": "4084c6a52ac95af1ac777ae2a32956b4d6ea523eda8aa27b0be2bb275e9b2a0b",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/6b7e3e243fd00b9fa028dd24e919cd192813f6044a84c7c40afb391eaa2624f2/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/6b7e3e243fd00b9fa028dd24e919cd192813f6044a84c7c40afb391eaa2624f2/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 20 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 2.170 ms\n"
+    },
+    {
+      "stages": [
+        "collision_13",
+        "collision_18",
+        "collision_23",
+        "collision_28",
+        "collision_33",
+        "collision_38",
+        "collision_43",
+        "collision_48"
+      ],
+      "source_sha256": "92d3f39a128cf2a4286ef4906bda6b230b4c903accb372005ed81567a515451b",
+      "shared_memory_bytes": 1024,
+      "status": "passed",
+      "ptx": "cache/6f4dcc00382c102b74bb8fc6e5d368a8310f1c08938702bd1116ff052f4950ae/kernel.ptx",
+      "ptx_sha256": "db171cdb60da88028d465f9d309ecfc31aa1334a0d214dc3a5c9fe2a7f96e277",
+      "cubin": "cache/6f4dcc00382c102b74bb8fc6e5d368a8310f1c08938702bd1116ff052f4950ae/kernel.cubin",
+      "cubin_sha256": "b24618401796f2d911e952304a9223d9970e0a047aaaf44a8cf296d1dcfd6bf8",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/6f4dcc00382c102b74bb8fc6e5d368a8310f1c08938702bd1116ff052f4950ae/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/6f4dcc00382c102b74bb8fc6e5d368a8310f1c08938702bd1116ff052f4950ae/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 34 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 30.711 ms\n"
+    },
+    {
+      "stages": [
+        "collision_14",
+        "collision_19",
+        "collision_24",
+        "collision_29",
+        "collision_34",
+        "collision_39",
+        "collision_44",
+        "collision_49"
+      ],
+      "source_sha256": "317540443d3d9ea7d71a520ca8047642947bc24ad5fe38641c45d0cc12fa16f5",
+      "shared_memory_bytes": 6144,
+      "status": "passed",
+      "ptx": "cache/fabd442fccb4bb606f879c98c61567e56ab630a384d2a61d423ab21ff46be347/kernel.ptx",
+      "ptx_sha256": "8a3d2a6c62fd84d68fb7db9dae7f7a6fbfe83976e8e80d70ff09b5a7c015eed7",
+      "cubin": "cache/fabd442fccb4bb606f879c98c61567e56ab630a384d2a61d423ab21ff46be347/kernel.cubin",
+      "cubin_sha256": "a17b38326ae5e4d6dfade60c37d44a894ce8664b8f30b318b75820047b32bbb2",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fabd442fccb4bb606f879c98c61567e56ab630a384d2a61d423ab21ff46be347/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fabd442fccb4bb606f879c98c61567e56ab630a384d2a61d423ab21ff46be347/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 20 registers, used 1 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 7.956 ms\n"
+    },
+    {
+      "stages": [
+        "collision_15",
+        "collision_20",
+        "collision_25",
+        "collision_30",
+        "collision_35",
+        "collision_40",
+        "collision_45",
+        "collision_50"
+      ],
+      "source_sha256": "5109ee1da1c26dd1e061244a2a7190ef61fbf96a4e4c2ac6bec3375b8d076ba7",
+      "shared_memory_bytes": 6144,
+      "status": "passed",
+      "ptx": "cache/acf4555d3e8bc25a806cae7f3b3de27a9760f3414a7a0712ce723f1ca1353c56/kernel.ptx",
+      "ptx_sha256": "16bd24e081c1fdfab0d28b879c71e4f34a8842ff40df65b390a281a3a3ad063e",
+      "cubin": "cache/acf4555d3e8bc25a806cae7f3b3de27a9760f3414a7a0712ce723f1ca1353c56/kernel.cubin",
+      "cubin_sha256": "56f964bf4b1719b445f64ff285edad098599fd3c4eff39542d68a4f59f9ec431",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/acf4555d3e8bc25a806cae7f3b3de27a9760f3414a7a0712ce723f1ca1353c56/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/acf4555d3e8bc25a806cae7f3b3de27a9760f3414a7a0712ce723f1ca1353c56/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 36 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 18.845 ms\n"
+    },
+    {
+      "stages": [
+        "collision_16",
+        "collision_21",
+        "collision_26",
+        "collision_31",
+        "collision_36",
+        "collision_41",
+        "collision_46",
+        "collision_51"
+      ],
+      "source_sha256": "cbc3123567fb3b4c123fee20c76a89a9b3003cd3a622dc48667b2866679c4adc",
+      "shared_memory_bytes": 8256,
+      "status": "passed",
+      "ptx": "cache/979c33c7fc2b1d56cb4699925d4ddff939910de5811355a7db599ea5275f64bb/kernel.ptx",
+      "ptx_sha256": "c3303af9225a264916082b8e0b76722579683d264e692d0e2fa6cad8ef4e51ea",
+      "cubin": "cache/979c33c7fc2b1d56cb4699925d4ddff939910de5811355a7db599ea5275f64bb/kernel.cubin",
+      "cubin_sha256": "2c45acfae7147641fa8ec179c3b3996bb1c052fe25fe69f93ac47cbc2ecc06c0",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/979c33c7fc2b1d56cb4699925d4ddff939910de5811355a7db599ea5275f64bb/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/979c33c7fc2b1d56cb4699925d4ddff939910de5811355a7db599ea5275f64bb/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 10.709 ms\n"
+    },
+    {
+      "stages": [
+        "collision_52"
+      ],
+      "source_sha256": "1f96b97bf8aa56988250401dfff868280c1cb8523e2264632cdd2174f30a941d",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/3889e00486882e343f142d6c402b3bd6febd047976e83589a75300893fe1c1e8/kernel.ptx",
+      "ptx_sha256": "cb2d2868f7c59371513fc31bab09e4c505feb8e78bec0f5dc589cf639612bb1e",
+      "cubin": "cache/3889e00486882e343f142d6c402b3bd6febd047976e83589a75300893fe1c1e8/kernel.cubin",
+      "cubin_sha256": "39884c7ad1503046545f3738f377d1fb122e0e2ca6e5213b3c713ba18271840b",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3889e00486882e343f142d6c402b3bd6febd047976e83589a75300893fe1c1e8/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3889e00486882e343f142d6c402b3bd6febd047976e83589a75300893fe1c1e8/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 55 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 16.114 ms\n"
+    },
+    {
+      "stages": [
+        "collision_53"
+      ],
+      "source_sha256": "2880f704750b561342ed00a777d55588dbf02435dabd4ceb983cce0ae8c5e462",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/f57120f305e9cb6da756a181eaf12fbbb5a5df6c73808ede73d040a29298ebda/kernel.ptx",
+      "ptx_sha256": "e07eea9270813f5493ee17235f83b4a813f3797be8b3acbb906ad6c5c8062b0f",
+      "cubin": "cache/f57120f305e9cb6da756a181eaf12fbbb5a5df6c73808ede73d040a29298ebda/kernel.cubin",
+      "cubin_sha256": "6bbd1640ba008d4cad0fa0d49ed433b294f2c3c6bad0b075cbf5cc50d6001665",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/f57120f305e9cb6da756a181eaf12fbbb5a5df6c73808ede73d040a29298ebda/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/f57120f305e9cb6da756a181eaf12fbbb5a5df6c73808ede73d040a29298ebda/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 20 registers, used 0 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 2.648 ms\n"
+    },
+    {
+      "stages": [
+        "collision_54"
+      ],
+      "source_sha256": "7b262f6748c4655f2499676926a434ef80a6d226513ae86c9e41e77b501a29e3",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/4aea7db5294e5b3f5d9959656f08db61a1c97131516740392ad412c7f8d43b57/kernel.ptx",
+      "ptx_sha256": "4eb9193384239d37dba803ba20109247168130056cac3f95367722a9bcd2a209",
+      "cubin": "cache/4aea7db5294e5b3f5d9959656f08db61a1c97131516740392ad412c7f8d43b57/kernel.cubin",
+      "cubin_sha256": "b3e129a8c69bb7da4ae1603d9ee83f503a3a480a54488065f6d0384a5c09fb39",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4aea7db5294e5b3f5d9959656f08db61a1c97131516740392ad412c7f8d43b57/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4aea7db5294e5b3f5d9959656f08db61a1c97131516740392ad412c7f8d43b57/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 56 registers, used 0 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 36.798 ms\n"
+    },
+    {
+      "stages": [
+        "collision_55"
+      ],
+      "source_sha256": "54d62d36dd4986714321f61c75275824d6b5e8fc2820d34f97ad68401767ecdd",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/98394675127bd70946f10b25dd6828809be73caeadfb30fd6eeba2672ac39ad2/kernel.ptx",
+      "ptx_sha256": "b1b4a7c62a9b3729d7ee6f612455caf115607cf7c997eef0969e251eec33124c",
+      "cubin": "cache/98394675127bd70946f10b25dd6828809be73caeadfb30fd6eeba2672ac39ad2/kernel.cubin",
+      "cubin_sha256": "b452ec73c48e27e1f1c9eb6dd0258c0049744cab74770f7f5e355763716894d7",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/98394675127bd70946f10b25dd6828809be73caeadfb30fd6eeba2672ac39ad2/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/98394675127bd70946f10b25dd6828809be73caeadfb30fd6eeba2672ac39ad2/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 36 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 5.809 ms\n"
+    },
+    {
+      "stages": [
+        "collision_56"
+      ],
+      "source_sha256": "f2c750ea0c1a00bc1b1518a7beaa79b0131a4cbe3dc50826dbfaabb658a10b0d",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/2ad5f69c066384a2008c12f6ceb07e1772a940981480a72336cb87a7cfeed758/kernel.ptx",
+      "ptx_sha256": "44b09c9e335b4f98f1327b0513e6025a5eb62164401b1d627496e94e7f9ed80f",
+      "cubin": "cache/2ad5f69c066384a2008c12f6ceb07e1772a940981480a72336cb87a7cfeed758/kernel.cubin",
+      "cubin_sha256": "07f1e9ecb80a630f90608956cce4284a7e82442f3f1574a938e2814dcbd1cb97",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/2ad5f69c066384a2008c12f6ceb07e1772a940981480a72336cb87a7cfeed758/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/2ad5f69c066384a2008c12f6ceb07e1772a940981480a72336cb87a7cfeed758/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 10 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.325 ms\n"
+    },
+    {
+      "stages": [
+        "collision_57"
+      ],
+      "source_sha256": "defa83cbe4d848b8d50670f450537b1322eb975846ef974c5b10b1b6bd7e0af7",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/cc852ef615f80851c27bba0e54f6c4e5fd2347ae32c024ab10310b759456e34e/kernel.ptx",
+      "ptx_sha256": "6c81b1d653a4f7dbd673683fe2df56ba878cd4adb32f73e26a47368789435a5b",
+      "cubin": "cache/cc852ef615f80851c27bba0e54f6c4e5fd2347ae32c024ab10310b759456e34e/kernel.cubin",
+      "cubin_sha256": "446540b2104e62468c1c9f52d8cceb544be2284d4657563c96f496ca100b05df",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/cc852ef615f80851c27bba0e54f6c4e5fd2347ae32c024ab10310b759456e34e/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/cc852ef615f80851c27bba0e54f6c4e5fd2347ae32c024ab10310b759456e34e/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 34 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 4.910 ms\n"
+    },
+    {
+      "stages": [
+        "collision_58"
+      ],
+      "source_sha256": "0afbf210f017e2fac9de3670243d1f6742ac62ea74a0b38941df9a141a010c9a",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/8efbaf30f363bc9930c22653db474f3e5faedc1c965dd2414433fe4b6093745e/kernel.ptx",
+      "ptx_sha256": "1a553cd24521c6890fc5152e0d07d20275cc154c26c7052ec7dd8004c1a605cd",
+      "cubin": "cache/8efbaf30f363bc9930c22653db474f3e5faedc1c965dd2414433fe4b6093745e/kernel.cubin",
+      "cubin_sha256": "9140a436cbcb00deefa8db1f7938fec14c46e224ec2e9494b3c52f476826b2a9",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8efbaf30f363bc9930c22653db474f3e5faedc1c965dd2414433fe4b6093745e/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8efbaf30f363bc9930c22653db474f3e5faedc1c965dd2414433fe4b6093745e/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 6 registers, used 0 barriers, 360 bytes cmem[0]\nptxas info    : Compile time = 0.968 ms\n"
+    },
+    {
+      "stages": [
+        "collision_59"
+      ],
+      "source_sha256": "c30e604f52ad2e58340181a8a8054042dd4dcd62a1688df0479f94d44253eaeb",
+      "shared_memory_bytes": 4624,
+      "status": "passed",
+      "ptx": "cache/44a73980f8a6f0a4dc241a49e0c372186d03d74948d728d00c23adf80ac37b54/kernel.ptx",
+      "ptx_sha256": "979386d8c03395a74367b580270bbdc87190619b6962f3bb52bc76d1b0030641",
+      "cubin": "cache/44a73980f8a6f0a4dc241a49e0c372186d03d74948d728d00c23adf80ac37b54/kernel.cubin",
+      "cubin_sha256": "d0e74a0917f653e3f16a275bb9a6e73e965eacb6635b71bf799a4b22b209a9f2",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/44a73980f8a6f0a4dc241a49e0c372186d03d74948d728d00c23adf80ac37b54/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/44a73980f8a6f0a4dc241a49e0c372186d03d74948d728d00c23adf80ac37b54/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 67 registers, used 1 barriers, 400 bytes cmem[0]\nptxas info    : Compile time = 17.704 ms\n"
+    },
+    {
+      "stages": [
+        "collision_60"
+      ],
+      "source_sha256": "8f7448c95d7f2f1a9e136181f330e390cc2e5303d0af831bbd8af47083eaa31c",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/d4dac03a6f4cdbc93de26156703f3221a68f8ec1a8060fc8d3986b84fa2d50c3/kernel.ptx",
+      "ptx_sha256": "3e1b8a5e3253cd0177bbf9e1d8ce0d6cb6ff870f4941d90020e1c415baa59535",
+      "cubin": "cache/d4dac03a6f4cdbc93de26156703f3221a68f8ec1a8060fc8d3986b84fa2d50c3/kernel.cubin",
+      "cubin_sha256": "137376f4a6b1ce66fecbb110680d160fe238bf8abba4bdcba4391a2de478d3b0",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d4dac03a6f4cdbc93de26156703f3221a68f8ec1a8060fc8d3986b84fa2d50c3/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d4dac03a6f4cdbc93de26156703f3221a68f8ec1a8060fc8d3986b84fa2d50c3/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 14 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.507 ms\n"
+    },
+    {
+      "stages": [
+        "dispatch_pairs"
+      ],
+      "source_sha256": "0f683f32345808430523c1bb961770a8d47adff19af0e2e85e8ba46dde7d4ffe",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/800cdf63959259c9cd6651a36cf71fb5fe5e95bb8cca9f2e96fb87d6868b3365/kernel.ptx",
+      "ptx_sha256": "6cc0a199731f2213514af362c80f0cdd4ed258c2087bc436924eaa0efb603974",
+      "cubin": "cache/800cdf63959259c9cd6651a36cf71fb5fe5e95bb8cca9f2e96fb87d6868b3365/kernel.cubin",
+      "cubin_sha256": "626d034b499c4bc61ca2e35722732833a418e7f8a414b0a3c4f1c47bf7ce5deb",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/800cdf63959259c9cd6651a36cf71fb5fe5e95bb8cca9f2e96fb87d6868b3365/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/800cdf63959259c9cd6651a36cf71fb5fe5e95bb8cca9f2e96fb87d6868b3365/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 12 registers, used 0 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 0.833 ms\n"
+    },
+    {
+      "stages": [
+        "collision_61"
+      ],
+      "source_sha256": "68745388f89f69ff484fdb3ba9f92e68a0e4846c88397faf2feae5eb5970e5e4",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/a9441a8028b5b317453fdef4d4644fedaaf00b67a7437546cce10f918dd29162/kernel.ptx",
+      "ptx_sha256": "0525f3c6ebbedf080a070b62719080cde88b7af58d3825a6a2f0fd092b67ed1a",
+      "cubin": "cache/a9441a8028b5b317453fdef4d4644fedaaf00b67a7437546cce10f918dd29162/kernel.cubin",
+      "cubin_sha256": "b62dc9977d3b01f11e5e1464b70c3a5c6d1fcc8b38efd4029b3e3c4d99b7bb6e",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a9441a8028b5b317453fdef4d4644fedaaf00b67a7437546cce10f918dd29162/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a9441a8028b5b317453fdef4d4644fedaaf00b67a7437546cce10f918dd29162/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 72 registers, used 1 barriers, 440 bytes cmem[0], 32 bytes cmem[2]\nptxas info    : Compile time = 149.685 ms\n"
+    },
+    {
+      "stages": [
+        "collision_62"
+      ],
+      "source_sha256": "872a0296634f549ed6705aff6273b1fc4c4c5659c467e22e561085fe84d51117",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/3596109d16defda8b95c4f00ceabd01cbadd7b96ca4db5184ac710ceb0c94dfe/kernel.ptx",
+      "ptx_sha256": "829b0e62f5f1e990c38afef27fd1b9bd3f0618d05952fdbd38882a675bc94544",
+      "cubin": "cache/3596109d16defda8b95c4f00ceabd01cbadd7b96ca4db5184ac710ceb0c94dfe/kernel.cubin",
+      "cubin_sha256": "0bd821fa1a7210269d2e0a75f8eeefa04396f60a8f975571f8bb81bf57d5c43e",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3596109d16defda8b95c4f00ceabd01cbadd7b96ca4db5184ac710ceb0c94dfe/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3596109d16defda8b95c4f00ceabd01cbadd7b96ca4db5184ac710ceb0c94dfe/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 28 registers, used 0 barriers, 416 bytes cmem[0]\nptxas info    : Compile time = 1.452 ms\n"
+    },
+    {
+      "stages": [
+        "dispatch_contacts"
+      ],
+      "source_sha256": "0f84b7878768f760135744f1d9f20c83c657ef3220b54dcdafa5f31b3bbb998a",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/30115690b40b760afd22c70639ea3bdbaeb9c1e6a753bcce197ad5747bd29451/kernel.ptx",
+      "ptx_sha256": "75b9c3f1c51affe1082fc4a7564038d297705d625ea447e626f044b54084a2e4",
+      "cubin": "cache/30115690b40b760afd22c70639ea3bdbaeb9c1e6a753bcce197ad5747bd29451/kernel.cubin",
+      "cubin_sha256": "02558fd55dfa1a5756ced0b3a47dda92d45c2fd102fa78ff5099e843dc349e6b",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/30115690b40b760afd22c70639ea3bdbaeb9c1e6a753bcce197ad5747bd29451/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/30115690b40b760afd22c70639ea3bdbaeb9c1e6a753bcce197ad5747bd29451/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 12 registers, used 0 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 0.806 ms\n"
+    },
+    {
+      "stages": [
+        "collision_63"
+      ],
+      "source_sha256": "0bc0aeca8572ed2f672c5a5b3942d45f9b99b72614f00db91b9eee943228ad15",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/8154f6c768fd89d52e991a92d9f087370ff4096567a996eb43d5a600492bb103/kernel.ptx",
+      "ptx_sha256": "7f65408d67ef5311188a1e1b58f86b32734085a4e87132971db14d530148357d",
+      "cubin": "cache/8154f6c768fd89d52e991a92d9f087370ff4096567a996eb43d5a600492bb103/kernel.cubin",
+      "cubin_sha256": "84c2735a0c4e0d0b0f17903e118dcadd075a47e289304bc9eb0f264416222d51",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8154f6c768fd89d52e991a92d9f087370ff4096567a996eb43d5a600492bb103/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8154f6c768fd89d52e991a92d9f087370ff4096567a996eb43d5a600492bb103/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    160 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 114 registers, used 1 barriers, 160 bytes cumulative stack size, 424 bytes cmem[0], 36 bytes cmem[2]\nptxas info    : Compile time = 194.778 ms\n"
+    },
+    {
+      "stages": [
+        "collision_64"
+      ],
+      "source_sha256": "06f041f78ffa953c82331b8814f2604cba1ba42319c329e9641e5bda3058bb0f",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/40c56d1ab4ee6c861d4f6286bb02029703ab0ec30ff521e321e9155cde55e77b/kernel.ptx",
+      "ptx_sha256": "5c1bc224ecc051fd28b19b92ce4bd106d01b7909234cb0573bb17c7c5ebb25e0",
+      "cubin": "cache/40c56d1ab4ee6c861d4f6286bb02029703ab0ec30ff521e321e9155cde55e77b/kernel.cubin",
+      "cubin_sha256": "e64c7d1a8dd0862b89fae17a5a282cf1f1f5a1659d3da3d36f84702b7dfd8028",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/40c56d1ab4ee6c861d4f6286bb02029703ab0ec30ff521e321e9155cde55e77b/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/40c56d1ab4ee6c861d4f6286bb02029703ab0ec30ff521e321e9155cde55e77b/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    6192 bytes stack frame, 156 bytes spill stores, 184 bytes spill loads\nptxas info    : Used 255 registers, used 1 barriers, 6192 bytes cumulative stack size, 432 bytes cmem[0], 144 bytes cmem[2]\nptxas info    : Compile time = 759.659 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_65"
+      ],
+      "source_sha256": "15b57963a6e1f4123d3216ca64003d6045e2187df1c522eb57ac966094c0e4b1",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/c6bf953e5f524a0506ee20d5b35c54a97b514b94830274cb29d8ca7f9006f43b/kernel.ptx",
+      "ptx_sha256": "25c8ffc69e62fe51c3dd63748ec37f82fcca51b59cd2efb4409ac38564197162",
+      "cubin": "cache/c6bf953e5f524a0506ee20d5b35c54a97b514b94830274cb29d8ca7f9006f43b/kernel.cubin",
+      "cubin_sha256": "9f92f5c340f312ff325658707b363bfe7bf2aa3d3d7121f6039a7b8d87882f62",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c6bf953e5f524a0506ee20d5b35c54a97b514b94830274cb29d8ca7f9006f43b/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c6bf953e5f524a0506ee20d5b35c54a97b514b94830274cb29d8ca7f9006f43b/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 416 bytes cmem[0]\nptxas info    : Compile time = 4.641 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_66",
+        "canonical_108",
+        "canonical_120"
+      ],
+      "source_sha256": "e020eddbbb33e44f0f11a4215762737595939018f451010b3da7f5006c7fa761",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/4c65546157aa8ba16e98e1cd188a39b765bd3929f9f8bd3834a540bdbb4a3d32/kernel.ptx",
+      "ptx_sha256": "72c34038367f697c2523c6d4c84fb921a7ae044fc993ce1e25918927937b174c",
+      "cubin": "cache/4c65546157aa8ba16e98e1cd188a39b765bd3929f9f8bd3834a540bdbb4a3d32/kernel.cubin",
+      "cubin_sha256": "6368eff2c903de3417c8b752f0738ffc319525ac6ca630580ef23c6634b75e01",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4c65546157aa8ba16e98e1cd188a39b765bd3929f9f8bd3834a540bdbb4a3d32/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4c65546157aa8ba16e98e1cd188a39b765bd3929f9f8bd3834a540bdbb4a3d32/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 14 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 0.804 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_67",
+        "canonical_72",
+        "canonical_77",
+        "canonical_82",
+        "canonical_87",
+        "canonical_92",
+        "canonical_97",
+        "canonical_102",
+        "canonical_109",
+        "canonical_114",
+        "canonical_121",
+        "canonical_126"
+      ],
+      "source_sha256": "706590f72497daa9158fc6ad1468bfea9711b9181c2cedc4864b0c7c6bf69bcb",
+      "shared_memory_bytes": 64,
+      "status": "passed",
+      "ptx": "cache/4de1e52d6fa0e6cb360ee277ff6dfd1c550aad373460a315558615aaf22e4267/kernel.ptx",
+      "ptx_sha256": "1a390c591508e3625b41ae50027e1fbd3568eec0eb7871fbc34baec08078a159",
+      "cubin": "cache/4de1e52d6fa0e6cb360ee277ff6dfd1c550aad373460a315558615aaf22e4267/kernel.cubin",
+      "cubin_sha256": "807b30db437c59dddb93e17a2f43ef6552506e16ee4f0b4a75ddfe178c1505b2",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4de1e52d6fa0e6cb360ee277ff6dfd1c550aad373460a315558615aaf22e4267/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4de1e52d6fa0e6cb360ee277ff6dfd1c550aad373460a315558615aaf22e4267/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 16 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 1.803 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_68",
+        "canonical_73",
+        "canonical_78",
+        "canonical_83",
+        "canonical_88",
+        "canonical_93",
+        "canonical_98",
+        "canonical_103",
+        "canonical_110",
+        "canonical_115",
+        "canonical_122",
+        "canonical_127"
+      ],
+      "source_sha256": "2479399a046e383b92a818443c0c2eb31b58d36de0c7873388875c29283384d5",
+      "shared_memory_bytes": 1024,
+      "status": "passed",
+      "ptx": "cache/8e661f20eae718df6fb73facad495add411ef5758b1e1f8fd4f33b9157dffad2/kernel.ptx",
+      "ptx_sha256": "79b513e6eb1bbb83ef8217421f5acb921328c01c4d66ed1f33dac048f17a3cae",
+      "cubin": "cache/8e661f20eae718df6fb73facad495add411ef5758b1e1f8fd4f33b9157dffad2/kernel.cubin",
+      "cubin_sha256": "73b31d2784d97435d814cb0da81a7271fe3e21a7ce71cb32b44268f9e75465d4",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8e661f20eae718df6fb73facad495add411ef5758b1e1f8fd4f33b9157dffad2/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8e661f20eae718df6fb73facad495add411ef5758b1e1f8fd4f33b9157dffad2/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 28.960 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_69",
+        "canonical_74",
+        "canonical_79",
+        "canonical_84",
+        "canonical_89",
+        "canonical_94",
+        "canonical_99",
+        "canonical_104",
+        "canonical_111",
+        "canonical_116",
+        "canonical_123",
+        "canonical_128"
+      ],
+      "source_sha256": "8d953cb45f18e26d3a41bbc162d9804b419e6ed8a55bea61f18babf31bd02280",
+      "shared_memory_bytes": 6144,
+      "status": "passed",
+      "ptx": "cache/36473f6803a6d0ea0e30ee9ac566eb667fb283ed5857740b76f325d82c07e44f/kernel.ptx",
+      "ptx_sha256": "3113f719afde5c63ea82c7848197a72d2c93e0574f28815ccd1db444a2dacc7b",
+      "cubin": "cache/36473f6803a6d0ea0e30ee9ac566eb667fb283ed5857740b76f325d82c07e44f/kernel.cubin",
+      "cubin_sha256": "f402f66b55c882d8eafd44337795e6a4ab9e7e70370477faf1987812bd480513",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/36473f6803a6d0ea0e30ee9ac566eb667fb283ed5857740b76f325d82c07e44f/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/36473f6803a6d0ea0e30ee9ac566eb667fb283ed5857740b76f325d82c07e44f/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 18 registers, used 1 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 5.428 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_70",
+        "canonical_75",
+        "canonical_80",
+        "canonical_85",
+        "canonical_90",
+        "canonical_95",
+        "canonical_100",
+        "canonical_105",
+        "canonical_112",
+        "canonical_117",
+        "canonical_124",
+        "canonical_129"
+      ],
+      "source_sha256": "2bda2ea7d783e16cef0adae98963864c0495b9c788163de76f3edf8a831ab235",
+      "shared_memory_bytes": 6144,
+      "status": "passed",
+      "ptx": "cache/c34bea7dbe968a032a58429c6c994e0c590014b399ad2544ce7f27883131d468/kernel.ptx",
+      "ptx_sha256": "eb1fed7ded48bbfa7fd604eb909c09cf2d2b3d6622886206242be2b4b405453c",
+      "cubin": "cache/c34bea7dbe968a032a58429c6c994e0c590014b399ad2544ce7f27883131d468/kernel.cubin",
+      "cubin_sha256": "4c6a9c7ab27367fef9f7c2a6f4d484573ee49fb6b5cb98fb861d0370ff67e5e3",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c34bea7dbe968a032a58429c6c994e0c590014b399ad2544ce7f27883131d468/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c34bea7dbe968a032a58429c6c994e0c590014b399ad2544ce7f27883131d468/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 35.476 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_71",
+        "canonical_76",
+        "canonical_81",
+        "canonical_86",
+        "canonical_91",
+        "canonical_96",
+        "canonical_101",
+        "canonical_106",
+        "canonical_113",
+        "canonical_118",
+        "canonical_125",
+        "canonical_130"
+      ],
+      "source_sha256": "24fbd3a5bdbc022dd89166d3194430ad3501746e9f2dfc41c1e20a65f793cc0e",
+      "shared_memory_bytes": 8256,
+      "status": "passed",
+      "ptx": "cache/a6b74cad2aa4ee66b63b2b993613c42063c091639ffa053575b3d6d2d3fae9ad/kernel.ptx",
+      "ptx_sha256": "6049665b42ced1408918ea76afbc7f7450c1266ecb29eb369789d00ae78960c8",
+      "cubin": "cache/a6b74cad2aa4ee66b63b2b993613c42063c091639ffa053575b3d6d2d3fae9ad/kernel.cubin",
+      "cubin_sha256": "8913fdf60bfbfcf24ddf598c29047113e9784ee2fa46f8515d5fb613c13b1354",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a6b74cad2aa4ee66b63b2b993613c42063c091639ffa053575b3d6d2d3fae9ad/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a6b74cad2aa4ee66b63b2b993613c42063c091639ffa053575b3d6d2d3fae9ad/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 30 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 12.553 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_107"
+      ],
+      "source_sha256": "ecc3d229680b0aed072f969b98aad8c6ee5ee88b0fa0c877e0686a757a65e935",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/ea61ee5820e7458a446b644506032e47d80a50ed70f62a4d527d2c3a9f5214b2/kernel.ptx",
+      "ptx_sha256": "cfbdf4546fd523a5fa169fd38ad9b048547bce16ad23a478852a966f9c2f4c6a",
+      "cubin": "cache/ea61ee5820e7458a446b644506032e47d80a50ed70f62a4d527d2c3a9f5214b2/kernel.cubin",
+      "cubin_sha256": "8e440e5f5c6acce21b0a74aed577b68f9eb1796da3139426d8e04c03033a1762",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ea61ee5820e7458a446b644506032e47d80a50ed70f62a4d527d2c3a9f5214b2/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ea61ee5820e7458a446b644506032e47d80a50ed70f62a4d527d2c3a9f5214b2/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 416 bytes cmem[0]\nptxas info    : Compile time = 6.497 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_119"
+      ],
+      "source_sha256": "20436b07ece6abdc100b32b6cacc124e2e7bf148de09aebacc8174fbb2cdd225",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/1051447ca0844119bd8000aa44f1d0fe9f0bf32fde9bec6896a2f7cf9ec2addc/kernel.ptx",
+      "ptx_sha256": "2a016be77b30f0fd87b55ff18f18df96c3150fb53053e67118438599221f001c",
+      "cubin": "cache/1051447ca0844119bd8000aa44f1d0fe9f0bf32fde9bec6896a2f7cf9ec2addc/kernel.cubin",
+      "cubin_sha256": "b37ad4499a94b8919309f5b3ea90485fca289555660a6f662052d194e792a982",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/1051447ca0844119bd8000aa44f1d0fe9f0bf32fde9bec6896a2f7cf9ec2addc/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/1051447ca0844119bd8000aa44f1d0fe9f0bf32fde9bec6896a2f7cf9ec2addc/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 416 bytes cmem[0]\nptxas info    : Compile time = 8.765 ms\n"
+    },
+    {
+      "stages": [
+        "canonical_131"
+      ],
+      "source_sha256": "06d2644b373a05c640fd890900ddfb3715b22f6f2c7eb4636e959dab4a00bb69",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/facd5482380d8b6e624339c451b3cd6b55b8aa6e64b432b61efb17d5a7a61f41/kernel.ptx",
+      "ptx_sha256": "c7c26825d7de4ca3478e4bcdc7d2283d69ee8c963c1f60325dac8b84a95bf0cb",
+      "cubin": "cache/facd5482380d8b6e624339c451b3cd6b55b8aa6e64b432b61efb17d5a7a61f41/kernel.cubin",
+      "cubin_sha256": "fd6cc435360f665294fa52322850fa5fb1fc73d019a2a5220d2fda678ca95545",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/facd5482380d8b6e624339c451b3cd6b55b8aa6e64b432b61efb17d5a7a61f41/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/facd5482380d8b6e624339c451b3cd6b55b8aa6e64b432b61efb17d5a7a61f41/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 56 registers, used 1 barriers, 392 bytes cmem[0]\nptxas info    : Compile time = 6.024 ms\n"
+    },
+    {
+      "stages": [
+        "init_links_132"
+      ],
+      "source_sha256": "c07d4b1d848b70d5f4aa8df8d08aa97c8d9ebd3591283ae216414ffbcd2adbff",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/5c8e0cb473a943bc745a95171e59c67250cedb4c75a31bbccd441b53c9135d6b/kernel.ptx",
+      "ptx_sha256": "5d93448eadaa2790bc8aba4cca137f21faf3a70e3b09894d951fef608c1170d3",
+      "cubin": "cache/5c8e0cb473a943bc745a95171e59c67250cedb4c75a31bbccd441b53c9135d6b/kernel.cubin",
+      "cubin_sha256": "5dc06eb3995a5443f5fd4900dd25ae67aa25e6df6f90036b428f2b85def39936",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/5c8e0cb473a943bc745a95171e59c67250cedb4c75a31bbccd441b53c9135d6b/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/5c8e0cb473a943bc745a95171e59c67250cedb4c75a31bbccd441b53c9135d6b/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 30 registers, used 1 barriers, 392 bytes cmem[0]\nptxas info    : Compile time = 2.269 ms\n"
+    },
+    {
+      "stages": [
+        "match_links_133"
+      ],
+      "source_sha256": "0445da158d62f4cf2459483c6aa31341c7aca9ec53b912d2e3b6d42ccd7b2758",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/164a4501f55e4945026cdbb0faab8a8a5b33f6cec6efb65281c3f0deb38c3498/kernel.ptx",
+      "ptx_sha256": "6109010885454d4892109706d38a9b62b8ebc2c3e27322a9dba2d3c55ae0962a",
+      "cubin": "cache/164a4501f55e4945026cdbb0faab8a8a5b33f6cec6efb65281c3f0deb38c3498/kernel.cubin",
+      "cubin_sha256": "f305d689d7267ec20df467a1729747948fe2cd9f3a273baea030e371cdab99fb",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/164a4501f55e4945026cdbb0faab8a8a5b33f6cec6efb65281c3f0deb38c3498/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/164a4501f55e4945026cdbb0faab8a8a5b33f6cec6efb65281c3f0deb38c3498/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 64 registers, used 1 barriers, 440 bytes cmem[0]\nptxas info    : Compile time = 20.674 ms\n"
+    },
+    {
+      "stages": [
+        "adjacency_134"
+      ],
+      "source_sha256": "f1a41c879d6b7b4931e9d8d31e76aadf7579fba610eab8007ef1682b02fa29af",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/4bc19c60a7a23e274bc8363c088704039d1ced221b1f0b434f218ffb33b66c1c/kernel.ptx",
+      "ptx_sha256": "4208235decf0fe8cc7c74e64f37c68cf4318948d89f8fc2503f7b3a02ac92937",
+      "cubin": "cache/4bc19c60a7a23e274bc8363c088704039d1ced221b1f0b434f218ffb33b66c1c/kernel.cubin",
+      "cubin_sha256": "7d3c19a43a3d83ddb15ac7ad56a801bba2dce9cb3cb3ae92e89107ecb3cb0bc9",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4bc19c60a7a23e274bc8363c088704039d1ced221b1f0b434f218ffb33b66c1c/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4bc19c60a7a23e274bc8363c088704039d1ced221b1f0b434f218ffb33b66c1c/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 22 registers, used 1 barriers, 400 bytes cmem[0]\nptxas info    : Compile time = 6.628 ms\n"
+    },
+    {
+      "stages": [
+        "adjacency_135"
+      ],
+      "source_sha256": "4f14a31bbc9a8a42d58768776e59e3bd3c5464fdcae19ce0056f971653adc2da",
+      "shared_memory_bytes": 1024,
+      "status": "passed",
+      "ptx": "cache/fd9f01a1bbcf207bf16265a3db014ac00f3d3e53f3818130acda2044fdfdfbab/kernel.ptx",
+      "ptx_sha256": "ac6c81b43b54e2a727f66b11ec94d7e20d78e4e563f66ec38f4aeb76bd3f12c8",
+      "cubin": "cache/fd9f01a1bbcf207bf16265a3db014ac00f3d3e53f3818130acda2044fdfdfbab/kernel.cubin",
+      "cubin_sha256": "2d691c1c9035eac2f38223692a2ec9dae5155e2248b7e6e5484b1f5496cc8647",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fd9f01a1bbcf207bf16265a3db014ac00f3d3e53f3818130acda2044fdfdfbab/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fd9f01a1bbcf207bf16265a3db014ac00f3d3e53f3818130acda2044fdfdfbab/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 20 registers, used 1 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 6.293 ms\n"
+    },
+    {
+      "stages": [
+        "adjacency_136"
+      ],
+      "source_sha256": "6803a723c9eb8ad2a0bd209b35fcf188aebd49114859cc41ca867b9aabc21978",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/df8d0adcd12d7683bef94569602a1afc8ef207a7a7925be5329ef11e4cb73450/kernel.ptx",
+      "ptx_sha256": "77d2f8459292723c7b8277cf51b547081d883f505e9646e75803b7b06f3374fd",
+      "cubin": "cache/df8d0adcd12d7683bef94569602a1afc8ef207a7a7925be5329ef11e4cb73450/kernel.cubin",
+      "cubin_sha256": "65a3db3d27c07ae5d39effda8bf84916437456eb97c026da8a80a9d58f68cab2",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/df8d0adcd12d7683bef94569602a1afc8ef207a7a7925be5329ef11e4cb73450/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/df8d0adcd12d7683bef94569602a1afc8ef207a7a7925be5329ef11e4cb73450/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 18 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 5.148 ms\n"
+    },
+    {
+      "stages": [
+        "hub_assign_137"
+      ],
+      "source_sha256": "63490f0e7a66036cd81eb74331fb97634624d8fc158314ba44f97f65cda82c57",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/4c450d16214bc39d4b6fd4d4bf913a87d29e8b77575f585b993b6867aca6bf2c/kernel.ptx",
+      "ptx_sha256": "0e1f27dc9d9e5b2fb81f0fc3bcde78f0c59e44296b7cf42154a07d6e355b9d22",
+      "cubin": "cache/4c450d16214bc39d4b6fd4d4bf913a87d29e8b77575f585b993b6867aca6bf2c/kernel.cubin",
+      "cubin_sha256": "07740c95a3686abce984c1c72298f6a689c78e38b8d0d40ceb7611079287fba8",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4c450d16214bc39d4b6fd4d4bf913a87d29e8b77575f585b993b6867aca6bf2c/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4c450d16214bc39d4b6fd4d4bf913a87d29e8b77575f585b993b6867aca6bf2c/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 39 registers, used 0 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 13.405 ms\n"
+    },
+    {
+      "stages": [
+        "hub_dispatch_138"
+      ],
+      "source_sha256": "42825323226a8cce9676942695f0486a9ce3ae5c204b042b8cf90e8f3749cee9",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/137dd5e3c5a8e19e34349d60fb4f6f7a83a417ce95daf3199fadec9b328da6ae/kernel.ptx",
+      "ptx_sha256": "cc6ffb16e975d83ffb8af853e744822673f670577d60dd827c184198f69a0f7b",
+      "cubin": "cache/137dd5e3c5a8e19e34349d60fb4f6f7a83a417ce95daf3199fadec9b328da6ae/kernel.cubin",
+      "cubin_sha256": "7c6c6270e0d484d4dfefaacfd359ed5ac42719a402ec2483dd94f8ba64004240",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/137dd5e3c5a8e19e34349d60fb4f6f7a83a417ce95daf3199fadec9b328da6ae/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/137dd5e3c5a8e19e34349d60fb4f6f7a83a417ce95daf3199fadec9b328da6ae/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 16 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.239 ms\n"
+    },
+    {
+      "stages": [
+        "hub_split_139"
+      ],
+      "source_sha256": "e8d1ba00500be56a67ef16241a59bbec10f61dae13a97944d718c8335288acc6",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/47dd26b46f827a03d5acbef3d126200223d9693d036481cbd40a537e57cc2f30/kernel.ptx",
+      "ptx_sha256": "4cf2ff4efd679ec67835f72fe8bf335101bc4944077c5b80c992517b361bc1fd",
+      "cubin": "cache/47dd26b46f827a03d5acbef3d126200223d9693d036481cbd40a537e57cc2f30/kernel.cubin",
+      "cubin_sha256": "aec149ca6ac72347c669257da7b023683ebd595dc77b1e88937e837b4473352e",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/47dd26b46f827a03d5acbef3d126200223d9693d036481cbd40a537e57cc2f30/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/47dd26b46f827a03d5acbef3d126200223d9693d036481cbd40a537e57cc2f30/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 30 registers, used 0 barriers, 416 bytes cmem[0]\nptxas info    : Compile time = 10.645 ms\n"
+    },
+    {
+      "stages": [
+        "stable_adjacency_140"
+      ],
+      "source_sha256": "7abb5469cf6bbfefcb9fd84032803557b042b639bd31ab773b9d52e2701c174f",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/a46ec367d9a1b2d5b9d4f8fe88acb755b3a53cfdc39eabca8e50ab5aac5c2d15/kernel.ptx",
+      "ptx_sha256": "7f183f6cd86bd2975877f424aac6f7f5db1aec9de359a871c43f8a2fc1268a22",
+      "cubin": "cache/a46ec367d9a1b2d5b9d4f8fe88acb755b3a53cfdc39eabca8e50ab5aac5c2d15/kernel.cubin",
+      "cubin_sha256": "a0d1094458a40edd916cdc8659787099c058971b89ef750f1a0750ea650940c1",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a46ec367d9a1b2d5b9d4f8fe88acb755b3a53cfdc39eabca8e50ab5aac5c2d15/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a46ec367d9a1b2d5b9d4f8fe88acb755b3a53cfdc39eabca8e50ab5aac5c2d15/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 5.352 ms\n"
+    },
+    {
+      "stages": [
+        "topo_reset_141"
+      ],
+      "source_sha256": "6bdb2fae25c131136fec144ac8a2c301efaaa326920d0c0c89675dbab592ebc1",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/2d7e00fea898010ce3faa6302b71b71cb9fc5a35c8c6668efcf6495c7f08bb06/kernel.ptx",
+      "ptx_sha256": "54998c20f3f78b6cf43848c553947f8464c51da18dad16b380ebe26e23f5da23",
+      "cubin": "cache/2d7e00fea898010ce3faa6302b71b71cb9fc5a35c8c6668efcf6495c7f08bb06/kernel.cubin",
+      "cubin_sha256": "16ab314db2005b5eb7fafc9c48e3032b61c07462d993055d42e1caf5f102ee51",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/2d7e00fea898010ce3faa6302b71b71cb9fc5a35c8c6668efcf6495c7f08bb06/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/2d7e00fea898010ce3faa6302b71b71cb9fc5a35c8c6668efcf6495c7f08bb06/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 28 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 3.397 ms\n"
+    },
+    {
+      "stages": [
+        "seed_colors_142"
+      ],
+      "source_sha256": "be6c06c4e14e4919311f315e2bd2a22885b18789886fa006dc61cfd411607a7d",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/87edc0923a15f961bbf1995c00daa3b5d7d8872d49854644d11edf2c5c0f62ba/kernel.ptx",
+      "ptx_sha256": "1fbed11fe1697cd8544a5c55a9edd5e18499fc8d04141cf45a2facebdfe8083c",
+      "cubin": "cache/87edc0923a15f961bbf1995c00daa3b5d7d8872d49854644d11edf2c5c0f62ba/kernel.cubin",
+      "cubin_sha256": "462a235f6d03ce7f0a42ca5d35f89a868e6495528cab15d1fe89422f61406048",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/87edc0923a15f961bbf1995c00daa3b5d7d8872d49854644d11edf2c5c0f62ba/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/87edc0923a15f961bbf1995c00daa3b5d7d8872d49854644d11edf2c5c0f62ba/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 21 registers, used 1 barriers, 400 bytes cmem[0]\nptxas info    : Compile time = 4.422 ms\n"
+    },
+    {
+      "stages": [
+        "coloring_143"
+      ],
+      "source_sha256": "b658449bd2d2ac0e953188c2b7e1952f58d1bf9495b3eae07e3f3c314ac2bdf7",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/c27816a63c21562b4b049d3b5c4997b6c70393ba3124ac160f74bdd5a36062d1/kernel.ptx",
+      "ptx_sha256": "d92f5f97a5f27f64721a07b5ed9a3a8f3c722307d24470ef78a8d0b1ba5cae20",
+      "cubin": "cache/c27816a63c21562b4b049d3b5c4997b6c70393ba3124ac160f74bdd5a36062d1/kernel.cubin",
+      "cubin_sha256": "956f5b6439e8fb0b0c4bfd4581320014489a972cd7c99d554aa9c88797d75edc",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c27816a63c21562b4b049d3b5c4997b6c70393ba3124ac160f74bdd5a36062d1/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c27816a63c21562b4b049d3b5c4997b6c70393ba3124ac160f74bdd5a36062d1/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 16 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.198 ms\n"
+    },
+    {
+      "stages": [
+        "coloring_144",
+        "coloring_147",
+        "coloring_150",
+        "coloring_153",
+        "coloring_156",
+        "coloring_159",
+        "coloring_162"
+      ],
+      "source_sha256": "634dcfc8e4488912ffa78aaf774fea68f4dffd3556854726556dd62ec909a37e",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/e53be617995d7ac22e917c33319788bdc26fb9caaa0feba1e44c808e24e163e2/kernel.ptx",
+      "ptx_sha256": "4eabaf1db86f31ba9a61f54c8fcda8e759ce7360b9eb4167243115e0ab0a356f",
+      "cubin": "cache/e53be617995d7ac22e917c33319788bdc26fb9caaa0feba1e44c808e24e163e2/kernel.cubin",
+      "cubin_sha256": "5a2383aec1f33af58f816d6c3dbdb4041dc10dfee8d10bfda6e3c056c26d249c",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e53be617995d7ac22e917c33319788bdc26fb9caaa0feba1e44c808e24e163e2/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e53be617995d7ac22e917c33319788bdc26fb9caaa0feba1e44c808e24e163e2/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 448 bytes cmem[0]\nptxas info    : Compile time = 37.105 ms\n"
+    },
+    {
+      "stages": [
+        "coloring_145",
+        "coloring_148",
+        "coloring_151",
+        "coloring_154",
+        "coloring_157",
+        "coloring_160",
+        "coloring_163"
+      ],
+      "source_sha256": "b4499329a257f92853e4cdd0acbfe2255fb6a897c27736c68147b09720d3b435",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/0c36404089bb69c74337da2f6766970fe6d27f9681f6eac7ea60ef836160ef66/kernel.ptx",
+      "ptx_sha256": "6e6957ae98b53d41c614d9d8534f76f22297f317887e3eb297ec985c59dd69cf",
+      "cubin": "cache/0c36404089bb69c74337da2f6766970fe6d27f9681f6eac7ea60ef836160ef66/kernel.cubin",
+      "cubin_sha256": "2bffe3dd65761c10fdbab47fd4398962664a588a35baea0f477520a9a92c7859",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/0c36404089bb69c74337da2f6766970fe6d27f9681f6eac7ea60ef836160ef66/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/0c36404089bb69c74337da2f6766970fe6d27f9681f6eac7ea60ef836160ef66/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 36 registers, used 1 barriers, 448 bytes cmem[0]\nptxas info    : Compile time = 8.072 ms\n"
+    },
+    {
+      "stages": [
+        "coloring_146",
+        "coloring_149",
+        "coloring_152",
+        "coloring_155",
+        "coloring_158",
+        "coloring_161"
+      ],
+      "source_sha256": "8aec0dee1e0ecd8e7095d11173caa7626d44da0c3f659afd40872f025e2b6ecf",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/15e2c83858a0102ecb19c031b1616ef2f92eec974dc7e5ba680a047e516b57cf/kernel.ptx",
+      "ptx_sha256": "3b7f18a2e86f32a5eb588719ee3fc16109c41ffb0cbfa34c71815713c1c93ec5",
+      "cubin": "cache/15e2c83858a0102ecb19c031b1616ef2f92eec974dc7e5ba680a047e516b57cf/kernel.cubin",
+      "cubin_sha256": "dd983513c18955fedec16e7e0fd039373e46a972a7f2a21d7f338efcf049fb37",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/15e2c83858a0102ecb19c031b1616ef2f92eec974dc7e5ba680a047e516b57cf/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/15e2c83858a0102ecb19c031b1616ef2f92eec974dc7e5ba680a047e516b57cf/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 18 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.038 ms\n"
+    },
+    {
+      "stages": [
+        "coloring_164"
+      ],
+      "source_sha256": "01b35faf4ee43a0413014261054a9963609a8e4cf21d0e23ae55d73c7ce910dc",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/7f386714c7ecc035811f9121f6e706b2c82b572376b6ccdde70acf36511046de/kernel.ptx",
+      "ptx_sha256": "4bb6ae585479e164263feaa14ad09c76823af4a64d4c8f42942d588c22a1a8ce",
+      "cubin": "cache/7f386714c7ecc035811f9121f6e706b2c82b572376b6ccdde70acf36511046de/kernel.cubin",
+      "cubin_sha256": "1288da3abbcc0ed1958416021d2ad0dff565065c06532c239c3226bdcfb858e2",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/7f386714c7ecc035811f9121f6e706b2c82b572376b6ccdde70acf36511046de/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/7f386714c7ecc035811f9121f6e706b2c82b572376b6ccdde70acf36511046de/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 26 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 3.555 ms\n"
+    },
+    {
+      "stages": [
+        "color_requirements_165"
+      ],
+      "source_sha256": "f9df24ba6a9739e18827082172e6b740b1f2ad955487cdd02c59f2beec9f55cb",
+      "shared_memory_bytes": 512,
+      "status": "passed",
+      "ptx": "cache/e3bfa21f32a152b965a2463ccca4db9aadadbae404e308fe5c3c91dc499da92a/kernel.ptx",
+      "ptx_sha256": "bad08c759262c767c9e985208e1a5db1aac5088c69b445a5a74af88bac7c317d",
+      "cubin": "cache/e3bfa21f32a152b965a2463ccca4db9aadadbae404e308fe5c3c91dc499da92a/kernel.cubin",
+      "cubin_sha256": "4d35ae1b2f108cb1564b05050937fa3feb552d806f958044a54048178e2c659e",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e3bfa21f32a152b965a2463ccca4db9aadadbae404e308fe5c3c91dc499da92a/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e3bfa21f32a152b965a2463ccca4db9aadadbae404e308fe5c3c91dc499da92a/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 21 registers, used 1 barriers, 392 bytes cmem[0]\nptxas info    : Compile time = 4.620 ms\n"
+    },
+    {
+      "stages": [
+        "buckets_166"
+      ],
+      "source_sha256": "041dc1552898745b478138b6601a221785dd2457670cc7de9cbf80b3d0203538",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/fee5899eb88df34d3154a4017243b13cc47a5b16a97d4172e2e2dcad9811c215/kernel.ptx",
+      "ptx_sha256": "b268fc4f4697d07e7aea7d912db6a2ababbda679c7e5c192042fb0998c2ab57b",
+      "cubin": "cache/fee5899eb88df34d3154a4017243b13cc47a5b16a97d4172e2e2dcad9811c215/kernel.cubin",
+      "cubin_sha256": "65dffcc296f689d844038a68badb0c5fa389d22dfb1d15c6eed4398a60485f9d",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fee5899eb88df34d3154a4017243b13cc47a5b16a97d4172e2e2dcad9811c215/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/fee5899eb88df34d3154a4017243b13cc47a5b16a97d4172e2e2dcad9811c215/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 6 registers, used 0 barriers, 360 bytes cmem[0]\nptxas info    : Compile time = 1.019 ms\n"
+    },
+    {
+      "stages": [
+        "buckets_167"
+      ],
+      "source_sha256": "a9214e5e29f228d835b13cfc72d5baa58f63a9d8f7e80403124e62116881facf",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/c251d656614171ecc3194cf8d8fbbe00caa6b5f3983bc973d6025a8569e2f409/kernel.ptx",
+      "ptx_sha256": "09bf5bd53bf3c98b0f1496ed7e574491b787ede5a8e59e4f7c35a9005272ad0d",
+      "cubin": "cache/c251d656614171ecc3194cf8d8fbbe00caa6b5f3983bc973d6025a8569e2f409/kernel.cubin",
+      "cubin_sha256": "6d56c4018be0412d001b94df67c150f1bf73f6026707d0c75cdb63d375f906f9",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c251d656614171ecc3194cf8d8fbbe00caa6b5f3983bc973d6025a8569e2f409/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/c251d656614171ecc3194cf8d8fbbe00caa6b5f3983bc973d6025a8569e2f409/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 40 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 7.141 ms\n"
+    },
+    {
+      "stages": [
+        "buckets_168"
+      ],
+      "source_sha256": "77ccf9cb50178110dc63a2a3839366d9484aff1e27d14ba4471c9b701a717566",
+      "shared_memory_bytes": 1024,
+      "status": "passed",
+      "ptx": "cache/7160b2f7728a46a1880fedb80361100423b44e514f03af0996a0cfb60af73161/kernel.ptx",
+      "ptx_sha256": "e5eeca34564172014366f13b233ed1eaa0b16b7acce83439838d81aa8515b87c",
+      "cubin": "cache/7160b2f7728a46a1880fedb80361100423b44e514f03af0996a0cfb60af73161/kernel.cubin",
+      "cubin_sha256": "4c01023a9390165c3f6673877ffb77c459f9d2ca15b430049b5a24b93c33b23a",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/7160b2f7728a46a1880fedb80361100423b44e514f03af0996a0cfb60af73161/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/7160b2f7728a46a1880fedb80361100423b44e514f03af0996a0cfb60af73161/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 20 registers, used 1 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 5.846 ms\n"
+    },
+    {
+      "stages": [
+        "buckets_169"
+      ],
+      "source_sha256": "2c24bb1a30d306b85c9784e68eb8b2b2c8f0f1e9c743899776add3bdef1de50d",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/670389bfe3eececcaf6ad9ee12fcd39cfbed344a0debfd3918394b7d6ae94e04/kernel.ptx",
+      "ptx_sha256": "de89cbc7af7734d2b5447caa3f11bddc12d226a615e052b1b7efa77f2e595a71",
+      "cubin": "cache/670389bfe3eececcaf6ad9ee12fcd39cfbed344a0debfd3918394b7d6ae94e04/kernel.cubin",
+      "cubin_sha256": "e0fa76f0c1679106d3f3913794885046659cf90a245dfb6b189b77a8aedb3cec",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/670389bfe3eececcaf6ad9ee12fcd39cfbed344a0debfd3918394b7d6ae94e04/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/670389bfe3eececcaf6ad9ee12fcd39cfbed344a0debfd3918394b7d6ae94e04/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 48 registers, used 1 barriers, 416 bytes cmem[0]\nptxas info    : Compile time = 13.988 ms\n"
+    },
+    {
+      "stages": [
+        "buckets_170"
+      ],
+      "source_sha256": "7965e79deedfa346c5685c11c0e2a07b885b1e8779b07f051ae291aa8a1f5ce8",
+      "shared_memory_bytes": 512,
+      "status": "passed",
+      "ptx": "cache/4eb84fd6ddc9e78653e1289930c07444797bfa21dd8178d920ab7e89a272bb9e/kernel.ptx",
+      "ptx_sha256": "eecd4e1a2c56dedb2eded282f5e6d67342be97095f6076e46868cd65d0268116",
+      "cubin": "cache/4eb84fd6ddc9e78653e1289930c07444797bfa21dd8178d920ab7e89a272bb9e/kernel.cubin",
+      "cubin_sha256": "49a93df2f5f79f86716e6a4bd17fda45dd07353fb3a727ae3da4dcbd86f96845",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4eb84fd6ddc9e78653e1289930c07444797bfa21dd8178d920ab7e89a272bb9e/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4eb84fd6ddc9e78653e1289930c07444797bfa21dd8178d920ab7e89a272bb9e/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 40 registers, used 1 barriers, 384 bytes cmem[0]\nptxas info    : Compile time = 6.311 ms\n"
+    },
+    {
+      "stages": [
+        "dispatch_colors"
+      ],
+      "source_sha256": "8742bbdf94d23cdebca163c89d40ab08f84ffd6d5bebb6d12a427624d06543b9",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/529e7a129c3b3229d62130532a78889334c15e08fc8873b8762decb4385b285a/kernel.ptx",
+      "ptx_sha256": "5a9b08bc34bf2c01ee05d9a9844be701d95db21dd395abf60d027e8cfec5fff2",
+      "cubin": "cache/529e7a129c3b3229d62130532a78889334c15e08fc8873b8762decb4385b285a/kernel.cubin",
+      "cubin_sha256": "489b9d3cc6d5015c1f492aa1120c8b52dfbae8777f839e92f0f61b5f41a2d845",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/529e7a129c3b3229d62130532a78889334c15e08fc8873b8762decb4385b285a/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/529e7a129c3b3229d62130532a78889334c15e08fc8873b8762decb4385b285a/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 12 registers, used 0 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 3.354 ms\n"
+    },
+    {
+      "stages": [
+        "prepare_171"
+      ],
+      "source_sha256": "2f8474e3b8be349d2d03951a3f8a9f6a394a123e8cf0b43055d879957287f414",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/d5d2b13de3aad1889ecc24a30838571e3849bc0a3a4033400f1f4d14a26271be/kernel.ptx",
+      "ptx_sha256": "ad3732356db502c2cbc5478d36ea27f6a94db24fd47c3fcc0537965f5ce0eb42",
+      "cubin": "cache/d5d2b13de3aad1889ecc24a30838571e3849bc0a3a4033400f1f4d14a26271be/kernel.cubin",
+      "cubin_sha256": "a5ec8f484d1568e556e8de3d8f59fbbe3ac88f5e31ece5c53f6d7a6ab5866002",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d5d2b13de3aad1889ecc24a30838571e3849bc0a3a4033400f1f4d14a26271be/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d5d2b13de3aad1889ecc24a30838571e3849bc0a3a4033400f1f4d14a26271be/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 138 registers, used 1 barriers, 432 bytes cmem[0]\nptxas info    : Compile time = 93.836 ms\n"
+    },
+    {
+      "stages": [
+        "joint_init_172"
+      ],
+      "source_sha256": "c5aaaefc134f8d1264281aa7a40bb47c76159b09a5e0e542cd7c4debace6e6f5",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/ae8632bca7af0fa4cbcd5d45ada9f3c0d93fe5a27ee94944a2fe8440f3dce0f5/kernel.ptx",
+      "ptx_sha256": "5759651a94b3b4e0601f59479f6d6aa89321a81f7007fb71a35c1d5d4e9a6641",
+      "cubin": "cache/ae8632bca7af0fa4cbcd5d45ada9f3c0d93fe5a27ee94944a2fe8440f3dce0f5/kernel.cubin",
+      "cubin_sha256": "059b1fc14f27f820bbffa8f282c653e49cbf41ec4dc89b25558608b4ebbde241",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ae8632bca7af0fa4cbcd5d45ada9f3c0d93fe5a27ee94944a2fe8440f3dce0f5/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ae8632bca7af0fa4cbcd5d45ada9f3c0d93fe5a27ee94944a2fe8440f3dce0f5/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 56 registers, used 0 barriers, 392 bytes cmem[0]\nptxas info    : Compile time = 12.232 ms\n"
+    },
+    {
+      "stages": [
+        "init_increments_173"
+      ],
+      "source_sha256": "dc06708f7edaf495e81f817fdc2b167859ea33a0cbaf53fa1c697f3633829762",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/ca399c642ec3413b8b9f7b172a7d90693a1589e21b5a2dd4cb6306ce595ebb9f/kernel.ptx",
+      "ptx_sha256": "26165d9a90848095351c5f673fc7b8f813c45308e9f45937d9b072b7783a9df6",
+      "cubin": "cache/ca399c642ec3413b8b9f7b172a7d90693a1589e21b5a2dd4cb6306ce595ebb9f/kernel.cubin",
+      "cubin_sha256": "b973e200858967fb411d39d113e296d6cb7492d57a1348e5838e29825ca0b802",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ca399c642ec3413b8b9f7b172a7d90693a1589e21b5a2dd4cb6306ce595ebb9f/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ca399c642ec3413b8b9f7b172a7d90693a1589e21b5a2dd4cb6306ce595ebb9f/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 20 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.263 ms\n"
+    },
+    {
+      "stages": [
+        "apply_increments_174",
+        "apply_increments_253",
+        "apply_increments_332"
+      ],
+      "source_sha256": "cbcf65f0fc2bfea6d979d760c300c515d575a74007ce7565234cc3c49ec511ad",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/e94bdfce0afcb9b5aef86ff82fa3cc45d25506bf5978bf2d85fd55c08d757225/kernel.ptx",
+      "ptx_sha256": "2d243fdd120e5301902264b66ad1d503dd259f96343c8a5520b9266f1169ffa6",
+      "cubin": "cache/e94bdfce0afcb9b5aef86ff82fa3cc45d25506bf5978bf2d85fd55c08d757225/kernel.cubin",
+      "cubin_sha256": "bf749eff8937b4ea5b35ec3777487c5067c8fd5de908cb952277c820567a1bb2",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e94bdfce0afcb9b5aef86ff82fa3cc45d25506bf5978bf2d85fd55c08d757225/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e94bdfce0afcb9b5aef86ff82fa3cc45d25506bf5978bf2d85fd55c08d757225/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 20 registers, used 0 barriers, 368 bytes cmem[0]\nptxas info    : Compile time = 0.795 ms\n"
+    },
+    {
+      "stages": [
+        "joint_update_175",
+        "joint_update_254",
+        "joint_update_333"
+      ],
+      "source_sha256": "00af3c9d8d108159afa536c1bdf4bca46a1d46877231b6daf9650af77fab11e2",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/e61ad6156e7ae945406b9198861c92014af9849ccf7eaacbff0199b051347d12/kernel.ptx",
+      "ptx_sha256": "dab54b4d487ed566fdb9d29d875cccc19e85be2b62b7e007bf079c3b579abe9b",
+      "cubin": "cache/e61ad6156e7ae945406b9198861c92014af9849ccf7eaacbff0199b051347d12/kernel.cubin",
+      "cubin_sha256": "4d762e5fad471e130d00131ff83cb06d5568890f743cb4bb76ddaac361db39f7",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e61ad6156e7ae945406b9198861c92014af9849ccf7eaacbff0199b051347d12/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e61ad6156e7ae945406b9198861c92014af9849ccf7eaacbff0199b051347d12/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 24 bytes gmem, 8 bytes cmem[4]\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    32 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 160 registers, used 0 barriers, 32 bytes cumulative stack size, 400 bytes cmem[0], 8 bytes cmem[2]\nptxas info    : Compile time = 224.178 ms\n"
+    },
+    {
+      "stages": [
+        "hub_scatter_176",
+        "hub_scatter_187",
+        "hub_scatter_198",
+        "hub_scatter_209",
+        "hub_scatter_220",
+        "hub_scatter_231",
+        "hub_scatter_243",
+        "hub_scatter_255",
+        "hub_scatter_266",
+        "hub_scatter_277",
+        "hub_scatter_288",
+        "hub_scatter_299",
+        "hub_scatter_310",
+        "hub_scatter_322",
+        "hub_scatter_334",
+        "hub_scatter_345",
+        "hub_scatter_356",
+        "hub_scatter_367",
+        "hub_scatter_378",
+        "hub_scatter_389",
+        "hub_scatter_401"
+      ],
+      "source_sha256": "3245a6d8dd4a4938f059a436929ca6e254e36c2a51902a7600b15b2f847be69d",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/8a4b2d7d7f26c3c2cafff0c4e007be4dfa40db3fdc0ed744d51b352f56dee864/kernel.ptx",
+      "ptx_sha256": "803c7153e68de6d89aaef2fb30a81f4802f0f347fa25ec6cee26cc7dc65551e1",
+      "cubin": "cache/8a4b2d7d7f26c3c2cafff0c4e007be4dfa40db3fdc0ed744d51b352f56dee864/kernel.cubin",
+      "cubin_sha256": "53d79cba3772a9155fae8531779b6aa1bf78e5316a95b665776e4282249dbe54",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8a4b2d7d7f26c3c2cafff0c4e007be4dfa40db3fdc0ed744d51b352f56dee864/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8a4b2d7d7f26c3c2cafff0c4e007be4dfa40db3fdc0ed744d51b352f56dee864/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 18 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.904 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_177",
+        "colored_warmstart_256",
+        "colored_warmstart_335"
+      ],
+      "source_sha256": "92905f0548821abaa5f0d9bb963e276e5e609a63eaafaedd9ac1d27924946343",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/d69ef4c56ae3e646de01c7a08615edff3188b4eada4b5254dab5bed6f4803e63/kernel.ptx",
+      "ptx_sha256": "50178580028f52c37fd374c4c394289cf1c1a8eb548e5d5f2bee87121c8548f7",
+      "cubin": "cache/d69ef4c56ae3e646de01c7a08615edff3188b4eada4b5254dab5bed6f4803e63/kernel.cubin",
+      "cubin_sha256": "d9368baa2bb198fbaf9ad2a5eb4fbfcef776835e05f8315e6bbb92a5ce781f80",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d69ef4c56ae3e646de01c7a08615edff3188b4eada4b5254dab5bed6f4803e63/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d69ef4c56ae3e646de01c7a08615edff3188b4eada4b5254dab5bed6f4803e63/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 30.341 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_178",
+        "colored_warmstart_257",
+        "colored_warmstart_336"
+      ],
+      "source_sha256": "2c1e1a1519bfee0717b77a7c743b8e7c4f070fafc2aad99546fd9e4238e6bd3a",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/b69e7edd4e89797c6231ca166207d9206fe3ab218090b7436f2a351433326712/kernel.ptx",
+      "ptx_sha256": "39bba1ed6cbbbf7eb951e5db1431d8736dc35e4f0520fb36193ca894108a3649",
+      "cubin": "cache/b69e7edd4e89797c6231ca166207d9206fe3ab218090b7436f2a351433326712/kernel.cubin",
+      "cubin_sha256": "d9e7527d11d1cbfef7cdf4e5c9eaabfdd95cd669e8175b39dd2dd7eb98fd10d5",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/b69e7edd4e89797c6231ca166207d9206fe3ab218090b7436f2a351433326712/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/b69e7edd4e89797c6231ca166207d9206fe3ab218090b7436f2a351433326712/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 31.801 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_179",
+        "colored_warmstart_258",
+        "colored_warmstart_337"
+      ],
+      "source_sha256": "703e4cb2968fddf01f850e0bbbb205d0221cce89497196dbbf3267493315e0c0",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/74eb4f924987214d2f1830868cf7e8a42b57ed5336e5b15c57c383456049f937/kernel.ptx",
+      "ptx_sha256": "f3242c15eb058a7845e0ca9984eb857dced2308e42516ca8846265b566c2b39c",
+      "cubin": "cache/74eb4f924987214d2f1830868cf7e8a42b57ed5336e5b15c57c383456049f937/kernel.cubin",
+      "cubin_sha256": "ff55abdda40cb163285ca2ffddc53f22c15feadc7f960bc9b570cfdf5defcb9a",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/74eb4f924987214d2f1830868cf7e8a42b57ed5336e5b15c57c383456049f937/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/74eb4f924987214d2f1830868cf7e8a42b57ed5336e5b15c57c383456049f937/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 25.031 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_180",
+        "colored_warmstart_259",
+        "colored_warmstart_338"
+      ],
+      "source_sha256": "ba3dd20a2a6d51fb7bb00135b37ae35e35658e8a6d94f6279971e8c15829eb42",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/8ea18b5a7835f96e0cd299f3a567ab0e72177b9801886ac538ed5e26f9e32a24/kernel.ptx",
+      "ptx_sha256": "64f970afc7166d34dc0f34067e10209dc4b004b2a4ca7187660fd422075a9fdc",
+      "cubin": "cache/8ea18b5a7835f96e0cd299f3a567ab0e72177b9801886ac538ed5e26f9e32a24/kernel.cubin",
+      "cubin_sha256": "ef4d66d5e2dea3c70ca24045ef6e7267e4126a933ea0490b2718ca6fc08cf4ed",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8ea18b5a7835f96e0cd299f3a567ab0e72177b9801886ac538ed5e26f9e32a24/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/8ea18b5a7835f96e0cd299f3a567ab0e72177b9801886ac538ed5e26f9e32a24/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 25.551 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_181",
+        "colored_warmstart_260",
+        "colored_warmstart_339"
+      ],
+      "source_sha256": "83cf5238e0657c070f309841f8525ac88860853da89ba914de6d4505572167e3",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/d66a4e688b8916a335d65028194627b0d2ccdd45b880de3d44da65278facf213/kernel.ptx",
+      "ptx_sha256": "a78972fbae0f178037e915f2e622238a8620f4051e09992bb1d79d58f1f3ede5",
+      "cubin": "cache/d66a4e688b8916a335d65028194627b0d2ccdd45b880de3d44da65278facf213/kernel.cubin",
+      "cubin_sha256": "4b3991d4bca8952965a3f4525a30e792669d618cc1818ad6e40ebeab39c93df0",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d66a4e688b8916a335d65028194627b0d2ccdd45b880de3d44da65278facf213/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d66a4e688b8916a335d65028194627b0d2ccdd45b880de3d44da65278facf213/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 38.757 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_182",
+        "colored_warmstart_261",
+        "colored_warmstart_340"
+      ],
+      "source_sha256": "fb5765a83db92dd06b37cb1d78f07350ed866374045f19e6a61aee8098465bd4",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/a65d317b508ef0a6c47c1de199433abaa62691990c19a3ba39adbd2d53ff3b08/kernel.ptx",
+      "ptx_sha256": "1d0879047bf61dc4407fe951d3e34dea5e7bf3b32bc9cf7ec954e474c35eb4d5",
+      "cubin": "cache/a65d317b508ef0a6c47c1de199433abaa62691990c19a3ba39adbd2d53ff3b08/kernel.cubin",
+      "cubin_sha256": "a2bad2c7706aea73186d4def9e32cca1e20d45ef90e9aee5548426aa6b1f85a3",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a65d317b508ef0a6c47c1de199433abaa62691990c19a3ba39adbd2d53ff3b08/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/a65d317b508ef0a6c47c1de199433abaa62691990c19a3ba39adbd2d53ff3b08/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 25.136 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_183",
+        "colored_warmstart_262",
+        "colored_warmstart_341"
+      ],
+      "source_sha256": "5d9381a3cf5f4afe35745f7a645a4b40631ed960bd68dd20526480cd35ffe75e",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/1bd834b6f1834e1990496871d5e5b5f1f8167b51b4d3db753577571b12bf53b1/kernel.ptx",
+      "ptx_sha256": "9e709c92bc1c9b1d63448a4fbfef8174a61ec67d45d171da7a009ef94e5f8bee",
+      "cubin": "cache/1bd834b6f1834e1990496871d5e5b5f1f8167b51b4d3db753577571b12bf53b1/kernel.cubin",
+      "cubin_sha256": "a0f61155b8da6485d1e45e3a49059f6911c80a097cf71192fab26527b896b9ef",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/1bd834b6f1834e1990496871d5e5b5f1f8167b51b4d3db753577571b12bf53b1/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/1bd834b6f1834e1990496871d5e5b5f1f8167b51b4d3db753577571b12bf53b1/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 25.598 ms\n"
+    },
+    {
+      "stages": [
+        "colored_warmstart_184",
+        "colored_warmstart_263",
+        "colored_warmstart_342"
+      ],
+      "source_sha256": "8ee442f0ac31988ab111bcafce107c9c32f6456ecf5728f784d9a4f2000a12fe",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/f5dfd0231be84ff5f02c4ce2457f09142d29c3d29a3794dc72881201cf259f5e/kernel.ptx",
+      "ptx_sha256": "3f17db96daefa8ee9752362c610cbf29e0349e051b48ccaa2bfb21ad854b5449",
+      "cubin": "cache/f5dfd0231be84ff5f02c4ce2457f09142d29c3d29a3794dc72881201cf259f5e/kernel.cubin",
+      "cubin_sha256": "7b912e181ec4d13535dae22fbdea7c39abdb36f97a8151ab4cb08cf516f0b179",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/f5dfd0231be84ff5f02c4ce2457f09142d29c3d29a3794dc72881201cf259f5e/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/f5dfd0231be84ff5f02c4ce2457f09142d29c3d29a3794dc72881201cf259f5e/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 121 registers, used 1 barriers, 408 bytes cmem[0]\nptxas info    : Compile time = 24.921 ms\n"
+    },
+    {
+      "stages": [
+        "hub_average_185",
+        "hub_average_196",
+        "hub_average_207",
+        "hub_average_218",
+        "hub_average_229",
+        "hub_average_240",
+        "hub_average_252",
+        "hub_average_264",
+        "hub_average_275",
+        "hub_average_286",
+        "hub_average_297",
+        "hub_average_308",
+        "hub_average_319",
+        "hub_average_331",
+        "hub_average_343",
+        "hub_average_354",
+        "hub_average_365",
+        "hub_average_376",
+        "hub_average_387",
+        "hub_average_398",
+        "hub_average_410"
+      ],
+      "source_sha256": "893941d273eb8afff06a50f30e5aedd4e51eb9860a31d93314a61dc02ffeb629",
+      "shared_memory_bytes": 1536,
+      "status": "passed",
+      "ptx": "cache/d771b12a98c6643643c2898e958f4c995e042da48c2c9e5e6b5d1171f4e888ca/kernel.ptx",
+      "ptx_sha256": "131b2b6eb07302a54baa1fbb31145bd21616feda4b56f69fb8954dec3268fe10",
+      "cubin": "cache/d771b12a98c6643643c2898e958f4c995e042da48c2c9e5e6b5d1171f4e888ca/kernel.cubin",
+      "cubin_sha256": "a3123a8ba121c8b1eac901c8cb994e5188d81361bc641732e92255453f2f2673",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d771b12a98c6643643c2898e958f4c995e042da48c2c9e5e6b5d1171f4e888ca/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/d771b12a98c6643643c2898e958f4c995e042da48c2c9e5e6b5d1171f4e888ca/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 36 registers, used 1 barriers, 392 bytes cmem[0]\nptxas info    : Compile time = 11.317 ms\n"
+    },
+    {
+      "stages": [
+        "joint_solve_186",
+        "joint_solve_197",
+        "joint_solve_208",
+        "joint_solve_219",
+        "joint_solve_230",
+        "joint_solve_242",
+        "joint_solve_265",
+        "joint_solve_276",
+        "joint_solve_287",
+        "joint_solve_298",
+        "joint_solve_309",
+        "joint_solve_321",
+        "joint_solve_344",
+        "joint_solve_355",
+        "joint_solve_366",
+        "joint_solve_377",
+        "joint_solve_388",
+        "joint_solve_400"
+      ],
+      "source_sha256": "3e73b3faa0a1c43a7f2b579ec3bc8b420e7987cca465e55dabb5368ebcccfb0c",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/6f4c53c12d31b540962d5876bd272c6e3156637d1374c7ab9eb6f61412e2c596/kernel.ptx",
+      "ptx_sha256": "fe387046efdc24e25d04411eb55b9f0bb6222bdc1d26922a6ad148fad084c2cf",
+      "cubin": "cache/6f4c53c12d31b540962d5876bd272c6e3156637d1374c7ab9eb6f61412e2c596/kernel.cubin",
+      "cubin_sha256": "84308bfb7e8a27d60f37e30b50e85115f034a136a6bf71ec506a03185f81a5a7",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/6f4c53c12d31b540962d5876bd272c6e3156637d1374c7ab9eb6f61412e2c596/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/6f4c53c12d31b540962d5876bd272c6e3156637d1374c7ab9eb6f61412e2c596/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 66 registers, used 0 barriers, 400 bytes cmem[0]\nptxas info    : Compile time = 7.758 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_188",
+        "colored_solve_199",
+        "colored_solve_210",
+        "colored_solve_221",
+        "colored_solve_232",
+        "colored_solve_244",
+        "colored_solve_267",
+        "colored_solve_278",
+        "colored_solve_289",
+        "colored_solve_300",
+        "colored_solve_311",
+        "colored_solve_323",
+        "colored_solve_346",
+        "colored_solve_357",
+        "colored_solve_368",
+        "colored_solve_379",
+        "colored_solve_390",
+        "colored_solve_402"
+      ],
+      "source_sha256": "0cc055a939e0735775076744c82884ec29704dee4f5ac9580957b259bc7e034f",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/3797af19c09b61521d98202ca200f5a9f2e0c5f56e8166e2c2ae84cba00cf1bb/kernel.ptx",
+      "ptx_sha256": "a875289c06d19e11960274e261f4c61d9cd9db002ce5d433dcd4010dabb71d65",
+      "cubin": "cache/3797af19c09b61521d98202ca200f5a9f2e0c5f56e8166e2c2ae84cba00cf1bb/kernel.cubin",
+      "cubin_sha256": "7abce71f8f1e793b328c4e76cf31bf7f6a7a79855242cbff99b274350a47f6c1",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3797af19c09b61521d98202ca200f5a9f2e0c5f56e8166e2c2ae84cba00cf1bb/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/3797af19c09b61521d98202ca200f5a9f2e0c5f56e8166e2c2ae84cba00cf1bb/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 96.550 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_189",
+        "colored_solve_200",
+        "colored_solve_211",
+        "colored_solve_222",
+        "colored_solve_233",
+        "colored_solve_245",
+        "colored_solve_268",
+        "colored_solve_279",
+        "colored_solve_290",
+        "colored_solve_301",
+        "colored_solve_312",
+        "colored_solve_324",
+        "colored_solve_347",
+        "colored_solve_358",
+        "colored_solve_369",
+        "colored_solve_380",
+        "colored_solve_391",
+        "colored_solve_403"
+      ],
+      "source_sha256": "6193d5df240af2525abc3bbf01b28b9b22960314b983cefd3c187eb7054290c3",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/98a039079b1ccb612a1ca72d6f8d56f99fa5bc4db00ad0bd95be807df1a4d290/kernel.ptx",
+      "ptx_sha256": "e55f261e40417db0dbb4d81dc01da983108899008de7b1f458b69a058b58ec82",
+      "cubin": "cache/98a039079b1ccb612a1ca72d6f8d56f99fa5bc4db00ad0bd95be807df1a4d290/kernel.cubin",
+      "cubin_sha256": "10c1a8f2c76d70ea8ef97df94dcf0a3f1288dd7d95f0c22ad320e8b6cc56bd3f",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/98a039079b1ccb612a1ca72d6f8d56f99fa5bc4db00ad0bd95be807df1a4d290/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/98a039079b1ccb612a1ca72d6f8d56f99fa5bc4db00ad0bd95be807df1a4d290/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 105.842 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_190",
+        "colored_solve_201",
+        "colored_solve_212",
+        "colored_solve_223",
+        "colored_solve_234",
+        "colored_solve_246",
+        "colored_solve_269",
+        "colored_solve_280",
+        "colored_solve_291",
+        "colored_solve_302",
+        "colored_solve_313",
+        "colored_solve_325",
+        "colored_solve_348",
+        "colored_solve_359",
+        "colored_solve_370",
+        "colored_solve_381",
+        "colored_solve_392",
+        "colored_solve_404"
+      ],
+      "source_sha256": "3ea8fd3ced6742f61ad2f3775fd89f416881a6aa791652e3ead70da45f27f302",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/9992545c85e4c8533a09a8a588c2a1ee11d2637b89cea33557b0d8395f1668e2/kernel.ptx",
+      "ptx_sha256": "4a61de1acb7158d702a6366c0bbab6365b48fe27ffc9ee7098b145b55beb57a6",
+      "cubin": "cache/9992545c85e4c8533a09a8a588c2a1ee11d2637b89cea33557b0d8395f1668e2/kernel.cubin",
+      "cubin_sha256": "2389a617c8cf08b17e65f284029a5db08e3bf8d4049f32591e84396f418eccd4",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/9992545c85e4c8533a09a8a588c2a1ee11d2637b89cea33557b0d8395f1668e2/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/9992545c85e4c8533a09a8a588c2a1ee11d2637b89cea33557b0d8395f1668e2/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 121.298 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_191",
+        "colored_solve_202",
+        "colored_solve_213",
+        "colored_solve_224",
+        "colored_solve_235",
+        "colored_solve_247",
+        "colored_solve_270",
+        "colored_solve_281",
+        "colored_solve_292",
+        "colored_solve_303",
+        "colored_solve_314",
+        "colored_solve_326",
+        "colored_solve_349",
+        "colored_solve_360",
+        "colored_solve_371",
+        "colored_solve_382",
+        "colored_solve_393",
+        "colored_solve_405"
+      ],
+      "source_sha256": "8c04383ea2347b1aea4d181c2d7696db189b7287d1307dbf90e1ffeacbda8c6b",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/704f11b5546694d35fced6c013131c294365ac93407fda3829abc83fb423ddbb/kernel.ptx",
+      "ptx_sha256": "3b5318006150f49507206b13efb86dea508fd770541ae1a6950f1d49bc798c3a",
+      "cubin": "cache/704f11b5546694d35fced6c013131c294365ac93407fda3829abc83fb423ddbb/kernel.cubin",
+      "cubin_sha256": "3e6c9c218fa564974e8fc7e2ffad8e20d24af84d503311722dcc76c97d182425",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/704f11b5546694d35fced6c013131c294365ac93407fda3829abc83fb423ddbb/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/704f11b5546694d35fced6c013131c294365ac93407fda3829abc83fb423ddbb/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 97.949 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_192",
+        "colored_solve_203",
+        "colored_solve_214",
+        "colored_solve_225",
+        "colored_solve_236",
+        "colored_solve_248",
+        "colored_solve_271",
+        "colored_solve_282",
+        "colored_solve_293",
+        "colored_solve_304",
+        "colored_solve_315",
+        "colored_solve_327",
+        "colored_solve_350",
+        "colored_solve_361",
+        "colored_solve_372",
+        "colored_solve_383",
+        "colored_solve_394",
+        "colored_solve_406"
+      ],
+      "source_sha256": "34cea43731e08d96a7e5425570f271edd9ab44c25d0eb71e696244aea022d313",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/f9d34267d150319c280c07c9cf92088dbe9dd88123b56bc0e9151f2b26651779/kernel.ptx",
+      "ptx_sha256": "ca25b838433cfae72f355308bc1cf3b3c1b867cc405f8054cefde753828412f9",
+      "cubin": "cache/f9d34267d150319c280c07c9cf92088dbe9dd88123b56bc0e9151f2b26651779/kernel.cubin",
+      "cubin_sha256": "3a63ec92c263a473c563eb6d5d46895746748af1afa50b4da5cd3b1b20053171",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/f9d34267d150319c280c07c9cf92088dbe9dd88123b56bc0e9151f2b26651779/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/f9d34267d150319c280c07c9cf92088dbe9dd88123b56bc0e9151f2b26651779/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 95.531 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_193",
+        "colored_solve_204",
+        "colored_solve_215",
+        "colored_solve_226",
+        "colored_solve_237",
+        "colored_solve_249",
+        "colored_solve_272",
+        "colored_solve_283",
+        "colored_solve_294",
+        "colored_solve_305",
+        "colored_solve_316",
+        "colored_solve_328",
+        "colored_solve_351",
+        "colored_solve_362",
+        "colored_solve_373",
+        "colored_solve_384",
+        "colored_solve_395",
+        "colored_solve_407"
+      ],
+      "source_sha256": "4411049750a0e0e031943f3d908d6035d8c320c55afa15b793869cc53f9f2747",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/b0f85f100664d11ea6f28c4e4fe85650895aab91e6d2f05d9273a4b1c17324ec/kernel.ptx",
+      "ptx_sha256": "44266c0b500d347dc2d7e6ef153c845394baa46fdecfd813b777d03ceb753888",
+      "cubin": "cache/b0f85f100664d11ea6f28c4e4fe85650895aab91e6d2f05d9273a4b1c17324ec/kernel.cubin",
+      "cubin_sha256": "5a0bf59a2fcb9b0a7d3e428b83d70fcac92239b1d092fbabf5e514d937600bcd",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/b0f85f100664d11ea6f28c4e4fe85650895aab91e6d2f05d9273a4b1c17324ec/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/b0f85f100664d11ea6f28c4e4fe85650895aab91e6d2f05d9273a4b1c17324ec/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 96.610 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_194",
+        "colored_solve_205",
+        "colored_solve_216",
+        "colored_solve_227",
+        "colored_solve_238",
+        "colored_solve_250",
+        "colored_solve_273",
+        "colored_solve_284",
+        "colored_solve_295",
+        "colored_solve_306",
+        "colored_solve_317",
+        "colored_solve_329",
+        "colored_solve_352",
+        "colored_solve_363",
+        "colored_solve_374",
+        "colored_solve_385",
+        "colored_solve_396",
+        "colored_solve_408"
+      ],
+      "source_sha256": "75527c211f91c36d8bfcb10b181914e1a9b4f4057cae3fae2e02f2dc34f824f4",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/ecc2649fc0053af4ce6dea6e8da6fd5086cd253f3b112678cccbd9d194685cdb/kernel.ptx",
+      "ptx_sha256": "0a72992cc8a3f8755b1678b3cd56fb7a4e4c25477e7e4c529cea9bddc20af435",
+      "cubin": "cache/ecc2649fc0053af4ce6dea6e8da6fd5086cd253f3b112678cccbd9d194685cdb/kernel.cubin",
+      "cubin_sha256": "2d86a78d7127b9092ab667ba652767aa5a2b5677721c180dc1a3399cc34ef48a",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ecc2649fc0053af4ce6dea6e8da6fd5086cd253f3b112678cccbd9d194685cdb/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ecc2649fc0053af4ce6dea6e8da6fd5086cd253f3b112678cccbd9d194685cdb/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 118.143 ms\n"
+    },
+    {
+      "stages": [
+        "colored_solve_195",
+        "colored_solve_206",
+        "colored_solve_217",
+        "colored_solve_228",
+        "colored_solve_239",
+        "colored_solve_251",
+        "colored_solve_274",
+        "colored_solve_285",
+        "colored_solve_296",
+        "colored_solve_307",
+        "colored_solve_318",
+        "colored_solve_330",
+        "colored_solve_353",
+        "colored_solve_364",
+        "colored_solve_375",
+        "colored_solve_386",
+        "colored_solve_397",
+        "colored_solve_409"
+      ],
+      "source_sha256": "cdd5432aeb55e77f41f1403385f63acdb13ae56c2cedc332fcc187f2f159a4f2",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/4a8c2a3a8cdeaf237eefad5b51af9153148756c3435023b4d46dec1de3337721/kernel.ptx",
+      "ptx_sha256": "21598e157e297c5c03599b188a862736790499c575178c37d554cdd9f5aca00c",
+      "cubin": "cache/4a8c2a3a8cdeaf237eefad5b51af9153148756c3435023b4d46dec1de3337721/kernel.cubin",
+      "cubin_sha256": "4175af0392aef15834ea66963c0eb08b0e8d45c73316dbe15fb7166481715501",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4a8c2a3a8cdeaf237eefad5b51af9153148756c3435023b4d46dec1de3337721/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/4a8c2a3a8cdeaf237eefad5b51af9153148756c3435023b4d46dec1de3337721/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 139 registers, used 1 barriers, 424 bytes cmem[0]\nptxas info    : Compile time = 105.326 ms\n"
+    },
+    {
+      "stages": [
+        "integrate_241",
+        "integrate_320",
+        "integrate_399"
+      ],
+      "source_sha256": "34cc070867e72082ee87b3241222a041882723fcc13b56c69b8e3e9dfadfa7d6",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/ad1cbe0ccd1507db9e845ead68bdd2060b8f4ccaf02fa768d16c869ab5bd67c8/kernel.ptx",
+      "ptx_sha256": "6f55a56de23fb4b9eac094450593fc08de2e829aae9174afa1afc02465a7fbce",
+      "cubin": "cache/ad1cbe0ccd1507db9e845ead68bdd2060b8f4ccaf02fa768d16c869ab5bd67c8/kernel.cubin",
+      "cubin_sha256": "d883b3351ee00702243ab89c24b2be9d0d2a6730a37836c6252f8e6d24dc09fb",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ad1cbe0ccd1507db9e845ead68bdd2060b8f4ccaf02fa768d16c869ab5bd67c8/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/ad1cbe0ccd1507db9e845ead68bdd2060b8f4ccaf02fa768d16c869ab5bd67c8/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 26 registers, used 0 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 7.484 ms\n"
+    },
+    {
+      "stages": [
+        "finalize_411"
+      ],
+      "source_sha256": "be5511357621cc4faae64e2ca68ad13d261113c254e8b913f8a165a96aa111eb",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/e2dc2eab79ec3f4dc061df34a0f9d15ac6ae265f9a84886462307fcafeac191f/kernel.ptx",
+      "ptx_sha256": "40acc5d613aeb838e268b063a1b48772e1f788292f9e5e3b68414872e887b75c",
+      "cubin": "cache/e2dc2eab79ec3f4dc061df34a0f9d15ac6ae265f9a84886462307fcafeac191f/kernel.cubin",
+      "cubin_sha256": "aff67882efa8dcfb6159d49f4e01a12a7145b958e6f85bd2350caba54a0cc944",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e2dc2eab79ec3f4dc061df34a0f9d15ac6ae265f9a84886462307fcafeac191f/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/e2dc2eab79ec3f4dc061df34a0f9d15ac6ae265f9a84886462307fcafeac191f/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 0 barriers, 392 bytes cmem[0]\nptxas info    : Compile time = 1.559 ms\n"
+    },
+    {
+      "stages": [
+        "persist_states_412"
+      ],
+      "source_sha256": "e1c6f48980830ed62aea2fbffc47cd73392a08f8ac01b64f69ad733b03436f9f",
+      "shared_memory_bytes": 0,
+      "status": "passed",
+      "ptx": "cache/21c5d35cfdb031a988f0d77e6d8e2fb350122413e6f7482d3db55f6d6d6a8edd/kernel.ptx",
+      "ptx_sha256": "e4b3fcfca2254275d29cd725dd8f129019b3c944d964b825c413983138230e99",
+      "cubin": "cache/21c5d35cfdb031a988f0d77e6d8e2fb350122413e6f7482d3db55f6d6d6a8edd/kernel.cubin",
+      "cubin_sha256": "99ebe8d2fed80002060281508cc392f00aa99f223ca142ed4a5d40fb656c7ad6",
+      "ptxas_command": [
+        "docker",
+        "exec",
+        "nexus-cuda-compile-c1591af47ba4",
+        "/usr/local/cuda/bin/ptxas",
+        "-arch=sm_80",
+        "-v",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/21c5d35cfdb031a988f0d77e6d8e2fb350122413e6f7482d3db55f6d6d6a8edd/kernel.ptx",
+        "-o",
+        "/private/tmp/nexus-cuda-twist-vendor-0150/cache/21c5d35cfdb031a988f0d77e6d8e2fb350122413e6f7482d3db55f6d6d6a8edd/kernel.cubin"
+      ],
+      "ptxas_log": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function 'kernel_kernel' for 'sm_80'\nptxas info    : Function properties for kernel_kernel\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 376 bytes cmem[0]\nptxas info    : Compile time = 1.757 ms\n"
+    }
+  ],
+  "image_identity": {
+    "Id": "sha256:5dc1bca23d05bd37b011be68ec470c03b403a5da07ec3a86e41af9470e9d0cc6",
+    "RepoDigests": [
+      "nvidia/cuda@sha256:5dc1bca23d05bd37b011be68ec470c03b403a5da07ec3a86e41af9470e9d0cc6"
+    ],
+    "Architecture": "arm64",
+    "Os": "linux"
+  },
+  "compiler": {
+    "schema": 1,
+    "target": "cuda",
+    "architecture": "compute_80",
+    "compiler": "/private/tmp/nexus-cuda-twist-vendor-0150/nvcc",
+    "version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n",
+    "compiler_sha256": "61bb8ec3cba6e6447664d62301560f0827ef09fdbd89c23f8362ddb4a87c16cb",
+    "headers_sha256": "74c0697849a5d3b207bcb632dfa331e094366a762eb4ed0aec3ac06ccd9c62d0",
+    "environment": {
+      "CUDA_HOME": null,
+      "CUDA_PATH": null,
+      "ASCEND_HOME_PATH": null,
+      "BISHENG_HOME": null,
+      "CPATH": null,
+      "CPLUS_INCLUDE_PATH": null,
+      "LIBRARY_PATH": null
+    }
+  },
+  "stages": 416,
+  "unique_kernels": 92,
+  "level": "device_compiled",
+  "elapsed_seconds": 26.82
+}

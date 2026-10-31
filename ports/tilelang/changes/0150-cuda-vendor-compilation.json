@@ -1,0 +1,9 @@
+{
+  "id": "0150-cuda-vendor-compilation",
+  "features": ["rbd.pipeline.runtime_scene3d", "rbd.pipeline.runtime_twist_scene3d"],
+  "kinds": ["tooling", "test"],
+  "disposition": "behavior_unchanged",
+  "summary": "Compile and assemble complete Coulomb/twist CUDA scenes on macOS using a pinned GPU-free NVIDIA Linux container and the production DeviceCompiler commands.",
+  "regressions": ["NVCC 13.0.88 and PTXAS sm_80 passed all 92 unique kernels in each 416-stage mesh/contact/joint scene, in 26.753 and 26.820 seconds. Both friction variants also passed source lowering and launch/wrapper validation on CUDA and Ascend."],
+  "differences": ["This is real vendor compilation, not device execution. It does not certify another toolkit/device or numerical parity. An open CUDA profiling item records general-collision register pressure/spills. GPU-free containers expose only compiler headers and an isolated build directory; image/source/binary hashes and compiler logs are preserved. Full parity remains stale and unrequested."]
+}

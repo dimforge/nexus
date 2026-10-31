@@ -3,8 +3,9 @@
 CUDA and Ascend have execution adapters, native `TileLangSimulation` backend
 selection, testbed selection, resident frame transactions and contract replay
 runners. They are ready for **initial hardware bring-up**, not qualified devices.
-This Mac can lower their source and test host ABI/control behavior; it has neither
-NVCC nor Bisheng/CANN nor either accelerator. Metal execution tests the shared
+This Mac can lower their source and test host ABI/control behavior. CUDA vendor
+compilation now also runs locally through a Linux container; neither accelerator
+is available, and Ascend vendor compilation remains unvalidated. Metal execution tests the shared
 virtual-grid algorithm, not either vendor's compiler or memory model.
 
 The CUDA profile is `compute_80` PTX for Ampere or newer. The provisional Ascend
@@ -47,6 +48,31 @@ and records source hashes and preparation times. `--upload PATH` accepts another
 native cold-start scene; `--pair-capacity N` chooses its initial allocation.
 This deliberately does not invoke the full parity matrix or reconcile a baseline.
 First-time source preparation is separate from the 290-second routine smoke.
+
+## CUDA vendor compilation on this Mac
+
+With Docker Desktop running, the pinned interpreter can invoke real NVCC and
+PTXAS in NVIDIA's Linux ARM64 container, without a GPU:
+
+```sh
+docker pull nvidia/cuda:13.0.2-devel-ubuntu24.04
+python ports/tilelang/cuda_container_compile.py \
+  ports/tilelang/results-device-ready/cuda --output /tmp/nexus-cuda-vendor-check
+```
+
+The helper pins the image digest, uses the same DeviceCompiler flags and ABI as
+the execution adapter, and assembles the resulting PTX for `sm_80`. It mounts only
+compiler headers read-only and its isolated output directory read-write; its
+owned container has no network or devices and is removed afterward. `--jobs`
+controls concurrent compilers, default four. Receipts include image identity,
+NVCC version, source/PTX/cubin hashes, commands and PTXAS resource reports.
+
+CUDA 13.0.88 compiled and assembled all 92 unique kernels in each of the two
+416-stage mesh/contact/joint scenes (Coulomb and simplified twist friction), in
+26.753 and 26.820 seconds. This validates that compiler/profile combination, not
+GPU execution or numerical parity. The general collision kernel uses 255 registers
+and a 6,192-byte stack frame with reported spills; profile this on actual hardware
+before drawing performance conclusions. See evidence/0150-cuda-vendor-compilation.
 
 ## On the CUDA/NPU host
 

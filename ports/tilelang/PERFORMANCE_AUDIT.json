@@ -134,6 +134,14 @@
       "reference": "src_rbd/pipeline/rbd_step.rs",
       "implementation": "ports/tilelang/scene_hubs.py",
       "description": "Small hub/round-completion stages still use capacity grids, and all-color fusion uses the specialization capacity heuristic. These are bounded remaining launch-policy differences, not a claim of performance equivalence."
+    },
+    {
+      "id": "cuda-general-collision-register-pressure",
+      "status": "open",
+      "change": "0150-cuda-vendor-compilation",
+      "reference": "src_rbd_shaders/broad_phase/narrow_phase.rs",
+      "implementation": "ports/tilelang/shaders/broad_phase/narrow_phase.py",
+      "description": "CUDA 13.0.88 PTXAS sm_80 reports 255 registers, 6192 bytes stack frame, 156 bytes spill stores and 184 bytes spill loads in the generated general collision kernel. Static compiler diagnostics only; actual CUDA performance remains unmeasured."
     }
   ],
   "evidence": "ports/tilelang/evidence/0142-metal-scheduling",
